@@ -1,6 +1,11 @@
 /target
-src-tauri/target
+/crates/*/target
 node_modules
 dist
 .DS_Store
 *.swp
+
+# OpenSpec local artifacts and generated prompts
+/openspec/
+/.pi/prompts/opsx-*.md
+/.pi/openspec-cli/

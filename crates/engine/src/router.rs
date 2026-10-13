@@ -1,5 +1,5 @@
-use crate::engine::eq::ParametricEQ;
-use crate::engine::preset::AppAudioSettings;
+use crate::eq::ParametricEQ;
+use crate::preset::AppAudioSettings;
 use std::collections::HashMap;
 
 pub struct AppAudioChannel {

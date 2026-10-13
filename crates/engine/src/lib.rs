@@ -1,4 +1,4 @@
-pub mod device;
+pub use sound_core::device;
 pub mod eq;
 pub mod preset;
 pub mod router;

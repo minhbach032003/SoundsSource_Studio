@@ -2488,8 +2488,8 @@ dependencies = [
 name = "rust-sound"
 version = "0.1.0"
 dependencies = [
- "serde",
- "serde_json",
+ "sound-core",
+ "sound-engine",
  "tauri",
  "tauri-build",
 ]
@@ -2840,6 +2840,22 @@ dependencies = [
  "wasm-bindgen",
  "web-sys",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "sound-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "sound-engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sound-core",
 ]
 
 [[package]]

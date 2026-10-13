@@ -1,5 +1,5 @@
-pub mod core;
-pub mod engine;
+pub use sound_core as core;
+pub use sound_engine as engine;
 
 use std::path::PathBuf;
 use std::sync::Mutex;

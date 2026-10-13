@@ -1,4 +1,7 @@
+pub mod device;
 pub mod process;
+
+pub use device::AudioDevice;
 pub mod ring_buffer;
 pub mod tap;
 

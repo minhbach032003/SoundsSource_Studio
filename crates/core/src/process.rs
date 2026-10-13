@@ -1,11 +1,11 @@
-use crate::core::tap::{
+use crate::tap::{
     AudioObjectID, AudioObjectPropertyAddress, AudioObjectGetPropertyData,
     AudioObjectGetPropertyDataSize, K_AUDIO_HARDWARE_PROPERTY_PROCESS_OBJECT_LIST,
     K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN, K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL,
     K_AUDIO_OBJECT_SYSTEM_OBJECT, K_AUDIO_PROCESS_PROPERTY_BUNDLE_ID,
     K_AUDIO_PROCESS_PROPERTY_IS_RUNNING_OUTPUT, K_AUDIO_PROCESS_PROPERTY_PID, NO_ERR,
 };
-use crate::engine::device::{CFRelease, CFStringGetCString, CFStringRef, K_CF_STRING_ENCODING_UTF8};
+use crate::device::{CFRelease, CFStringGetCString, CFStringRef, K_CF_STRING_ENCODING_UTF8};
 use serde::{Deserialize, Serialize};
 use std::ffi::c_void;
 

@@ -1,4 +1,4 @@
-use crate::core::tap::{
+use crate::tap::{
     AudioDeviceID, AudioObjectID, AudioObjectPropertyAddress, AudioObjectGetPropertyData,
     AudioObjectGetPropertyDataSize, K_AUDIO_DEVICE_PROPERTY_DEVICE_UID,
     K_AUDIO_HARDWARE_PROPERTY_DEFAULT_OUTPUT_DEVICE, K_AUDIO_HARDWARE_PROPERTY_DEVICES,

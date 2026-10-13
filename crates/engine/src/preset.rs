@@ -1,4 +1,4 @@
-use crate::engine::eq::EQBandConfig;
+use crate::eq::EQBandConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
