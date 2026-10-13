@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoundsSource Rust</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <h1>SoundsSource Rust</h1>
+        <div class="preset-selector">
+          <label for="preset-select">Preset:</label>
+          <select id="preset-select">
+            <option value="Flat">Flat (Default)</option>
+          </select>
+        </div>
+      </header>
+
+      <section class="device-section">
+        <label for="output-device-select">Output Device:</label>
+        <select id="output-device-select">
+          <option value="">Loading devices...</option>
+        </select>
+      </section>
+
+      <main class="process-list" id="process-list">
+        <div class="loading">Loading audio applications...</div>
+      </main>
+
+      <footer class="app-footer">
+        <button id="refresh-btn">Refresh Apps</button>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

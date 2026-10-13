@@ -51,8 +51,46 @@ pub type AudioDeviceIOProc = Option<
     ) -> OSStatus,
 >;
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct AudioObjectPropertyAddress {
+    pub m_selector: u32,
+    pub m_scope: u32,
+    pub m_element: u32,
+}
+
+pub const K_AUDIO_OBJECT_SYSTEM_OBJECT: AudioObjectID = 1;
+pub const K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL: u32 = 0x676c6f62; // 'glob'
+pub const K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN: u32 = 0;
+
+pub const K_AUDIO_HARDWARE_PROPERTY_DEVICES: u32 = 0x64657623; // 'dev#'
+pub const K_AUDIO_HARDWARE_PROPERTY_DEFAULT_OUTPUT_DEVICE: u32 = 0x6465666f; // 'defo'
+pub const K_AUDIO_OBJECT_PROPERTY_NAME: u32 = 0x6f6e616d; // 'onam'
+pub const K_AUDIO_DEVICE_PROPERTY_DEVICE_UID: u32 = 0x75696420; // 'uid '
+pub const K_AUDIO_HARDWARE_PROPERTY_PROCESS_OBJECT_LIST: u32 = 0x70727323; // 'prs#'
+pub const K_AUDIO_PROCESS_PROPERTY_PID: u32 = 0x70706964; // 'ppid'
+pub const K_AUDIO_PROCESS_PROPERTY_BUNDLE_ID: u32 = 0x70626964; // 'pbid'
+pub const K_AUDIO_PROCESS_PROPERTY_IS_RUNNING_OUTPUT: u32 = 0x7069726f; // 'piro'
+
 #[link(name = "CoreAudio", kind = "framework")]
 unsafe extern "C" {
+    pub fn AudioObjectGetPropertyDataSize(
+        in_object_id: AudioObjectID,
+        in_address: *const AudioObjectPropertyAddress,
+        in_qualifier_data_size: u32,
+        in_qualifier_data: *const c_void,
+        out_data_size: *mut u32,
+    ) -> OSStatus;
+
+    pub fn AudioObjectGetPropertyData(
+        in_object_id: AudioObjectID,
+        in_address: *const AudioObjectPropertyAddress,
+        in_qualifier_data_size: u32,
+        in_qualifier_data: *const c_void,
+        io_data_size: *mut u32,
+        out_data: *mut c_void,
+    ) -> OSStatus;
+
     pub fn AudioHardwareCreateProcessTap(
         tap_description: *const c_void,
         out_tap_id: *mut AudioObjectID,
