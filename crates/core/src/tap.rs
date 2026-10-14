@@ -64,9 +64,13 @@ pub const K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL: u32 = 0x676c6f62; // 'glob'
 pub const K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN: u32 = 0;
 
 pub const K_AUDIO_HARDWARE_PROPERTY_DEVICES: u32 = 0x64657623; // 'dev#'
-pub const K_AUDIO_HARDWARE_PROPERTY_DEFAULT_OUTPUT_DEVICE: u32 = 0x6465666f; // 'defo'
-pub const K_AUDIO_OBJECT_PROPERTY_NAME: u32 = 0x6f6e616d; // 'onam'
+pub const K_AUDIO_HARDWARE_PROPERTY_DEFAULT_OUTPUT_DEVICE: u32 = 0x644f7574; // 'dOut'
+pub const K_AUDIO_OBJECT_PROPERTY_NAME: u32 = 0x6c6e616d; // 'lnam' (kAudioObjectPropertyName / kAudioDevicePropertyDeviceNameCFString)
 pub const K_AUDIO_DEVICE_PROPERTY_DEVICE_UID: u32 = 0x75696420; // 'uid '
+pub const K_AUDIO_DEVICE_PROPERTY_STREAMS: u32 = 0x73746d23; // 'stm#'
+pub const K_AUDIO_DEVICE_PROPERTY_VOLUME_SCALAR: u32 = 0x766f6c6d; // 'volm'
+pub const K_AUDIO_DEVICE_PROPERTY_MUTE: u32 = 0x6d757465; // 'mute'
+pub const K_AUDIO_OBJECT_PROPERTY_SCOPE_OUTPUT: u32 = 0x6f757470; // 'outp'
 pub const K_AUDIO_HARDWARE_PROPERTY_PROCESS_OBJECT_LIST: u32 = 0x70727323; // 'prs#'
 pub const K_AUDIO_PROCESS_PROPERTY_PID: u32 = 0x70706964; // 'ppid'
 pub const K_AUDIO_PROCESS_PROPERTY_BUNDLE_ID: u32 = 0x70626964; // 'pbid'
@@ -89,6 +93,15 @@ unsafe extern "C" {
         in_qualifier_data: *const c_void,
         io_data_size: *mut u32,
         out_data: *mut c_void,
+    ) -> OSStatus;
+
+    pub fn AudioObjectSetPropertyData(
+        in_object_id: AudioObjectID,
+        in_address: *const AudioObjectPropertyAddress,
+        in_qualifier_data_size: u32,
+        in_qualifier_data: *const c_void,
+        in_data_size: u32,
+        in_data: *const c_void,
     ) -> OSStatus;
 
     pub fn AudioHardwareCreateProcessTap(

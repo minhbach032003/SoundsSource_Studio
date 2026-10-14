@@ -13,5 +13,6 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1.0", features = ["derive"] }
 sound-core = { path = "../core" }
 sound-engine = { path = "../engine" }

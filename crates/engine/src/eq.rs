@@ -139,6 +139,14 @@ impl ParametricEQ {
         eq
     }
 
+    pub fn bands(&self) -> &[EQBandConfig; 10] {
+        &self.bands
+    }
+
+    pub fn is_bypassed(&self) -> bool {
+        self.bypass
+    }
+
     pub fn set_band_gain(&mut self, band_index: usize, gain_db: f32) {
         if band_index < 10 {
             self.bands[band_index].gain = gain_db.clamp(-24.0, 24.0);

@@ -31,11 +31,38 @@ export function groupProcesses(processes: AudioProcess[]): AudioProcess[] {
   );
 }
 
+export const NON_AUDIO_UTILITIES = new Set([
+  "com.apple.finder",
+  "com.apple.ActivityMonitor",
+  "com.apple.Terminal",
+  "com.apple.loginwindow",
+  "com.apple.controlcenter",
+  "com.apple.universalaccessd",
+  "com.apple.accessibility.heard",
+  "systemsoundserverd",
+]);
+
+export function isAudibleApplication(process: AudioProcess): boolean {
+  if (process.is_running_output) return true;
+  if (!process.is_regular_app) return false;
+  if (NON_AUDIO_UTILITIES.has(process.bundle_id)) return false;
+  if (/rust-sound|activity monitor|terminal|finder/i.test(process.name)) return false;
+  return true;
+}
+
 export function displayName(process: AudioProcess): string {
   const names: Record<string, string> = {
-    "com.spotify.client": "Spotify", "com.brave.Browser": "Brave Browser",
-    "com.google.Chrome": "Google Chrome", "com.discordapp.Discord": "Discord",
-    "com.apple.Safari": "Safari", "com.apple.Music": "Apple Music",
+    "com.spotify.client": "Spotify",
+    "com.brave.Browser": "Brave Browser",
+    "com.google.Chrome": "Google Chrome",
+    "com.discordapp.Discord": "Discord",
+    "com.apple.Safari": "Safari",
+    "com.apple.Music": "Apple Music",
+    "com.apple.Terminal": "Terminal",
+    "com.apple.finder": "Finder",
+    "com.apple.ActivityMonitor": "Activity Monitor",
+    "com.vng.zalo": "Zalo",
+    "com.agentpet.app": "AgentPet",
   };
   return names[process.bundle_id] || process.name || process.bundle_id || `Process ${process.pid}`;
 }

@@ -2,39 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SoundsSource Rust</title>
   </head>
-  <body>
-    <div id="app">
-      <header class="app-header">
-        <div class="brand">
-          <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 13v6m5-11v16m6-20v24m6-20v16m5-11v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-          <span>SoundsSource <span class="edition">Rust</span></span>
-        </div>
-        <span class="preview-tag">Preview</span>
-      </header>
-      <main>
-        <div class="heading-row">
-          <div><h1>Your audio, in focus.</h1><p class="subtitle">One place for every application's sound.</p></div>
-          <button id="refresh-btn" class="icon-button" aria-label="Refresh audio applications" title="Refresh applications">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5m-4.5-4a8 8 0 0 1 13-2L20 9M4 15l2.5 3a8 8 0 0 0 13-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>
-        <section class="configuration" aria-label="Audio configuration">
-          <div class="config-field"><label for="output-device-select">Available devices</label><select id="output-device-select" disabled><option>Loading devices…</option></select></div>
-          <div class="config-field"><label for="preset-select">Saved presets</label><select id="preset-select" disabled><option>Loading presets…</option></select></div>
-          <p class="config-note">Device routing and preset switching are not connected yet.</p>
-        </section>
-        <section class="mixer" aria-labelledby="mixer-title">
-          <div class="section-heading"><h2 id="mixer-title">Applications <span id="app-count" class="count">—</span></h2><div class="filter" role="group" aria-label="Filter applications"><button id="filter-all" aria-pressed="true">All</button><button id="filter-playing" aria-pressed="false">Playing</button></div></div>
-          <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
-          <div id="process-list" class="process-list" aria-busy="true"><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div><p class="loading-label">Finding audio applications…</p></div>
-        </section>
-      </main>
-      <footer class="app-footer"><span class="status-dot" aria-hidden="true"></span><p>Engine preview <span>Controls update mixer state. Live audio processing is not connected yet.</span></p></footer>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+  <body class="bg-[#0b0f14] text-slate-100 antialiased selection:bg-sky-400 selection:text-slate-950">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

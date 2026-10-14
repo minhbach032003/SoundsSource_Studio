@@ -1,19 +1,88 @@
 pub use sound_core as core;
 pub use sound_engine as engine;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Instant;
 use tauri::State;
 
-pub use core::{AudioProcess, AudioStreamBasicDescription, ProcessTap, RingBuffer};
+pub use core::{
+    get_memory_info, trim_memory_cache, AudioProcess, AudioStreamBasicDescription, ProcessMemoryInfo,
+    ProcessTap, RingBuffer,
+};
 pub use engine::{
-    AppAudioChannel, AppAudioSettings, AudioDevice, AudioRouter, EQBandConfig, ParametricEQ,
-    Preset, PresetStore, DEFAULT_EQ_FREQUENCIES,
+    AppAudioChannel, AppAudioSettings, AudioDevice, AudioRouter, BreakTimerManager, ChannelStateDto,
+    EQBandConfig, ParametricEQ, Preset, PresetStore, TimerPhase, TimerStatus, TodoItem,
+    DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
     pub router: Mutex<AudioRouter>,
     pub preset_store: Mutex<PresetStore>,
+    pub timer: Mutex<BreakTimerManager>,
+    pub start_time: Instant,
+    pub background_mode: AtomicBool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct AppPerformanceMetrics {
+    pub resident_size_bytes: u64,
+    pub resident_size_mb: f64,
+    pub virtual_size_bytes: u64,
+    pub virtual_size_mb: f64,
+    pub uptime_seconds: u64,
+    pub background_mode_active: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct TrimMemoryResult {
+    pub bytes_reclaimed_hint: usize,
+    pub metrics_after: AppPerformanceMetrics,
+}
+
+#[tauri::command]
+fn get_performance_metrics(state: State<'_, AppState>) -> AppPerformanceMetrics {
+    let mem = core::get_memory_info();
+    let uptime = state.start_time.elapsed().as_secs();
+    let bg = state.background_mode.load(Ordering::Relaxed);
+    AppPerformanceMetrics {
+        resident_size_bytes: mem.resident_size_bytes,
+        resident_size_mb: mem.resident_size_mb,
+        virtual_size_bytes: mem.virtual_size_bytes,
+        virtual_size_mb: mem.virtual_size_mb,
+        uptime_seconds: uptime,
+        background_mode_active: bg,
+    }
+}
+
+pub fn benchmark_latency(client_timestamp_ms: f64) -> f64 {
+    client_timestamp_ms
+}
+
+#[tauri::command]
+fn benchmark_ipc_latency(client_timestamp_ms: f64) -> f64 {
+    benchmark_latency(client_timestamp_ms)
+}
+
+#[tauri::command]
+fn trim_memory(state: State<'_, AppState>) -> TrimMemoryResult {
+    let freed = core::trim_memory_cache();
+    let metrics = get_performance_metrics(state);
+    TrimMemoryResult {
+        bytes_reclaimed_hint: freed,
+        metrics_after: metrics,
+    }
+}
+
+#[tauri::command]
+fn set_background_mode(enabled: bool, state: State<'_, AppState>) -> bool {
+    state.background_mode.store(enabled, Ordering::Relaxed);
+    if enabled {
+        core::trim_memory_cache();
+    }
+    enabled
 }
 
 #[tauri::command]
@@ -33,15 +102,157 @@ fn get_presets(state: State<'_, AppState>) -> Vec<Preset> {
 }
 
 #[tauri::command]
+fn get_channel_states(state: State<'_, AppState>) -> HashMap<String, ChannelStateDto> {
+    let router = state.router.lock().unwrap();
+    router.get_channel_states()
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SystemVolumeSettings {
+    pub output_volume: f32,
+    pub output_muted: bool,
+    pub input_volume: f32,
+    pub alert_volume: f32,
+}
+
+#[tauri::command]
+fn get_system_volume_settings() -> SystemVolumeSettings {
+    let out_vol = AudioDevice::get_master_volume();
+    let out_mute = AudioDevice::get_master_mute();
+
+    let mut in_vol = 0.85;
+    let mut alert_vol = 0.70;
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(out) = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg("get volume settings")
+            .output()
+        {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for part in text.split(',') {
+                let part = part.trim();
+                if part.starts_with("input volume:") {
+                    if let Ok(v) = part.trim_start_matches("input volume:").trim().parse::<f32>() {
+                        in_vol = v / 100.0;
+                    }
+                } else if part.starts_with("alert volume:") {
+                    if let Ok(v) = part.trim_start_matches("alert volume:").trim().parse::<f32>() {
+                        alert_vol = v / 100.0;
+                    }
+                }
+            }
+        }
+    }
+
+    SystemVolumeSettings {
+        output_volume: out_vol,
+        output_muted: out_mute,
+        input_volume: in_vol,
+        alert_volume: alert_vol,
+    }
+}
+
+#[tauri::command]
+fn get_master_volume() -> f32 {
+    AudioDevice::get_master_volume()
+}
+
+#[tauri::command]
+fn set_master_volume(volume: f32) -> Result<(), String> {
+    AudioDevice::set_master_volume(volume)
+        .map_err(|e| format!("Failed to set master volume: {e}"))
+}
+
+#[tauri::command]
+fn get_master_mute() -> bool {
+    AudioDevice::get_master_mute()
+}
+
+#[tauri::command]
+fn set_master_mute(muted: bool) -> Result<(), String> {
+    AudioDevice::set_master_mute(muted)
+        .map_err(|e| format!("Failed to set master mute: {e}"))
+}
+
+#[tauri::command]
+fn set_default_output_device(device_uid: String) -> Result<(), String> {
+    AudioDevice::set_default_output_device_by_uid(&device_uid)
+        .map_err(|e| format!("Failed to set default output device: {e}"))
+}
+
+#[tauri::command]
+fn set_input_volume(volume: f32) {
+    let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(format!("set volume input volume {vol_100}"))
+            .output();
+    }
+}
+
+#[tauri::command]
+fn set_system_sounds_volume(volume: f32) {
+    let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(format!("set volume alert volume {vol_100}"))
+            .output();
+    }
+}
+
+fn apply_media_app_volume(bundle_id: &str, volume: f32) {
+    let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    #[cfg(target_os = "macos")]
+    {
+        if bundle_id == "com.spotify.client" {
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!("tell application \"Spotify\" to set sound volume to {vol_100}"))
+                .output();
+        } else if bundle_id == "com.apple.Music" {
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!("tell application \"Music\" to set sound volume to {vol_100}"))
+                .output();
+        } else if bundle_id == "com.apple.QuickTimePlayerX" {
+            let frac = volume.clamp(0.0, 1.0);
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!("tell application \"QuickTime Player\" to set audio volume of front document to {frac}"))
+                .output();
+        }
+    }
+}
+
+#[tauri::command]
 fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppState>) {
     let mut router = state.router.lock().unwrap();
     router.set_app_volume(&bundle_id, volume);
+    apply_media_app_volume(&bundle_id, volume);
 }
 
 #[tauri::command]
 fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>) {
     let mut router = state.router.lock().unwrap();
     router.set_app_mute(&bundle_id, muted);
+    let vol = if muted {
+        0.0
+    } else {
+        router.get_or_create_channel(&bundle_id).volume
+    };
+    apply_media_app_volume(&bundle_id, vol);
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct MasterEQStateDto {
+    pub bands: Vec<EQBandConfig>,
+    pub bypass: bool,
 }
 
 #[tauri::command]
@@ -57,10 +268,130 @@ fn set_app_eq_band(
 }
 
 #[tauri::command]
+fn get_master_eq_bands(state: State<'_, AppState>) -> MasterEQStateDto {
+    let router = state.router.lock().unwrap();
+    MasterEQStateDto {
+        bands: router.master_eq().bands().to_vec(),
+        bypass: router.master_eq().is_bypassed(),
+    }
+}
+
+#[tauri::command]
+fn set_master_eq_band(
+    band_index: usize,
+    gain_db: f32,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    if band_index >= 10 {
+        return Err(format!("Invalid band index: {band_index}"));
+    }
+    let mut router = state.router.lock().unwrap();
+    router.set_master_eq_band(band_index, gain_db);
+    Ok(())
+}
+
+#[tauri::command]
+fn reset_master_eq(state: State<'_, AppState>) -> MasterEQStateDto {
+    let mut router = state.router.lock().unwrap();
+    router.reset_master_eq();
+    MasterEQStateDto {
+        bands: router.master_eq().bands().to_vec(),
+        bypass: router.master_eq().is_bypassed(),
+    }
+}
+
+#[tauri::command]
+fn set_master_eq_bypass(bypass: bool, state: State<'_, AppState>) -> bool {
+    let mut router = state.router.lock().unwrap();
+    router.set_master_eq_bypass(bypass);
+    router.master_eq().is_bypassed()
+}
+
+#[tauri::command]
 fn save_preset(preset: Preset, state: State<'_, AppState>) -> Result<(), String> {
     let mut store = state.preset_store.lock().unwrap();
     store.set_preset(preset);
     Ok(())
+}
+
+// MARK: - Break Timer & Todo IPC Commands
+
+#[tauri::command]
+fn start_break_timer(state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    timer.start();
+    timer.get_status()
+}
+
+#[tauri::command]
+fn stop_break_timer(state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    let mut router = state.router.lock().unwrap();
+    timer.stop(Some(&mut router));
+    timer.get_status()
+}
+
+#[tauri::command]
+fn skip_break_timer(state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    let mut router = state.router.lock().unwrap();
+    timer.skip(Some(&mut router));
+    timer.get_status()
+}
+
+#[tauri::command]
+fn snooze_break_timer(state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    timer.snooze();
+    timer.get_status()
+}
+
+#[tauri::command]
+fn get_break_timer_status(state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    let mut router = state.router.lock().unwrap();
+    timer.tick(Some(&mut router));
+    timer.get_status()
+}
+
+#[tauri::command]
+fn set_timer_durations(study_sec: u64, break_sec: u64, state: State<'_, AppState>) -> TimerStatus {
+    let mut timer = state.timer.lock().unwrap();
+    timer.set_durations(study_sec, break_sec);
+    timer.get_status()
+}
+
+#[tauri::command]
+fn add_todo_item(
+    title: String,
+    start_time: Option<String>,
+    end_time: Option<String>,
+    duration_minutes: Option<u32>,
+    state: State<'_, AppState>,
+) -> Vec<TodoItem> {
+    let mut timer = state.timer.lock().unwrap();
+    timer.add_todo_with_time(title, start_time, end_time, duration_minutes);
+    timer.get_todos().to_vec()
+}
+
+#[tauri::command]
+fn toggle_todo_item(id: String, state: State<'_, AppState>) -> Vec<TodoItem> {
+    let mut timer = state.timer.lock().unwrap();
+    timer.toggle_todo(&id);
+    timer.get_todos().to_vec()
+}
+
+#[tauri::command]
+fn delete_todo_item(id: String, state: State<'_, AppState>) -> Vec<TodoItem> {
+    let mut timer = state.timer.lock().unwrap();
+    timer.delete_todo(&id);
+    timer.get_todos().to_vec()
+}
+
+#[tauri::command]
+fn get_todo_items(state: State<'_, AppState>) -> Vec<TodoItem> {
+    let timer = state.timer.lock().unwrap();
+    timer.get_todos().to_vec()
 }
 
 fn get_config_preset_path() -> PathBuf {
@@ -76,10 +407,14 @@ pub fn run() {
     let preset_file = get_config_preset_path();
     let preset_store = PresetStore::new(preset_file);
     let router = AudioRouter::new(48000.0);
+    let timer = BreakTimerManager::default();
 
     let state = AppState {
         router: Mutex::new(router),
         preset_store: Mutex::new(preset_store),
+        timer: Mutex::new(timer),
+        start_time: Instant::now(),
+        background_mode: AtomicBool::new(false),
     };
 
     tauri::Builder::default()
@@ -88,10 +423,37 @@ pub fn run() {
             get_audio_processes,
             get_audio_devices,
             get_presets,
+            get_channel_states,
+            get_system_volume_settings,
+            get_master_volume,
+            set_master_volume,
+            get_master_mute,
+            set_master_mute,
+            set_default_output_device,
+            set_input_volume,
+            set_system_sounds_volume,
             set_app_volume,
             set_app_mute,
             set_app_eq_band,
-            save_preset
+            get_master_eq_bands,
+            set_master_eq_band,
+            reset_master_eq,
+            set_master_eq_bypass,
+            save_preset,
+            start_break_timer,
+            stop_break_timer,
+            skip_break_timer,
+            snooze_break_timer,
+            get_break_timer_status,
+            set_timer_durations,
+            add_todo_item,
+            toggle_todo_item,
+            delete_todo_item,
+            get_todo_items,
+            get_performance_metrics,
+            benchmark_ipc_latency,
+            trim_memory,
+            set_background_mode
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

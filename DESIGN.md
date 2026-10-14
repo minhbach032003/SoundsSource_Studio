@@ -1,15 +1,24 @@
-# Application mixer
+# Application mixer — macOS Dark Studio
 
-Approved direction: graphite desktop audio panel with a restrained mint accent; implemented in vanilla TypeScript/CSS without new dependencies.
+Approved direction: modern macOS Dark Studio audio panel with refined obsidian surfaces, subtle frosted borders, electric cyan-blue audio accents, and tactile coral mute states. Built in vanilla TypeScript/CSS with zero runtime dependencies.
 
-- Surface: #171c1b; grouped configuration: #202725; separators: #34403b.
-- Text: #ecf1ef; secondary: #a0afa9; interaction accent: #85cfb6.
-- Type: macOS system sans, 13px body; 26px maximum heading; tabular numeric volume values.
-- App window: 520 × 740, minimum 360 × 500. At 400px and below configuration stacks and sliders use full row width.
-- Hierarchy: brand, mixer introduction/refresh, read-only configuration, application rows, engine-preview disclosure.
-- Rows use separators rather than nested cards; initials represent apps without actual icons. Playing status is sourced from CoreAudio, not decorative metering.
-- Volume commits on change; mute changes after successful IPC. Refresh preserves session UI state. Process helpers share a row per bundle; missing bundle IDs have disabled controls.
-- Native controls retain semantics and accessible labels; sliders have matching WebKit/Chromium tracks and thumbs. All/Playing filters, loading/empty/error states, focus outlines and reduced motion are supported.
-- Device/preset selectors remain disabled until their actions are implemented. Live audio capture/output is not connected; preview labels must remain.
+- Surface base: #0b0f14; elevated card: #151b23; card hover: #1b222c; border: rgba(255, 255, 255, 0.08).
+- Text primary: #f1f5f9; secondary: #94a3b8; muted: #64748b.
+- Audio Accent: #38bdf8 (electric cyan-blue) with vibrant track fills and focus rings.
+- Mute/Alert Accent: #fb7185 / #f43f5e (coral red) with distinct active glow and muted card dimming.
+- Live Status: #10b981 (vibrant emerald) with soft pulsing animation.
+- Typography: macOS system sans (-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); 13px base body; 16px maximum heading; tabular numeric volume percentages.
+- App window: 520 × 740, minimum 360 × 500. Under 420px, configuration controls stack and slider padding contracts seamlessly without horizontal overflow.
+- Hierarchy:
+  1. Desktop toolbar (brand mark, title, live engine status indicator, tactile refresh button).
+  2. Quick configuration bar (compact output device & preset selectors with custom chevrons).
+  3. Mixer section header (application title, count pill, and segmented filter tabs).
+  4. Elevated application channel cards (squircle avatar with gradient, process title & identifier, animated playing equalizer, glow volume slider, percentage badge, tactile mute toggle).
+  5. Minimal macOS status footer.
+- Micro-interactions:
+  - Smooth slider volume tracking via `--level` CSS custom property.
+  - Interactive tactile mute button with instant visual feedback and error rollback.
+  - Skeletons with subtle shimmer gradient animation.
+  - Accessible focus rings, ARIA labels, and `prefers-reduced-motion` compliance.
 
-Verification: TypeScript/Vite build, 11 Rust tests and one frontend grouping test pass. Browser fixture checks cover rendering/volume/mute at 520px and 375px, no horizontal overflow and no WCAG A/AA axe violations. Native Tauri window inspected separately using real CoreAudio discovery. Browser fixtures are QA-only, not shipped data.
+Verification: TypeScript/Vite build, Rust workspace tests, and frontend grouping/formatting tests pass cleanly. Browser fixture checks cover rendering at 520px and 375px without horizontal overflow.

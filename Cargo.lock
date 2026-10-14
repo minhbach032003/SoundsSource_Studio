@@ -2488,6 +2488,7 @@ dependencies = [
 name = "rust-sound"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "sound-core",
  "sound-engine",
  "tauri",
