@@ -96,7 +96,9 @@ fn test_coreaudio_system_volume_and_mute() {
     println!("Current system volume: {}, muted: {}", vol, is_muted);
 
     // Test restoring volume
-    assert!(AudioDevice::set_master_volume(vol).is_ok());
+    let res = AudioDevice::set_master_volume(vol);
+    println!("set_master_volume result: {:?}", res);
+    assert!(res.is_ok());
 }
 
 #[test]

@@ -9,18 +9,17 @@ export interface AppLogoProps {
 }
 
 const SIZE_MAP = {
-  sm: { icon: "w-7 h-7", container: "w-7 h-7", text: "text-xs", badge: "text-[9px]" },
-  md: { icon: "w-9 h-9", container: "w-9 h-9", text: "text-sm", badge: "text-[10px]" },
-  lg: { icon: "w-11 h-11", container: "w-11 h-11", text: "text-base", badge: "text-[11px]" },
-  xl: { icon: "w-14 h-14", container: "w-14 h-14", text: "text-xl", badge: "text-xs" },
+  sm: { icon: "w-7 h-7", container: "w-7 h-7 p-1.5", text: "text-xs", badge: "text-[9px]" },
+  md: { icon: "w-9 h-9", container: "w-9 h-9 p-2", text: "text-sm", badge: "text-[10px]" },
+  lg: { icon: "w-11 h-11", container: "w-11 h-11 p-2.5", text: "text-base", badge: "text-[11px]" },
+  xl: { icon: "w-14 h-14", container: "w-14 h-14 p-3", text: "text-xl", badge: "text-xs" },
 };
 
 /**
- * Sonic S Waveform Brand Logo:
- * Biểu tượng nhận diện cao cấp cho SoundsSource Rust:
- * Kết hợp dải sóng âm liên tục tạo hình chữ 'S' biểu trưng (SoundsSource / Sonic Wave),
- * 3 vòng cung cộng hưởng âm sắc tần số cao (Harmonic Resonance Arcs)
- * và lõi phát âm trung tâm (Studio Phase Driver).
+ * Minimalist Studio Soundwave Logo:
+ * Biểu tượng nhận diện âm thanh tối giản, thanh lịch cho SoundsSource Rust.
+ * 5 dải sóng âm thanh phòng thu (Studio Audio Equalizer Waveform)
+ * với đường cong âm sắc hài hòa, không chi tiết thừa, hiển thị sắc nét ở mọi kích thước.
  */
 export const AppLogo: FC<AppLogoProps> = ({
   size = "md",
@@ -33,102 +32,88 @@ export const AppLogo: FC<AppLogoProps> = ({
   const Emblem = (
     <div
       className={cn(
-        "relative rounded-xl flex items-center justify-center p-1.5 overflow-hidden transition-all duration-300 select-none group",
-        "bg-gradient-to-b from-[#201825] via-[#18131c] to-[#0f0b12]",
-        "border border-white/14 shadow-[0_4px_18px_rgba(251,113,133,0.22)]",
-        "hover:border-rose-400/40 hover:shadow-[0_6px_24px_rgba(251,113,133,0.35)]",
+        "relative rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 select-none group shrink-0",
+        "bg-gradient-to-b from-[#221c2b] via-[#181320] to-[#0f0b14]",
+        "border border-white/10 shadow-sm",
+        "hover:border-[var(--accent)]/40 hover:shadow-md",
         config.container,
         className
       )}
+      title="SoundsSource Rust"
     >
-      {/* Specular Top-Light Glass Reflection */}
-      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+      {/* Subtle Specular Top Arc */}
+      <div className="absolute inset-x-0 top-0 h-[35%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
 
-      {/* Ambient Radial Sonic Glow */}
-      <div className="absolute inset-0 bg-radial from-rose-400/25 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
-      {/* Vector Brandmark SVG */}
+      {/* Vector Brandmark SVG: 5 Minimalist Sound Wave Bars */}
       <svg
         viewBox="0 0 36 36"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={cn("w-full h-full relative z-10", animated && "animate-pulse")}
+        className={cn("w-full h-full relative z-10")}
       >
         <defs>
-          {/* Pastel Rose to Coral Gradient */}
-          <linearGradient id="sonicRose" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f472b6" />
-            <stop offset="50%" stopColor="#fb7185" />
-            <stop offset="100%" stopColor="#f2a4b8" />
-          </linearGradient>
-
-          {/* Electric Sky to Cyan Gradient */}
-          <linearGradient id="sonicSky" x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* Harmonic Studio Sound Gradient: Cyan -> Indigo -> Rose */}
+          <linearGradient id="appSonicGradient" x1="0%" y1="100%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#38bdf8" />
-            <stop offset="50%" stopColor="#06b6d4" />
-            <stop offset="100%" stopColor="#2dd4bf" />
+            <stop offset="50%" stopColor="#818cf8" />
+            <stop offset="100%" stopColor="#f472b6" />
           </linearGradient>
-
-          {/* Indigo to Violet Gradient */}
-          <linearGradient id="sonicViolet" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#c084fc" />
-            <stop offset="100%" stopColor="#818cf8" />
-          </linearGradient>
-
-          {/* Core Specular Glow Filter */}
-          <filter id="irisGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="0.8" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
 
-        {/* Outer Acoustic Resonance Orbit Ring */}
-        <circle
-          cx="18"
-          cy="18"
-          r="15"
-          stroke="url(#sonicRose)"
-          strokeWidth="1.2"
-          strokeDasharray="2.5 2"
-          opacity="0.4"
+        {/* 5 Clean Rhythmic Equalizer Sound Bars with Rounded Caps */}
+        <rect
+          x="6.5"
+          y="13"
+          width="3.2"
+          height="10"
+          rx="1.6"
+          fill="url(#appSonicGradient)"
+          opacity="0.8"
+          className={cn(animated && "animate-pulse")}
+          style={{ animationDelay: "0.2s" }}
         />
-
-        {/* Dynamic Harmonic Sound Waves radiating from core */}
-        {/* Left acoustic arc */}
-        <path
-          d="M 10 11 A 10 10 0 0 0 10 25"
-          stroke="url(#sonicRose)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.7"
+        <rect
+          x="11.8"
+          y="8"
+          width="3.2"
+          height="20"
+          rx="1.6"
+          fill="url(#appSonicGradient)"
+          opacity="0.92"
+          className={cn(animated && "animate-pulse")}
+          style={{ animationDelay: "0.1s" }}
         />
-
-        {/* Right acoustic arc */}
-        <path
-          d="M 26 11 A 10 10 0 0 1 26 25"
-          stroke="url(#sonicSky)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity="0.7"
+        <rect
+          x="17.1"
+          y="4.5"
+          width="3.2"
+          height="27"
+          rx="1.6"
+          fill="url(#appSonicGradient)"
+          className={cn(animated && "animate-pulse")}
         />
-
-        {/* Signature 'S' Continuous SoundWave Ribbon */}
-        {/* Upper S-Curve loop */}
-        <path
-          d="M 23 11 C 23 7, 13 7, 13 13 C 13 18, 23 18, 23 23 C 23 29, 13 29, 13 25"
-          stroke="url(#sonicRose)"
-          strokeWidth="3.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter="url(#irisGlow)"
+        <rect
+          x="22.4"
+          y="8"
+          width="3.2"
+          height="20"
+          rx="1.6"
+          fill="url(#appSonicGradient)"
+          opacity="0.92"
+          className={cn(animated && "animate-pulse")}
+          style={{ animationDelay: "0.1s" }}
         />
-
-        {/* Center Studio Phase Driver Node */}
-        <circle cx="18" cy="18" r="2.2" fill="#ffffff" filter="url(#irisGlow)" />
-        <circle cx="18" cy="18" r="4.2" stroke="url(#sonicViolet)" strokeWidth="1.2" opacity="0.85" />
+        <rect
+          x="27.7"
+          y="13"
+          width="3.2"
+          height="10"
+          rx="1.6"
+          fill="url(#appSonicGradient)"
+          opacity="0.8"
+          className={cn(animated && "animate-pulse")}
+          style={{ animationDelay: "0.2s" }}
+        />
       </svg>
     </div>
   );
@@ -138,23 +123,23 @@ export const AppLogo: FC<AppLogoProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-3 select-none">
+    <div className="flex items-center gap-2.5 select-none">
       {Emblem}
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-1.5 leading-none">
-          <span className={cn("font-bold tracking-tight text-white font-heading", config.text)}>
-            SOUNDS<span className="text-[#f472b6] font-extrabold">SOURCE</span>
+          <span className={cn("font-bold tracking-tight text-[var(--ink)] font-heading truncate", config.text)}>
+            Sounds<span className="text-[var(--accent)] font-extrabold">Source</span>
           </span>
           <span
             className={cn(
-              "font-mono font-semibold uppercase tracking-widest text-stone-300 bg-white/6 px-1.5 py-0.5 rounded border border-white/8",
+              "font-mono font-bold uppercase tracking-wider text-[var(--accent)] bg-[var(--accent)]/10 px-1.5 py-0.5 rounded border border-[var(--accent)]/20 shrink-0",
               config.badge
             )}
           >
             RUST
           </span>
         </div>
-        <span className="text-[10px] text-stone-400 font-medium tracking-wide mt-0.5">
+        <span className="text-[10px] text-[var(--muted)] font-medium tracking-normal mt-0.5 truncate">
           macOS CoreAudio & AI Studio Hub
         </span>
       </div>
