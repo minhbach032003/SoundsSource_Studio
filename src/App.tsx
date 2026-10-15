@@ -907,7 +907,7 @@ const AppContent: FC = () => {
       <div
         className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500 ease-out bg-[var(--paper)]"
         style={{
-          opacity: wallpaper.dim,
+          opacity: resolvedThemeMode === "light" ? Math.max(0.92, wallpaper.dim) : wallpaper.dim,
         }}
       />
 

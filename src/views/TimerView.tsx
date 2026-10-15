@@ -414,7 +414,7 @@ export const TimerView: FC<TimerViewProps> = ({
       {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-7): Circular Dial Canvas & Controls */}
-        <div className="lg:col-span-7 flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#201925] via-[#18131c] to-[#0e0a11] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
+        <div className="lg:col-span-7 flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[460px]">
           {/* Audio Ducking Pill Indicator */}
           {status.is_ducked && (
             <div className="absolute top-4 flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold tracking-wide animate-pulse">
@@ -457,7 +457,7 @@ export const TimerView: FC<TimerViewProps> = ({
                 cy="110"
                 r={radius}
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.05)"
+                stroke="var(--line)"
                 strokeWidth="7"
               />
 
@@ -537,12 +537,12 @@ export const TimerView: FC<TimerViewProps> = ({
               )}
 
               {/* Countdown Numbers */}
-              <span className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono tracking-tight text-white tabular-nums drop-shadow-sm my-0.5">
+              <span className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono tracking-tight text-[var(--ink)] tabular-nums drop-shadow-sm my-0.5">
                 {formatCountdown(currentSeconds)}
               </span>
 
               {/* Real Wall-Clock Timeline (từ mấy giờ đến mấy giờ) */}
-              <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-stone-300 bg-black/40 px-3 py-1 rounded-full border border-white/8">
+              <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-[var(--muted)] bg-[var(--paper)] px-3 py-1 rounded-full border border-[var(--line)]">
                 <Clock className="w-3 h-3 text-rose-400 shrink-0" />
                 <span>
                   {isBreaking
@@ -1064,22 +1064,22 @@ export const TimerView: FC<TimerViewProps> = ({
             </div>
 
             {/* Real Clock Timeline Indicator */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#17121b] text-[11px] text-stone-400 border border-white/6">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] text-[11px] text-[var(--muted)] border border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Clock className="w-3.5 h-3.5 text-rose-400" />
                 <span>Session Timeline</span>
               </div>
-              <span className="text-stone-200 font-mono text-[11px] font-semibold">
+              <span className="text-[var(--ink)] font-mono text-[11px] font-semibold">
                 {nowClockStr} ➔ {expectedEndClockStr}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#17121b] text-[11px] text-stone-400 border border-white/6">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] text-[11px] text-[var(--muted)] border border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Headphones className="w-3.5 h-3.5 text-rose-400" />
                 <span>Audio Ducking</span>
               </div>
-              <span className="text-emerald-400 font-medium">Automatic (15%)</span>
+              <span className="text-emerald-500 font-medium">Automatic (15%)</span>
             </div>
           </div>
         </div>

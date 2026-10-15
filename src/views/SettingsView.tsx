@@ -299,9 +299,9 @@ export const SettingsView: FC<SettingsViewProps> = ({
             />
 
             {wallpaper.customImage ? (
-              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="p-3.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-16 h-12 rounded-lg overflow-hidden border border-white/15 shrink-0 shadow-md relative bg-slate-900">
+                  <div className="w-16 h-12 rounded-lg overflow-hidden border border-[var(--line)] shrink-0 shadow-sm relative bg-[var(--surface)]">
                     <img
                       src={wallpaper.customImage}
                       alt="Custom Wallpaper Thumbnail"
@@ -310,7 +310,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold text-slate-200 m-0 truncate">
+                      <p className="text-xs font-semibold text-[var(--ink)] m-0 truncate">
                         {wallpaper.mode === "custom"
                           ? "Custom Wallpaper Active"
                           : "Saved Custom Wallpaper"}
@@ -322,7 +322,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                         {wallpaper.mode === "custom" ? "Active" : "Inactive"}
                       </BadgeComponent>
                     </div>
-                    <p className="text-[11px] text-slate-400 m-0 mt-0.5">
+                    <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5">
                       {wallpaper.mode === "custom"
                         ? "Applied with liquid blur & contrast dimming"
                         : "Preset is active. Click 'Use Custom Image' to re-activate."}
@@ -493,12 +493,12 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 </ButtonComponent>
               </div>
             ) : (
-              <div className="p-4 rounded-xl bg-slate-950/70 border border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold text-slate-200 m-0">
+                  <p className="text-xs font-semibold text-[var(--ink)] m-0">
                     Connect with Google
                   </p>
-                  <p className="text-[11px] text-slate-400 m-0 mt-0.5">
+                  <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5">
                     Sign in with one click to synchronize presets and device profiles securely.
                   </p>
                 </div>
@@ -509,7 +509,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   onClick={onSignInGoogle}
                   loading={isLoadingAuth}
                   leftIcon={<GoogleIcon className="w-4 h-4" />}
-                  className="bg-white hover:bg-slate-100 text-slate-900 border-none font-semibold hover:text-slate-950 shadow-md"
+                  className="bg-white hover:bg-slate-100 text-slate-900 border border-[var(--line)] font-semibold hover:text-slate-950 shadow-sm"
                 >
                   Sign in with Google
                 </ButtonComponent>
@@ -517,19 +517,19 @@ export const SettingsView: FC<SettingsViewProps> = ({
             )}
 
             {/* Neon DB & Dual-Auth Architecture Shelf */}
-            <div className="mt-3.5 p-3 rounded-xl bg-slate-950/60 border border-white/6 text-xs space-y-2">
+            <div className="mt-3.5 p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] text-xs space-y-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-[11px] font-semibold text-slate-400">
+                <span className="text-[11px] font-semibold text-[var(--muted)]">
                   Database & Cloud Connection
                 </span>
-                <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                <span className="font-mono text-[10px] text-emerald-500 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#34d399]" />
                   {dbStatus}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between flex-wrap gap-2 border-t border-white/5 pt-2">
-                <span className="text-[11px] font-semibold text-slate-400">
+              <div className="flex items-center justify-between flex-wrap gap-2 border-t border-[var(--line)] pt-2">
+                <span className="text-[11px] font-semibold text-[var(--muted)]">
                   Auth & Cryptography Stack
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -809,17 +809,17 @@ export const SettingsView: FC<SettingsViewProps> = ({
 
         {/* 7. Brand Identity & Engine Info */}
         <div className="lg:col-span-2">
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-[#141b26] via-[#101622] to-[#0c1017] border border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
             <AppLogo size="lg" variant="with-wordmark" />
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-400/25 text-[11px] font-mono text-rose-300">
+              <span className="px-2.5 py-1 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25 text-[11px] font-mono text-[var(--accent)]">
                 v0.1.0-alpha · Tauri v2 + Rust
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-400/25 text-[11px] font-mono text-emerald-300">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-500">
                 CoreAudio 48kHz Linear Phase
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-400/25 text-[11px] font-mono text-purple-300">
+              <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/25 text-[11px] font-mono text-purple-500">
                 Gemini 2.5 Live
               </span>
             </div>

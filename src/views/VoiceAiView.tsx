@@ -270,7 +270,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
       {/* 2. Fluid 2-Column Responsive Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-5): Interactive Voice Stage & Audio Hardware Controls */}
-        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 rounded-2xl bg-gradient-to-b from-[#201925] via-[#18131c] to-[#0e0a11] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
+        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[460px]">
           {/* Top Stage Header: Google Persona Selector */}
           <div className="w-full space-y-2 shrink-0">
             <div className="flex items-center justify-between text-xs">
@@ -325,7 +325,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
             </div>
 
             {/* Instruction Cue */}
-            <p className="text-xs font-semibold text-slate-200 mt-3 text-center">
+            <p className="text-xs font-semibold text-[var(--ink)] mt-3 text-center">
               {isListening
                 ? "Listening… Speak your audio instruction"
                 : status === "speaking"
@@ -336,14 +336,14 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
             </p>
 
             {/* Live Audio Equalizer Waveform */}
-            <div className="flex items-center gap-1.5 mt-2 h-4 px-3 py-1 rounded-full bg-slate-950/60 border border-white/5">
-              <span className="text-[10px] text-slate-500 font-medium">Spectrum:</span>
+            <div className="flex items-center gap-1.5 mt-2 h-4 px-3 py-1 rounded-full bg-[var(--paper)] border border-[var(--line)]">
+              <span className="text-[10px] text-[var(--muted)] font-medium">Spectrum:</span>
               <EqualizerComponent bars={5} active={isListening || status === "speaking"} />
             </div>
           </div>
 
           {/* Bottom Hardware Controls */}
-          <div className="space-y-3 shrink-0 pt-3 border-t border-white/6">
+          <div className="space-y-3 shrink-0 pt-3 border-t border-[var(--line)]">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <ButtonComponent
                 variant={isMuted ? "destructive" : "outline"}
@@ -416,9 +416,9 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 <button
                   key={action.label}
                   onClick={() => handleSendMessage(action.prompt)}
-                  className="px-2.5 py-1 rounded-lg bg-[#18131c] border border-white/8 hover:border-rose-400/40 hover:bg-[#251e2b] text-[11px] text-stone-300 hover:text-white transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1.5"
+                  className="px-2.5 py-1 rounded-lg bg-[var(--paper)] border border-[var(--line)] hover:border-[var(--focus)] text-[11px] text-[var(--ink)] transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1.5"
                 >
-                  <Sliders className="w-3 h-3 text-rose-400" />
+                  <Sliders className="w-3 h-3 text-[var(--accent)]" />
                   <span>{action.label}</span>
                 </button>
               ))}
@@ -516,7 +516,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 fullWidth
-                className="h-9 bg-slate-950/80 pr-10 text-xs"
+                className="h-9 bg-[var(--paper)] text-[var(--ink)] border-[var(--input-line)] pr-10 text-xs"
               />
               <button
                 type="button"

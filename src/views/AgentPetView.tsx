@@ -756,7 +756,7 @@ export const AgentPetView: FC = () => {
                 />
 
                 {/* Status Micro-Badge */}
-                <span className="mt-2 px-3 py-1 rounded-full text-[10px] font-bold bg-[#150f18] border border-rose-400/40 text-rose-300 shadow-lg flex items-center gap-1.5 backdrop-blur-md">
+                <span className="mt-2 px-3 py-1 rounded-full text-[10px] font-bold bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] shadow-md flex items-center gap-1.5">
                   <span
                     className={cn(
                       "w-1.5 h-1.5 rounded-full",
@@ -764,7 +764,7 @@ export const AgentPetView: FC = () => {
                         ? "bg-emerald-400 animate-ping"
                         : currentMood === "waiting"
                         ? "bg-amber-400 animate-bounce"
-                        : "bg-rose-400"
+                        : "bg-[var(--accent)]"
                     )}
                   />
                   <span>
@@ -827,7 +827,7 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* 7-Companion Visual Showcase Gallery */}
-          <div className="rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between pb-2 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-rose-400" />
@@ -865,8 +865,8 @@ export const AgentPetView: FC = () => {
                     className={cn(
                       "p-2.5 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all text-center group cursor-pointer relative overflow-hidden",
                       isSelected
-                        ? "bg-rose-500/15 border-rose-400/60 ring-2 ring-rose-400/40 shadow-[0_0_16px_rgba(251,113,133,0.2)] text-rose-100"
-                        : "bg-[#18121b]/60 border-white/6 text-stone-400 hover:text-stone-200 hover:border-white/14 hover:bg-[#251e2b]/60"
+                        ? "bg-[var(--accent)]/15 border-[var(--accent)] ring-2 ring-[var(--accent)]/30 text-[var(--ink)] shadow-sm"
+                        : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--focus)]"
                     )}
                   >
                     {/* Active Checkmark Pill */}
@@ -896,9 +896,9 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* Progression Bar & Vitals Cockpit */}
-          <div className="rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
+          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
             {/* Level & XP Progression Bar matching CareTabView */}
-            <div className="bg-slate-950/60 border border-white/6 rounded-xl p-3 px-3.5">
+            <div className="bg-[var(--paper)] border border-[var(--line)] rounded-xl p-3 px-3.5">
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <div className="flex items-center gap-2">
                   <div
@@ -958,7 +958,7 @@ export const AgentPetView: FC = () => {
             {/* 4 Core Vitals Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Energy */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <span className="text-slate-400 flex items-center gap-1 font-medium">
                     <Zap className="w-3 h-3 text-amber-400" />
@@ -975,7 +975,7 @@ export const AgentPetView: FC = () => {
               </div>
 
               {/* Mood */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <span className="text-slate-400 flex items-center gap-1 font-medium">
                     <Heart className="w-3 h-3 text-rose-400" />
@@ -992,7 +992,7 @@ export const AgentPetView: FC = () => {
               </div>
 
               {/* Focus */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <span className="text-slate-400 flex items-center gap-1 font-medium">
                     <Activity className="w-3 h-3 text-rose-400" />
@@ -1009,7 +1009,7 @@ export const AgentPetView: FC = () => {
               </div>
 
               {/* Hunger */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <span className="text-slate-400 flex items-center gap-1 font-medium">
                     <Fish className="w-3 h-3 text-emerald-400" />
@@ -1037,7 +1037,7 @@ export const AgentPetView: FC = () => {
             </div>
 
             {/* Tamagotchi Daily Feeding & Lifetime Ledger */}
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-2 text-xs">
+            <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2 text-xs">
               <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
                 <span className="text-slate-400 flex items-center gap-1.5 font-medium">
                   <Flame className="w-3.5 h-3.5 text-amber-400" />
@@ -1076,7 +1076,7 @@ export const AgentPetView: FC = () => {
             </div>
 
             {/* Achievements Showcase (AgentPet Trophy Shelf) */}
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-2 text-xs">
+            <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2 text-xs">
               <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
                 <span className="text-slate-400 flex items-center gap-1.5 font-medium">
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
@@ -1118,7 +1118,7 @@ export const AgentPetView: FC = () => {
         {/* Right Column (lg:col-span-5): Socket Diagnostics & Real-Time Console */}
         <div className="lg:col-span-5 flex flex-col gap-4.5">
           {/* Socket & Desktop Bridge Card */}
-          <div className="rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
+          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
             <div className="flex items-center justify-between pb-2.5 border-b border-white/5">
               <div>
                 <span className="text-xs font-semibold text-slate-200 tracking-tight block">
@@ -1132,7 +1132,7 @@ export const AgentPetView: FC = () => {
             </div>
 
             {/* Diagnostic Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded-xl bg-slate-950/60 border border-white/5">
+            <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
               <div>
                 <span className="text-[10px] text-slate-400 block mb-0.5">Connection State</span>
                 <span className="text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
@@ -1158,7 +1158,7 @@ export const AgentPetView: FC = () => {
             {/* Control Toggles */}
             <div className="space-y-2 pt-0.5">
               {/* Desktop Floating Overlay Toggle */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-white/5">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
                   <Laptop className="w-4 h-4 text-rose-400 shrink-0" />
                   <div>
@@ -1185,7 +1185,7 @@ export const AgentPetView: FC = () => {
               </div>
 
               {/* Audio-Reactive Mode Toggle */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-white/5">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
                   <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <div>
@@ -1212,7 +1212,7 @@ export const AgentPetView: FC = () => {
               </div>
 
               {/* Focus Timer Sync Toggle */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-white/5">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
                   <Eye className="w-4 h-4 text-amber-400 shrink-0" />
                   <div>
@@ -1245,18 +1245,18 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* Live Activity Console (Takes Remaining Height) */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[300px]">
+          <div className="flex-1 flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm min-h-[300px]">
             {/* Console Navigation Tabs */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0 gap-2 flex-wrap">
-              <div className="flex items-center gap-1 p-0.5 bg-slate-950/80 border border-white/6 rounded-lg">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--line)] shrink-0 gap-2 flex-wrap">
+              <div className="flex items-center gap-1 p-0.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg">
                 <button
                   type="button"
                   onClick={() => setRightColumnTab("stream")}
                   className={cn(
                     "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
                     rightColumnTab === "stream"
-                      ? "bg-slate-800 text-sky-300 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs font-bold border border-[var(--line)]"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
                   <Terminal className="w-3.5 h-3.5" />
@@ -1269,14 +1269,14 @@ export const AgentPetView: FC = () => {
                   className={cn(
                     "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
                     rightColumnTab === "sessions"
-                      ? "bg-slate-800 text-sky-300 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs font-bold border border-[var(--line)]"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
-                  <Bot className="w-3.5 h-3.5 text-emerald-400" />
+                  <Bot className="w-3.5 h-3.5 text-emerald-500" />
                   Active Sessions
                   {agentSessions.length > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] flex items-center justify-center font-bold">
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-500 text-[9px] flex items-center justify-center font-bold">
                       {agentSessions.length}
                     </span>
                   )}
@@ -1288,11 +1288,11 @@ export const AgentPetView: FC = () => {
                   className={cn(
                     "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
                     rightColumnTab === "integrations"
-                      ? "bg-slate-800 text-sky-300 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[var(--surface)] text-[var(--ink)] shadow-xs font-bold border border-[var(--line)]"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
-                  <Plug className="w-3.5 h-3.5 text-purple-400" />
+                  <Plug className="w-3.5 h-3.5 text-purple-500" />
                   Agent Hooks
                 </button>
               </div>
@@ -1336,7 +1336,7 @@ export const AgentPetView: FC = () => {
                   {filteredEvents.map((evt) => (
                     <div
                       key={evt.id}
-                      className="p-2.5 rounded-xl bg-slate-950/60 border border-white/6 flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-white/12"
+                      className="p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-[var(--focus)]"
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
@@ -1387,7 +1387,7 @@ export const AgentPetView: FC = () => {
                   agentSessions.map((sess: AgentSessionDto) => (
                     <div
                       key={sess.id}
-                      className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-white/12"
+                      className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-[var(--focus)]"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
