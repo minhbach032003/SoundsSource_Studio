@@ -17,6 +17,7 @@ import {
   X,
   Filter,
   Eye,
+  Mic,
 } from "lucide-react";
 import { processKey, isAudibleApplication, isMediaOrCommunicationApp, displayName } from "@/audio";
 import type { AudioProcess } from "@/audio";
@@ -171,8 +172,8 @@ export const MixerView: FC<MixerViewProps> = ({
     <div className="w-full select-none space-y-4">
       {/* 2-Column Responsive Studio Console */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Column (7 cols): Output Bus, Input Mic Bus, System Sounds, Apps */}
-        <div className="lg:col-span-7 flex flex-col gap-3.5">
+        {/* Left Column (7 cols): Master Output Bus -> Application Channel Strips -> Hardware Input & System Sounds */}
+        <div className="lg:col-span-7 flex flex-col gap-4">
           {/* 1. Master Output Channel Banner */}
           <DeviceQuickBar
             devices={devices}
@@ -192,22 +193,7 @@ export const MixerView: FC<MixerViewProps> = ({
             disabled={false}
           />
 
-          {/* 2. Hardware Input & macOS System Alerts Buses */}
-          <AudioBuses
-            inputDevices={inputDevices}
-            selectedInputDevice={selectedInputDevice}
-            onSelectInputDevice={onSelectInputDevice}
-            inputVolume={inputVolume}
-            onInputVolumeChange={onInputVolumeChange}
-            onInputVolumeCommit={onInputVolumeCommit}
-            isInputMuted={isInputMuted}
-            onInputMuteToggle={onInputMuteToggle}
-            systemVolume={systemVolume}
-            onSystemVolumeCommit={onSystemVolumeCommit}
-            onToast={onError}
-          />
-
-          {/* 3. Applications Channel Section */}
+          {/* 2. Applications Channel Section (Immediate child of Master Output) */}
           <section aria-labelledby="mixer-title" className="space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
@@ -397,12 +383,34 @@ export const MixerView: FC<MixerViewProps> = ({
               </div>
             )}
           </section>
+
+          {/* 3. Hardware Input & macOS System Alerts Buses */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[var(--ink)] m-0 flex items-center gap-1.5">
+                <Mic className="w-3.5 h-3.5 text-[var(--accent)]" />
+                Hardware Input & System Sounds
+              </span>
+            </div>
+            <AudioBuses
+              inputDevices={inputDevices}
+              selectedInputDevice={selectedInputDevice}
+              onSelectInputDevice={onSelectInputDevice}
+              inputVolume={inputVolume}
+              onInputVolumeChange={onInputVolumeChange}
+              onInputVolumeCommit={onInputVolumeCommit}
+              isInputMuted={isInputMuted}
+              onInputMuteToggle={onInputMuteToggle}
+              systemVolume={systemVolume}
+              onSystemVolumeCommit={onSystemVolumeCommit}
+              onToast={onError}
+            />
+          </div>
         </div>
 
-        {/* Right Column (5 cols): Audio Filter & Voice Isolation + Studio 10-Band EQ */}
-        <div className="lg:col-span-5 flex flex-col gap-3.5">
-          <AudioFilterPanel />
-
+        {/* Right Column (5 cols): Studio 10-Band EQ (Top, paired with Master Output) -> Audio Filter & Voice Isolation (Bottom, paired with Input Mic) */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          {/* Master 10-Band Parametric EQ & Spectrum Visualizer */}
           <StudioEQInspector
             activePresetName={selectedPreset}
             isAudioActive={isAnyAudioPlaying}
@@ -412,6 +420,9 @@ export const MixerView: FC<MixerViewProps> = ({
             onResetFlat={onResetEQFlat}
             onToggleBypass={onToggleEQBypass}
           />
+
+          {/* Microphone Voice Isolation & Noise Suppression DSP Rack */}
+          <AudioFilterPanel />
         </div>
       </div>
 
