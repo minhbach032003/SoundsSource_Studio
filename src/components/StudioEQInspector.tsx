@@ -476,7 +476,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                       fill="#e2e8f0"
                       fontSize="9"
                       fontWeight="bold"
-                      fontFamily="monospace"
+                      fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
                     >
                       {freqLabel}: {pt.gain > 0 ? `+${pt.gain}` : pt.gain}dB
                     </text>
