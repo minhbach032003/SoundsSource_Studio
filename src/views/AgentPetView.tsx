@@ -155,37 +155,37 @@ export const STAGE_CONFIGS: Record<
   Hatchling: {
     icon: Leaf,
     color: "#10b981",
-    bg: "bg-emerald-500/15",
-    border: "border-emerald-500/30",
-    text: "text-[var(--success)]",
+    bg: "bg-[color-mix(in_srgb,#10b981_15%,transparent)]",
+    border: "border-[color-mix(in_srgb,#10b981_30%,transparent)]",
+    text: "text-[#10b981]",
   },
   Companion: {
     icon: PawPrint,
     color: "#14b8a6",
-    bg: "bg-teal-500/15",
-    border: "border-teal-500/30",
-    text: "text-teal-400",
+    bg: "bg-[color-mix(in_srgb,#14b8a6_15%,transparent)]",
+    border: "border-[color-mix(in_srgb,#14b8a6_30%,transparent)]",
+    text: "text-[#14b8a6]",
   },
   Scout: {
     icon: Compass,
     color: "#fb7185",
-    bg: "bg-rose-500/15",
-    border: "border-rose-500/30",
-    text: "text-[var(--accent-text)]",
+    bg: "bg-[color-mix(in_srgb,#fb7185_15%,transparent)]",
+    border: "border-[color-mix(in_srgb,#fb7185_30%,transparent)]",
+    text: "text-[#fb7185]",
   },
   Hero: {
     icon: Shield,
     color: "#a855f7",
-    bg: "bg-purple-500/15",
-    border: "border-purple-500/30",
-    text: "text-[var(--accent-text)]",
+    bg: "bg-[color-mix(in_srgb,#a855f7_15%,transparent)]",
+    border: "border-[color-mix(in_srgb,#a855f7_30%,transparent)]",
+    text: "text-[#a855f7]",
   },
   Legend: {
     icon: Crown,
     color: "#f59e0b",
-    bg: "bg-amber-500/15",
-    border: "border-amber-500/30",
-    text: "text-[var(--warning)]",
+    bg: "bg-[color-mix(in_srgb,#f59e0b_15%,transparent)]",
+    border: "border-[color-mix(in_srgb,#f59e0b_30%,transparent)]",
+    text: "text-[#f59e0b]",
   },
 };
 
@@ -773,7 +773,7 @@ export const AgentPetView: FC = () => {
             <div className="relative max-w-lg w-full my-2 z-10 shrink-0">
               <div
                 onClick={() => setCurrentQuoteIndex((prev) => (prev + 1) % activeQuotes.length)}
-                className="relative bg-[var(--paper)] border border-[var(--input-line)] rounded-2xl p-3 px-4 shadow-[0_4px_24px_rgba(251,113,133,0.15)] backdrop-blur-md cursor-pointer hover:border-rose-400/50 transition-all text-center group"
+                className="relative bg-[var(--paper)] border border-[var(--input-line)] rounded-2xl p-3 px-4 shadow-[0_4px_24px_color-mix(in_srgb,var(--accent)_15%,transparent)] backdrop-blur-md cursor-pointer hover:border-rose-400/50 transition-all text-center group"
                 title="Click to hear companion's next thought"
               >
                 <div className="flex items-center justify-center gap-2">
@@ -1552,7 +1552,7 @@ export const AgentPetView: FC = () => {
                     className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-center justify-between gap-3 text-xs transition-colors hover:border-[var(--line)]"
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-white/5 border border-[var(--line)] flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-lg bg-[var(--shell)] border border-[var(--line)] flex items-center justify-center shrink-0 mt-0.5">
                         {agent.kind === "pi" ? (
                           <Terminal className="w-3.5 h-3.5 text-[var(--success)]" />
                         ) : agent.kind === "claude" ? (

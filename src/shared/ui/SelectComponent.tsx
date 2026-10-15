@@ -73,7 +73,7 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
               "focus:outline-none focus:border-[var(--focus)] focus:ring-1 focus:ring-[var(--focus)]/30",
               "disabled:opacity-45 disabled:cursor-not-allowed",
               "text-ellipsis whitespace-nowrap overflow-hidden",
-              error && "border-rose-500 focus:border-rose-500",
+              error && "border-[var(--error)] focus:border-[var(--error)]",
               leftIcon ? "pl-8" : "pl-2.5",
               className
             )}

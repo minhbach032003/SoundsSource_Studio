@@ -75,8 +75,8 @@ export const ModalComponent: FC<ModalComponentProps> = ({
             className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
               confirmVariant === "destructive"
-                ? "bg-rose-500/15 border-rose-500/30 text-[var(--error)]"
-                : "bg-sky-500/15 border-sky-400/30 text-[var(--accent-text)]"
+                ? "bg-[var(--error)]/15 border-[var(--error)]/30 text-[var(--error)]"
+                : "bg-[var(--accent)]/15 border-[var(--accent)]/30 text-[var(--accent-text)]"
             )}
           >
             {icon || <AlertTriangle className="w-5 h-5" />}

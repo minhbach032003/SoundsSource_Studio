@@ -169,7 +169,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
             className="h-7 w-7"
             leftIcon={
               isMuted ? (
-                <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                <VolumeX className="w-3.5 h-3.5 text-[var(--error)]" />
               ) : (
                 <Volume2 className="w-3.5 h-3.5 text-slate-300" />
               )
@@ -246,10 +246,10 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               <button
                 type="button"
                 onClick={onHide}
-                className="text-[10px] text-[var(--muted)] hover:text-rose-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--line)] hover:border-rose-500/30 hover:bg-rose-500/10 transition-all cursor-pointer"
+                className="text-[10px] text-[var(--muted)] hover:text-[var(--error)] flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--line)] hover:border-[var(--error)]/30 hover:bg-[var(--error)]/10 transition-all cursor-pointer"
                 title="Hide this channel from mixer"
               >
-                <EyeOff className="w-3 h-3 text-rose-400" />
+                <EyeOff className="w-3 h-3 text-[var(--error)]" />
                 Hide Channel
               </button>
             </div>

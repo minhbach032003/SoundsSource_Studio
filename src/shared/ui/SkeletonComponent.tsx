@@ -19,7 +19,7 @@ export const SkeletonComponent: FC<SkeletonComponentProps> = ({
     return (
       <div
         className={cn(
-          "p-3.5 rounded-xl border border-white/8 bg-[#151b23] flex items-center gap-3 skeleton-shimmer",
+          "p-3.5 rounded-xl border border-[var(--shell-line)] bg-[var(--surface)] flex items-center gap-3 skeleton-shimmer",
           className
         )}
         {...props}

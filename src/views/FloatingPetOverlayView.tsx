@@ -263,7 +263,7 @@ export const FloatingPetOverlayView: FC = () => {
     >
       {/* 1. Status Pill & Speech Bubble from AgentPet */}
       <div className="relative z-20 mb-1 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1e1e24]/95 border border-white/14 shadow-[0_6px_24px_rgba(0,0,0,0.55)] backdrop-blur-md text-xs font-sans text-slate-100 max-w-[240px]">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--core)]/95 border border-[var(--shell-line)] shadow-[0_6px_24px_rgba(0,0,0,0.55)] backdrop-blur-md text-xs font-sans text-slate-100 max-w-[240px]">
           {/* Status Dot / Heart on petting */}
           {isInteracting ? (
             <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400 animate-bounce shrink-0" />
@@ -283,7 +283,7 @@ export const FloatingPetOverlayView: FC = () => {
                 className={cn(
                   "relative inline-flex rounded-full h-2 w-2",
                   mood === "working"
-                    ? "bg-rose-500 shadow-[0_0_6px_#fb7185]"
+                    ? "bg-rose-500 shadow-[0_0_6px_var(--accent)]"
                     : mood === "waiting"
                     ? "bg-amber-500"
                     : "bg-emerald-500"
@@ -302,7 +302,7 @@ export const FloatingPetOverlayView: FC = () => {
 
           {/* Multiplier / Drag Indicator */}
           {topSession ? (
-            <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0">
+            <span className="px-1.5 py-0.5 rounded-full bg-[var(--shell)] text-slate-300 font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0">
               <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" />
               <span>×{multiplier}</span>
             </span>
@@ -312,7 +312,7 @@ export const FloatingPetOverlayView: FC = () => {
         </div>
 
         {/* Pointer tail pointing at pet's head */}
-        <div className="w-2 h-2 bg-[#1e1e24] border-r border-b border-white/14 transform rotate-45 -mt-1 shadow-sm" />
+        <div className="w-2 h-2 bg-[var(--core)] border-r border-b border-[var(--shell-line)] transform rotate-45 -mt-1 shadow-sm" />
       </div>
 
       {/* 2. Authentic Animated Pixel Pet Sprite */}

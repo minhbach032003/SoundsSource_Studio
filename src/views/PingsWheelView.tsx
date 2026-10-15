@@ -656,7 +656,7 @@ export const PingsWheelView: FC = () => {
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div
-                          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-white/5"
+                          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-[var(--shell-line)]"
                           style={{ backgroundColor: `${asset?.color ?? "var(--accent)"}20` }}
                         >
                           <PingVectorIcon
@@ -771,7 +771,7 @@ export const PingsWheelView: FC = () => {
 
                       {/* Vector Icon Emblem */}
                       <div
-                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-xs"
+                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[var(--shell-line)] shadow-xs"
                         style={{ backgroundColor: `${item.color}20` }}
                       >
                         <PingVectorIcon
@@ -975,7 +975,7 @@ export const PingsWheelView: FC = () => {
         description="Are you sure you want to restore the tactical ping and emote wheels back to factory defaults? Custom slot assignments will be replaced."
         confirmText="Reset to Defaults"
         confirmVariant="destructive"
-        icon={<AlertTriangle className="w-5 h-5 text-rose-400" />}
+        icon={<AlertTriangle className="w-5 h-5 text-[var(--error)]" />}
         onConfirm={handleConfirmReset}
       />
     </div>

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import * as nodeFs from "node:fs";
+import * as nodePath from "node:path";
 import { join } from "node:path";
 
 const css = readFileSync("src/styles.css", "utf8");
@@ -157,4 +159,69 @@ test("every palette meets WCAG AA (4.5:1) for text on the plate", () => {
     if (onAccent < 4.5) failures.push(`${name}: --accent-ink on --accent = ${onAccent.toFixed(2)}`);
   }
   assert.deepEqual(failures, [], failures.join("\n"));
+});
+
+// --- no colour may be frozen outside the palette ---------------------------
+
+const TSX = (() => {
+  const { readdirSync, statSync, readFileSync } = nodeFs;
+  const walk = (d) =>
+    readdirSync(d).flatMap((e) => {
+      const p = nodePath.join(d, e);
+      return statSync(p).isDirectory() ? walk(p) : /\.tsx?$/.test(p) ? [p] : [];
+    });
+  return walk("src").map((f) => [f, readFileSync(f, "utf8")]);
+})();
+
+const FAMILIES =
+  "rose|pink|fuchsia|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|slate|gray|zinc|neutral|stone";
+
+test("every Tailwind palette shade used in src is re-pointed at a token", () => {
+  const used = new Set();
+  for (const [, src] of TSX) {
+    for (const m of src.matchAll(
+      new RegExp(`\\b(?:bg|text|border|from|via|to|fill|stroke|ring|divide|outline|shadow)-(${FAMILIES})-(\\d{2,3})\\b`, "g")
+    )) {
+      used.add(`${m[1]}-${m[2]}`);
+    }
+  }
+  const missing = [...used].filter((s) => !css.includes(`--color-${s}:`)).sort();
+  assert.deepEqual(
+    missing,
+    [],
+    `these shades would stay frozen to one palette; add --color-<shade> in @theme: ${missing.join(", ")}`
+  );
+});
+
+// Colours that are deliberately fixed: per-user identity tints, the brand tile,
+// League-style ping colours, wallpaper artwork, and the black break scrim.
+const FROZEN_BY_DESIGN = [
+  "src/shared/ui/AvatarComponent.tsx",
+  "src/components/icons/AppLogo.tsx",
+  "src/components/icons/GoogleIcon.tsx",
+  "src/components/radial/GlobalPingHost.tsx",
+  "src/components/radial/PingBurstMarker.tsx",
+  "src/components/BreakScreenLockOverlay.tsx",
+  "src/views/BreakOverlayWindowView.tsx",
+  "src/lib/pingloom.ts",
+  "src/shared/lib/petRenderer.ts",
+  "src/shared/lib/useWallpaper.ts",
+];
+
+// The pet's five ranks need five distinct hues, which one accent cannot express,
+// so they stay fixed the way avatar tints and ping colours do.
+const PET_RANK_HUES = ["#10b981", "#14b8a6", "#fb7185", "#a855f7", "#f59e0b"];
+
+test("no stray hex or rgb() colour literals outside the files that own their palette", () => {
+  const offenders = [];
+  for (const [file, src] of TSX) {
+    if (FROZEN_BY_DESIGN.includes(file)) continue;
+    for (const m of src.matchAll(/#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+/g)) {
+      if (file.endsWith("AgentPetView.tsx") && PET_RANK_HUES.includes(m[0].toLowerCase())) continue;
+      // A pure black/white scrim carries no hue, so it survives a palette change.
+      if (/^rgba?\(\s*(0\s*,\s*0\s*,\s*0|255\s*,\s*255\s*,\s*255)/.test(m[0])) continue;
+      offenders.push(`${file}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join("\n"));
 });

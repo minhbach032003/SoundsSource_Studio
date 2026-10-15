@@ -225,7 +225,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                         style={{ backgroundColor: p.accent }}
                       />
                       {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_6px_#fb7185]" />
+                        <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_6px_var(--accent)]" />
                       )}
                     </div>
 
@@ -482,7 +482,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   Database & Cloud Connection
                 </span>
                 <span className="font-mono text-[10px] text-[var(--success)] flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#34d399]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_var(--success)]" />
                   {dbStatus}
                 </span>
               </div>
@@ -583,7 +583,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_var(--success)]" />
                   <span className="font-mono text-[var(--ink)] text-[11px]">
                     ~/.agentpet/agentpet.sock
                   </span>

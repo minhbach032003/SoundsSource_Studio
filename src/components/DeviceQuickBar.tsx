@@ -290,7 +290,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             className="h-8 w-8 shrink-0"
             leftIcon={
               isMuted ? (
-                <VolumeX className="w-4 h-4 text-rose-400" />
+                <VolumeX className="w-4 h-4 text-[var(--error)]" />
               ) : (
                 <Volume2 className="w-4 h-4 text-[var(--ink)]" />
               )

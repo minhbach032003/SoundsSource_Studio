@@ -221,7 +221,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               <span className="text-xs font-semibold text-stone-100">
                 Google Gemini 2.5 Live Voice
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_var(--success)] animate-pulse" />
               <span className="text-[10px] text-rose-300 font-mono font-medium">
                 ~120ms Latency
               </span>
@@ -309,10 +309,10 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 className={cn(
                   "w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl cursor-pointer z-10 active:scale-95",
                   isListening
-                    ? "bg-gradient-to-tr from-rose-400 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-[0_0_36px_rgba(251,113,133,0.55)]"
+                    ? "bg-gradient-to-tr from-rose-400 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-[0_0_36px_color-mix(in_srgb,var(--accent)_55%,transparent)]"
                     : status === "speaking"
-                    ? "bg-gradient-to-tr from-emerald-400 to-cyan-300 text-slate-950 shadow-[0_0_28px_rgba(16,185,129,0.4)]"
-                    : "bg-[#251e2b] hover:bg-[#2e2636] text-stone-200 border border-white/10 hover:border-rose-400/40"
+                    ? "bg-gradient-to-tr from-emerald-400 to-cyan-300 text-slate-950 shadow-[0_0_28px_color-mix(in_srgb,var(--success)_40%,transparent)]"
+                    : "bg-[var(--surface)] hover:bg-[var(--core2)] text-stone-200 border border-[var(--shell-line)] hover:border-rose-400/40"
                 )}
                 title={isListening ? "Click to stop listening" : "Click to speak with AI"}
               >

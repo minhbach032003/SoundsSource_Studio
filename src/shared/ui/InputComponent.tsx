@@ -60,7 +60,8 @@ export const InputComponent = forwardRef<HTMLInputElement, InputComponentProps>(
               "border-[var(--line)] placeholder:text-[var(--muted)]",
               "focus:outline-none focus:border-[var(--focus)] focus:ring-1 focus:ring-[var(--focus)]/30",
               "disabled:opacity-45 disabled:cursor-not-allowed",
-              error && "border-rose-500 focus:border-rose-500 focus:ring-rose-500",
+              error &&
+                "border-[var(--error)] focus:border-[var(--error)] focus:ring-[var(--error)]",
               leftIcon && "pl-8",
               rightIcon && "pr-8",
               fullWidth ? "w-full" : "w-auto",

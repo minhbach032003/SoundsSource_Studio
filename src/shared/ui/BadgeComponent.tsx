@@ -27,7 +27,7 @@ const BADGE_VARIANTS: Record<BadgeVariant, string> = {
   emerald:
     "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30",
   coral:
-    "bg-rose-500/15 text-rose-500 border border-rose-500/30",
+    "bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/30",
   rose:
     "bg-[var(--accent)]/15 text-[var(--ink)] border border-[var(--accent)]/30",
   amber:
@@ -61,10 +61,10 @@ export const BadgeComponent: React.FC<BadgeComponentProps> = ({
           className={cn(
             "w-1.5 h-1.5 rounded-full",
             variant === "emerald"
-              ? "bg-emerald-400 shadow-[0_0_6px_#10b981]"
+              ? "bg-[var(--success)] shadow-[0_0_6px_var(--success)]"
               : variant === "coral"
-              ? "bg-rose-400 shadow-[0_0_6px_#fb7185]"
-              : "bg-sky-400 shadow-[0_0_6px_#38bdf8]"
+              ? "bg-[var(--error)] shadow-[0_0_6px_var(--error)]"
+              : "bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]"
           )}
           aria-hidden="true"
         />

@@ -65,10 +65,10 @@ export const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
               className={cn(
                 "pointer-events-auto flex items-center justify-between gap-3 p-3 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-3 duration-200 bg-[var(--surface)] text-[var(--ink)]",
                 isSuccess
-                  ? "border-emerald-500/40 shadow-[0_4px_16px_rgba(16,185,129,0.15)]"
+                  ? "border-[var(--success)]/40 shadow-[0_4px_16px_color-mix(in_srgb,var(--success)_15%,transparent)]"
                   : isError
-                  ? "border-rose-500/40 shadow-[0_4px_16px_rgba(244,63,94,0.15)]"
-                  : "border-sky-400/40 shadow-[0_4px_16px_rgba(56,189,248,0.15)]"
+                  ? "border-[var(--error)]/40 shadow-[0_4px_16px_color-mix(in_srgb,var(--error)_15%,transparent)]"
+                  : "border-[var(--accent)]/40 shadow-[0_4px_16px_color-mix(in_srgb,var(--accent)_15%,transparent)]"
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">

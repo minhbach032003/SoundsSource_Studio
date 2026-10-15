@@ -392,8 +392,8 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
         >
           <defs>
             <linearGradient id="eqGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#f472b6" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#fb7185" stopOpacity="0.0" />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
@@ -404,7 +404,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
           <path
             d={pathD}
             fill="none"
-            stroke="#f472b6"
+            stroke="var(--accent)"
             strokeWidth="2.5"
             strokeLinecap="round"
           />
@@ -439,7 +439,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                     cy={pt.y}
                     r="8"
                     fill="none"
-                    stroke="#fb7185"
+                    stroke="var(--accent)"
                     strokeWidth="1.5"
                     className="animate-pulse"
                   />
@@ -450,8 +450,8 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                   cx={pt.x}
                   cy={pt.y}
                   r="4.5"
-                  fill="#ffffff"
-                  stroke={pt.gain !== 0 ? "#fb7185" : "#be185d"}
+                  fill="var(--core)"
+                  stroke={pt.gain !== 0 ? "var(--accent)" : "var(--accent-text)"}
                   strokeWidth="2"
                   className="pointer-events-none"
                 />
@@ -465,15 +465,15 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                       width="56"
                       height="16"
                       rx="4"
-                      fill="#19131d"
-                      stroke="#fb7185"
+                      fill="var(--core)"
+                      stroke="var(--accent)"
                       strokeWidth="1"
                     />
                     <text
                       x={pt.x}
                       y={pt.y < 28 ? pt.y + 21 : pt.y - 13}
                       textAnchor="middle"
-                      fill="#e2e8f0"
+                      fill="var(--ink)"
                       fontSize="9"
                       fontWeight="bold"
                       fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
@@ -583,7 +583,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                   "flex-1 rounded-t-sm transition-all duration-75",
                   isAudioActive
                     ? h > 75
-                      ? "bg-gradient-to-t from-rose-500 via-pink-400 to-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.35)]"
+                      ? "bg-gradient-to-t from-rose-500 via-pink-400 to-amber-400 shadow-[0_0_6px_color-mix(in_srgb,var(--warning)_35%,transparent)]"
                       : h > 45
                       ? "bg-gradient-to-t from-rose-500 to-pink-400"
                       : "bg-gradient-to-t from-rose-600 to-rose-400"
@@ -597,7 +597,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
           })}
         </div>
 
-        <div className="flex justify-between text-[8px] font-mono text-slate-400 px-1 border-t border-white/4 pt-1">
+        <div className="flex justify-between text-[8px] font-mono text-slate-400 px-1 border-t border-[var(--shell-line)] pt-1">
           <span>20 Hz</span>
           <span>250 Hz</span>
           <span>1 kHz</span>
@@ -701,7 +701,7 @@ const CustomVerticalFader: FC<CustomVerticalFaderProps> = ({
             style={{
               top: gain > 0 ? `${topPercent}%` : "50%",
               height: `${Math.abs(topPercent - 50)}%`,
-              backgroundColor: gain > 0 ? "#fb7185" : "#f59e0b",
+              backgroundColor: gain > 0 ? "var(--accent)" : "var(--warning)",
             }}
           />
         )}

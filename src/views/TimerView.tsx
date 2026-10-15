@@ -495,17 +495,19 @@ export const TimerView: FC<TimerViewProps> = ({
                 viewBox="0 0 220 220"
               >
                 <defs>
+                  {/* --strong is pingloom's deeper accent; the others fade toward
+                      --paper so the ring keeps depth in light and dark alike. */}
                   <linearGradient id="studyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#f472b6" />
-                    <stop offset="100%" stopColor="#fb7185" />
+                    <stop offset="0%" stopColor="var(--accent)" />
+                    <stop offset="100%" stopColor="var(--strong)" />
                   </linearGradient>
                   <linearGradient id="breakGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#fb7185" />
-                    <stop offset="100%" stopColor="#e11d48" />
+                    <stop offset="0%" stopColor="var(--success)" />
+                    <stop offset="100%" stopColor="color-mix(in srgb, var(--success) 65%, var(--paper))" />
                   </linearGradient>
                   <linearGradient id="warnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#fbbf24" />
-                    <stop offset="100%" stopColor="#f59e0b" />
+                    <stop offset="0%" stopColor="var(--warning)" />
+                    <stop offset="100%" stopColor="color-mix(in srgb, var(--warning) 65%, var(--paper))" />
                   </linearGradient>
                   <filter id="dialGlow" x="-20%" y="-20%" width="140%" height="140%">
                     <feGaussianBlur stdDeviation="3.5" result="blur" />
@@ -539,7 +541,7 @@ export const TimerView: FC<TimerViewProps> = ({
                       ? "url(#warnGrad)"
                       : isStudying
                       ? "url(#studyGrad)"
-                      : "rgba(251, 113, 133, 0.25)"
+                      : "color-mix(in srgb, var(--accent) 25%, transparent)"
                   }
                   strokeWidth="7"
                   strokeLinecap="round"
@@ -571,11 +573,11 @@ export const TimerView: FC<TimerViewProps> = ({
                       className={cn(
                         "w-2 h-2 rounded-full",
                         isBreaking
-                          ? "bg-rose-400 shadow-[0_0_6px_#fb7185] animate-ping"
+                          ? "bg-rose-400 shadow-[0_0_6px_var(--accent)] animate-ping"
                           : isWarning
-                          ? "bg-amber-400 shadow-[0_0_6px_#fbbf24] animate-pulse"
+                          ? "bg-amber-400 shadow-[0_0_6px_var(--warning)] animate-pulse"
                           : isStudying
-                          ? "bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse"
+                          ? "bg-emerald-400 shadow-[0_0_6px_var(--success)] animate-pulse"
                           : "bg-[var(--muted)]"
                       )}
                     />
@@ -1039,8 +1041,8 @@ export const TimerView: FC<TimerViewProps> = ({
                             className={cn(
                               "px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer",
                               isActive
-                                ? "bg-[#f2a4b8] text-[#191116] font-bold shadow-sm"
-                                : "bg-white/5 text-stone-300 hover:bg-rose-500/20 hover:text-rose-200 border border-white/5"
+                                ? "bg-[var(--accent)] text-[var(--accent-ink)] font-bold shadow-sm"
+                                : "bg-[var(--shell)] text-stone-300 hover:bg-rose-500/20 hover:text-rose-200 border border-[var(--shell-line)]"
                             )}
                             title="Focus on this event in the timer"
                           >
@@ -1059,7 +1061,7 @@ export const TimerView: FC<TimerViewProps> = ({
                               onDeleteTodo(item.id);
                             }
                           }}
-                          className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 p-1 rounded transition-opacity cursor-pointer shrink-0"
+                          className="opacity-0 group-hover:opacity-100 text-[var(--muted)] hover:text-[var(--error)] p-1 rounded transition-opacity cursor-pointer shrink-0"
                           title="Remove item"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1399,8 +1401,8 @@ export const TimerView: FC<TimerViewProps> = ({
 
           {/* Validation Error Banner */}
           {customError && (
-            <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+            <div className="p-2.5 rounded-lg bg-[var(--error)]/15 border border-[var(--error)]/30 text-[var(--error)] text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-[var(--error)]" />
               <span>{customError}</span>
             </div>
           )}

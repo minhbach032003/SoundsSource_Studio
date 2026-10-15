@@ -276,8 +276,8 @@ export const GoogleLoginModal: FC<GoogleLoginModalProps> = ({
 
         {/* Validation or API Error Banner */}
         {validationError && (
-          <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className="p-2.5 rounded-xl bg-[var(--error)]/15 border border-[var(--error)]/30 text-[var(--error)] text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[var(--error)]" />
             <span className="leading-tight">{validationError}</span>
           </div>
         )}

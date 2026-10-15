@@ -30,7 +30,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   outline:
     "border border-[var(--input-line)] bg-[var(--paper)] hover:bg-[var(--surface)] hover:text-[var(--ink)] hover:border-[var(--focus)] active:scale-95 text-[var(--ink)]",
   destructive:
-    "bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95",
+    "bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/30 hover:bg-[var(--error)]/25 active:scale-95",
   ghost: "hover:bg-[var(--surface)] hover:text-[var(--ink)] text-[var(--muted)] active:scale-95",
   link: "text-[var(--accent)] underline-offset-4 hover:underline p-0 h-auto",
 };

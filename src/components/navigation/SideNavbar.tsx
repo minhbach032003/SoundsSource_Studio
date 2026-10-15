@@ -110,7 +110,7 @@ export const SideNavbar: FC<SideNavbarProps> = ({
             className={cn(
               "w-2 h-2 rounded-full",
               isEngineReady
-                ? "bg-emerald-500 shadow-[0_0_8px_#10b981] status-pulse"
+                ? "bg-emerald-500 shadow-[0_0_8px_var(--success)] status-pulse"
                 : "bg-slate-400"
             )}
           />

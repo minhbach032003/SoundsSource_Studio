@@ -124,7 +124,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
               className={cn(
                 "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
                 isInputMuted
-                  ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                  ? "bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/30"
                   : "bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30"
               )}
             >
@@ -218,7 +218,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
               title={isInputMuted ? "Unmute microphone" : "Mute microphone"}
               leftIcon={
                 isInputMuted ? (
-                  <MicOff className="w-3.5 h-3.5 text-rose-400" />
+                  <MicOff className="w-3.5 h-3.5 text-[var(--error)]" />
                 ) : (
                   <Mic className="w-3.5 h-3.5 text-slate-300" />
                 )
@@ -236,7 +236,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
               className={cn(
                 "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
                 isSystemMuted
-                  ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                  ? "bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/30"
                   : "bg-amber-500/15 text-amber-400 border border-amber-400/30"
               )}
             >
@@ -299,7 +299,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
             title={isSystemMuted ? "Unmute system sounds" : "Mute system sounds"}
             leftIcon={
               isSystemMuted ? (
-                <BellOff className="w-3.5 h-3.5 text-rose-400" />
+                <BellOff className="w-3.5 h-3.5 text-[var(--error)]" />
               ) : (
                 <Bell className="w-3.5 h-3.5 text-slate-300" />
               )
