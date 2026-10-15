@@ -948,6 +948,13 @@ const AppContent: FC = () => {
         }}
       />
 
+      {/* Pingloom atmosphere: aurora drift + top glow, tinted by the active palette accent */}
+      <div className="atmosphere" aria-hidden="true">
+        <div className="top-glow" />
+        <div className="aurora aurora-a" />
+        <div className="aurora aurora-b" />
+      </div>
+
       {/* 1. Left Side Navigation Rail */}
       <div className="relative z-10 flex h-full shrink-0">
         <SideNavbar
