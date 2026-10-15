@@ -82,7 +82,9 @@
     color-scheme: light;
     --paper: #eff1f5; --surface: #e6e9ef; --line: #ccd0da; --input-line: #5c5f77;
     --ink: #4c4f69; --muted: #5c5f77; --accent: #209fb5; --accent-ink: #11111b; --accent-text: #365d68; --strong: #246b7a; --focus: #4c4f69;
-    --error: #d20f39; --warning: #865315; --warning-bg: #e6e9ef; --success: #337525;
+    /* Darkened 2% from catppuccin's #d20f39, which lands at 4.46 on this palette's
+       --core and so misses WCAG AA. #ce0f38 reads the same but clears 4.5. */
+    --error: #ce0f38; --warning: #865315; --warning-bg: #e6e9ef; --success: #337525;
   }
 
   :root[data-theme-palette="frappe"] {

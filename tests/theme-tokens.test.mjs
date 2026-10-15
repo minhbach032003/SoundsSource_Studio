@@ -96,3 +96,65 @@ test("no view still hand-rolls the old top-level panel styling", async () => {
   );
   assert.deepEqual(offenders, [], `use .panel instead: ${offenders.join(", ")}`);
 });
+
+// --- WCAG AA contrast, locked in across every palette -----------------------
+
+function blockOf(selector) {
+  const i = css.indexOf(selector);
+  assert.notEqual(i, -1, `${selector} present`);
+  const open = css.indexOf("{", i);
+  const body = css.slice(open + 1, css.indexOf("}", open));
+  return Object.fromEntries(
+    [...body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()])
+  );
+}
+
+/** Merge in cascade order, then resolve one level of var() (enough for --core: var(--surface)). */
+function palette(...selectors) {
+  const merged = Object.assign({}, ...selectors.map(blockOf));
+  for (const [k, v] of Object.entries(merged)) {
+    const m = /^var\(--([a-z0-9-]+)\)$/.exec(v);
+    if (m) merged[k] = merged[m[1]];
+  }
+  return merged;
+}
+
+const relLum = (hex) => {
+  const h = hex.replace("#", "");
+  const n = h.length === 3 ? [...h].map((c) => c + c) : h.match(/../g);
+  const [r, g, b] = n.map((p) => {
+    const c = parseInt(p, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a, b) => {
+  const [hi, lo] = [relLum(a), relLum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+const BASE = ":root {";
+const CATP = ':root[data-theme-family="catppuccin"]';
+const PALETTES = {
+  "default-light": palette(BASE),
+  "default-dark": palette(BASE, ':root[data-theme-palette="default-dark"]'),
+  latte: palette(BASE, CATP, ':root[data-theme-palette="latte"]'),
+  frappe: palette(BASE, CATP, ':root[data-theme-palette="frappe"]'),
+  macchiato: palette(BASE, CATP, ':root[data-theme-palette="macchiato"]'),
+  mocha: palette(BASE, CATP, ':root[data-theme-palette="mocha"]'),
+};
+
+test("every palette meets WCAG AA (4.5:1) for text on the plate", () => {
+  const failures = [];
+  for (const [name, t] of Object.entries(PALETTES)) {
+    for (const fg of ["ink", "muted", "faint", "accent-text", "error", "warning", "success"]) {
+      for (const bg of ["core", "paper"]) {
+        const r = contrast(t[fg], t[bg]);
+        if (r < 4.5) failures.push(`${name}: --${fg} on --${bg} = ${r.toFixed(2)}`);
+      }
+    }
+    const onAccent = contrast(t["accent-ink"], t["accent"]);
+    if (onAccent < 4.5) failures.push(`${name}: --accent-ink on --accent = ${onAccent.toFixed(2)}`);
+  }
+  assert.deepEqual(failures, [], failures.join("\n"));
+});
