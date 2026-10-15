@@ -87,8 +87,8 @@ export const ProcessCard: FC<ProcessCardProps> = ({
       variant={isMuted ? "muted" : "default"}
       padding="sm"
       className={cn(
-        "transition-all duration-150 border border-white/8 hover:border-white/16 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] bg-gradient-to-r from-[#141b24] to-[#10141c]",
-        isExpanded && "border-sky-500/30 ring-1 ring-sky-500/20"
+        "transition-all duration-150 border border-white/8 hover:border-white/16 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] bg-gradient-to-r from-[#201925] to-[#17131b]",
+        isExpanded && "border-rose-400/40 ring-1 ring-rose-400/20"
       )}
     >
       {/* Primary Channel Strip Row */}
@@ -149,7 +149,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               process.is_running_output && !isMuted
                 ? channelLvl > 75
                   ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                  : "bg-gradient-to-r from-emerald-500 to-sky-400"
+                  : "bg-gradient-to-r from-emerald-500 to-rose-400"
                 : "bg-slate-800"
             )}
             style={{ width: `${channelLvl}%` }}
@@ -181,7 +181,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
             className={cn(
               "h-7 w-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer",
               isExpanded
-                ? "bg-sky-500/15 border-sky-400/40 text-sky-400"
+                ? "bg-rose-500/15 border-rose-400/40 text-rose-300"
                 : "bg-slate-900 border-white/8 text-slate-400 hover:text-white hover:border-white/20"
             )}
             title={isExpanded ? "Collapse channel rack" : "Expand channel rack"}
@@ -203,7 +203,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
           {/* Route to Device */}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3 text-sky-400" />
+              <ArrowUpRight className="w-3 h-3 text-rose-400" />
               Route Stream To
             </span>
             <SelectComponent

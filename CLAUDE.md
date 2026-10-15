@@ -44,3 +44,9 @@ git add -A && git commit -m "feat: <what changed>" && git push
 ```
 
 Commit messages follow the conventional prefixes already in the history (`feat:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
+
+## UI conventions
+
+No emoji as icons — not in UI strings, labels, badges, data tables, commit messages or console output. Use `lucide-react` (already a dependency) for any icon, or an inline SVG when lucide has no match.
+
+Existing violations to replace when touching these files: `src/lib/pingloom.ts` (43 emoji badges), `src/components/AudioBuses.tsx`, `src/views/TimerView.tsx`, `src/views/AgentPetView.tsx`.

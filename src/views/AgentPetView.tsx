@@ -416,10 +416,22 @@ export const AgentPetView: FC = () => {
     showToast("info", "Quick meditation rest taken. Fatigue cleared (+10 XP).");
   };
 
-  const handleToggleDesktopOverlay = () => {
+  const handleToggleDesktopOverlay = async () => {
     const next = !showDesktopOverlay;
     setShowDesktopOverlay(next);
-    showToast("info", next ? "Desktop floating companion visible" : "Desktop floating companion hidden");
+    if (isDesktop) {
+      try {
+        await invoke("toggle_pet_overlay", { enable: next });
+      } catch (e) {
+        console.error("Failed to toggle desktop overlay", e);
+      }
+    }
+    showToast(
+      "info",
+      next
+        ? "Desktop floating companion launched on your screen! (Drag to move)"
+        : "Desktop floating companion hidden"
+    );
   };
 
   const handleToggleAudioReactive = () => {
@@ -608,6 +620,9 @@ export const AgentPetView: FC = () => {
                   value={selectedPet}
                   onChange={(val) => {
                     setSelectedPet(val);
+                    try {
+                      localStorage.setItem("rust_sound_pet_slug", val);
+                    } catch {}
                     showToast("info", `Switched active companion to ${val}`);
                   }}
                   options={[

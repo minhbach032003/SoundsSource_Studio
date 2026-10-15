@@ -369,8 +369,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
                   isSelected
-                    ? "bg-sky-500/20 text-sky-300 font-semibold border border-sky-400/35 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent",
+                    ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/40 shadow-sm"
+                    : "text-stone-400 hover:text-stone-200 hover:bg-white/5 border border-transparent",
                   !isIdle && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -386,13 +386,13 @@ export const TimerView: FC<TimerViewProps> = ({
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
               isCustomPreset
-                ? "bg-sky-500/20 text-sky-300 font-semibold border border-sky-400/35 shadow-sm"
-                : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent",
+                ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/40 shadow-sm"
+                : "text-stone-400 hover:text-stone-200 hover:bg-white/5 border border-transparent",
               !isIdle && "opacity-50 cursor-not-allowed"
             )}
             title="Setup custom study and break intervals with clock timeline"
           >
-            <SlidersHorizontal className="w-3 h-3 text-sky-400" />
+            <SlidersHorizontal className="w-3 h-3 text-rose-400" />
             <span>
               {isCustomPreset
                 ? `Custom (${Math.round(status.study_duration / 60)}m / ${
@@ -414,7 +414,7 @@ export const TimerView: FC<TimerViewProps> = ({
       {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-7): Circular Dial Canvas & Controls */}
-        <div className="lg:col-span-7 flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#141a24] to-[#10141c] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
+        <div className="lg:col-span-7 flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl bg-gradient-to-b from-[#201925] via-[#18131c] to-[#0e0a11] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
           {/* Audio Ducking Pill Indicator */}
           {status.is_ducked && (
             <div className="absolute top-4 flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold tracking-wide animate-pulse">
@@ -431,8 +431,8 @@ export const TimerView: FC<TimerViewProps> = ({
             >
               <defs>
                 <linearGradient id="studyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#38bdf8" />
-                  <stop offset="100%" stopColor="#0284c7" />
+                  <stop offset="0%" stopColor="#f472b6" />
+                  <stop offset="100%" stopColor="#fb7185" />
                 </linearGradient>
                 <linearGradient id="breakGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#fb7185" />
@@ -490,13 +490,13 @@ export const TimerView: FC<TimerViewProps> = ({
               {/* Active Task / Calendar Goal Banner */}
               {activeGoal ? (
                 <div
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-200 text-[11px] font-semibold mb-1 max-w-[220px] truncate shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-200 text-[11px] font-semibold mb-1 max-w-[220px] truncate shadow-sm"
                   title={`Active Goal: ${activeGoal.title}`}
                 >
                   {activeGoal.source === "google-calendar" ? (
                     <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
                   ) : (
-                    <Target className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <Target className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                   )}
                   <span className="truncate">{activeGoal.title}</span>
                 </div>
@@ -542,8 +542,8 @@ export const TimerView: FC<TimerViewProps> = ({
               </span>
 
               {/* Real Wall-Clock Timeline (từ mấy giờ đến mấy giờ) */}
-              <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-slate-300 bg-black/40 px-3 py-1 rounded-full border border-white/8">
-                <Clock className="w-3 h-3 text-sky-400 shrink-0" />
+              <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-stone-300 bg-black/40 px-3 py-1 rounded-full border border-white/8">
+                <Clock className="w-3 h-3 text-rose-400 shrink-0" />
                 <span>
                   {isBreaking
                     ? `Break Ends at ${expectedEndClockStr}`
@@ -560,7 +560,7 @@ export const TimerView: FC<TimerViewProps> = ({
             {isIdle ? (
               <button
                 onClick={onStart}
-                className="h-11 px-8 rounded-xl bg-gradient-to-r from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-slate-950 font-bold text-xs tracking-tight shadow-[0_2px_18px_rgba(56,189,248,0.35)] transition-all cursor-pointer active:scale-95 flex items-center gap-2"
+                className="h-11 px-8 rounded-xl bg-[#f2a4b8] hover:bg-[#f472b6] text-[#191116] font-bold text-xs tracking-tight shadow-[0_2px_18px_rgba(242,164,184,0.35)] transition-all cursor-pointer active:scale-95 flex items-center gap-2"
               >
                 <Play className="w-4 h-4 fill-current" />
                 <span>
@@ -610,11 +610,11 @@ export const TimerView: FC<TimerViewProps> = ({
         {/* Right Column (lg:col-span-5): Tasks Checklist & Interactive Session Configuration */}
         <div className="lg:col-span-5 flex flex-col gap-4 h-full min-h-0">
           {/* 3. Focus Tasks & Google Calendar Card */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[260px]">
+          <div className="flex-1 flex flex-col rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[260px]">
             {/* Task Header with Google Calendar Sync & Filter Tabs */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-200 tracking-tight">
+                <span className="text-xs font-semibold text-stone-200 tracking-tight">
                   Focus Schedule
                 </span>
                 <BadgeComponent variant="secondary" className="px-2 py-0 text-[10px]">
@@ -629,12 +629,12 @@ export const TimerView: FC<TimerViewProps> = ({
                     type="button"
                     onClick={onSyncCalendar}
                     disabled={isLoadingCalendar}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-300 text-[11px] font-semibold cursor-pointer transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/30 text-rose-300 text-[11px] font-semibold cursor-pointer transition-colors"
                     title="Sync events from Google Calendar"
                   >
                     <GoogleIcon className="w-3 h-3" />
                     <RefreshCw
-                      className={cn("w-3 h-3", isLoadingCalendar && "animate-spin")}
+                      className={cn("w-3 h-3", isLoadingCalendar && "animate-spin text-rose-400")}
                     />
                     <span>{isLoadingCalendar ? "Syncing…" : "Sync Calendar"}</span>
                   </button>
@@ -642,7 +642,7 @@ export const TimerView: FC<TimerViewProps> = ({
                   <button
                     type="button"
                     onClick={onSignInGoogle}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] border border-white/8 cursor-pointer transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-stone-300 text-[11px] border border-white/8 cursor-pointer transition-colors"
                     title="Sign in with Google to sync calendar"
                   >
                     <GoogleIcon className="w-3 h-3" />
@@ -656,12 +656,12 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "text-[11px] flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded-md",
                     showTimeboxOptions
-                      ? "text-sky-300 bg-sky-500/20"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "text-rose-300 bg-rose-500/20"
+                      : "text-stone-400 hover:text-stone-200"
                   )}
                   title="Toggle manual time schedule"
                 >
-                  <Calendar className="w-3 h-3 text-sky-400" />
+                  <Calendar className="w-3 h-3 text-rose-400" />
                   <span>{showTimeboxOptions ? "Hide" : "+ Timebox"}</span>
                 </button>
               </div>
@@ -675,8 +675,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer",
                   activeFilter === "all"
-                    ? "bg-slate-800 text-sky-300 font-semibold"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-[#2b2231] text-rose-300 font-semibold"
+                    : "text-stone-400 hover:text-white"
                 )}
               >
                 All ({calendarEvents.length + todos.length})
@@ -688,8 +688,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1",
                   activeFilter === "calendar"
-                    ? "bg-sky-500/20 text-sky-300 font-semibold border border-sky-400/30"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/30"
+                    : "text-stone-400 hover:text-white"
                 )}
               >
                 <GoogleIcon className="w-2.5 h-2.5" />
@@ -702,8 +702,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer",
                   activeFilter === "tasks"
-                    ? "bg-slate-800 text-sky-300 font-semibold"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-[#2b2231] text-rose-300 font-semibold"
+                    : "text-stone-400 hover:text-white"
                 )}
               >
                 Manual Goals ({todos.length})
@@ -712,27 +712,27 @@ export const TimerView: FC<TimerViewProps> = ({
 
             {/* Guest Connection Prompt Banner if not logged in */}
             {!user && (
-              <div className="p-3 rounded-xl bg-gradient-to-r from-sky-500/10 via-slate-900/60 to-slate-950/80 border border-sky-400/20 flex items-center justify-between gap-3 mb-3 shrink-0">
+              <div className="p-3 rounded-xl bg-gradient-to-r from-rose-500/10 via-[#221c27] to-[#1a141f] border border-rose-400/20 flex items-center justify-between gap-3 mb-3 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center shrink-0">
                     <GoogleIcon className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-100 m-0 truncate">
+                    <p className="text-xs font-semibold text-stone-100 m-0 truncate">
                       Google Calendar Sync
                     </p>
-                    <p className="text-[10px] text-slate-400 m-0 truncate">
+                    <p className="text-[10px] text-stone-400 m-0 truncate">
                       Connect to view today's meetings and activities automatically
                     </p>
                   </div>
                 </div>
 
                 <ButtonComponent
-                  variant="outline"
+                  variant="primary"
                   size="sm"
                   onClick={onSignInGoogle}
                   leftIcon={<GoogleIcon className="w-3 h-3" />}
-                  className="h-7 text-[11px] shrink-0 bg-white hover:bg-slate-100 text-slate-900 border-none font-semibold hover:text-slate-950 px-2.5"
+                  className="h-7 text-[11px] shrink-0 px-2.5"
                 >
                   Connect
                 </ButtonComponent>
@@ -766,10 +766,10 @@ export const TimerView: FC<TimerViewProps> = ({
                 <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/6 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-sky-400" />
+                      <Clock className="w-3 h-3 text-rose-400" />
                       Time-blocking schedule:
                     </span>
-                    <span className="font-mono text-sky-300 font-semibold">
+                    <span className="font-mono text-rose-300 font-semibold">
                       {diffMinutesBetween(newStartTime, newEndTime)} minutes
                     </span>
                   </div>
@@ -842,12 +842,12 @@ export const TimerView: FC<TimerViewProps> = ({
                       className={cn(
                         "group flex items-center justify-between p-2.5 rounded-xl border transition-all text-xs",
                         isActive
-                          ? "bg-sky-500/10 border-sky-400/40 shadow-sm"
+                          ? "bg-rose-500/15 border-rose-400/50 shadow-sm ring-1 ring-rose-400/20"
                           : item.is_completed
-                          ? "bg-slate-950/30 border-transparent opacity-60"
+                          ? "bg-[#18131c]/50 border-transparent opacity-60"
                           : isGCal
-                          ? "bg-slate-950/70 border-sky-500/15 hover:border-sky-500/30"
-                          : "bg-slate-950/60 border-white/5 hover:border-white/10"
+                          ? "bg-[#1f1924]/80 border-rose-500/20 hover:border-rose-500/40"
+                          : "bg-[#19141d]/70 border-white/6 hover:border-white/12"
                       )}
                     >
                       {/* Completion check & Title */}
@@ -879,7 +879,7 @@ export const TimerView: FC<TimerViewProps> = ({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isGCal && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-sky-500/10 border border-sky-400/25 text-[9px] font-semibold text-sky-300">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-500/15 border border-rose-400/30 text-[9px] font-semibold text-rose-300">
                                 <GoogleIcon className="w-2.5 h-2.5" />
                                 G-Cal
                               </span>
@@ -900,7 +900,7 @@ export const TimerView: FC<TimerViewProps> = ({
                           <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-mono">
                             {(item.start_time || item.duration_minutes) && (
                               <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-sky-400" />
+                                <Clock className="w-3 h-3 text-rose-400" />
                                 <span>
                                   {item.start_time && item.end_time
                                     ? `${item.start_time} - ${item.end_time}`
@@ -939,8 +939,8 @@ export const TimerView: FC<TimerViewProps> = ({
                             className={cn(
                               "px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer",
                               isActive
-                                ? "bg-sky-500 text-slate-950 shadow-sm"
-                                : "bg-white/5 text-slate-300 hover:bg-sky-500/20 hover:text-sky-300 border border-white/5"
+                                ? "bg-[#f2a4b8] text-[#191116] font-bold shadow-sm"
+                                : "bg-white/5 text-stone-300 hover:bg-rose-500/20 hover:text-rose-200 border border-white/5"
                             )}
                             title="Focus on this event in the timer"
                           >
@@ -973,16 +973,16 @@ export const TimerView: FC<TimerViewProps> = ({
           </div>
 
           {/* 4. Interactive Session Configuration Card with Real Clock Times */}
-          <div className="rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+          <div className="rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
                 Session Configuration & Clock
               </span>
 
               {isIdle && (
                 <button
                   onClick={() => setIsCustomModalOpen(true)}
-                  className="flex items-center gap-1 text-[11px] text-sky-400 hover:text-sky-300 font-medium transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-[11px] text-rose-400 hover:text-rose-300 font-medium transition-colors cursor-pointer"
                 >
                   <Edit3 className="w-3 h-3" />
                   <span>Setup Custom</span>
@@ -1064,19 +1064,19 @@ export const TimerView: FC<TimerViewProps> = ({
             </div>
 
             {/* Real Clock Timeline Indicator */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/50 text-[11px] text-slate-400 border border-white/5">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#17121b] text-[11px] text-stone-400 border border-white/6">
               <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-sky-400" />
+                <Clock className="w-3.5 h-3.5 text-rose-400" />
                 <span>Session Timeline</span>
               </div>
-              <span className="text-slate-200 font-mono text-[11px] font-semibold">
+              <span className="text-stone-200 font-mono text-[11px] font-semibold">
                 {nowClockStr} ➔ {expectedEndClockStr}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/50 text-[11px] text-slate-400 border border-white/5">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#17121b] text-[11px] text-stone-400 border border-white/6">
               <div className="flex items-center gap-2">
-                <Headphones className="w-3.5 h-3.5 text-sky-400" />
+                <Headphones className="w-3.5 h-3.5 text-rose-400" />
                 <span>Audio Ducking</span>
               </div>
               <span className="text-emerald-400 font-medium">Automatic (15%)</span>
@@ -1094,20 +1094,20 @@ export const TimerView: FC<TimerViewProps> = ({
         confirmText="Apply Schedule & Durations"
         cancelText="Cancel"
         confirmVariant="primary"
-        icon={<SlidersHorizontal className="w-5 h-5 text-sky-400" />}
+        icon={<SlidersHorizontal className="w-5 h-5 text-rose-400" />}
         onConfirm={handleSaveCustomDurations}
       >
         <div className="space-y-4 pt-1">
           {/* Real Wall-Clock Timeline Visual Strip */}
-          <div className="p-3 rounded-xl bg-slate-950/80 border border-white/8 space-y-2">
-            <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-sky-400" />
+          <div className="p-3 rounded-xl bg-[#18131c] border border-white/8 space-y-2">
+            <span className="text-[11px] font-semibold text-stone-300 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-rose-400" />
               <span>Real-Time Timeline Preview</span>
             </span>
 
             <div className="flex items-center gap-2 text-xs font-mono">
-              <div className="flex-1 p-2 rounded-lg bg-sky-500/15 border border-sky-400/30 text-sky-200 text-center">
-                <span className="block text-[10px] text-sky-400 uppercase font-sans font-semibold">
+              <div className="flex-1 p-2 rounded-lg bg-rose-500/15 border border-rose-400/30 text-rose-200 text-center">
+                <span className="block text-[10px] text-rose-400 uppercase font-sans font-semibold">
                   Focus Session ({modalStudyMinutes}m)
                 </span>
                 <span className="font-bold">
@@ -1192,8 +1192,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer",
                     modalStudyMinutes === m
-                      ? "bg-sky-500/20 text-sky-300 border-sky-400/40 font-semibold"
-                      : "bg-slate-900/60 border-white/8 text-slate-400 hover:text-white"
+                      ? "bg-rose-500/20 text-rose-300 border-rose-400/40 font-semibold"
+                      : "bg-[#251e2b] border-white/8 text-stone-400 hover:text-white"
                   )}
                 >
                   {m}m
@@ -1222,8 +1222,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2 py-0.5 rounded cursor-pointer transition-colors",
                     breakUnit === "min"
-                      ? "bg-slate-800 text-sky-300 font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-[#2c2232] text-rose-300 font-semibold"
+                      : "text-stone-400 hover:text-white"
                   )}
                 >
                   Minutes
@@ -1239,8 +1239,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2 py-0.5 rounded cursor-pointer transition-colors",
                     breakUnit === "sec"
-                      ? "bg-slate-800 text-sky-300 font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-[#2c2232] text-rose-300 font-semibold"
+                      : "text-stone-400 hover:text-white"
                   )}
                 >
                   Seconds (Eye-Rest)

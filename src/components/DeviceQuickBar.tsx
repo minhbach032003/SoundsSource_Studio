@@ -120,7 +120,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
       {/* Console Header */}
       <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/6">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400">
+          <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center text-rose-300">
             {isHeadphones ? (
               <Headphones className="w-4 h-4" />
             ) : (
@@ -154,9 +154,9 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             id="output-device-select"
             leftIcon={
               isHeadphones ? (
-                <Headphones className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <Headphones className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               ) : (
-                <Volume2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <Volume2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               )
             }
             options={deviceOptions}
@@ -182,14 +182,14 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
       <div className="flex flex-col gap-2.5 pt-1 border-t border-white/6">
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-            <Volume2 className="w-3.5 h-3.5 text-sky-400" />
+            <Volume2 className="w-3.5 h-3.5 text-rose-400" />
             Master Volume Fader
           </span>
           <div className="flex items-center gap-2">
             <span
               onDoubleClick={() => !disabled && handleVolumeCommit(100)}
               title="Double-click to reset to 100% (0 dB)"
-              className="font-mono text-slate-300 text-[10px] tabular-nums font-semibold cursor-pointer hover:text-sky-300"
+              className="font-mono text-stone-300 text-[10px] tabular-nums font-semibold cursor-pointer hover:text-rose-300"
             >
               {internalMasterVol}%
             </span>
@@ -219,31 +219,31 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             title="Stereo Output VU Meter (L / R)"
             aria-label="Stereo Output VU Meter"
           >
-            <span className="text-[9px] font-bold text-slate-500 font-mono">L</span>
-            <div className="w-10 h-2 bg-slate-800 rounded-sm overflow-hidden flex">
+            <span className="text-[9px] font-bold text-stone-500 font-mono">L</span>
+            <div className="w-10 h-2 bg-stone-800 rounded-sm overflow-hidden flex">
               <div
                 className={cn(
                   "h-full rounded-sm transition-all duration-75",
                   isAudioActive && !isMuted
                     ? dynamicL > 80
                       ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                      : "bg-gradient-to-r from-emerald-500 to-sky-400"
-                    : "bg-slate-700"
+                      : "bg-gradient-to-r from-emerald-500 to-rose-400"
+                    : "bg-stone-700"
                 )}
                 style={{ width: `${dynamicL}%` }}
               />
             </div>
 
-            <span className="text-[9px] font-bold text-slate-500 font-mono ml-0.5">R</span>
-            <div className="w-10 h-2 bg-slate-800 rounded-sm overflow-hidden flex">
+            <span className="text-[9px] font-bold text-stone-500 font-mono ml-0.5">R</span>
+            <div className="w-10 h-2 bg-stone-800 rounded-sm overflow-hidden flex">
               <div
                 className={cn(
                   "h-full rounded-sm transition-all duration-75",
                   isAudioActive && !isMuted
                     ? dynamicR > 80
                       ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                      : "bg-gradient-to-r from-emerald-500 to-sky-400"
-                    : "bg-slate-700"
+                      : "bg-gradient-to-r from-emerald-500 to-rose-400"
+                    : "bg-stone-700"
                 )}
                 style={{ width: `${dynamicR}%` }}
               />
@@ -286,13 +286,13 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
               disabled={disabled}
               onChange={(e) => setInternalBalance(Number(e.target.value))}
               onPointerUp={() => handleBalanceCommit(internalBalance)}
-              className="w-full h-1.5 bg-slate-800 rounded-full appearance-none accent-sky-400 cursor-pointer"
+              className="w-full h-1.5 bg-[#251e2b] rounded-full appearance-none accent-rose-400 cursor-pointer"
             />
             <span className="font-mono text-[9px] text-slate-500">R</span>
           </div>
           <button
             onClick={() => handleBalanceCommit(0)}
-            className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors font-medium cursor-pointer"
+            className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors font-medium cursor-pointer"
             title="Reset balance to center"
           >
             {internalBalance === 0
