@@ -7,6 +7,7 @@ import { AudioBuses } from "@/components/AudioBuses";
 import {
   BadgeComponent,
   SkeletonComponent,
+  useToast,
 } from "@/shared/ui";
 import {
   AlertCircle,
@@ -107,6 +108,7 @@ export const MixerView: FC<MixerViewProps> = ({
   onToggleEQBypass,
   onError,
 }) => {
+  const { showToast } = useToast();
   const [masterBalance, setMasterBalance] = useState(0);
   const [dspRackTab, setDspRackTab] = useState<"eq" | "filter">("eq");
 
@@ -117,7 +119,7 @@ export const MixerView: FC<MixerViewProps> = ({
 
   const handleTestHeadphoneChannel = async (channel: "left" | "right") => {
     const feedback = await testHeadphoneChannel(channel);
-    onError(feedback);
+    showToast("info", feedback);
   };
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<"all" | "playing" | "media">("all");
@@ -141,7 +143,7 @@ export const MixerView: FC<MixerViewProps> = ({
       }
       return next;
     });
-    onError(`Hidden "${appName}" from mixer`);
+    showToast("info", `Hidden "${appName}" from mixer`);
   };
 
   const handleUnhideAll = () => {
@@ -151,7 +153,7 @@ export const MixerView: FC<MixerViewProps> = ({
     } catch {
       // Ignore storage error
     }
-    onError("Restored all hidden applications");
+    showToast("info", "Restored all hidden applications");
   };
 
   // 1. Strictly filter out non-audio desktop utilities (TextEdit, Calculator, etc.)

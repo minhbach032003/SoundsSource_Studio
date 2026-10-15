@@ -1,20 +1,25 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { playSectorTick } from "@/lib/pingAudio";
 
+export type PingMode = "tactical" | "emote";
+
 export interface LolPingGestureOptions {
-  triggerKey: string; // "alt" | "ctrl" | "shift" | "g" | "v" | "win"
+  triggerKey?: string; // Backwards-compatible alias for tacticalTrigger
+  tacticalTrigger?: string; // "alt" | "g" | "v" | "ctrl" | "shift" | "win"
+  emoteTrigger?: string | null; // "ctrl" | "alt" | "shift" | null
   dragThreshold: number; // e.g. 38
   clickPing: boolean;
   tickSound: boolean;
   volume: number;
   enabled?: boolean;
-  onDispatch: (result: { sliceIndex: number; x: number; y: number }) => void;
-  onQuickPing: (result: { x: number; y: number }) => void;
+  onDispatch: (result: { mode: PingMode; sliceIndex: number; x: number; y: number }) => void;
+  onQuickPing: (result: { mode: PingMode; x: number; y: number }) => void;
   onCancel?: () => void;
 }
 
 export interface LolPingGestureState {
   isHolding: boolean;
+  activeMode: PingMode | null;
   origin: { x: number; y: number } | null;
   currentPos: { x: number; y: number } | null;
   activeSlice: number | null;
@@ -33,8 +38,19 @@ function matchesTrigger(e: KeyboardEvent, trigger: string): boolean {
   return e.key.toLowerCase() === norm;
 }
 
+function isModifierKeyActive(e: MouseEvent, trigger: string): boolean {
+  const norm = trigger.toLowerCase();
+  if (norm === "alt") return e.altKey;
+  if (norm === "ctrl") return e.ctrlKey;
+  if (norm === "shift") return e.shiftKey;
+  if (norm === "win") return e.metaKey;
+  return false;
+}
+
 export function useLolPingGesture({
   triggerKey,
+  tacticalTrigger,
+  emoteTrigger,
   dragThreshold,
   clickPing,
   tickSound,
@@ -44,8 +60,12 @@ export function useLolPingGesture({
   onQuickPing,
   onCancel,
 }: LolPingGestureOptions) {
+  const effectiveTactical = tacticalTrigger ?? triggerKey ?? "alt";
+  const effectiveEmote = emoteTrigger ?? null;
+
   const [gestureState, setGestureState] = useState<LolPingGestureState>({
     isHolding: false,
+    activeMode: null,
     origin: null,
     currentPos: null,
     activeSlice: null,
@@ -55,6 +75,8 @@ export function useLolPingGesture({
 
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 400, y: 300 });
   const isHoldingRef = useRef(false);
+  const activeModeRef = useRef<PingMode | null>(null);
+  const activeTriggerRef = useRef<string | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
   const activeSliceRef = useRef<number | null>(null);
   const lastTickSliceRef = useRef<number | null>(null);
@@ -100,14 +122,15 @@ export function useLolPingGesture({
       }
 
       activeSliceRef.current = sliceIdx;
-      setGestureState({
+      setGestureState((prev) => ({
+        ...prev,
         isHolding: true,
         origin: originRef.current,
         currentPos: { x: e.clientX, y: e.clientY },
         activeSlice: sliceIdx,
         rotationDegrees: clockwiseDeg,
         distance: dist,
-      });
+      }));
     };
 
     window.addEventListener("mousemove", handleGlobalMouseMove, { passive: true });
@@ -117,6 +140,77 @@ export function useLolPingGesture({
   // Keydown / Keyup / Mouse Events
   useEffect(() => {
     if (!enabled) return;
+
+    function startHolding(origin: { x: number; y: number }, mode: PingMode, trigger: string) {
+      isHoldingRef.current = true;
+      activeModeRef.current = mode;
+      activeTriggerRef.current = trigger;
+      originRef.current = origin;
+      activeSliceRef.current = null;
+      lastTickSliceRef.current = null;
+
+      setGestureState({
+        isHolding: true,
+        activeMode: mode,
+        origin,
+        currentPos: origin,
+        activeSlice: null,
+        rotationDegrees: 0,
+        distance: 0,
+      });
+    }
+
+    function finishGesture() {
+      const mode = activeModeRef.current ?? "tactical";
+      const origin = originRef.current;
+      const slice = activeSliceRef.current;
+      const currentPos = { ...mousePosRef.current };
+
+      isHoldingRef.current = false;
+      activeModeRef.current = null;
+      activeTriggerRef.current = null;
+      originRef.current = null;
+      activeSliceRef.current = null;
+      lastTickSliceRef.current = null;
+
+      setGestureState({
+        isHolding: false,
+        activeMode: null,
+        origin: null,
+        currentPos: null,
+        activeSlice: null,
+        rotationDegrees: 0,
+        distance: 0,
+      });
+
+      if (slice !== null) {
+        onDispatch({ mode, sliceIndex: slice, x: currentPos.x, y: currentPos.y });
+      } else if (clickPing && origin) {
+        onQuickPing({ mode, x: origin.x, y: origin.y });
+      } else {
+        onCancel?.();
+      }
+    }
+
+    function cancel() {
+      isHoldingRef.current = false;
+      activeModeRef.current = null;
+      activeTriggerRef.current = null;
+      originRef.current = null;
+      activeSliceRef.current = null;
+      lastTickSliceRef.current = null;
+
+      setGestureState({
+        isHolding: false,
+        activeMode: null,
+        origin: null,
+        currentPos: null,
+        activeSlice: null,
+        rotationDegrees: 0,
+        distance: 0,
+      });
+      onCancel?.();
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore when typing in input/textarea
@@ -131,14 +225,25 @@ export function useLolPingGesture({
         return;
       }
 
-      if (!isHoldingRef.current && matchesTrigger(e, triggerKey) && !e.repeat) {
-        startHolding(mousePosRef.current);
+      if (!isHoldingRef.current && !e.repeat) {
+        // Priority 1: Tactical LoL Ping (Alt / Option)
+        if (matchesTrigger(e, effectiveTactical)) {
+          startHolding(mousePosRef.current, "tactical", effectiveTactical);
+          return;
+        }
+        // Priority 2: Emote Icon Wheel (Ctrl)
+        if (effectiveEmote && matchesTrigger(e, effectiveEmote)) {
+          startHolding(mousePosRef.current, "emote", effectiveEmote);
+          return;
+        }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (isHoldingRef.current && matchesTrigger(e, triggerKey)) {
-        finishGesture();
+      if (isHoldingRef.current && activeTriggerRef.current) {
+        if (matchesTrigger(e, activeTriggerRef.current)) {
+          finishGesture();
+        }
       }
     };
 
@@ -149,16 +254,14 @@ export function useLolPingGesture({
         return;
       }
 
-      const norm = triggerKey.toLowerCase();
-      const isModifierActive =
-        (norm === "alt" && e.altKey) ||
-        (norm === "ctrl" && e.ctrlKey) ||
-        (norm === "shift" && e.shiftKey) ||
-        (norm === "win" && e.metaKey);
-
-      if (isModifierActive) {
-        isMouseDownRef.current = true;
-        startHolding({ x: e.clientX, y: e.clientY });
+      if (!isHoldingRef.current) {
+        if (isModifierKeyActive(e, effectiveTactical)) {
+          isMouseDownRef.current = true;
+          startHolding({ x: e.clientX, y: e.clientY }, "tactical", effectiveTactical);
+        } else if (effectiveEmote && isModifierKeyActive(e, effectiveEmote)) {
+          isMouseDownRef.current = true;
+          startHolding({ x: e.clientX, y: e.clientY }, "emote", effectiveEmote);
+        }
       }
     };
 
@@ -176,67 +279,6 @@ export function useLolPingGesture({
       }
     };
 
-    function startHolding(origin: { x: number; y: number }) {
-      isHoldingRef.current = true;
-      originRef.current = origin;
-      activeSliceRef.current = null;
-      lastTickSliceRef.current = null;
-
-      setGestureState({
-        isHolding: true,
-        origin,
-        currentPos: origin,
-        activeSlice: null,
-        rotationDegrees: 0,
-        distance: 0,
-      });
-    }
-
-    function finishGesture() {
-      const origin = originRef.current;
-      const slice = activeSliceRef.current;
-      const currentPos = { ...mousePosRef.current };
-
-      isHoldingRef.current = false;
-      originRef.current = null;
-      activeSliceRef.current = null;
-      lastTickSliceRef.current = null;
-
-      setGestureState({
-        isHolding: false,
-        origin: null,
-        currentPos: null,
-        activeSlice: null,
-        rotationDegrees: 0,
-        distance: 0,
-      });
-
-      if (slice !== null) {
-        onDispatch({ sliceIndex: slice, x: currentPos.x, y: currentPos.y });
-      } else if (clickPing && origin) {
-        onQuickPing({ x: origin.x, y: origin.y });
-      } else {
-        onCancel?.();
-      }
-    }
-
-    function cancel() {
-      isHoldingRef.current = false;
-      originRef.current = null;
-      activeSliceRef.current = null;
-      lastTickSliceRef.current = null;
-
-      setGestureState({
-        isHolding: false,
-        origin: null,
-        currentPos: null,
-        activeSlice: null,
-        rotationDegrees: 0,
-        distance: 0,
-      });
-      onCancel?.();
-    }
-
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousedown", handleMouseDown);
@@ -250,14 +292,17 @@ export function useLolPingGesture({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("contextmenu", handleContextMenu);
     };
-  }, [enabled, triggerKey, clickPing, onDispatch, onQuickPing, onCancel]);
+  }, [enabled, effectiveTactical, effectiveEmote, clickPing, onDispatch, onQuickPing, onCancel]);
 
   const cancelGesture = useCallback(() => {
     isHoldingRef.current = false;
+    activeModeRef.current = null;
+    activeTriggerRef.current = null;
     originRef.current = null;
     activeSliceRef.current = null;
     setGestureState({
       isHolding: false,
+      activeMode: null,
       origin: null,
       currentPos: null,
       activeSlice: null,
