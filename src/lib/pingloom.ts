@@ -101,7 +101,7 @@ export const DEFAULT_PINGLOOM_SETTINGS: PingloomSettings = {
   enabled_on_start: true,
   trigger: "alt",
   emote_trigger: "ctrl",
-  drag_threshold_px: 86,
+  drag_threshold_px: 38,
   click_ping: true,
   click_ping_id: "danger",
   game_check: false,

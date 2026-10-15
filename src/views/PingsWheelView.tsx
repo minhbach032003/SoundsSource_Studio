@@ -601,6 +601,13 @@ export const PingsWheelView: FC = () => {
                         setFocusedSlice(idx);
                         if (settings.tick_sound) playSectorTick(settings.volume);
                       }}
+                      onDoubleClick={() => {
+                        handleDispatchLoLPing({
+                          sliceIndex: idx,
+                          x: window.innerWidth / 2,
+                          y: window.innerHeight / 2,
+                        });
+                      }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "copy";
@@ -627,12 +634,20 @@ export const PingsWheelView: FC = () => {
                 <circle cx="140" cy="140" r="52" fill="none" stroke="var(--line)" strokeWidth="1" />
               </svg>
 
-              {/* Center Hub Badge */}
+              {/* Center Hub Badge (Click to fire currently focused ping) */}
               <div
+                onClick={() => {
+                  handleDispatchLoLPing({
+                    sliceIndex: focusedSlice,
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                  });
+                }}
                 className={cn(
-                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm transition-all duration-120",
+                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm transition-all duration-120 cursor-pointer hover:scale-105 active:scale-95 group z-20",
                   dragOverSlice !== null && "border-[var(--accent)] ring-2 ring-[var(--accent)]/50"
                 )}
+                title="Nhấp vào đây để bắn thử ping hướng đang chọn!"
               >
                 {dragOverSlice !== null ? (
                   <>
@@ -643,9 +658,13 @@ export const PingsWheelView: FC = () => {
                   </>
                 ) : (
                   <>
-                    <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
-                    <span className="text-[10px] font-black">GIỮ [{settings.trigger.toUpperCase()}]</span>
-                    <span className="text-[8px] text-[var(--muted)]">{settings.drag_threshold_px}px threshold</span>
+                    <Radio className="w-4 h-4 text-[var(--accent)] mb-0.5 group-hover:animate-pulse" />
+                    <span className="text-[10px] font-black group-hover:text-[var(--accent)] transition-colors">
+                      BẮN THỬ PING
+                    </span>
+                    <span className="text-[8px] text-[var(--muted)]">
+                      {DIRECTIONS[focusedSlice]} ({settings.drag_threshold_px}px)
+                    </span>
                   </>
                 )}
               </div>
@@ -689,7 +708,7 @@ export const PingsWheelView: FC = () => {
                     <PingVectorIcon
                       pingId={assignedId}
                       iconKey={asset?.vectorIcon}
-                      className="w-3.5 h-3.5 mt-0.5"
+                      className="w-4 h-4 mt-0.5"
                       style={{ color: isDropTarget ? "var(--accent-ink)" : asset?.color }}
                     />
                     {isDup && !isDropTarget && (
@@ -700,6 +719,34 @@ export const PingsWheelView: FC = () => {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Direct Test Fire Action */}
+            <div className="w-full flex items-center justify-between gap-2 p-2 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <PingVectorIcon
+                  pingId={activeWheel[focusedSlice]}
+                  className="w-4 h-4 text-[var(--accent)] shrink-0"
+                />
+                <span className="text-xs font-bold text-[var(--ink)] truncate">
+                  {DIRECTIONS[focusedSlice]}: {catalog.find((c) => c.id === activeWheel[focusedSlice])?.name ?? "Ping"}
+                </span>
+              </div>
+              <ButtonComponent
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  handleDispatchLoLPing({
+                    sliceIndex: focusedSlice,
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                  });
+                }}
+                leftIcon={<Radio className="w-3.5 h-3.5 animate-pulse text-[var(--accent-ink)]" />}
+                className="h-7.5 px-3 text-xs font-bold shrink-0"
+              >
+                Bắn Thử
+              </ButtonComponent>
             </div>
 
             {/* Drag & Drop Hint Banner */}

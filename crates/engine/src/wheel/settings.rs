@@ -30,7 +30,7 @@ impl Default for PingloomSettings {
             enabled_on_start: true,
             trigger: "alt".to_string(),
             emote_trigger: Some("ctrl".to_string()),
-            drag_threshold_px: 86,
+            drag_threshold_px: 38,
             click_ping: true,
             click_ping_id: "danger".to_string(),
             game_check: false,
