@@ -333,6 +333,28 @@ export const AgentPetView: FC = () => {
   const [showDesktopOverlay, setShowDesktopOverlay] = useState(true);
   const [audioReactive, setAudioReactive] = useState(true);
   const [focusTimerSync, setFocusTimerSync] = useState(true);
+  const [activityTheme, setActivityTheme] = useState<string>("Chef");
+
+  // Load activity theme
+  useEffect(() => {
+    if (isDesktop) {
+      invoke<string>("get_pet_activity_theme")
+        .then((th) => {
+          if (th) setActivityTheme(th);
+        })
+        .catch(() => {});
+    }
+  }, [isDesktop]);
+
+  const handleActivityThemeChange = async (newTheme: string) => {
+    setActivityTheme(newTheme);
+    if (isDesktop) {
+      try {
+        await invoke("set_pet_activity_theme", { theme: newTheme });
+      } catch {}
+    }
+    showToast("info", `Switched companion activity theme to ${newTheme}`);
+  };
 
   // Feed State
   const [events, setEvents] = useState<PetEvent[]>(INITIAL_EVENTS);
@@ -1240,6 +1262,44 @@ export const AgentPetView: FC = () => {
                     )}
                   />
                 </button>
+              </div>
+
+              {/* Agent Activity Theme Selector (Ported from AgentPet) */}
+              <div className="p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
+                    <div>
+                      <span className="text-xs font-semibold text-[var(--ink)] block">Activity Phrase Theme</span>
+                      <span className="text-[10px] text-[var(--muted)] block">Stylizes agent tool actions & thinking lines</span>
+                    </div>
+                  </div>
+                  <BadgeComponent variant="secondary" className="text-[10px] font-mono px-1.5 py-0">
+                    {activityTheme}
+                  </BadgeComponent>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1 pt-1">
+                  {["Chef", "Engineer", "Wizard", "Explorer", "Scientist"].map((th) => {
+                    const isSelected = activityTheme === th;
+                    return (
+                      <button
+                        key={th}
+                        type="button"
+                        onClick={() => handleActivityThemeChange(th)}
+                        className={cn(
+                          "py-1.5 px-1 text-center rounded-lg text-[10px] font-semibold transition-all cursor-pointer border truncate",
+                          isSelected
+                            ? "bg-[var(--surface)] text-[var(--accent-text)] border-[var(--accent)] shadow-xs"
+                            : "bg-transparent text-[var(--muted)] border-transparent hover:text-[var(--ink)] hover:border-[var(--line)]"
+                        )}
+                        title={`Select ${th} phrase theme`}
+                      >
+                        {th}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

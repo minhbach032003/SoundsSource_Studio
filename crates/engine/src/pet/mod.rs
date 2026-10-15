@@ -1,15 +1,25 @@
+pub mod activity;
+pub mod break_clock;
 pub mod care;
 pub mod event;
 pub mod hooks;
+pub mod pricing;
+pub mod question;
 pub mod server;
 pub mod session;
 pub mod statemap;
+pub mod transcript;
 
+pub use activity::{ActivityFormatter, ActivityTheme};
+pub use break_clock::{BreakClock, BreakClockConfig, BreakTickResult};
 pub use care::{MEAL_XP, PetCareState, PetCareStore, PetHunger, TOKENS_PER_XP};
 pub use event::{AgentEvent, AgentKind, AgentState, PetMood};
 pub use hooks::{AgentIntegrationInfo, HookManager};
+pub use pricing::ModelPricing;
+pub use question::QuestionDetector;
 pub use server::AgentPetServer;
 pub use session::{AgentSession, SessionStore};
+pub use transcript::{TranscriptReader, UsageDelta};
 
 use chrono::Utc;
 use std::sync::{Arc, Mutex};

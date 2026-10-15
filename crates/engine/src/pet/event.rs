@@ -104,7 +104,7 @@ impl PetMood {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AgentEvent {
     #[serde(alias = "session", alias = "sessionId")]
     pub session_id: String,
@@ -119,5 +119,23 @@ pub struct AgentEvent {
     pub tool_name: Option<String>,
     #[serde(alias = "summary", alias = "toolSummary")]
     pub tool_summary: Option<String>,
+    #[serde(alias = "filePath", alias = "file_path")]
+    pub file_path: Option<String>,
+    #[serde(alias = "transcriptPath", alias = "transcript_path")]
+    pub transcript_path: Option<String>,
+    pub tokens: Option<u64>,
+    #[serde(alias = "costUSD", alias = "cost_usd")]
+    pub cost_usd: Option<f64>,
     pub timestamp: Option<i64>,
+}
+
+impl AgentEvent {
+    pub fn new(session_id: impl Into<String>, agent_kind: impl Into<String>, event_name: impl Into<String>) -> Self {
+        Self {
+            session_id: session_id.into(),
+            agent_kind: agent_kind.into(),
+            event_name: event_name.into(),
+            ..Default::default()
+        }
+    }
 }

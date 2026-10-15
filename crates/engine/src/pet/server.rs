@@ -1,6 +1,8 @@
 use crate::pet::care::PetCareStore;
 use crate::pet::event::AgentEvent;
+use crate::pet::question::QuestionDetector;
 use crate::pet::session::SessionStore;
+use crate::pet::transcript::TranscriptReader;
 use chrono::Utc;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -48,6 +50,37 @@ impl AgentPetServer {
         }
     }
 
+    pub fn drain_queue(sessions: &Arc<Mutex<SessionStore>>, care_store: &Arc<Mutex<PetCareStore>>) {
+        if let Ok(home) = std::env::var("HOME") {
+            let queue_dir = Path::new(&home).join(".agentpet").join("queue");
+            if queue_dir.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&queue_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                if let Ok(event) = serde_json::from_str::<AgentEvent>(&content) {
+                                    let ts = event.timestamp.unwrap_or_else(|| Utc::now().timestamp());
+                                    let mut sess_guard = sessions.lock().unwrap();
+                                    let (_, is_meal) = sess_guard.apply(event, ts);
+                                    drop(sess_guard);
+
+                                    if is_meal {
+                                        let care_guard = care_store.lock().unwrap();
+                                        let mut state = care_guard.load();
+                                        state.record_meal(ts);
+                                        let _ = care_guard.save(&state);
+                                    }
+                                }
+                            }
+                            let _ = std::fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[cfg(unix)]
     pub fn start(
         &self,
@@ -61,6 +94,8 @@ impl AgentPetServer {
                 "Pet server already started",
             ));
         }
+
+        Self::drain_queue(&sessions, &care_store);
 
         let mut actual_socket_path = self.socket_path.clone();
 
@@ -109,6 +144,7 @@ impl AgentPetServer {
         self.is_running.store(true, Ordering::SeqCst);
         let running = self.is_running.clone();
         let socket_file = actual_socket_path.clone();
+        let transcript_reader = Arc::new(TranscriptReader::new());
 
         *worker = Some(thread::spawn(move || {
             while running.load(Ordering::Relaxed) {
@@ -116,14 +152,40 @@ impl AgentPetServer {
                     Ok((stream, _)) => {
                         let sessions_clone = sessions.clone();
                         let care_clone = care_store.clone();
+                        let reader_clone = transcript_reader.clone();
+
                         thread::spawn(move || {
                             let reader = BufReader::new(stream);
                             for line in reader.lines().map_while(Result::ok) {
                                 if line.trim().is_empty() {
                                     continue;
                                 }
-                                if let Ok(event) = serde_json::from_str::<AgentEvent>(&line) {
+                                if let Ok(mut event) = serde_json::from_str::<AgentEvent>(&line) {
                                     let now_ts = Utc::now().timestamp();
+
+                                    // Incremental transcript token reading & Question detection
+                                    let transcript_path = event.transcript_path.as_ref().map(PathBuf::from).or_else(|| {
+                                        TranscriptReader::find_claude_transcript(&event.session_id, event.project.as_deref())
+                                    });
+
+                                    let mut tokens_to_feed = event.tokens.unwrap_or(0);
+                                    if let Some(ref t_path) = transcript_path {
+                                        if let Some(delta) = reader_clone.read_new_usage(t_path) {
+                                            if delta.tokens > 0 {
+                                                tokens_to_feed += delta.tokens;
+                                            }
+                                        }
+
+                                        // Turn-ending question refinement on Claude Stop events
+                                        if event.event_name == "Stop" && event.agent_kind.to_ascii_lowercase().starts_with("claude") {
+                                            if let Some(assistant_text) = TranscriptReader::read_latest_assistant_text(t_path) {
+                                                if QuestionDetector::looks_like_question(&assistant_text) {
+                                                    event.message = Some(assistant_text);
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     let mut sess_guard = sessions_clone.lock().unwrap();
                                     let (_, is_meal) = sess_guard.apply(event, now_ts);
                                     drop(sess_guard);
@@ -132,9 +194,9 @@ impl AgentPetServer {
                                     let mut state = care_guard.load();
                                     if is_meal {
                                         state.record_meal(now_ts);
-                                    } else {
-                                        state.feed_tokens(500, now_ts);
                                     }
+                                    let feed_amount = if tokens_to_feed > 0 { tokens_to_feed } else { 500 };
+                                    state.feed_tokens(feed_amount, now_ts);
                                     let _ = care_guard.save(&state);
                                 }
                             }

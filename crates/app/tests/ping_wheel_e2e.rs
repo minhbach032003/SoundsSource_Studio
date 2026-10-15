@@ -1,5 +1,8 @@
 use rust_sound_lib::engine::wheel::{pick_slice, get_default_catalog, DIRECTIONS};
-use rust_sound_lib::{AppState, AudioRouter, AuthService, BreakTimerManager, PetManager, PingloomSettings, PresetStore};
+use rust_sound_lib::{
+    AppState, AudioRouter, AuthService, BreakTimerManager, GestureEngine, GestureState,
+    InputEvent, PetManager, PingloomSettings, Point, PresetStore,
+};
 use std::env;
 use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
@@ -21,6 +24,7 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         auth,
         pet,
         wheel_settings: Mutex::new(PingloomSettings::default()),
+        gesture_engine: Mutex::new(GestureEngine::default()),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };
@@ -76,4 +80,46 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
     assert_eq!(current.wheel[0], "danger"); // Tactical LoL ping
     assert_eq!(current.emote_wheel[0], "come_at_me"); // Emote icon
     assert_ne!(current.wheel[0], current.emote_wheel[0]);
+
+    // 6. Verify GestureEngine state machine transitions in AppState
+    let mut engine = state.gesture_engine.lock().unwrap();
+    assert_eq!(engine.state(), GestureState::Idle);
+
+    // KeyDown Alt (0xa4)
+    let alt_down = InputEvent::KeyDown { vk: 0xa4, injected: false };
+    engine.on_event(alt_down);
+
+    // PointerDown Left button
+    let ptr_down = InputEvent::PointerDown {
+        button: rust_sound_lib::Button::Left,
+        point: Point::new(100, 100),
+        time_ms: 10,
+        injected: false,
+        fullscreen_app: false,
+        dpi_scale: 1.0,
+    };
+    let decision = engine.on_event(ptr_down);
+    assert!(decision.swallow);
+    assert_eq!(engine.state(), GestureState::Pending);
+
+    // PointerMove beyond threshold
+    let ptr_move = InputEvent::PointerMove {
+        point: Point::new(150, 100),
+        time_ms: 20,
+        injected: false,
+    };
+    let move_decision = engine.on_event(ptr_move);
+    assert_eq!(engine.state(), GestureState::Wheel);
+    assert!(!move_decision.actions.is_empty());
+
+    // PointerUp releases and selects
+    let ptr_up = InputEvent::PointerUp {
+        button: rust_sound_lib::Button::Left,
+        point: Point::new(150, 100),
+        time_ms: 30,
+        injected: false,
+    };
+    let up_decision = engine.on_event(ptr_up);
+    assert!(up_decision.swallow);
+    assert_eq!(engine.state(), GestureState::Idle);
 }

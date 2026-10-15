@@ -21,11 +21,18 @@ pub use filter::{
     OutputFilterConfig,
 };
 pub use pet::{
-    AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer, AgentSession, AgentState,
-    HookManager, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, SessionStore,
-    MEAL_XP, TOKENS_PER_XP,
+    ActivityFormatter, ActivityTheme, AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer,
+    AgentSession, AgentState, BreakClock, BreakClockConfig, BreakTickResult, HookManager,
+    ModelPricing, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, QuestionDetector,
+    SessionStore, TranscriptReader, UsageDelta, MEAL_XP, TOKENS_PER_XP,
 };
 pub use preset::{AppAudioSettings, Preset, PresetStore};
 pub use router::{AppAudioChannel, AudioRouter, ChannelStateDto};
 pub use timer::{BreakTimerManager, TimerPhase, TimerStatus, TodoItem};
-pub use wheel::{pick_slice, select_slot, CatalogEntry, GestureResult, PingloomSettings, DIRECTIONS, DIRECTION_LABELS};
+pub use wheel::{
+    display_at_physical, physical_to_dip, pick_slice, select_slot, select_slot_scaled, Action,
+    Button, CatalogEntry, DisplayMap, GestureEngine, GestureResult, GestureState, Hotkey,
+    InputDecision, InputEvent, PingAsset, PingId, PingloomSettings, Point, ReplayInput, Settings,
+    SettingsError, ToggleMods, Trigger, WheelKind, DIRECTIONS, DIRECTION_LABELS,
+    WHEEL_INNER_RADIUS,
+};

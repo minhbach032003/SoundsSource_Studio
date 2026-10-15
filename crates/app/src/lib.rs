@@ -13,12 +13,13 @@ pub use core::{
     ProcessTap, RingBuffer,
 };
 pub use engine::{
-    AgentIntegrationInfo, AgentSession, AppAudioChannel, AppAudioSettings, AudioDevice,
-    AudioFilterSettings, AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager,
-    CatalogEntry, ChannelStateDto, EQBandConfig, FilterProcessingStats, GestureResult,
-    MicFilterConfig, OutputFilterConfig, ParametricEQ, PetCareState, PetManager,
-    PingloomSettings, Pkce, PkceChallenge, Preset, PresetStore, TimerPhase, TimerStatus,
-    TodoItem, User, DEFAULT_EQ_FREQUENCIES,
+    Action, ActivityFormatter, ActivityTheme, AgentIntegrationInfo, AgentSession, AppAudioChannel,
+    AppAudioSettings, AudioDevice, AudioFilterSettings, AudioRouter, AuthService, AuthenticatedUser,
+    BreakTimerManager, Button, CatalogEntry, ChannelStateDto, EQBandConfig, FilterProcessingStats,
+    GestureEngine, GestureResult, GestureState, InputDecision, InputEvent, MicFilterConfig,
+    OutputFilterConfig, ParametricEQ, PetCareState, PetManager, PingAsset, PingId, PingloomSettings,
+    Pkce, PkceChallenge, Point, Preset, PresetStore, ReplayInput, Settings, SettingsError,
+    TimerPhase, TimerStatus, TodoItem, Trigger, User, WheelKind, DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
@@ -28,6 +29,7 @@ pub struct AppState {
     pub auth: AuthService,
     pub pet: PetManager,
     pub wheel_settings: Mutex<PingloomSettings>,
+    pub gesture_engine: Mutex<GestureEngine>,
     pub start_time: Instant,
     pub background_mode: AtomicBool,
 }
@@ -75,6 +77,46 @@ impl From<PetCareState> for PetCareStateDto {
 }
 
 // MARK: - AgentPet Companion Commands
+
+static ACTIVE_PET_THEME: Mutex<Option<ActivityTheme>> = Mutex::new(None);
+
+#[tauri::command]
+fn get_pet_activity_theme() -> String {
+    let guard = ACTIVE_PET_THEME.lock().unwrap();
+    guard.unwrap_or_default().display_name().to_string()
+}
+
+#[tauri::command]
+fn set_pet_activity_theme(theme: String) -> String {
+    let mut guard = ACTIVE_PET_THEME.lock().unwrap();
+    let t = match theme.to_ascii_lowercase().as_str() {
+        "engineer" => ActivityTheme::Engineer,
+        "wizard" => ActivityTheme::Wizard,
+        "explorer" => ActivityTheme::Explorer,
+        "scientist" => ActivityTheme::Scientist,
+        _ => ActivityTheme::Chef,
+    };
+    *guard = Some(t);
+    t.display_name().to_string()
+}
+
+#[tauri::command]
+fn format_tool_activity(
+    event_name: String,
+    tool_name: Option<String>,
+    file_path: Option<String>,
+    message: Option<String>,
+) -> String {
+    let guard = ACTIVE_PET_THEME.lock().unwrap();
+    let theme = guard.unwrap_or_default();
+    ActivityFormatter::format(
+        &event_name,
+        tool_name.as_deref(),
+        file_path.as_deref(),
+        message.as_deref(),
+        theme,
+    )
+}
 
 #[tauri::command]
 fn get_pet_care_state(state: State<'_, AppState>) -> PetCareStateDto {
@@ -313,6 +355,95 @@ fn simulate_ping_gesture(dx: f64, dy: f64, state: State<'_, AppState>) -> Option
         ping_name,
         color,
     })
+}
+
+#[tauri::command]
+fn get_gesture_state(state: State<'_, AppState>) -> String {
+    match state.gesture_engine.lock().unwrap().state() {
+        GestureState::Idle => "idle".to_string(),
+        GestureState::Pending => "pending".to_string(),
+        GestureState::Wheel => "wheel".to_string(),
+        GestureState::SwallowUp => "swallow_up".to_string(),
+    }
+}
+
+#[tauri::command]
+fn toggle_gesture_engine(enable: Option<bool>, state: State<'_, AppState>) -> bool {
+    let mut engine = state.gesture_engine.lock().unwrap();
+    let target = enable.unwrap_or(!engine.enabled());
+    let _ = engine.set_enabled(target);
+    engine.enabled()
+}
+
+#[tauri::command]
+fn tick_gesture_engine(now_ms: u64, state: State<'_, AppState>) -> serde_json::Value {
+    let mut engine = state.gesture_engine.lock().unwrap();
+    let decision = engine.tick(now_ms);
+    serde_json::to_value(&decision).unwrap_or(serde_json::json!({ "swallow": false, "actions": [], "replay": [] }))
+}
+
+#[tauri::command]
+fn process_input_event(
+    event_type: String,
+    vk: Option<u8>,
+    button: Option<String>,
+    x: Option<i32>,
+    y: Option<i32>,
+    time_ms: Option<u64>,
+    dpi_scale: Option<f64>,
+    fullscreen_app: Option<bool>,
+    state: State<'_, AppState>,
+) -> serde_json::Value {
+    let mut engine = state.gesture_engine.lock().unwrap();
+    let pt = Point::new(x.unwrap_or(0), y.unwrap_or(0));
+    let t_ms = time_ms.unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0)
+    });
+
+    let btn = match button.as_deref() {
+        Some("right") => Button::Right,
+        Some("middle") => Button::Middle,
+        Some("x1") => Button::X1,
+        Some("x2") => Button::X2,
+        _ => Button::Left,
+    };
+
+    let event = match event_type.as_str() {
+        "key_down" => InputEvent::KeyDown {
+            vk: vk.unwrap_or(0),
+            injected: false,
+        },
+        "key_up" => InputEvent::KeyUp {
+            vk: vk.unwrap_or(0),
+            injected: false,
+        },
+        "pointer_down" => InputEvent::PointerDown {
+            button: btn,
+            point: pt,
+            time_ms: t_ms,
+            injected: false,
+            fullscreen_app: fullscreen_app.unwrap_or(false),
+            dpi_scale: dpi_scale.unwrap_or(1.0),
+        },
+        "pointer_up" => InputEvent::PointerUp {
+            button: btn,
+            point: pt,
+            time_ms: t_ms,
+            injected: false,
+        },
+        "pointer_move" => InputEvent::PointerMove {
+            point: pt,
+            time_ms: t_ms,
+            injected: false,
+        },
+        _ => return serde_json::json!({ "swallow": false, "actions": [], "replay": [] }),
+    };
+
+    let decision = engine.on_event(event);
+    serde_json::to_value(&decision).unwrap_or(serde_json::json!({ "swallow": false, "actions": [], "replay": [] }))
 }
 
 fn env_secret(key: &str) -> String {
@@ -970,6 +1101,7 @@ pub fn run() {
         auth,
         pet,
         wheel_settings: Mutex::new(PingloomSettings::default()),
+        gesture_engine: Mutex::new(GestureEngine::default()),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };
@@ -1028,6 +1160,9 @@ pub fn run() {
             auth_logout,
             auth_get_db_connection_status,
             get_pet_care_state,
+            get_pet_activity_theme,
+            set_pet_activity_theme,
+            format_tool_activity,
             feed_pet_action,
             reset_pet_care_state,
             get_agent_sessions,
@@ -1046,6 +1181,10 @@ pub fn run() {
             save_ping_settings,
             get_ping_catalog,
             simulate_ping_gesture,
+            get_gesture_state,
+            toggle_gesture_engine,
+            tick_gesture_engine,
+            process_input_event,
             get_audio_filter_settings,
             set_audio_filter_settings,
             test_filter_audio_buffer,

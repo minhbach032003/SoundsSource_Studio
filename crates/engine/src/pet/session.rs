@@ -1,4 +1,6 @@
+use crate::pet::activity::{ActivityFormatter, ActivityTheme};
 use crate::pet::event::{AgentEvent, AgentState, PetMood};
+use crate::pet::question::QuestionDetector;
 use crate::pet::statemap::{is_session_end, map_event_to_state};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -134,8 +136,32 @@ impl SessionStore {
             return (None, false);
         }
 
-        let new_state = map_event_to_state(&event.agent_kind, &event.event_name);
+        let mut new_state = map_event_to_state(&event.agent_kind, &event.event_name);
+
+        // Turn-ending Question Detection:
+        // Claude Code fires "Stop" identically on completion or when waiting for user response.
+        // If the message or assistant text is a question, refine state to Waiting!
+        if new_state == Some(AgentState::Done) {
+            let is_question = event
+                .message
+                .as_deref()
+                .map(QuestionDetector::looks_like_question)
+                .unwrap_or(false);
+            if is_question {
+                new_state = Some(AgentState::Waiting);
+            }
+        }
+
         let mut meal_completed = false;
+
+        // Thematic Activity Formatting
+        let formatted_activity = ActivityFormatter::format(
+            &event.event_name,
+            event.tool_name.as_deref(),
+            event.file_path.as_deref(),
+            event.message.as_deref(),
+            ActivityTheme::Chef,
+        );
 
         if let Some(st) = new_state {
             if let Some(existing) = self.sessions.get_mut(&session_id) {
@@ -158,9 +184,7 @@ impl SessionStore {
                 if event.tool_name.is_some() {
                     existing.tool_name = event.tool_name;
                 }
-                if event.tool_summary.is_some() {
-                    existing.tool_summary = event.tool_summary;
-                }
+                existing.tool_summary = event.tool_summary.or(Some(formatted_activity));
             } else {
                 if st == AgentState::Done {
                     meal_completed = true;
@@ -173,7 +197,7 @@ impl SessionStore {
                     message: event.message,
                     model: event.model,
                     tool_name: event.tool_name,
-                    tool_summary: event.tool_summary,
+                    tool_summary: event.tool_summary.or(Some(formatted_activity)),
                     started_at: now_ts,
                     last_event_at: now_ts,
                 };
@@ -283,11 +307,8 @@ mod tests {
             agent_kind: "claude".into(),
             event_name: "SessionStart".into(),
             project: Some("rust-sound".into()),
-            message: None,
             model: Some("Claude 3.7 Sonnet".into()),
-            tool_name: None,
-            tool_summary: None,
-            timestamp: None,
+            ..Default::default()
         };
         let (state, meal) = store.apply(ev1, 1000);
         assert_eq!(state, Some(AgentState::Registered));
@@ -298,12 +319,8 @@ mod tests {
             session_id: "sess-1".into(),
             agent_kind: "claude".into(),
             event_name: "UserPromptSubmit".into(),
-            project: None,
             message: Some("Refactoring code".into()),
-            model: None,
-            tool_name: None,
-            tool_summary: None,
-            timestamp: None,
+            ..Default::default()
         };
         let (state2, meal2) = store.apply(ev2, 1010);
         assert_eq!(state2, Some(AgentState::Working));
@@ -315,12 +332,7 @@ mod tests {
             session_id: "sess-1".into(),
             agent_kind: "claude".into(),
             event_name: "Stop".into(),
-            project: None,
-            message: None,
-            model: None,
-            tool_name: None,
-            tool_summary: None,
-            timestamp: None,
+            ..Default::default()
         };
         let (state3, meal3) = store.apply(ev3, 1050);
         assert_eq!(state3, Some(AgentState::Done));

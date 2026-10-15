@@ -55,11 +55,8 @@ fn test_agent_session_aggregation_and_moods() {
         agent_kind: "cursor".into(),
         event_name: "sessionStart".into(),
         project: Some("/Users/mac/Projects/rust-sound".into()),
-        message: None,
-        model: None,
-        tool_name: None,
-        tool_summary: None,
         timestamp: Some(1000),
+        ..Default::default()
     };
     store.apply(ev1, 1000);
     assert_eq!(store.aggregate_mood(), PetMood::Idle);
@@ -72,9 +69,8 @@ fn test_agent_session_aggregation_and_moods() {
         project: Some("/Users/mac/Projects/agentpet".into()),
         message: Some("Porting engine to Rust".into()),
         model: Some("Claude 3.7 Sonnet".into()),
-        tool_name: None,
-        tool_summary: None,
         timestamp: Some(1010),
+        ..Default::default()
     };
     store.apply(ev2, 1010);
     assert_eq!(store.aggregate_mood(), PetMood::Working);
@@ -84,12 +80,10 @@ fn test_agent_session_aggregation_and_moods() {
         session_id: "claude-202".into(),
         agent_kind: "claude".into(),
         event_name: "Notification".into(),
-        project: None,
-        message: None,
-        model: None,
         tool_name: Some("Bash".into()),
         tool_summary: Some("cargo build".into()),
         timestamp: Some(1020),
+        ..Default::default()
     };
     store.apply(ev3, 1020);
     assert_eq!(store.aggregate_mood(), PetMood::Waiting);
@@ -99,12 +93,8 @@ fn test_agent_session_aggregation_and_moods() {
         session_id: "claude-202".into(),
         agent_kind: "claude".into(),
         event_name: "Stop".into(),
-        project: None,
-        message: None,
-        model: None,
-        tool_name: None,
-        tool_summary: None,
         timestamp: Some(1030),
+        ..Default::default()
     };
     let (_, meal) = store.apply(ev4, 1030);
     assert!(meal);
