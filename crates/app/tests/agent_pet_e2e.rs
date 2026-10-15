@@ -1,6 +1,6 @@
 use rust_sound_lib::engine::{
-    AgentEvent, AgentState, HookManager, PetCareState, PetCareStore, PetHunger,
-    PetManager, PetMood, SessionStore,
+    AgentEvent, AgentState, HookManager, PetCareState, PetCareStore, PetHunger, PetManager,
+    PetMood, SessionStore,
 };
 use std::env;
 use std::io::Write;
@@ -127,7 +127,11 @@ fn test_agent_integrations_catalog() {
 
 #[test]
 fn test_pet_manager_and_unix_socket_server() {
-    let pet = PetManager::new();
+    let dir =
+        std::path::Path::new("/tmp").join(format!("rust-sound-pet-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let socket_path = dir.join("pet.sock");
+    let pet = PetManager::with_paths(socket_path.clone(), dir.join("care.json"));
     pet.start_daemon();
 
     // Verify initial care state
@@ -142,8 +146,9 @@ fn test_pet_manager_and_unix_socket_server() {
     assert!(after_tuna.xp >= after_coffee.xp + 20);
 
     // Send a live test event over Unix socket
-    let socket_path = rust_sound_lib::engine::AgentPetServer::default_socket_path();
-    if let Ok(mut stream) = UnixStream::connect(&socket_path) {
+    {
+        let mut stream =
+            UnixStream::connect(&socket_path).expect("isolated pet server must accept connections");
         let test_event = serde_json::json!({
             "sessionId": "test-e2e-session",
             "agentKind": "claude",
@@ -159,6 +164,12 @@ fn test_pet_manager_and_unix_socket_server() {
         thread::sleep(Duration::from_millis(150));
 
         let sessions = pet.get_sessions();
-        assert!(sessions.iter().any(|s| s.id == "test-e2e-session" && s.state == AgentState::Working));
+        assert!(
+            sessions
+                .iter()
+                .any(|s| s.id == "test-e2e-session" && s.state == AgentState::Working)
+        );
     }
+    drop(pet);
+    std::fs::remove_dir_all(dir).unwrap();
 }

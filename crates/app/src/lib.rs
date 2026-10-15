@@ -806,13 +806,6 @@ pub fn run() {
                 }
             }
 
-            // Auto-launch desktop floating pet overlay on startup
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                let _ = open_pet_overlay(app_handle);
-            });
-
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -275,7 +275,7 @@ impl PetCareStore {
 
     pub fn default_path() -> PathBuf {
         if let Ok(home) = std::env::var("HOME") {
-            Path::new(&home).join(".agentpet").join("petcare.json")
+            Path::new(&home).join(".rust-sound").join("petcare.json")
         } else {
             PathBuf::from("petcare.json")
         }

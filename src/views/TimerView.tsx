@@ -865,7 +865,7 @@ export const TimerView: FC<TimerViewProps> = ({
                             "w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border transition-all cursor-pointer",
                             item.is_completed
                               ? "bg-emerald-500 border-emerald-400 text-slate-950"
-                              : "border-slate-500 group-hover:border-sky-400 bg-transparent"
+                              : "border-stone-500 group-hover:border-rose-400 bg-transparent"
                           )}
                           title="Toggle completion"
                         >

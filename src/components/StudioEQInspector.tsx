@@ -282,8 +282,8 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
         >
           <defs>
             <linearGradient id="eqGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
+              <stop offset="0%" stopColor="#f472b6" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#fb7185" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
@@ -294,7 +294,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
           <path
             d={pathD}
             fill="none"
-            stroke="#38bdf8"
+            stroke="#f472b6"
             strokeWidth="2.5"
             strokeLinecap="round"
           />
@@ -329,7 +329,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                     cy={pt.y}
                     r="8"
                     fill="none"
-                    stroke="#38bdf8"
+                    stroke="#fb7185"
                     strokeWidth="1.5"
                     className="animate-pulse"
                   />
@@ -341,7 +341,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                   cy={pt.y}
                   r="4.5"
                   fill="#ffffff"
-                  stroke={pt.gain !== 0 ? "#38bdf8" : "#0284c7"}
+                  stroke={pt.gain !== 0 ? "#fb7185" : "#be185d"}
                   strokeWidth="2"
                   className="pointer-events-none"
                 />
@@ -355,8 +355,8 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                       width="56"
                       height="16"
                       rx="4"
-                      fill="#0f172a"
-                      stroke="#38bdf8"
+                      fill="#19131d"
+                      stroke="#fb7185"
                       strokeWidth="1"
                     />
                     <text
@@ -401,11 +401,11 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
       {/* Acoustic Profiles Library */}
       <div className="flex flex-col gap-2 pt-2 border-t border-white/6">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-sky-400" />
+          <span className="text-[10px] font-bold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-rose-400" />
             Acoustic Profiles Library
           </span>
-          <span className="text-[10px] text-slate-500 font-mono">6 Master Curves</span>
+          <span className="text-[10px] text-stone-500 font-mono">6 Master Curves</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -420,28 +420,28 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                 className={cn(
                   "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 group",
                   isSelected
-                    ? "bg-sky-500/15 border-sky-400/40 text-sky-100 shadow-[0_2px_12px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/20"
-                    : "bg-slate-950/60 border-white/6 text-slate-400 hover:text-slate-200 hover:border-white/14 hover:bg-slate-900/60"
+                    ? "bg-rose-500/15 border-rose-400/50 text-rose-100 shadow-[0_2px_12px_rgba(251,113,133,0.2)] ring-1 ring-rose-400/30"
+                    : "bg-[#18131c]/70 border-white/6 text-stone-400 hover:text-stone-200 hover:border-white/14 hover:bg-[#251e2b]/60"
                 )}
               >
                 <div
                   className={cn(
                     "w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors",
                     isSelected
-                      ? "bg-sky-500 text-slate-950 font-bold"
-                      : "bg-slate-800 text-slate-400 group-hover:text-white"
+                      ? "bg-rose-400 text-stone-950 font-bold"
+                      : "bg-[#251e2b] text-stone-400 group-hover:text-white"
                   )}
                 >
                   <Icon className="w-3.5 h-3.5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-200 truncate block">
+                    <span className="text-xs font-semibold text-stone-200 truncate block">
                       {profile.name}
                     </span>
-                    {isSelected && <Check className="w-3 h-3 text-sky-400 shrink-0 ml-1" />}
+                    {isSelected && <Check className="w-3 h-3 text-rose-400 shrink-0 ml-1" />}
                   </div>
-                  <p className="text-[10px] text-slate-400 leading-tight mt-0.5 truncate">
+                  <p className="text-[10px] text-stone-400 leading-tight mt-0.5 truncate">
                     {profile.description}
                   </p>
                 </div>
@@ -452,10 +452,10 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
       </div>
 
       {/* 28-Bar High-Resolution Live Audio Spectrum Analyzer */}
-      <div className="p-3 rounded-xl bg-slate-950/80 border border-white/6 flex flex-col gap-2 mt-auto">
+      <div className="p-3 rounded-xl bg-[#151018]/80 border border-white/6 flex flex-col gap-2 mt-auto">
         <div className="flex items-center justify-between text-[10px]">
-          <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-            <Activity className="w-3 h-3 text-emerald-400" />
+          <span className="text-stone-300 font-semibold flex items-center gap-1.5">
+            <Activity className="w-3 h-3 text-rose-400" />
             Live 28-Band Spectrum Analyzer
           </span>
           <BadgeComponent variant="emerald" dot={isAudioActive} className="text-[9px] px-1.5 py-0">
@@ -473,11 +473,11 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
                   "flex-1 rounded-t-sm transition-all duration-75",
                   isAudioActive
                     ? h > 75
-                      ? "bg-gradient-to-t from-sky-500 via-emerald-400 to-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.35)]"
+                      ? "bg-gradient-to-t from-rose-500 via-pink-400 to-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.35)]"
                       : h > 45
-                      ? "bg-gradient-to-t from-sky-500 to-emerald-400"
-                      : "bg-gradient-to-t from-sky-600 to-sky-400"
-                    : "bg-slate-800"
+                      ? "bg-gradient-to-t from-rose-500 to-pink-400"
+                      : "bg-gradient-to-t from-rose-600 to-rose-400"
+                    : "bg-stone-800"
                 )}
                 style={{
                   height: `${h}%`,

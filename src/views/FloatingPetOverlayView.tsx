@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback, type FC } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AgentPetSprite } from "@/components/AgentPetSprite";
+import {
+  Terminal,
+  Bot,
+  Code2,
+  MousePointer2,
+  Sparkles,
+  Cpu,
+  Activity,
+  FolderGit2,
+  Zap,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AgentSessionDto {
@@ -90,19 +101,6 @@ export const FloatingPetOverlayView: FC = () => {
       ? "done"
       : "idle";
 
-  // Derive display values matching screenshot: ● π Ui · Working ×5
-  const agentSymbol = topSession
-    ? topSession.agent_kind === "pi"
-      ? "π"
-      : topSession.agent_kind === "claude"
-      ? "CL"
-      : topSession.agent_kind === "codex"
-      ? "CX"
-      : topSession.agent_kind === "cursor"
-      ? "CR"
-      : "AG"
-    : "π";
-
   const projectName = topSession?.project
     ? topSession.project.split("/").filter(Boolean).pop() || "Ui"
     : "Ui";
@@ -118,6 +116,26 @@ export const FloatingPetOverlayView: FC = () => {
     : "Working";
 
   const multiplier = Math.max(1, sessions.length || 5);
+
+  const renderAgentIcon = () => {
+    const kind = (topSession?.agent_kind || "pi").toLowerCase();
+    switch (kind) {
+      case "pi":
+        return <Terminal className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+      case "claude":
+        return <Bot className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+      case "codex":
+        return <Code2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
+      case "cursor":
+        return <MousePointer2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />;
+      case "gemini":
+        return <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />;
+      case "droid":
+        return <Cpu className="w-3.5 h-3.5 text-purple-400 shrink-0" />;
+      default:
+        return <Activity className="w-3.5 h-3.5 text-rose-300 shrink-0" />;
+    }
+  };
 
   const handlePetClick = () => {
     setIsInteracting(true);
@@ -147,7 +165,7 @@ export const FloatingPetOverlayView: FC = () => {
               className={cn(
                 "absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping",
                 mood === "working"
-                  ? "bg-sky-400"
+                  ? "bg-rose-400"
                   : mood === "waiting"
                   ? "bg-amber-400"
                   : "bg-emerald-400"
@@ -157,7 +175,7 @@ export const FloatingPetOverlayView: FC = () => {
               className={cn(
                 "relative inline-flex rounded-full h-2 w-2",
                 mood === "working"
-                  ? "bg-sky-500 shadow-[0_0_6px_#38bdf8]"
+                  ? "bg-rose-500 shadow-[0_0_6px_#fb7185]"
                   : mood === "waiting"
                   ? "bg-amber-500"
                   : "bg-emerald-500"
@@ -165,17 +183,16 @@ export const FloatingPetOverlayView: FC = () => {
             />
           </span>
 
-          {/* Agent Symbol */}
-          <span className="font-bold text-sky-400 font-mono text-[13px] leading-none">
-            {agentSymbol}
-          </span>
+          {/* Agent Symbol Vector Icon from library */}
+          {renderAgentIcon()}
 
           {/* Project Name */}
-          <span className="font-semibold text-slate-200 text-[11px] leading-none truncate max-w-[80px]">
-            {projectName}
+          <span className="flex items-center gap-1 font-semibold text-slate-200 text-[11px] leading-none truncate max-w-[80px]">
+            <FolderGit2 className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="truncate">{projectName}</span>
           </span>
 
-          <span className="text-slate-500 font-bold leading-none">·</span>
+          <span className="w-1 h-1 rounded-full bg-slate-600 shrink-0" />
 
           {/* State Label */}
           <span className="font-semibold text-slate-200 text-[11px] leading-none">
@@ -183,8 +200,9 @@ export const FloatingPetOverlayView: FC = () => {
           </span>
 
           {/* Session / Multiplier Badge */}
-          <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono font-bold text-[9px] leading-none">
-            ×{multiplier}
+          <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono font-bold text-[9px] leading-none flex items-center gap-0.5">
+            <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+            <span>×{multiplier}</span>
           </span>
         </div>
 

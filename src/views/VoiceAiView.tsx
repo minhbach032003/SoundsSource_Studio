@@ -216,13 +216,13 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
       <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0">
         <div className="flex items-center gap-2">
           {user ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-gradient-to-r from-sky-500/10 via-cyan-500/10 to-indigo-500/10 border border-sky-400/25 shadow-sm">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-indigo-500/10 border border-rose-400/25 shadow-sm">
               <GoogleIcon className="w-4 h-4" />
-              <span className="text-xs font-semibold text-slate-100">
+              <span className="text-xs font-semibold text-stone-100">
                 Google Gemini 2.5 Live Voice
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse" />
-              <span className="text-[10px] text-sky-400 font-mono font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399] animate-pulse" />
+              <span className="text-[10px] text-rose-300 font-mono font-medium">
                 ~120ms Latency
               </span>
             </div>
@@ -270,12 +270,12 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
       {/* 2. Fluid 2-Column Responsive Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-5): Interactive Voice Stage & Audio Hardware Controls */}
-        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 rounded-2xl bg-gradient-to-b from-[#141a24] to-[#10141c] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
+        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 rounded-2xl bg-gradient-to-b from-[#201925] via-[#18131c] to-[#0e0a11] border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden h-full min-h-[460px]">
           {/* Top Stage Header: Google Persona Selector */}
           <div className="w-full space-y-2 shrink-0">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-[11px] font-semibold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
                 <span>Voice Persona</span>
               </span>
               <span className="text-[10px] text-slate-500 font-mono">
@@ -297,9 +297,9 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
             <div className="relative flex items-center justify-center w-36 h-36 sm:w-44 sm:h-44">
               {isListening && (
                 <>
-                  <span className="absolute inset-0 rounded-full border border-sky-400/40 animate-ping opacity-60 pointer-events-none" />
-                  <span className="absolute -inset-4 rounded-full border border-sky-400/20 animate-pulse opacity-40 pointer-events-none" />
-                  <span className="absolute -inset-8 rounded-full border border-cyan-400/10 animate-pulse opacity-20 pointer-events-none" />
+                  <span className="absolute inset-0 rounded-full border border-rose-400/40 animate-ping opacity-60 pointer-events-none" />
+                  <span className="absolute -inset-4 rounded-full border border-rose-400/20 animate-pulse opacity-40 pointer-events-none" />
+                  <span className="absolute -inset-8 rounded-full border border-rose-400/10 animate-pulse opacity-20 pointer-events-none" />
                 </>
               )}
 
@@ -309,17 +309,17 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 className={cn(
                   "w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl cursor-pointer z-10 active:scale-95",
                   isListening
-                    ? "bg-gradient-to-tr from-sky-400 via-cyan-300 to-indigo-400 text-slate-950 scale-105 shadow-[0_0_36px_rgba(56,189,248,0.55)]"
+                    ? "bg-gradient-to-tr from-rose-400 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-[0_0_36px_rgba(251,113,133,0.55)]"
                     : status === "speaking"
                     ? "bg-gradient-to-tr from-emerald-400 to-cyan-300 text-slate-950 shadow-[0_0_28px_rgba(16,185,129,0.4)]"
-                    : "bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border border-white/10 hover:border-sky-400/40"
+                    : "bg-[#251e2b] hover:bg-[#2e2636] text-stone-200 border border-white/10 hover:border-rose-400/40"
                 )}
                 title={isListening ? "Click to stop listening" : "Click to speak with AI"}
               >
                 {isListening ? (
-                  <Mic className="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-slate-950 stroke-[2.2]" />
+                  <Mic className="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-stone-950 stroke-[2.2]" />
                 ) : (
-                  <Mic className="w-8 h-8 sm:w-10 sm:h-10 text-sky-400" />
+                  <Mic className="w-8 h-8 sm:w-10 sm:h-10 text-rose-300" />
                 )}
               </button>
             </div>
@@ -366,7 +366,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                   setInputMode(nextMode);
                   showToast("info", `Mode: ${nextMode === "ptt" ? "Push-to-Talk (Space)" : "Voice Activity Detection"}`);
                 }}
-                leftIcon={<Radio className="w-3.5 h-3.5 text-sky-400" />}
+                leftIcon={<Radio className="w-3.5 h-3.5 text-rose-400" />}
                 className="h-8 justify-start px-3"
               >
                 {inputMode === "ptt" ? "Push-to-Talk" : "Hands-Free (VAD)"}
@@ -375,7 +375,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
 
             <div className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-white/5 text-[11px] text-slate-400">
               <div className="flex items-center gap-2">
-                <Volume2 className="w-3.5 h-3.5 text-sky-400" />
+                <Volume2 className="w-3.5 h-3.5 text-rose-400" />
                 <span>Output Stream</span>
               </div>
               <span className="text-slate-300 font-mono text-[10px]">
@@ -386,7 +386,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
         </div>
 
         {/* Right Column (lg:col-span-7): Full Dialogue Stream & Quick Actions Console */}
-        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
+        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
           {/* Header & Quick Action Prompt Chips */}
           <div className="space-y-2.5 pb-3 border-b border-white/5 shrink-0">
             <div className="flex items-center justify-between">
@@ -416,9 +416,9 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 <button
                   key={action.label}
                   onClick={() => handleSendMessage(action.prompt)}
-                  className="px-2.5 py-1 rounded-lg bg-slate-950/70 border border-white/8 hover:border-sky-400/40 hover:bg-slate-900 text-[11px] text-slate-300 hover:text-white transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1.5"
+                  className="px-2.5 py-1 rounded-lg bg-[#18131c] border border-white/8 hover:border-rose-400/40 hover:bg-[#251e2b] text-[11px] text-stone-300 hover:text-white transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1.5"
                 >
-                  <Sliders className="w-3 h-3 text-sky-400" />
+                  <Sliders className="w-3 h-3 text-rose-400" />
                   <span>{action.label}</span>
                 </button>
               ))}

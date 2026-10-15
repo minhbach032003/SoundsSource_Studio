@@ -5,7 +5,7 @@ pub mod server;
 pub mod session;
 pub mod statemap;
 
-pub use care::{PetCareState, PetCareStore, PetHunger, MEAL_XP, TOKENS_PER_XP};
+pub use care::{MEAL_XP, PetCareState, PetCareStore, PetHunger, TOKENS_PER_XP};
 pub use event::{AgentEvent, AgentKind, AgentState, PetMood};
 pub use hooks::{AgentIntegrationInfo, HookManager};
 pub use server::AgentPetServer;
@@ -22,9 +22,16 @@ pub struct PetManager {
 
 impl PetManager {
     pub fn new() -> Self {
-        let care_store = Arc::new(Mutex::new(PetCareStore::new(PetCareStore::default_path())));
+        Self::with_paths(
+            AgentPetServer::default_socket_path(),
+            PetCareStore::default_path(),
+        )
+    }
+
+    pub fn with_paths(socket_path: std::path::PathBuf, care_path: std::path::PathBuf) -> Self {
+        let care_store = Arc::new(Mutex::new(PetCareStore::new(care_path)));
         let sessions = Arc::new(Mutex::new(SessionStore::new()));
-        let server = Arc::new(AgentPetServer::new(AgentPetServer::default_socket_path()));
+        let server = Arc::new(AgentPetServer::new(socket_path));
 
         Self {
             care_store,

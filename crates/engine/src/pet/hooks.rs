@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
 
@@ -92,9 +92,9 @@ const SPECS: &[AgentSpec] = &[
         kind: "pi",
         display_name: "Pi Coding Agent",
         format: HookFormat::PiExtension,
-        rel_path: &[".pi", "agent", "extensions", "agentpet.ts"],
+        rel_path: &[".pi", "agent", "extensions", "rust-sound-pet.ts"],
         events: &[],
-        note: Some("Pi extension (~/.pi/agent/extensions/agentpet.ts)"),
+        note: Some("Pi extension (~/.pi/agent/extensions/rust-sound-pet.ts)"),
     },
     AgentSpec {
         kind: "droid",
@@ -159,7 +159,8 @@ impl HookManager {
                                         if let Some(cmd) =
                                             hook_obj.get("command").and_then(|c| c.as_str())
                                         {
-                                            if cmd.contains("agentpet") || cmd.contains("rust-sound")
+                                            if cmd.contains("agentpet")
+                                                || cmd.contains("rust-sound")
                                             {
                                                 return true;
                                             }
@@ -208,7 +209,10 @@ impl HookManager {
 
     pub fn install(kind: &str) -> Result<(), String> {
         let path = Self::config_path_for(kind).ok_or("Invalid agent kind")?;
-        let spec = SPECS.iter().find(|s| s.kind == kind).ok_or("Agent not found")?;
+        let spec = SPECS
+            .iter()
+            .find(|s| s.kind == kind)
+            .ok_or("Agent not found")?;
 
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
@@ -218,13 +222,13 @@ impl HookManager {
 
         match spec.format {
             HookFormat::PiExtension => {
-                let code = r#"// AgentPet Pi Coding Agent Extension
+                let code = r#"// Rust Sound Pi Coding Agent Extension
+import { createConnection } from "node:net";
 export default function (pi: any) {
-  const socketPath = `${process.env.HOME}/.agentpet/agentpet.sock`;
+  const socketPath = `${process.env.HOME}/.rust-sound/pet.sock`;
   const send = (eventName: string, message?: string) => {
     try {
-      const net = require("net");
-      const client = net.createConnection(socketPath, () => {
+      const client = createConnection(socketPath, () => {
         client.write(JSON.stringify({
           sessionId: `pi-${process.pid}`,
           agentKind: "pi",
@@ -240,8 +244,10 @@ export default function (pi: any) {
   };
 
   pi.on("session_start", () => send("SessionStart"));
-  pi.on("tool_call", (e: any) => send("PreToolUse", e?.tool));
-  pi.on("agent_stop", () => send("Stop"));
+  pi.on("agent_start", () => send("UserPromptSubmit"));
+  pi.on("tool_call", (e: any) => send("PreToolUse", e?.toolName));
+  pi.on("agent_settled", () => send("Stop"));
+  pi.on("session_shutdown", () => send("SessionEnd"));
 }
 "#;
                 fs::write(&path, code).map_err(|e| e.to_string())?;
@@ -272,7 +278,9 @@ export default function (pi: any) {
                                     cmds.iter().any(|c| {
                                         c.get("command")
                                             .and_then(|s| s.as_str())
-                                            .map(|s| s.contains("agentpet") || s.contains("rust-sound"))
+                                            .map(|s| {
+                                                s.contains("agentpet") || s.contains("rust-sound")
+                                            })
                                             .unwrap_or(false)
                                     })
                                 })
@@ -335,7 +343,10 @@ export default function (pi: any) {
 
     pub fn uninstall(kind: &str) -> Result<(), String> {
         let path = Self::config_path_for(kind).ok_or("Invalid agent kind")?;
-        let spec = SPECS.iter().find(|s| s.kind == kind).ok_or("Agent not found")?;
+        let spec = SPECS
+            .iter()
+            .find(|s| s.kind == kind)
+            .ok_or("Agent not found")?;
 
         if !path.exists() {
             return Ok(());
