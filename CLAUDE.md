@@ -31,9 +31,9 @@ System volume/mute/device commands bypass the router entirely and drive CoreAudi
 
 Spec-driven workflow. `openspec/specs/<capability>/spec.md` are the live requirements (SHALL + WHEN/THEN scenarios); `openspec/changes/<name>/` holds in-flight proposals (`proposal.md`, `design.md`, `tasks.md`) that get archived into specs when done. When changing behavior a spec covers, update the spec too.
 
-## Known
+## Required env vars
 
-`NEON_CONNECTION_STRING` and `JWT_SECRET` are hardcoded constants in `crates/app/src/lib.rs`. Treat that connection string as compromised; move both to env/keychain before any release.
+`AuthService` is built from `RUST_SOUND_JWT_SECRET` and `RUST_SOUND_NEON_URL` (`env_secret` in `crates/app/src/lib.rs`), and the app panics at startup if either is missing. Export both before `pnpm tauri dev`. The live-DB test in `crates/app/tests/auth_integration_test.rs` skips itself when `RUST_SOUND_NEON_URL` is unset.
 
 ## Git workflow
 
