@@ -7,6 +7,8 @@ export type BadgeVariant =
   | "playing"
   | "emerald"
   | "coral"
+  | "rose"
+  | "amber"
   | "outline";
 
 export interface BadgeComponentProps extends HTMLAttributes<HTMLSpanElement> {
@@ -17,17 +19,21 @@ export interface BadgeComponentProps extends HTMLAttributes<HTMLSpanElement> {
 
 const BADGE_VARIANTS: Record<BadgeVariant, string> = {
   default:
-    "bg-sky-500/15 text-sky-400 border border-sky-400/25",
+    "bg-[var(--accent)]/15 text-[var(--ink)] border border-[var(--accent)]/40 font-medium",
   secondary:
-    "bg-white/6 text-slate-300 border border-white/8",
+    "bg-[var(--surface)] text-[var(--muted)] border border-[var(--line)]",
   playing:
-    "bg-sky-500/15 text-sky-400 border border-sky-400/30 font-bold uppercase tracking-wider",
+    "bg-[var(--accent)]/20 text-[var(--ink)] border border-[var(--accent)]/50 font-bold uppercase tracking-wider",
   emerald:
-    "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+    "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30",
   coral:
-    "bg-rose-500/15 text-rose-400 border border-rose-500/30",
+    "bg-rose-500/15 text-rose-500 border border-rose-500/30",
+  rose:
+    "bg-[var(--accent)]/15 text-[var(--ink)] border border-[var(--accent)]/30",
+  amber:
+    "bg-amber-500/15 text-amber-500 border border-amber-500/30",
   outline:
-    "bg-transparent text-slate-300 border border-white/10",
+    "bg-transparent text-[var(--muted)] border border-[var(--line)]",
 };
 
 /**

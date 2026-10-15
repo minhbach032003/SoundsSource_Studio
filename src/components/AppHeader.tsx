@@ -10,15 +10,15 @@ interface AppHeaderProps {
 
 export const AppHeader: FC<AppHeaderProps> = ({ onRefresh, isLoading }) => {
   return (
-    <header className="flex items-center justify-between pb-4 border-b border-white/8">
+    <header className="flex items-center justify-between pb-3 border-b border-[var(--line)] bg-[var(--paper)]">
       <div className="flex items-center gap-2.5">
         <AppLogo size="sm" variant="with-wordmark" />
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/4 border border-white/8 text-[10px] text-slate-300 font-medium select-none">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] status-pulse" />
-          <span>Engine Ready</span>
+        <div className="status-indicator">
+          <span className="status-dot"></span>
+          <span className="text-[11px] font-medium text-[var(--success)]">CoreAudio Active</span>
         </div>
 
         <ButtonComponent
@@ -29,7 +29,7 @@ export const AppHeader: FC<AppHeaderProps> = ({ onRefresh, isLoading }) => {
           title="Refresh applications"
           onClick={onRefresh}
           disabled={isLoading}
-          leftIcon={<RefreshCw className={isLoading ? "animate-spin text-sky-400 w-4 h-4" : "text-slate-400 w-4 h-4"} />}
+          leftIcon={<RefreshCw className={isLoading ? "animate-spin text-[var(--accent)] w-4 h-4" : "text-[var(--muted)] w-4 h-4"} />}
         />
       </div>
     </header>

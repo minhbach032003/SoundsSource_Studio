@@ -24,15 +24,15 @@ export interface ButtonComponentProps
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-[#f2a4b8] text-[#191116] font-bold shadow-sm hover:bg-[#f472b6] active:scale-95 border border-rose-300/40 shadow-[0_2px_10px_rgba(242,164,184,0.25)]",
+    "bg-[var(--accent)] text-[var(--accent-ink)] font-bold shadow-sm hover:opacity-90 active:scale-95 border border-[var(--line)]",
   secondary:
-    "bg-[#241e29] text-stone-200 hover:bg-[#2d2533] active:scale-95 border border-white/8",
+    "bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--paper)] active:scale-95 border border-[var(--line)]",
   outline:
-    "border border-white/10 bg-[#1c1822]/80 hover:bg-[#27212f] hover:text-white hover:border-white/20 active:scale-95 text-stone-300",
+    "border border-[var(--input-line)] bg-[var(--paper)] hover:bg-[var(--surface)] hover:text-[var(--ink)] hover:border-[var(--focus)] active:scale-95 text-[var(--ink)]",
   destructive:
-    "bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95 shadow-[0_0_10px_rgba(251,113,133,0.15)]",
-  ghost: "hover:bg-white/6 hover:text-white text-stone-400 active:scale-95",
-  link: "text-rose-400 underline-offset-4 hover:underline p-0 h-auto",
+    "bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95",
+  ghost: "hover:bg-[var(--surface)] hover:text-[var(--ink)] text-[var(--muted)] active:scale-95",
+  link: "text-[var(--accent)] underline-offset-4 hover:underline p-0 h-auto",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

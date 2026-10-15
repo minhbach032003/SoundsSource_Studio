@@ -73,7 +73,7 @@ export const SliderComponent: FC<SliderComponentProps> = ({
       </div>
 
       {showValue && (
-        <output className="min-w-9 text-right text-xs font-semibold text-slate-300 tabular-nums select-none">
+        <output className="min-w-9 text-right text-xs font-mono font-semibold text-[var(--muted)] tabular-nums select-none">
           {localVal}
           {unit}
         </output>

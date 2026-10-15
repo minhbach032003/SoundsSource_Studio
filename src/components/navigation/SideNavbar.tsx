@@ -47,7 +47,7 @@ export const SideNavbar: FC<SideNavbarProps> = ({
 }) => {
   return (
     <aside
-      className="w-16 min-w-[64px] h-screen bg-[#0e1218] border-r border-white/8 flex flex-col items-center justify-between py-4 select-none z-30 shrink-0"
+      className="w-16 min-w-[64px] h-screen bg-[var(--surface)] border-r border-[var(--line)] flex flex-col items-center justify-between py-4 select-none z-30 shrink-0"
       aria-label="App Navigation"
     >
       {/* Top Brand Logo */}
@@ -77,13 +77,13 @@ export const SideNavbar: FC<SideNavbarProps> = ({
                 className={cn(
                   "relative w-11 h-11 rounded-xl flex flex-col items-center justify-center transition-all duration-150 cursor-pointer group",
                   isActive
-                    ? "bg-sky-500/15 text-sky-400 border border-sky-400/35 shadow-[0_0_14px_rgba(56,189,248,0.25)]"
-                    : "text-slate-400 hover:text-slate-100 hover:bg-white/5 border border-transparent"
+                    ? "bg-[var(--paper)] text-[var(--ink)] border border-[var(--line)] shadow-sm font-semibold"
+                    : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--paper)] border border-transparent"
                 )}
               >
                 {isActive && (
                   <span
-                    className="absolute -left-1.5 w-1 h-6 rounded-r-md bg-sky-400 shadow-[0_0_10px_#38bdf8]"
+                    className="absolute -left-1.5 w-1 h-6 rounded-r-md bg-[var(--accent)]"
                     aria-hidden="true"
                   />
                 )}
@@ -101,7 +101,7 @@ export const SideNavbar: FC<SideNavbarProps> = ({
       <div className="flex flex-col items-center gap-3">
         {/* Engine Status Dot */}
         <div
-          className="flex items-center justify-center w-6 h-6 rounded-full bg-white/4 border border-white/8 cursor-help"
+          className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--paper)] border border-[var(--line)] cursor-help"
           title={isEngineReady ? "CoreAudio Engine Active" : "CoreAudio Engine Offline"}
         >
           <span
@@ -109,7 +109,7 @@ export const SideNavbar: FC<SideNavbarProps> = ({
               "w-2 h-2 rounded-full",
               isEngineReady
                 ? "bg-emerald-500 shadow-[0_0_8px_#10b981] status-pulse"
-                : "bg-slate-600"
+                : "bg-slate-400"
             )}
           />
         </div>
@@ -120,8 +120,8 @@ export const SideNavbar: FC<SideNavbarProps> = ({
           className={cn(
             "w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden border transition-all cursor-pointer shadow-sm",
             user
-              ? "border-sky-400/40 hover:scale-105 hover:border-sky-400"
-              : "border-white/10 bg-slate-900/80 text-slate-400 hover:text-white hover:border-white/25"
+              ? "border-[var(--accent)] hover:scale-105"
+              : "border-[var(--line)] bg-[var(--paper)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--focus)]"
           )}
           title={user ? `${user.name} (${user.email})` : "Account & Google Sign In"}
         >
@@ -132,7 +132,7 @@ export const SideNavbar: FC<SideNavbarProps> = ({
               className="w-full h-full object-cover"
             />
           ) : user ? (
-            <span className="text-xs font-bold text-sky-400">
+            <span className="text-xs font-bold text-[var(--accent)]">
               {user.name.slice(0, 1).toUpperCase()}
             </span>
           ) : (

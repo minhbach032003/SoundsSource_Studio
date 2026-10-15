@@ -1,4 +1,5 @@
-import { useState, useEffect, type FC } from "react";
+import { useState, useEffect, useCallback, type FC } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import {
   ButtonComponent,
   BadgeComponent,
@@ -26,6 +27,9 @@ import {
   Terminal,
   FolderGit2,
   Headphones,
+  Plug,
+  Trash2,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,43 @@ interface PetEvent {
   event: string;
   message: string;
   time: string;
+}
+
+export interface PetCareStateDto {
+  xp: number;
+  level: number;
+  display_level: number;
+  progress: number;
+  stage_name: string;
+  stage_index: number;
+  hunger: string;
+  tokens_today: number;
+  meals_today: number;
+  total_tokens: number;
+  total_meals: number;
+  streak_days: number;
+  unlocked_achievements: string[];
+}
+
+export interface AgentSessionDto {
+  id: string;
+  agent_kind: string;
+  state: "registered" | "working" | "waiting" | "done" | "idle";
+  project?: string | null;
+  message?: string | null;
+  model?: string | null;
+  tool_name?: string | null;
+  tool_summary?: string | null;
+  started_at: number;
+  last_event_at: number;
+}
+
+export interface AgentIntegrationDto {
+  kind: string;
+  display_name: string;
+  is_supported: boolean;
+  is_installed: boolean;
+  note?: string | null;
 }
 
 const INITIAL_EVENTS: PetEvent[] = [
@@ -108,16 +149,45 @@ const SPEECH_QUOTES: Record<string, string[]> = {
 
 export const AgentPetView: FC = () => {
   const { showToast } = useToast();
+  const isDesktop =
+    typeof window !== "undefined" &&
+    (isTauri() ||
+      !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
 
-  // Pet State
+  // Live Tamagotchi State from Backend
+  const [careState, setCareState] = useState<PetCareStateDto>({
+    xp: 1850,
+    level: 4,
+    display_level: 3,
+    progress: 0.65,
+    stage_name: "Companion",
+    stage_index: 1,
+    hunger: "full",
+    tokens_today: 42000,
+    meals_today: 3,
+    total_tokens: 154000,
+    total_meals: 12,
+    streak_days: 4,
+    unlocked_achievements: ["firstMeal", "level5"],
+  });
+
+  const [agentSessions, setAgentSessions] = useState<AgentSessionDto[]>([]);
+  const [agentIntegrations, setAgentIntegrations] = useState<AgentIntegrationDto[]>([
+    { kind: "claude", display_name: "Claude Code", is_supported: true, is_installed: false },
+    { kind: "codex", display_name: "Codex", is_supported: true, is_installed: false },
+    { kind: "gemini", display_name: "Gemini CLI", is_supported: true, is_installed: false },
+    { kind: "cursor", display_name: "Cursor", is_supported: true, is_installed: false },
+    { kind: "pi", display_name: "Pi Coding Agent", is_supported: true, is_installed: true },
+    { kind: "droid", display_name: "Factory Droid", is_supported: true, is_installed: false },
+  ]);
+
+  const [rightColumnTab, setRightColumnTab] = useState<"stream" | "sessions" | "integrations">("stream");
+
+  // Pet Visual Selection & Vitals
   const [selectedPet, setSelectedPet] = useState("code-frenzy-cat");
   const [petEnergy, setPetEnergy] = useState(88);
   const [petMood, setPetMood] = useState(94);
   const [petFocus, setPetFocus] = useState(92);
-  const [petHunger, setPetHunger] = useState(76);
-  const [petXP, setPetXP] = useState(1850);
-  const petLevel = 4;
-  const maxXP = 2500;
 
   // Interaction State
   const [isInteracting, setIsInteracting] = useState(false);
@@ -136,6 +206,52 @@ export const AgentPetView: FC = () => {
   // Modal State
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
+  // Periodic polling for real agentpet backend state
+  const fetchPetData = useCallback(async () => {
+    if (!isDesktop) return;
+    try {
+      const [care, sessList, integList] = await Promise.all([
+        invoke<PetCareStateDto>("get_pet_care_state"),
+        invoke<AgentSessionDto[]>("get_agent_sessions"),
+        invoke<AgentIntegrationDto[]>("get_agent_integrations"),
+      ]);
+      if (care) setCareState(care);
+      if (sessList) {
+        setAgentSessions(sessList);
+        if (sessList.length > 0) {
+          const top = sessList[0];
+          const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          setEvents((prev) => {
+            const hasExisting = prev.some(
+              (e) => e.source.includes(top.agent_kind) && e.message === (top.message || top.tool_summary || "")
+            );
+            if (hasExisting) return prev;
+            const newEvt: PetEvent = {
+              id: `${top.id}-${Date.now()}`,
+              category: "coding",
+              source: `${top.agent_kind}:${top.tool_name || top.state}`,
+              event: top.state,
+              message: top.message || top.tool_summary || `Agent task in ${top.project || "workspace"}`,
+              time: timeStr,
+            };
+            return [newEvt, ...prev.slice(0, 19)];
+          });
+        }
+      }
+      if (integList && integList.length > 0) {
+        setAgentIntegrations(integList);
+      }
+    } catch {
+      // Ignore background poll errors
+    }
+  }, [isDesktop]);
+
+  useEffect(() => {
+    fetchPetData();
+    const interval = setInterval(fetchPetData, 2500);
+    return () => clearInterval(interval);
+  }, [fetchPetData]);
+
   // Cycle quotes periodically
   useEffect(() => {
     const interval = setInterval(() => {
@@ -148,11 +264,18 @@ export const AgentPetView: FC = () => {
   const currentQuote = activeQuotes[currentQuoteIndex % activeQuotes.length];
 
   // Action Handlers
-  const handlePet = () => {
+  const handlePet = async () => {
     setIsInteracting(true);
     setInteractionAction("purring");
     setPetMood((prev) => Math.min(100, prev + 6));
-    setPetXP((prev) => Math.min(maxXP, prev + 15));
+    if (isDesktop) {
+      try {
+        const next = await invoke<PetCareStateDto>("feed_pet_action", { action: "pet" });
+        setCareState(next);
+      } catch {}
+    } else {
+      setCareState((prev) => ({ ...prev, xp: prev.xp + 15 }));
+    }
     setCurrentQuoteIndex((prev) => (prev + 1) % activeQuotes.length);
     showToast("success", "Pet companion! Mood boosted (+6%) and gained +15 XP");
     setTimeout(() => {
@@ -161,36 +284,57 @@ export const AgentPetView: FC = () => {
     }, 1000);
   };
 
-  const handleCoffee = () => {
+  const handleCoffee = async () => {
     setIsInteracting(true);
     setInteractionAction("coffee");
     setPetEnergy((prev) => Math.min(100, prev + 12));
     setPetFocus((prev) => Math.min(100, prev + 5));
-    setPetXP((prev) => Math.min(maxXP, prev + 25));
-    showToast("success", "Served Espresso Coffee! Energy (+12%) and Focus boosted");
+    if (isDesktop) {
+      try {
+        const next = await invoke<PetCareStateDto>("feed_pet_action", { action: "coffee" });
+        setCareState(next);
+      } catch {}
+    } else {
+      setCareState((prev) => ({ ...prev, xp: prev.xp + 25 }));
+    }
+    showToast("success", "Served Espresso Coffee! Energy (+12%) and Focus boosted (+25 XP)");
     setTimeout(() => {
       setIsInteracting(false);
       setInteractionAction(null);
     }, 1000);
   };
 
-  const handleTuna = () => {
+  const handleTuna = async () => {
     setIsInteracting(true);
     setInteractionAction("eating");
-    setPetHunger((prev) => Math.min(100, prev + 15));
     setPetMood((prev) => Math.min(100, prev + 4));
-    setPetXP((prev) => Math.min(maxXP, prev + 20));
-    showToast("success", "Tuna treat served! Hunger satisfied and Happy (+15%)");
+    if (isDesktop) {
+      try {
+        const next = await invoke<PetCareStateDto>("feed_pet_action", { action: "tuna" });
+        setCareState(next);
+      } catch {}
+    } else {
+      setCareState((prev) => ({ ...prev, xp: prev.xp + 20, hunger: "full" }));
+    }
+    showToast("success", "Tuna treat served! Hunger satisfied and Happy (+20 XP)");
     setTimeout(() => {
       setIsInteracting(false);
       setInteractionAction(null);
     }, 1000);
   };
 
-  const handleRest = () => {
+  const handleRest = async () => {
     setPetEnergy((prev) => Math.min(100, prev + 20));
     setPetMood((prev) => Math.min(100, prev + 10));
-    showToast("info", "Quick meditation rest taken. Fatigue cleared.");
+    if (isDesktop) {
+      try {
+        const next = await invoke<PetCareStateDto>("feed_pet_action", { action: "rest" });
+        setCareState(next);
+      } catch {}
+    } else {
+      setCareState((prev) => ({ ...prev, xp: prev.xp + 10 }));
+    }
+    showToast("info", "Quick meditation rest taken. Fatigue cleared (+10 XP).");
   };
 
   const handleToggleDesktopOverlay = () => {
@@ -212,22 +356,77 @@ export const AgentPetView: FC = () => {
       id: Date.now().toString(),
       category: "coding",
       source: "pi:test-ping",
-      event: "focus_pulse",
-      message: "Coding pulse received from supervisor session. Companion gained +10 XP!",
+      event: "working",
+      message: "Coding pulse received from agent session. Companion gained +10 XP!",
       time: timeStr,
     };
-    setEvents((prev) => [newEvt, ...prev.slice(0, 9)]);
+    setEvents((prev) => [newEvt, ...prev.slice(0, 19)]);
     setPetFocus((prev) => Math.min(100, prev + 4));
-    setPetXP((prev) => Math.min(maxXP, prev + 10));
+    if (isDesktop) {
+      invoke<PetCareStateDto>("feed_pet_action", { action: "pet" }).then(setCareState).catch(() => {});
+    }
     showToast("success", "Agent ping received! Companion synchronized");
   };
 
-  const handleConfirmReset = () => {
+  const handleToggleHook = async (kind: string, isInstalled: boolean) => {
+    const next = !isInstalled;
+    try {
+      if (isDesktop) {
+        await invoke("toggle_agent_hook", { kind, enabled: next });
+        const updated = await invoke<AgentIntegrationDto[]>("get_agent_integrations");
+        setAgentIntegrations(updated);
+      } else {
+        setAgentIntegrations((prev) =>
+          prev.map((i) => (i.kind === kind ? { ...i, is_installed: next } : i))
+        );
+      }
+      showToast(
+        "success",
+        next ? `Hook installed for ${kind}! Agent events will stream to pet` : `Hook removed for ${kind}`
+      );
+    } catch (e) {
+      showToast("error", `Failed to configure hook: ${String(e)}`);
+    }
+  };
+
+  const handleDismissSession = async (id: string) => {
+    if (isDesktop) {
+      try {
+        await invoke("dismiss_agent_session", { id });
+        setAgentSessions((prev) => prev.filter((s) => s.id !== id));
+      } catch {}
+    } else {
+      setAgentSessions((prev) => prev.filter((s) => s.id !== id));
+    }
+    showToast("info", "Session dismissed from active monitor");
+  };
+
+  const handleConfirmReset = async () => {
+    if (isDesktop) {
+      try {
+        const next = await invoke<PetCareStateDto>("reset_pet_care_state");
+        setCareState(next);
+      } catch {}
+    } else {
+      setCareState({
+        xp: 0,
+        level: 1,
+        display_level: 0,
+        progress: 0,
+        stage_name: "Hatchling",
+        stage_index: 0,
+        hunger: "peckish",
+        tokens_today: 0,
+        meals_today: 0,
+        total_tokens: 0,
+        total_meals: 0,
+        streak_days: 0,
+        unlocked_achievements: [],
+      });
+    }
     setPetEnergy(70);
     setPetMood(75);
     setPetFocus(60);
-    setPetHunger(50);
-    setPetXP(500);
     setIsResetModalOpen(false);
     showToast("info", "Companion progression and vitals reset to defaults.");
   };
@@ -242,17 +441,23 @@ export const AgentPetView: FC = () => {
       <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0 pb-1">
         <div className="flex items-center gap-2.5">
           <BadgeComponent variant="default" className="text-xs px-2.5 py-1 font-semibold">
-            Level {petLevel} · Master Coder
+            Lv {careState.display_level} · {careState.stage_name}
           </BadgeComponent>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/70 border border-white/8 text-[11px] text-slate-300">
             <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
             <span className="font-mono">~/.agentpet/agentpet.sock</span>
           </div>
+          {careState.streak_days > 0 && (
+            <BadgeComponent variant="emerald" className="text-[11px] px-2 py-0.5 font-semibold">
+              <Flame className="w-3 h-3 text-amber-400 inline mr-1" />
+              {careState.streak_days} Day Streak
+            </BadgeComponent>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           <BadgeComponent variant="emerald" dot className="px-2.5 py-1 text-xs font-semibold">
-            IPC Socket Active (1.2ms)
+            IPC Socket Active
           </BadgeComponent>
           <ButtonComponent
             variant="ghost"
@@ -510,24 +715,26 @@ export const AgentPetView: FC = () => {
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <div className="flex items-center gap-1.5 text-slate-200 font-semibold text-[11px]">
                   <Award className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>XP Progression</span>
+                  <span>XP Progression ({careState.stage_name})</span>
                 </div>
                 <span className="text-[11px] font-semibold text-sky-400 tabular-nums">
-                  {petXP} / {maxXP} XP
+                  {careState.xp.toLocaleString()} Total XP
                 </span>
               </div>
               <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-300"
-                  style={{ width: `${(petXP / maxXP) * 100}%` }}
+                  style={{ width: `${Math.max(5, Math.min(100, Math.round(careState.progress * 100)))}%` }}
                 />
               </div>
               <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/5 text-[10px] text-slate-400">
                 <span className="flex items-center gap-1">
                   <Headphones className="w-3 h-3 text-sky-400" />
-                  Active Perk: Auto-Duck Audio Aura
+                  Burned Today: {careState.tokens_today.toLocaleString()} tokens
                 </span>
-                <span className="text-emerald-400 font-medium">+15 XP / Git Commit</span>
+                <span className="text-emerald-400 font-medium">
+                  {careState.meals_today} sessions completed today
+                </span>
               </div>
             </div>
 
@@ -591,12 +798,22 @@ export const AgentPetView: FC = () => {
                     <Fish className="w-3 h-3 text-emerald-400" />
                     Hunger
                   </span>
-                  <span className="font-semibold text-slate-200 tabular-nums">{petHunger}%</span>
+                  <span className="font-semibold text-emerald-400 capitalize text-[10px]">
+                    {careState.hunger}
+                  </span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-300 rounded-full transition-all duration-300"
-                    style={{ width: `${petHunger}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-all duration-300",
+                      careState.hunger === "full"
+                        ? "w-full bg-emerald-400"
+                        : careState.hunger === "satisfied"
+                        ? "w-3/4 bg-emerald-500"
+                        : careState.hunger === "peckish"
+                        ? "w-1/2 bg-amber-400"
+                        : "w-1/4 bg-rose-500"
+                    )}
                   />
                 </div>
               </div>
@@ -734,83 +951,254 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* Live Activity Console (Takes Remaining Height) */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[260px]">
-            {/* Console Header */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-3.5 h-3.5 text-sky-400" />
-                <span className="text-xs font-semibold text-slate-200 tracking-tight">
-                  Live Activity Stream
-                </span>
-              </div>
-
-              <ButtonComponent
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] px-2.5 text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
-                onClick={handleSimulatePing}
-                leftIcon={<Send className="w-3 h-3 text-sky-400" />}
-              >
-                Test Ping
-              </ButtonComponent>
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1 mb-3 p-1 rounded-xl bg-slate-950/60 border border-white/6 shrink-0">
-              {(["all", "coding", "audio", "vitals"] as const).map((cat) => (
+          <div className="flex-1 flex flex-col rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[300px]">
+            {/* Console Navigation Tabs */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0 gap-2 flex-wrap">
+              <div className="flex items-center gap-1 p-0.5 bg-slate-950/80 border border-white/6 rounded-lg">
                 <button
-                  key={cat}
-                  onClick={() => setFeedFilter(cat)}
+                  type="button"
+                  onClick={() => setRightColumnTab("stream")}
                   className={cn(
-                    "flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all capitalize cursor-pointer",
-                    feedFilter === cat
-                      ? "bg-slate-800 text-sky-300 shadow-sm border border-white/5"
+                    "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    rightColumnTab === "stream"
+                      ? "bg-slate-800 text-sky-300 shadow-sm"
                       : "text-slate-400 hover:text-slate-200"
                   )}
                 >
-                  {cat === "all" ? "All" : cat}
+                  <Terminal className="w-3.5 h-3.5" />
+                  Activity Stream
                 </button>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => setRightColumnTab("sessions")}
+                  className={cn(
+                    "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    rightColumnTab === "sessions"
+                      ? "bg-slate-800 text-sky-300 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <Bot className="w-3.5 h-3.5 text-emerald-400" />
+                  Active Sessions
+                  {agentSessions.length > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] flex items-center justify-center font-bold">
+                      {agentSessions.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRightColumnTab("integrations")}
+                  className={cn(
+                    "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    rightColumnTab === "integrations"
+                      ? "bg-slate-800 text-sky-300 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  <Plug className="w-3.5 h-3.5 text-purple-400" />
+                  Agent Hooks
+                </button>
+              </div>
+
+              {rightColumnTab === "stream" && (
+                <ButtonComponent
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] px-2.5 text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
+                  onClick={handleSimulatePing}
+                  leftIcon={<Send className="w-3 h-3 text-sky-400" />}
+                >
+                  Test Ping
+                </ButtonComponent>
+              )}
             </div>
 
-            {/* Event List Items */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
-              {filteredEvents.map((evt) => (
-                <div
-                  key={evt.id}
-                  className="p-2.5 rounded-xl bg-slate-950/60 border border-white/6 flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-white/12"
-                >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="font-semibold text-slate-200 text-[11px] truncate">
-                          {evt.source}
-                        </span>
-                        <BadgeComponent
-                          variant={
-                            evt.category === "coding"
-                              ? "default"
-                              : evt.category === "audio"
-                              ? "emerald"
-                              : "secondary"
-                          }
-                          className="px-1.5 py-0 text-[9px] uppercase tracking-wider"
-                        >
-                          {evt.event}
-                        </BadgeComponent>
-                      </div>
-                      <p className="text-slate-400 text-[11px] m-0 line-clamp-2 leading-relaxed">
-                        {evt.message}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-slate-500 whitespace-nowrap tabular-nums">
-                    {evt.time}
-                  </span>
+            {/* TAB 1: ACTIVITY STREAM */}
+            {rightColumnTab === "stream" && (
+              <>
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1 mb-3 p-1 rounded-xl bg-slate-950/60 border border-white/6 shrink-0">
+                  {(["all", "coding", "audio", "vitals"] as const).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFeedFilter(cat)}
+                      className={cn(
+                        "flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all capitalize cursor-pointer",
+                        feedFilter === cat
+                          ? "bg-slate-800 text-sky-300 shadow-sm border border-white/5"
+                          : "text-slate-400 hover:text-slate-200"
+                      )}
+                    >
+                      {cat === "all" ? "All" : cat}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                {/* Event List Items */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
+                  {filteredEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="p-2.5 rounded-xl bg-slate-950/60 border border-white/6 flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-white/12"
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="font-semibold text-slate-200 text-[11px] truncate">
+                              {evt.source}
+                            </span>
+                            <BadgeComponent
+                              variant={
+                                evt.category === "coding"
+                                  ? "default"
+                                  : evt.category === "audio"
+                                  ? "emerald"
+                                  : "secondary"
+                              }
+                              className="px-1.5 py-0 text-[9px] uppercase tracking-wider"
+                            >
+                              {evt.event}
+                            </BadgeComponent>
+                          </div>
+                          <p className="text-slate-400 text-[11px] m-0 line-clamp-2 leading-relaxed">
+                            {evt.message}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 whitespace-nowrap tabular-nums">
+                        {evt.time}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* TAB 2: ACTIVE AGENT SESSIONS */}
+            {rightColumnTab === "sessions" && (
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
+                {agentSessions.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-6 text-center text-slate-500">
+                    <Bot className="w-8 h-8 mb-2 opacity-30 text-sky-400" />
+                    <span className="text-xs font-semibold text-slate-300">No active coding sessions</span>
+                    <span className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                      Run Claude Code, Codex, or Cursor in your terminal. Live work will automatically stream here via ~/.agentpet/agentpet.sock
+                    </span>
+                  </div>
+                ) : (
+                  agentSessions.map((sess: AgentSessionDto) => (
+                    <div
+                      key={sess.id}
+                      className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-white/12"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-slate-200 text-xs capitalize">
+                            {sess.agent_kind}
+                          </span>
+                          <BadgeComponent
+                            variant={
+                              sess.state === "working"
+                                ? "emerald"
+                                : sess.state === "waiting"
+                                ? "coral"
+                                : "default"
+                            }
+                            className="px-1.5 py-0 text-[9px] uppercase font-bold"
+                          >
+                            {sess.state}
+                          </BadgeComponent>
+                          {sess.model && (
+                            <span className="text-[10px] text-slate-400 font-mono truncate">
+                              {sess.model}
+                            </span>
+                          )}
+                        </div>
+                        {sess.project && (
+                          <div className="text-[11px] text-sky-400 font-mono truncate flex items-center gap-1">
+                            <FolderGit2 className="w-3 h-3 shrink-0" />
+                            {sess.project}
+                          </div>
+                        )}
+                        {(sess.tool_name || sess.tool_summary || sess.message) && (
+                          <div className="text-[11px] text-slate-300 font-mono bg-slate-900/80 px-2 py-1 rounded mt-1.5 truncate border border-white/5">
+                            ⚙️ {sess.tool_name ? `${sess.tool_name}: ` : ""}
+                            {sess.tool_summary || sess.message || "Working"}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDismissSession(sess.id)}
+                        className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                        title="Dismiss session"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: AGENT HOOK INTEGRATIONS */}
+            {rightColumnTab === "integrations" && (
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
+                <div className="p-2.5 rounded-xl bg-slate-950/40 border border-white/5 text-[11px] text-slate-400 mb-2">
+                  1-Click configure hooks into your local developer tools. Lifecycle events will automatically stream into this AgentPet companion.
+                </div>
+
+                {agentIntegrations.map((agent: AgentIntegrationDto) => (
+                  <div
+                    key={agent.kind}
+                    className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex items-center justify-between gap-3 text-xs transition-colors hover:border-white/12"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200 text-xs">
+                          {agent.display_name}
+                        </span>
+                        {agent.is_installed ? (
+                          <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Hooked
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 bg-slate-800/40 px-1.5 py-0.2 rounded border border-white/5">
+                            Inactive
+                          </span>
+                        )}
+                      </div>
+                      {agent.note && (
+                        <p className="text-[10px] text-slate-400 m-0 mt-0.5">{agent.note}</p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={agent.is_installed}
+                      onClick={() => handleToggleHook(agent.kind, agent.is_installed)}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        agent.is_installed ? "bg-emerald-500" : "bg-slate-700"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                          agent.is_installed ? "translate-x-4" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

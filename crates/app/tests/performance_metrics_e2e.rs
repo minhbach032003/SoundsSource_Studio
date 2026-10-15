@@ -1,6 +1,6 @@
 use rust_sound_lib::core::{get_memory_info, trim_memory_cache};
 use rust_sound_lib::{
-    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, PresetStore, AuthService,
+    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, PresetStore, AuthService, PetManager,
 };
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,12 +28,14 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
     let router = AudioRouter::new(48000.0);
     let timer = BreakTimerManager::default();
     let auth = AuthService::new("secret", "mock_conn");
+    let pet = PetManager::new();
 
     let state = AppState {
         router: Mutex::new(router),
         preset_store: Mutex::new(store),
         timer: Mutex::new(timer),
         auth,
+        pet,
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };

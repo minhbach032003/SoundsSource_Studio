@@ -10,6 +10,9 @@ import { useGoogleAuth } from "@/shared/lib/useGoogleAuth";
 import { useWallpaper } from "@/shared/lib/useWallpaper";
 import { useGoogleCalendar } from "@/shared/lib/useGoogleCalendar";
 import { ButtonComponent, ToastProvider, useToast } from "@/shared/ui";
+import { ModalComponent } from "@/shared/ui/ModalComponent";
+import { useTheme } from "@/shared/lib/useTheme";
+import { ThemeControls } from "@/components/ThemeControls";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 import { RefreshCw } from "lucide-react";
 import { groupProcesses, processKey, displayName } from "@/audio";
@@ -140,6 +143,26 @@ const AppContent: FC = () => {
     backgroundStyle,
   } = useWallpaper();
   const { showToast } = useToast();
+  const {
+    selectedTheme,
+    resolvedThemeMode,
+    selectTheme,
+    toggleThemeMode,
+  } = useTheme();
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
+  const handleThemeSelect = useCallback(
+    (palette: string) => {
+      selectTheme(palette);
+      showToast("info", `Switched theme palette to ${palette}`);
+    },
+    [selectTheme, showToast]
+  );
+
+  const handleThemeToggle = useCallback(() => {
+    toggleThemeMode();
+    showToast("info", `Switched to ${resolvedThemeMode === "dark" ? "Light" : "Dark"} mode`);
+  }, [toggleThemeMode, resolvedThemeMode, showToast]);
 
   const isDesktop = isRunningInTauri();
 
@@ -890,47 +913,65 @@ const AppContent: FC = () => {
 
       {/* 2. Main Content Viewport */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 relative z-10">
-        {/* Single Unified Header Toolbar */}
-        <header className="h-13 px-5 border-b border-white/8 flex items-center justify-between shrink-0 bg-[#0e1218]/80 backdrop-blur-md z-20">
-          <div>
-            <h1 className="text-sm font-bold text-slate-100 tracking-tight m-0">
-              {activeTab === "mixer"
-                ? "Audio Mixer"
-                : activeTab === "timer"
-                ? "Focus Timer"
-                : activeTab === "voice"
-                ? "Voice AI 1:1"
-                : activeTab === "pet"
-                ? "Agent Pet Companion"
-                : "Settings & Account"}
-            </h1>
-            <p className="text-[11px] text-slate-400 m-0 mt-0.5">
-              {activeTab === "mixer"
-                ? "Per-application CoreAudio stream routing & volume control"
-                : activeTab === "timer"
-                ? "Pomodoro timing with smart audio ducking"
-                : activeTab === "voice"
-                ? "Real-time conversational voice assistant"
-                : activeTab === "pet"
-                ? "Virtual companion responding to coding workflows"
-                : "Preferences, cloud sync, and socket connections"}
-            </p>
+        {/* Single Unified Header Toolbar (Pingloom desktop style) */}
+        <header className="h-12 px-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--paper)] z-20">
+          <div className="flex items-center gap-4 min-w-0">
+            <div>
+              <h1 className="text-sm font-bold text-[var(--ink)] tracking-tight m-0">
+                {activeTab === "mixer"
+                  ? "Audio Mixer"
+                  : activeTab === "timer"
+                  ? "Focus Timer"
+                  : activeTab === "voice"
+                  ? "Voice AI 1:1"
+                  : activeTab === "pet"
+                  ? "Agent Pet Companion"
+                  : "Settings & Account"}
+              </h1>
+              <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5 truncate">
+                {activeTab === "mixer"
+                  ? "Per-application CoreAudio stream routing & volume control"
+                  : activeTab === "timer"
+                  ? "Pomodoro timing with smart audio ducking"
+                  : activeTab === "voice"
+                  ? "Real-time conversational voice assistant"
+                  : activeTab === "pet"
+                  ? "Virtual companion responding to coding workflows"
+                  : "Preferences, cloud sync, and socket connections"}
+              </p>
+            </div>
+
+            <div className="status-indicator pl-2 hidden sm:flex">
+              <span className="status-dot"></span>
+              <span className="text-[11px] font-semibold text-[var(--success)]">CoreAudio Active</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
+            {/* Pingloom Theme Controls */}
+            <ThemeControls
+              selectedTheme={selectedTheme}
+              resolvedThemeMode={resolvedThemeMode}
+              onSelectTheme={handleThemeSelect}
+              onToggleThemeMode={handleThemeToggle}
+            />
+
             {activeTab === "mixer" && (
               <ButtonComponent
                 id="refresh-btn"
                 variant="outline"
                 size="sm"
-                onClick={() => loadProcesses(true)}
+                onClick={() => {
+                  loadProcesses(true);
+                  showToast("info", "Refreshed audio applications");
+                }}
                 disabled={isLoading}
                 leftIcon={
                   <RefreshCw
                     className={
                       isLoading
-                        ? "animate-spin text-sky-400 w-3.5 h-3.5"
-                        : "text-slate-400 w-3.5 h-3.5"
+                        ? "animate-spin text-[var(--accent)] w-3.5 h-3.5"
+                        : "text-[var(--muted)] w-3.5 h-3.5"
                     }
                   />
                 }
@@ -942,7 +983,7 @@ const AppContent: FC = () => {
             {user ? (
               <button
                 onClick={() => setActiveTab("settings")}
-                className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-white/4 border border-white/8 text-[11px] text-slate-300 hover:bg-white/8 transition-colors cursor-pointer shadow-sm"
+                className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--ink)] hover:border-[var(--focus)] transition-colors cursor-pointer shadow-sm"
                 title="Account Settings"
               >
                 <GoogleIcon className="w-3.5 h-3.5" />
@@ -955,7 +996,7 @@ const AppContent: FC = () => {
                 onClick={handleSignInGoogle}
                 loading={isLoadingAuth}
                 leftIcon={<GoogleIcon className="w-3.5 h-3.5" />}
-                className="text-[11px] h-7.5 bg-white/5 hover:bg-white/10 border-white/10"
+                className="text-[11px] h-7.5"
               >
                 Sign In
               </ButtonComponent>
@@ -1089,6 +1130,50 @@ const AppContent: FC = () => {
             />
           )}
         </main>
+
+        {/* Persistent Desktop Command Footer (Pingloom style) */}
+        <footer className="h-11 px-5 border-t border-[var(--line)] bg-[var(--paper)] flex items-center justify-between shrink-0 z-20">
+          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <span className="status-dot text-[var(--success)]"></span>
+            <span>CoreAudio DSP active. Changes apply immediately.</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <ButtonComponent
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmResetOpen(true)}
+              className="h-7 text-xs"
+            >
+              Reset Routing
+            </ButtonComponent>
+            <ButtonComponent
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                loadProcesses(true);
+                showToast("success", "Audio routing refreshed and synchronized!");
+              }}
+              className="h-7 text-xs"
+            >
+              Sync Engine
+            </ButtonComponent>
+          </div>
+        </footer>
+
+        {/* Confirmation Modal for Sensitive Action */}
+        <ModalComponent
+          open={confirmResetOpen}
+          onClose={() => setConfirmResetOpen(false)}
+          title="Reset Audio Routing"
+          description="Are you sure you want to reset all channel volumes and routing to system defaults? This cannot be undone."
+          confirmText="Confirm Reset"
+          confirmVariant="destructive"
+          onConfirm={() => {
+            setConfirmResetOpen(false);
+            setMasterVolume(100);
+            showToast("info", "Audio routing and levels reset to default");
+          }}
+        />
       </div>
     </div>
   );

@@ -13,9 +13,10 @@ pub use core::{
     ProcessTap, RingBuffer,
 };
 pub use engine::{
-    AppAudioChannel, AppAudioSettings, AudioDevice, AudioRouter, AuthService, AuthenticatedUser,
-    BreakTimerManager, ChannelStateDto, EQBandConfig, ParametricEQ, Pkce, PkceChallenge,
-    Preset, PresetStore, TimerPhase, TimerStatus, TodoItem, User, DEFAULT_EQ_FREQUENCIES,
+    AgentIntegrationInfo, AgentSession, AppAudioChannel, AppAudioSettings, AudioDevice,
+    AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager, ChannelStateDto,
+    EQBandConfig, ParametricEQ, PetCareState, PetManager, Pkce, PkceChallenge, Preset,
+    PresetStore, TimerPhase, TimerStatus, TodoItem, User, DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
@@ -23,8 +24,88 @@ pub struct AppState {
     pub preset_store: Mutex<PresetStore>,
     pub timer: Mutex<BreakTimerManager>,
     pub auth: AuthService,
+    pub pet: PetManager,
     pub start_time: Instant,
     pub background_mode: AtomicBool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct PetCareStateDto {
+    pub xp: u64,
+    pub level: u32,
+    pub display_level: u32,
+    pub progress: f64,
+    pub stage_name: String,
+    pub stage_index: usize,
+    pub hunger: String,
+    pub tokens_today: u64,
+    pub meals_today: u32,
+    pub total_tokens: u64,
+    pub total_meals: u32,
+    pub streak_days: u32,
+    pub unlocked_achievements: Vec<String>,
+}
+
+impl From<PetCareState> for PetCareStateDto {
+    fn from(s: PetCareState) -> Self {
+        let now_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let hunger = s.hunger(now_ts).as_str().to_string();
+        Self {
+            xp: s.xp,
+            level: s.level(),
+            display_level: s.display_level(),
+            progress: s.progress(),
+            stage_name: s.stage_name().to_string(),
+            stage_index: s.stage_index(),
+            hunger,
+            tokens_today: s.tokens_today,
+            meals_today: s.meals_today,
+            total_tokens: s.total_tokens,
+            total_meals: s.total_meals,
+            streak_days: s.streak_days,
+            unlocked_achievements: s.unlocked_achievements.into_iter().collect(),
+        }
+    }
+}
+
+// MARK: - AgentPet Companion Commands
+
+#[tauri::command]
+fn get_pet_care_state(state: State<'_, AppState>) -> PetCareStateDto {
+    state.pet.get_care_state().into()
+}
+
+#[tauri::command]
+fn feed_pet_action(action: String, state: State<'_, AppState>) -> PetCareStateDto {
+    state.pet.apply_care_action(&action).into()
+}
+
+#[tauri::command]
+fn reset_pet_care_state(state: State<'_, AppState>) -> PetCareStateDto {
+    state.pet.reset_care_state().into()
+}
+
+#[tauri::command]
+fn get_agent_sessions(state: State<'_, AppState>) -> Vec<AgentSession> {
+    state.pet.get_sessions()
+}
+
+#[tauri::command]
+fn dismiss_agent_session(id: String, state: State<'_, AppState>) {
+    state.pet.dismiss_session(&id);
+}
+
+#[tauri::command]
+fn get_agent_integrations(state: State<'_, AppState>) -> Vec<AgentIntegrationInfo> {
+    state.pet.get_integrations()
+}
+
+#[tauri::command]
+fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    state.pet.toggle_hook(&kind, enabled)
 }
 
 fn env_secret(key: &str) -> String {
@@ -495,12 +576,15 @@ pub fn run() {
     let router = AudioRouter::new(48000.0);
     let timer = BreakTimerManager::default();
     let auth = AuthService::new(env_secret("RUST_SOUND_JWT_SECRET"), env_secret("RUST_SOUND_NEON_URL"));
+    let pet = PetManager::new();
+    pet.start_daemon();
 
     let state = AppState {
         router: Mutex::new(router),
         preset_store: Mutex::new(preset_store),
         timer: Mutex::new(timer),
         auth,
+        pet,
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };
@@ -553,7 +637,14 @@ pub fn run() {
             auth_pkce_verify,
             auth_validate_token,
             auth_logout,
-            auth_get_db_connection_status
+            auth_get_db_connection_status,
+            get_pet_care_state,
+            feed_pet_action,
+            reset_pet_care_state,
+            get_agent_sessions,
+            dismiss_agent_session,
+            get_agent_integrations,
+            toggle_agent_hook
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

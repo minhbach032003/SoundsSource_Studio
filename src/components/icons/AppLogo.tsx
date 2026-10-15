@@ -34,9 +34,9 @@ export const AppLogo: FC<AppLogoProps> = ({
     <div
       className={cn(
         "relative rounded-xl flex items-center justify-center p-1.5 overflow-hidden transition-all duration-300 select-none group",
-        "bg-gradient-to-b from-[#131b29] via-[#0e1420] to-[#080d15]",
-        "border border-white/14 shadow-[0_4px_18px_rgba(56,189,248,0.22)]",
-        "hover:border-sky-400/40 hover:shadow-[0_6px_24px_rgba(56,189,248,0.35)]",
+        "bg-gradient-to-b from-[#201825] via-[#18131c] to-[#0f0b12]",
+        "border border-white/14 shadow-[0_4px_18px_rgba(251,113,133,0.22)]",
+        "hover:border-rose-400/40 hover:shadow-[0_6px_24px_rgba(251,113,133,0.35)]",
         config.container,
         className
       )}
@@ -45,7 +45,7 @@ export const AppLogo: FC<AppLogoProps> = ({
       <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
 
       {/* Ambient Radial Sonic Glow */}
-      <div className="absolute inset-0 bg-radial from-sky-400/25 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className="absolute inset-0 bg-radial from-rose-400/25 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
       {/* Vector Brandmark SVG */}
       <svg
@@ -55,6 +55,13 @@ export const AppLogo: FC<AppLogoProps> = ({
         className={cn("w-full h-full relative z-10", animated && "animate-pulse")}
       >
         <defs>
+          {/* Pastel Rose to Coral Gradient */}
+          <linearGradient id="sonicRose" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#f472b6" />
+            <stop offset="50%" stopColor="#fb7185" />
+            <stop offset="100%" stopColor="#f2a4b8" />
+          </linearGradient>
+
           {/* Electric Sky to Cyan Gradient */}
           <linearGradient id="sonicSky" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#38bdf8" />
@@ -64,14 +71,8 @@ export const AppLogo: FC<AppLogoProps> = ({
 
           {/* Indigo to Violet Gradient */}
           <linearGradient id="sonicViolet" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#818cf8" />
-            <stop offset="100%" stopColor="#6366f1" />
-          </linearGradient>
-
-          {/* Emerald Acoustic Gradient */}
-          <linearGradient id="sonicTeal" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#059669" />
+            <stop offset="0%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#818cf8" />
           </linearGradient>
 
           {/* Core Specular Glow Filter */}
@@ -89,36 +90,36 @@ export const AppLogo: FC<AppLogoProps> = ({
           cx="18"
           cy="18"
           r="15"
-          stroke="url(#sonicSky)"
+          stroke="url(#sonicRose)"
           strokeWidth="1.2"
           strokeDasharray="2.5 2"
-          opacity="0.35"
+          opacity="0.4"
         />
 
         {/* Dynamic Harmonic Sound Waves radiating from core */}
         {/* Left acoustic arc */}
         <path
           d="M 10 11 A 10 10 0 0 0 10 25"
-          stroke="url(#sonicSky)"
+          stroke="url(#sonicRose)"
           strokeWidth="2"
           strokeLinecap="round"
-          opacity="0.65"
+          opacity="0.7"
         />
 
         {/* Right acoustic arc */}
         <path
           d="M 26 11 A 10 10 0 0 1 26 25"
-          stroke="url(#sonicViolet)"
+          stroke="url(#sonicSky)"
           strokeWidth="2"
           strokeLinecap="round"
-          opacity="0.65"
+          opacity="0.7"
         />
 
         {/* Signature 'S' Continuous SoundWave Ribbon */}
         {/* Upper S-Curve loop */}
         <path
           d="M 23 11 C 23 7, 13 7, 13 13 C 13 18, 23 18, 23 23 C 23 29, 13 29, 13 25"
-          stroke="url(#sonicSky)"
+          stroke="url(#sonicRose)"
           strokeWidth="3.2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -127,7 +128,7 @@ export const AppLogo: FC<AppLogoProps> = ({
 
         {/* Center Studio Phase Driver Node */}
         <circle cx="18" cy="18" r="2.2" fill="#ffffff" filter="url(#irisGlow)" />
-        <circle cx="18" cy="18" r="4.2" stroke="url(#sonicTeal)" strokeWidth="1.2" opacity="0.8" />
+        <circle cx="18" cy="18" r="4.2" stroke="url(#sonicViolet)" strokeWidth="1.2" opacity="0.85" />
       </svg>
     </div>
   );
@@ -141,19 +142,19 @@ export const AppLogo: FC<AppLogoProps> = ({
       {Emblem}
       <div className="flex flex-col">
         <div className="flex items-center gap-1.5 leading-none">
-          <span className={cn("font-bold tracking-tight text-white font-sans", config.text)}>
-            SOUNDS<span className="text-sky-400 font-extrabold">SOURCE</span>
+          <span className={cn("font-bold tracking-tight text-white font-heading", config.text)}>
+            SOUNDS<span className="text-[#f472b6] font-extrabold">SOURCE</span>
           </span>
           <span
             className={cn(
-              "font-mono font-semibold uppercase tracking-widest text-slate-300 bg-white/6 px-1.5 py-0.5 rounded border border-white/8",
+              "font-mono font-semibold uppercase tracking-widest text-stone-300 bg-white/6 px-1.5 py-0.5 rounded border border-white/8",
               config.badge
             )}
           >
             RUST
           </span>
         </div>
-        <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5">
+        <span className="text-[10px] text-stone-400 font-medium tracking-wide mt-0.5">
           macOS CoreAudio & AI Studio Hub
         </span>
       </div>

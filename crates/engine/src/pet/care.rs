@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local, Utc};
+use chrono::{Datelike, Local};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
