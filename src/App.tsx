@@ -137,6 +137,8 @@ const AppContent: FC = () => {
   const {
     wallpaper,
     setPreset: setWallpaperPreset,
+    activateCustomImage: activateCustomWallpaper,
+    removeCustomImage: removeCustomWallpaper,
     setDim: setWallpaperDim,
     setBlur: setWallpaperBlur,
     resetToDefault: resetWallpaperToDefault,
@@ -884,7 +886,7 @@ const AppContent: FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0b0f14] text-slate-100 font-sans overflow-hidden relative">
+    <div className="flex h-screen bg-[#131115] text-stone-100 font-sans overflow-hidden relative">
       {/* 0. Ambient Background Wallpaper Layer */}
       <div
         className="fixed inset-0 pointer-events-none z-0 transition-all duration-700 ease-out origin-center"
@@ -896,7 +898,7 @@ const AppContent: FC = () => {
       />
       {/* Dynamic Contrast Dimming Overlay */}
       <div
-        className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500 ease-out bg-[#0b0f14]"
+        className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500 ease-out bg-[#131115]"
         style={{
           opacity: wallpaper.dim,
         }}
@@ -1110,6 +1112,14 @@ const AppContent: FC = () => {
               onSetWallpaperPreset={(id) => {
                 setWallpaperPreset(id);
                 showToast("success", `Wallpaper preset applied: ${id}`);
+              }}
+              onActivateCustomWallpaper={() => {
+                activateCustomWallpaper();
+                showToast("success", "Custom wallpaper activated!");
+              }}
+              onRemoveCustomWallpaper={() => {
+                removeCustomWallpaper();
+                showToast("info", "Custom wallpaper removed");
               }}
               onSetWallpaperDim={(dim) => {
                 setWallpaperDim(dim);

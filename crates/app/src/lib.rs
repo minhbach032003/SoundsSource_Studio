@@ -136,7 +136,19 @@ fn open_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
     .build()
     .map_err(|e| format!("Failed to create pet overlay window: {e}"))?;
 
+    // Anchor near bottom-right of primary monitor
+    if let Ok(Some(mon)) = app.primary_monitor() {
+        let sz = mon.size();
+        let scale = mon.scale_factor();
+        let screen_w = sz.width as f64 / scale;
+        let screen_h = sz.height as f64 / scale;
+        let x = (screen_w - 260.0).max(20.0);
+        let y = (screen_h - 300.0).max(20.0);
+        let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+    }
+
     let _ = win.show();
+    let _ = win.set_focus();
     Ok(true)
 }
 
@@ -793,6 +805,14 @@ pub fn run() {
                     }
                 }
             }
+
+            // Auto-launch desktop floating pet overlay on startup
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let _ = open_pet_overlay(app_handle);
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())

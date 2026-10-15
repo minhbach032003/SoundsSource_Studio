@@ -45,8 +45,8 @@ git add -A && git commit -m "feat: <what changed>" && git push
 
 Commit messages follow the conventional prefixes already in the history (`feat:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
 
-## UI conventions
+## UI conventions & Vector Icon Standard
 
-No emoji as icons — not in UI strings, labels, badges, data tables, commit messages or console output. Use `lucide-react` (already a dependency) for any icon, or an inline SVG when lucide has no match.
+**STRICT RULE — NO UNICODE EMOJIS AS ICONS:**
+Never use unicode emoji characters (e.g. 💖, 🐝, 😡, 👍, 💯, 💪, 💀, 🎙️, ⚠️, 🎯, etc.) as UI icons, labels, badges, data tables, commit messages, or console output. Always use `lucide-react` (bundled in dependencies) or clean inline SVG components with theme-aware styling. All previous emoji violations in `src/lib/pingloom.ts`, `src/components/AudioBuses.tsx`, and `src/views/AgentPetView.tsx` have been eliminated and must never be reintroduced.
 
-Existing violations to replace when touching these files: `src/lib/pingloom.ts` (43 emoji badges), `src/components/AudioBuses.tsx`, `src/views/TimerView.tsx`, `src/views/AgentPetView.tsx`.

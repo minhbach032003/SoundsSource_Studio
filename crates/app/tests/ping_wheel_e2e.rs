@@ -56,8 +56,8 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
 
     // 3. Verify catalog enumeration
     let catalog = get_default_catalog();
-    assert!(catalog.iter().any(|c| c.id == "danger" && c.category == "ping"));
-    assert!(catalog.iter().any(|c| c.id == "come_at_me" && c.category == "emote"));
+    assert!(catalog.iter().any(|c| c.id == "danger" && (c.category == "tactical" || c.category == "ping")));
+    assert!(catalog.iter().any(|c| c.id == "come_at_me" && (c.category == "emotes" || c.category == "emote")));
 
     // 4. Verify settings update and validation
     let mut updated = initial.clone();

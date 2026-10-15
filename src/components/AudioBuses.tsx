@@ -104,7 +104,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       // AudioContext fallback
     }
 
-    onToast?.("Playing macOS alert chime test 🔔");
+    onToast?.("Playing macOS alert chime test");
     setTimeout(() => setIsPlayingChime(false), 500);
   };
 

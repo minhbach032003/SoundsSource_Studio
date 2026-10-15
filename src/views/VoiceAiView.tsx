@@ -445,21 +445,21 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                     "flex gap-3 p-3.5 rounded-xl border text-xs leading-relaxed transition-all",
                     m.sender === "user"
                       ? "bg-slate-900/60 border-white/8 ml-6"
-                      : "bg-sky-950/20 border-sky-400/20 mr-6 shadow-sm"
+                      : "bg-rose-950/20 border-rose-400/20 mr-6 shadow-sm"
                   )}
                 >
                   <div
                     className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
                       m.sender === "user"
-                        ? "bg-slate-800 text-slate-300"
-                        : "bg-gradient-to-tr from-sky-500/25 to-indigo-500/25 text-sky-400 border border-sky-400/30"
+                        ? "bg-[#251e2b] text-stone-300"
+                        : "bg-gradient-to-tr from-rose-500/25 to-indigo-500/25 text-rose-300 border border-rose-400/30"
                     )}
                   >
                     {m.sender === "user" ? (
                       <User className="w-4 h-4" />
                     ) : (
-                      <Sparkles className="w-4 h-4 text-sky-400" />
+                      <Sparkles className="w-4 h-4 text-rose-400" />
                     )}
                   </div>
 
@@ -523,7 +523,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 onClick={toggleListen}
                 className={cn(
                   "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors cursor-pointer",
-                  isListening ? "text-sky-400 bg-sky-500/20 animate-pulse" : "text-slate-400 hover:text-white"
+                  isListening ? "text-rose-400 bg-rose-500/20 animate-pulse" : "text-stone-400 hover:text-white"
                 )}
                 title="Tap to speak"
               >

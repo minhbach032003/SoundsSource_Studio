@@ -86,6 +86,58 @@ export interface AgentIntegrationDto {
   note?: string | null;
 }
 
+export interface PetArchetype {
+  id: string;
+  name: string;
+  tag: string;
+  description: string;
+}
+
+export const INSTALLED_PETS: PetArchetype[] = [
+  {
+    id: "code-frenzy-cat",
+    name: "Code Frenzy Cat",
+    tag: "Creature",
+    description: "Animated cat frantically typing code on a neon laptop in Codex.",
+  },
+  {
+    id: "boba",
+    name: "Boba Otter",
+    tag: "Creature",
+    description: "Tiny otter sipping bubble tea while keeping you company.",
+  },
+  {
+    id: "shinchan-3",
+    name: "Shinchan 3",
+    tag: "Character",
+    description: "Action Hero Crayon Shin-chan checking every line of code.",
+  },
+  {
+    id: "work-blue-cat",
+    name: "Cyber Coding Cat",
+    tag: "Creature",
+    description: "Adult blue cat in striped green hoodie typing at high speed.",
+  },
+  {
+    id: "super-saiyan-goku",
+    name: "Super Saiyan Goku",
+    tag: "Character",
+    description: "Super Saiyan martial artist with golden hair and teal eyes.",
+  },
+  {
+    id: "wode-daodun-3d",
+    name: "Sword & Shield Guardian",
+    tag: "Creature",
+    description: "Goofy guardian with code sword and defensive tech shield.",
+  },
+  {
+    id: "eddy",
+    name: "Eddy Educator Bear",
+    tag: "Creature",
+    description: "Calm educator yellow bear in round glasses and green hoodie.",
+  },
+];
+
 export const STAGE_CONFIGS: Record<
   string,
   {
@@ -112,10 +164,10 @@ export const STAGE_CONFIGS: Record<
   },
   Scout: {
     icon: Compass,
-    color: "#0284c7",
-    bg: "bg-sky-500/15",
-    border: "border-sky-500/30",
-    text: "text-sky-400",
+    color: "#fb7185",
+    bg: "bg-rose-500/15",
+    border: "border-rose-500/30",
+    text: "text-rose-300",
   },
   Hero: {
     icon: Shield,
@@ -581,6 +633,17 @@ export const AgentPetView: FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <ButtonComponent
+            variant="outline"
+            size="sm"
+            onClick={handleToggleDesktopOverlay}
+            leftIcon={<Laptop className="w-3.5 h-3.5 text-rose-400" />}
+            title="Toggle Desktop Floating Pet Window"
+            className="h-7 text-xs border-sky-500/30 text-sky-300 hover:bg-sky-500/10"
+          >
+            {showDesktopOverlay ? "Desktop Pet Active" : "Launch Desktop Pet"}
+          </ButtonComponent>
+
           <BadgeComponent variant="emerald" dot className="px-2.5 py-1 text-xs font-semibold">
             IPC Socket Active
           </BadgeComponent>
@@ -651,7 +714,7 @@ export const AgentPetView: FC = () => {
                 title="Click to hear companion's next thought"
               >
                 <div className="flex items-center justify-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0 animate-spin" style={{ animationDuration: "8s" }} />
+                  <Sparkles className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-spin" style={{ animationDuration: "8s" }} />
                   <p className="text-xs font-medium text-slate-100 m-0 group-hover:text-sky-200 transition-colors">
                     "{liveBubbleMessage}"
                   </p>
@@ -749,6 +812,74 @@ export const AgentPetView: FC = () => {
             </div>
           </div>
 
+          {/* 7-Companion Visual Showcase Gallery */}
+          <div className="rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-rose-400" />
+                <div>
+                  <h4 className="text-xs font-bold text-slate-100 tracking-tight m-0">
+                    Companion Showcase Gallery
+                  </h4>
+                  <p className="text-[10px] text-slate-400 m-0">
+                    7 Authentic Pixel-Art Archetypes · 1-Click Equip
+                  </p>
+                </div>
+              </div>
+
+              <BadgeComponent variant="default" className="text-[10px] font-mono px-2 py-0.5">
+                7 Installed
+              </BadgeComponent>
+            </div>
+
+            {/* Horizontal Scrollable Pet Cards Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {INSTALLED_PETS.map((pet) => {
+                const isSelected = selectedPet === pet.id;
+                return (
+                  <button
+                    key={pet.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPet(pet.id);
+                      try {
+                        localStorage.setItem("rust_sound_pet_slug", pet.id);
+                      } catch {}
+                      showToast("success", `Equipped ${pet.name}!`);
+                    }}
+                    className={cn(
+                      "p-2.5 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all text-center group cursor-pointer relative overflow-hidden",
+                      isSelected
+                        ? "bg-rose-500/15 border-rose-400/60 ring-2 ring-rose-400/40 shadow-[0_0_16px_rgba(251,113,133,0.2)] text-rose-100"
+                        : "bg-[#18121b]/60 border-white/6 text-stone-400 hover:text-stone-200 hover:border-white/14 hover:bg-[#251e2b]/60"
+                    )}
+                  >
+                    {/* Active Checkmark Pill */}
+                    {isSelected && (
+                      <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-rose-400 text-stone-950 flex items-center justify-center font-bold text-[8px] shadow-sm">
+                        ✓
+                      </span>
+                    )}
+
+                    {/* Mini Sprite Preview */}
+                    <div className="w-14 h-14 flex items-center justify-center overflow-hidden shrink-0 mt-0.5">
+                      <AgentPetSprite slug={pet.id} mood={isSelected ? "working" : "idle"} size={56} />
+                    </div>
+
+                    <div className="w-full min-w-0">
+                      <span className="text-[11px] font-bold block truncate leading-tight">
+                        {pet.name}
+                      </span>
+                      <span className="text-[9px] text-slate-500 block truncate mt-0.5 font-mono">
+                        {pet.tag}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Progression Bar & Vitals Cockpit */}
           <div className="rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
             {/* Level & XP Progression Bar matching CareTabView */}
@@ -782,7 +913,7 @@ export const AgentPetView: FC = () => {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[11px] font-semibold text-sky-400 tabular-nums">
+                  <span className="text-[11px] font-semibold text-rose-300 tabular-nums">
                     {inLevelXP.toLocaleString()} / {spanXP.toLocaleString()} XP
                   </span>
                   <span className="text-[10px] text-slate-500 font-mono ml-1.5">
@@ -793,14 +924,14 @@ export const AgentPetView: FC = () => {
 
               <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mt-1.5">
                 <div
-                  className="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-rose-500 to-pink-400 rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
 
               <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/5 text-[10px] text-slate-400">
                 <span className="flex items-center gap-1 text-slate-300">
-                  <Sparkles className="w-3 h-3 text-sky-400" />
+                  <Sparkles className="w-3 h-3 text-rose-400" />
                   Lifetime XP: {careState.xp.toLocaleString()}
                 </span>
                 <span className={cn("font-medium", stageConfig.text)}>
@@ -849,14 +980,14 @@ export const AgentPetView: FC = () => {
               <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <span className="text-slate-400 flex items-center gap-1 font-medium">
-                    <Activity className="w-3 h-3 text-sky-400" />
+                    <Activity className="w-3 h-3 text-rose-400" />
                     Focus
                   </span>
                   <span className="font-semibold text-slate-200 tabular-nums">{petFocus}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-sky-500 to-sky-300 rounded-full transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-rose-500 to-rose-300 rounded-full transition-all duration-300"
                     style={{ width: `${petFocus}%` }}
                   />
                 </div>
@@ -1000,7 +1131,7 @@ export const AgentPetView: FC = () => {
               </div>
               <div className="col-span-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
                 <span className="flex items-center gap-1">
-                  <FolderGit2 className="w-3 h-3 text-sky-400" />
+                  <FolderGit2 className="w-3 h-3 text-rose-400" />
                   Workspace Context:
                 </span>
                 <span className="font-mono text-slate-300 truncate max-w-[200px]">
@@ -1014,7 +1145,7 @@ export const AgentPetView: FC = () => {
               {/* Desktop Floating Overlay Toggle */}
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/40 border border-white/5">
                 <div className="flex items-center gap-2.5">
-                  <Laptop className="w-4 h-4 text-sky-400 shrink-0" />
+                  <Laptop className="w-4 h-4 text-rose-400 shrink-0" />
                   <div>
                     <span className="text-xs font-semibold text-slate-200 block">Desktop Floating Overlay</span>
                     <span className="text-[10px] text-slate-400 block">Render animated cat sticker on desktop</span>
@@ -1024,7 +1155,7 @@ export const AgentPetView: FC = () => {
                   onClick={handleToggleDesktopOverlay}
                   className={cn(
                     "w-10 h-5.5 rounded-full transition-colors relative cursor-pointer",
-                    showDesktopOverlay ? "bg-sky-500" : "bg-slate-800"
+                    showDesktopOverlay ? "bg-rose-500" : "bg-[#251e2b]"
                   )}
                   role="switch"
                   aria-checked={showDesktopOverlay}
@@ -1155,9 +1286,9 @@ export const AgentPetView: FC = () => {
                 <ButtonComponent
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-[11px] px-2.5 text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
+                  className="h-7 text-[11px] px-2.5 text-rose-300 hover:text-white hover:bg-rose-500/10"
                   onClick={handleSimulatePing}
-                  leftIcon={<Send className="w-3 h-3 text-sky-400" />}
+                  leftIcon={<Send className="w-3 h-3 text-rose-400" />}
                 >
                   Test Ping
                 </ButtonComponent>
@@ -1176,7 +1307,7 @@ export const AgentPetView: FC = () => {
                       className={cn(
                         "flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all capitalize cursor-pointer",
                         feedFilter === cat
-                          ? "bg-slate-800 text-sky-300 shadow-sm border border-white/5"
+                          ? "bg-[#2b2231] text-rose-300 shadow-sm border border-white/5"
                           : "text-slate-400 hover:text-slate-200"
                       )}
                     >
@@ -1231,7 +1362,7 @@ export const AgentPetView: FC = () => {
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
                 {agentSessions.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center p-6 text-center text-slate-500">
-                    <Bot className="w-8 h-8 mb-2 opacity-30 text-sky-400" />
+                    <Bot className="w-8 h-8 mb-2 opacity-30 text-rose-400" />
                     <span className="text-xs font-semibold text-slate-300">No active coding sessions</span>
                     <span className="text-[11px] text-slate-400 mt-1 max-w-xs">
                       Run Claude Code, Codex, or Cursor in your terminal. Live work will automatically stream here via ~/.agentpet/agentpet.sock
@@ -1267,15 +1398,15 @@ export const AgentPetView: FC = () => {
                           )}
                         </div>
                         {sess.project && (
-                          <div className="text-[11px] text-sky-400 font-mono truncate flex items-center gap-1">
+                          <div className="text-[11px] text-rose-300 font-mono truncate flex items-center gap-1">
                             <FolderGit2 className="w-3 h-3 shrink-0" />
                             {sess.project}
                           </div>
                         )}
                         {(sess.tool_name || sess.tool_summary || sess.message) && (
-                          <div className="text-[11px] text-slate-300 font-mono bg-slate-900/80 px-2 py-1 rounded mt-1.5 truncate border border-white/5">
-                            ⚙️ {sess.tool_name ? `${sess.tool_name}: ` : ""}
-                            {sess.tool_summary || sess.message || "Working"}
+                          <div className="text-[11px] text-slate-300 font-mono bg-slate-900/80 px-2 py-1 rounded mt-1.5 truncate border border-white/5 flex items-center gap-1.5">
+                            <span className="text-[10px] uppercase font-bold text-rose-400">TOOL:</span>
+                            <span>{sess.tool_name ? `${sess.tool_name}: ` : ""}{sess.tool_summary || sess.message || "Working"}</span>
                           </div>
                         )}
                       </div>

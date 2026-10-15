@@ -15,6 +15,7 @@ import {
 import { playSectorTick, playPingChime } from "@/lib/pingAudio";
 import { useLolPingGesture } from "@/shared/lib/useLolPingGesture";
 import { PingBurstMarker, type PingBurstItem } from "@/components/radial/PingBurstMarker";
+import { PingVectorIcon } from "@/components/radial/PingVectorIcon";
 import { ButtonComponent, BadgeComponent, CardComponent, SliderComponent, useToast } from "@/shared/ui";
 import { ModalComponent } from "@/shared/ui/ModalComponent";
 import {
@@ -29,6 +30,10 @@ import {
   VolumeX,
   Sparkles,
   Gamepad2,
+  Search,
+  GripVertical,
+  Flag,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +73,14 @@ export const PingsWheelView: FC = () => {
   const [focusedSlice, setFocusedSlice] = useState<number>(0);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Drag-and-Drop State
+  const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
+  const [dragOverSlice, setDragOverSlice] = useState<number | null>(null);
+
+  // Catalog Category & Search Filter
+  const [catalogCategory, setCatalogCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Active Ping Bursts dropping on screen
   const [bursts, setBursts] = useState<PingBurstItem[]>([]);
@@ -112,9 +125,23 @@ export const PingsWheelView: FC = () => {
 
   const activeWheel = activeSubTab === "emotes" ? settings.emote_wheel : settings.wheel;
   const duplicates = duplicateSlots(activeWheel);
-  const activeCatalog = catalog.filter((c) =>
-    activeSubTab === "emotes" ? c.category === "emote" : c.category === "ping"
-  );
+
+  // Filter catalog items by category and search
+  const filteredCatalog = catalog.filter((item) => {
+    const matchesCategory =
+      catalogCategory === "all" ||
+      item.category === catalogCategory ||
+      (catalogCategory === "tactical" && item.category === "ping") ||
+      (catalogCategory === "emotes" && item.category === "emote");
+
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !query ||
+      item.name.toLowerCase().includes(query) ||
+      item.id.toLowerCase().includes(query);
+
+    return matchesCategory && matchesSearch;
+  });
 
   // Expire ping bursts
   const handleExpireBurst = useCallback((id: string) => {
@@ -189,11 +216,11 @@ export const PingsWheelView: FC = () => {
     onQuickPing: handleDispatchLoLQuickPing,
   });
 
-  // Assign asset to currently focused slice
-  const handleAssignAsset = (assetId: string) => {
+  // Assign asset to a specific slice (used by Drag & Drop and Click-to-assign)
+  const handleAssignAssetToSlice = (sliceIndex: number, assetId: string) => {
     const isEmote = activeSubTab === "emotes";
     const targetWheel = isEmote ? [...settings.emote_wheel] : [...settings.wheel];
-    targetWheel[focusedSlice] = assetId;
+    targetWheel[sliceIndex] = assetId;
 
     const next: PingloomSettings = isEmote
       ? { ...settings, emote_wheel: targetWheel }
@@ -206,9 +233,14 @@ export const PingsWheelView: FC = () => {
       playPingChime(assetId, settings.volume);
     }
     showToast(
-      "info",
-      `Assigned ${asset?.name ?? assetId} to ${DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} (${DIRECTIONS[focusedSlice]})`
+      "success",
+      `Gán ${asset?.name ?? assetId} vào hướng ${DIRECTION_LABELS[DIRECTIONS[sliceIndex]]} (${DIRECTIONS[sliceIndex]})`
     );
+  };
+
+  // Assign asset to currently focused slice
+  const handleAssignAsset = (assetId: string) => {
+    handleAssignAssetToSlice(focusedSlice, assetId);
   };
 
   // 1-Click "Apply LoL Smart Ping Preset"
@@ -240,7 +272,7 @@ export const PingsWheelView: FC = () => {
     if (!settings.muted) {
       playPingChime("omw", 80);
     }
-    showToast("success", "LoL Smart Ping preset applied! Hold Alt and drag mouse to drop pings.");
+    showToast("success", "Đã áp dụng LoL Preset! Giữ phím Alt rồi rê chuột để ping.");
   };
 
   // Save Settings explicitly
@@ -252,9 +284,9 @@ export const PingsWheelView: FC = () => {
         const saved = await invoke<PingloomSettings>("save_ping_settings", { settings });
         setSettings(saved);
       }
-      showToast("success", "Tactical wheel configuration saved successfully!");
+      showToast("success", "Cấu hình pings đã được lưu thành công!");
     } catch (e) {
-      showToast("error", `Failed to save settings: ${String(e)}`);
+      showToast("error", `Lỗi khi lưu cấu hình: ${String(e)}`);
     } finally {
       setIsSaving(false);
     }
@@ -264,7 +296,7 @@ export const PingsWheelView: FC = () => {
   const handleConfirmReset = () => {
     updateSettings(DEFAULT_PINGLOOM_SETTINGS);
     setIsResetModalOpen(false);
-    showToast("info", "Tactical wheel restored to factory defaults");
+    showToast("info", "Đã khôi phục cài đặt vòng tròn ping mặc định");
   };
 
   // Keyboard navigation across slices
@@ -283,7 +315,7 @@ export const PingsWheelView: FC = () => {
       e.preventDefault();
       const pingId = activeWheel[focusedSlice];
       if (!settings.muted) playPingChime(pingId, settings.volume);
-      showToast("success", `Dispatched ${DIRECTIONS[focusedSlice]}: ${formatAssetName(pingId)}`);
+      showToast("success", `Kích hoạt ${DIRECTIONS[focusedSlice]}: ${formatAssetName(pingId)}`);
     }
   };
 
@@ -306,13 +338,6 @@ export const PingsWheelView: FC = () => {
           className="fixed -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] z-[999] pointer-events-none select-none animate-in zoom-in-75 fade-in duration-100"
         >
           <svg className="w-full h-full" viewBox="0 0 280 280">
-            <defs>
-              <linearGradient id="floatingWheelSurface" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgba(30, 24, 35, 0.95)" />
-                <stop offset="100%" stopColor="rgba(18, 14, 22, 0.95)" />
-              </linearGradient>
-            </defs>
-
             {/* Slices 0 to 7 */}
             {DIRECTIONS.map((dir, idx) => {
               const aStart = ((idx * 45 - 22.5) * Math.PI) / 180;
@@ -409,9 +434,7 @@ export const PingsWheelView: FC = () => {
                 >
                   {dir}
                 </span>
-                <span className="text-[8px] font-bold truncate max-w-[38px] leading-tight mt-0.5">
-                  {asset?.name ? asset.name.split(" ")[0] : assignedId}
-                </span>
+                <PingVectorIcon pingId={assignedId} iconKey={asset?.vectorIcon} className="w-3 h-3 mt-0.5" style={{ color: asset?.color }} />
               </div>
             );
           })}
@@ -513,12 +536,12 @@ export const PingsWheelView: FC = () => {
       {/* 2. Main Workspace Layout */}
       {activeSubTab !== "triggers" ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
-          {/* Left Column: Direct Interactive Radial Wheel (5 cols) */}
+          {/* Left Column: Direct Interactive Radial Wheel & Drop Zone (5 cols) */}
           <div className="lg:col-span-5 flex flex-col items-center justify-start gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm">
             <div className="w-full flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1.5">
                 <Crosshair className="w-3.5 h-3.5 text-[var(--accent)]" />
-                Radial Wheel Preview & Arena
+                Radial Wheel (Drop Target)
               </span>
               <span className="text-[10px] text-[var(--muted)] font-mono">
                 Slice: {DIRECTIONS[focusedSlice]} ({DIRECTION_LABELS[DIRECTIONS[focusedSlice]]})
@@ -531,7 +554,7 @@ export const PingsWheelView: FC = () => {
               tabIndex={0}
               onKeyDown={handleWheelKeyDown}
               className="relative w-[280px] h-[280px] my-auto select-none outline-none focus:ring-2 focus:ring-[var(--accent)]/40 rounded-full"
-              title="Click slices or hold trigger hotkey to drop pings."
+              title="Kéo thả icon trực tiếp vào các múi hoặc click để chọn."
             >
               <svg className="w-full h-full" viewBox="0 0 280 280">
                 <defs>
@@ -541,37 +564,59 @@ export const PingsWheelView: FC = () => {
                   </linearGradient>
                 </defs>
 
-                {/* Slices 0 to 7 */}
+                {/* Slices 0 to 7 (Drop Targets) */}
                 {DIRECTIONS.map((dir, idx) => {
                   const aStart = ((idx * 45 - 22.5) * Math.PI) / 180;
                   const aEnd = (((idx + 1) * 45 - 22.5) * Math.PI) / 180;
                   const pathD = sectorPath(140, 140, 52, 136, aStart, aEnd);
                   const isFocused = focusedSlice === idx;
                   const isDup = duplicates.has(idx);
+                  const isDropTarget = dragOverSlice === idx;
 
                   return (
                     <path
                       key={dir}
                       d={pathD}
                       fill={
-                        isFocused
+                        isDropTarget
+                          ? "color-mix(in srgb, var(--accent) 55%, var(--paper))"
+                          : isFocused
                           ? "color-mix(in srgb, var(--accent) 30%, var(--paper))"
                           : isDup
                           ? "color-mix(in srgb, var(--warning-bg) 60%, var(--paper))"
                           : "var(--paper)"
                       }
                       stroke={
-                        isFocused
+                        isDropTarget
+                          ? "var(--accent)"
+                          : isFocused
                           ? "var(--accent)"
                           : isDup
                           ? "var(--warning)"
                           : "var(--line)"
                       }
-                      strokeWidth={isFocused ? "2.5" : "1"}
-                      className="transition-colors duration-100 cursor-pointer"
+                      strokeWidth={isDropTarget ? "3.5" : isFocused ? "2.5" : "1"}
+                      className="transition-all duration-100 cursor-pointer"
                       onClick={() => {
                         setFocusedSlice(idx);
                         if (settings.tick_sound) playSectorTick(settings.volume);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        if (dragOverSlice !== idx) setDragOverSlice(idx);
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverSlice === idx) setDragOverSlice(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const pingId = e.dataTransfer.getData("application/ping-id") || draggedAssetId;
+                        if (pingId) {
+                          handleAssignAssetToSlice(idx, pingId);
+                        }
+                        setDragOverSlice(null);
+                        setDraggedAssetId(null);
                       }}
                     />
                   );
@@ -584,11 +629,25 @@ export const PingsWheelView: FC = () => {
 
               {/* Center Hub Badge */}
               <div
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm"
+                className={cn(
+                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm transition-all duration-120",
+                  dragOverSlice !== null && "border-[var(--accent)] ring-2 ring-[var(--accent)]/50"
+                )}
               >
-                <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
-                <span className="text-[10px] font-black">HOLD [{settings.trigger.toUpperCase()}]</span>
-                <span className="text-[8px] text-[var(--muted)]">{settings.drag_threshold_px}px threshold</span>
+                {dragOverSlice !== null ? (
+                  <>
+                    <Target className="w-5 h-5 text-[var(--accent)] mb-0.5 animate-bounce" />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[var(--accent)]">
+                      THẢ VÀO {DIRECTIONS[dragOverSlice]}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
+                    <span className="text-[10px] font-black">GIỮ [{settings.trigger.toUpperCase()}]</span>
+                    <span className="text-[8px] text-[var(--muted)]">{settings.drag_threshold_px}px threshold</span>
+                  </>
+                )}
               </div>
 
               {/* Directional Perimeter Labels */}
@@ -599,6 +658,7 @@ export const PingsWheelView: FC = () => {
                 const y = 140 - r * Math.cos(angle);
                 const isFocused = focusedSlice === idx;
                 const isDup = duplicates.has(idx);
+                const isDropTarget = dragOverSlice === idx;
                 const assignedId = activeWheel[idx];
                 const asset = catalog.find((c) => c.id === assignedId);
 
@@ -613,21 +673,26 @@ export const PingsWheelView: FC = () => {
                     style={{ left: `${x}px`, top: `${y}px` }}
                     className={cn(
                       "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center transition-transform p-0.5 cursor-pointer z-10",
-                      isFocused
+                      isDropTarget
+                        ? "scale-125 shadow-xl ring-2 ring-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]"
+                        : isFocused
                         ? "scale-115 shadow-md ring-2 ring-[var(--accent)] bg-[var(--paper)]"
                         : "bg-[var(--surface)] border border-[var(--line)] hover:scale-105"
                     )}
                   >
                     <span
-                      className="text-[9px] font-bold leading-none"
-                      style={{ color: asset?.color ?? "var(--ink)" }}
+                      className="text-[9px] font-black leading-none"
+                      style={{ color: isDropTarget ? "var(--accent-ink)" : asset?.color ?? "var(--ink)" }}
                     >
                       {dir}
                     </span>
-                    <span className="text-[8px] font-semibold text-[var(--muted)] truncate max-w-[38px] leading-tight mt-0.5">
-                      {asset?.name ? asset.name.split(" ")[0] : assignedId}
-                    </span>
-                    {isDup && (
+                    <PingVectorIcon
+                      pingId={assignedId}
+                      iconKey={asset?.vectorIcon}
+                      className="w-3.5 h-3.5 mt-0.5"
+                      style={{ color: isDropTarget ? "var(--accent-ink)" : asset?.color }}
+                    />
+                    {isDup && !isDropTarget && (
                       <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500 text-slate-950 text-[8px] flex items-center justify-center font-bold">
                         !
                       </span>
@@ -637,24 +702,18 @@ export const PingsWheelView: FC = () => {
               })}
             </div>
 
-            {/* LoL Hotkey Gesture Instructions Banner */}
-            <div className="w-full p-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] text-xs text-[var(--muted)] space-y-1">
-              <div className="flex items-center gap-2 text-[var(--ink)] font-bold">
-                <Gamepad2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>League of Legends Smart Ping Active:</span>
-              </div>
-              <p className="text-[11px] leading-relaxed m-0">
-                1. <strong>Giữ phím {settings.trigger.toUpperCase()}</strong>: Vòng tròn xuyên tâm sẽ nở ngay tại con trỏ chuột.
-                <br />
-                2. <strong>Xoay/kéo chuột</strong>: Hướng về 8 phân vùng để chọn ping mong muốn.
-                <br />
-                3. <strong>Buông phím</strong>: Ping chiến thuật lập tức rơi xuống toạ độ đó kèm âm thanh LoL chân thực!
-              </p>
+            {/* Drag & Drop Hint Banner */}
+            <div className="w-full p-2.5 rounded-xl border border-[var(--line)] bg-[var(--paper)] text-xs text-[var(--muted)] flex items-center justify-between">
+              <span className="flex items-center gap-1.5 font-medium">
+                <GripVertical className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                Kéo icon từ danh sách bên phải và thả trực tiếp vào múi wheel.
+              </span>
+              <span className="font-mono text-[10px] text-[var(--accent)] font-semibold">Drop Ready</span>
             </div>
           </div>
 
-          {/* Right Column: Directional Slot Editor & Catalog Tile Grid (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col gap-4 min-h-0">
+          {/* Right Column: Directional Slot Editor & Expanded Draggable Catalog (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col gap-3.5 min-h-0">
             {/* Slot Editor Header */}
             <CardComponent
               variant="default"
@@ -662,18 +721,19 @@ export const PingsWheelView: FC = () => {
               title={
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[var(--accent)]" />
-                  <span>Directional Slot Assignments ({activeSubTab === "pings" ? "Pings" : "Emotes"})</span>
+                  <span>8 Vị Trí Xuyên Tâm (Hỗ trợ kéo thả thả vào từng ô)</span>
                 </div>
               }
-              subtitle="Select a direction below then choose an asset to instantly update its slot."
+              subtitle="Nhấp chuột để chọn múi hoặc kéo thả icon trực tiếp từ danh mục bên dưới."
             >
-              {/* 8 Directions Row Selector */}
+              {/* 8 Directions Drop Zone Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
                 {DIRECTIONS.map((dir, idx) => {
                   const assignedId = activeWheel[idx];
                   const asset = catalog.find((c) => c.id === assignedId);
                   const isFocused = focusedSlice === idx;
                   const isDup = duplicates.has(idx);
+                  const isDropTarget = dragOverSlice === idx;
 
                   return (
                     <button
@@ -683,9 +743,28 @@ export const PingsWheelView: FC = () => {
                         setFocusedSlice(idx);
                         if (settings.tick_sound) playSectorTick(settings.volume);
                       }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        if (dragOverSlice !== idx) setDragOverSlice(idx);
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverSlice === idx) setDragOverSlice(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const pingId = e.dataTransfer.getData("application/ping-id") || draggedAssetId;
+                        if (pingId) {
+                          handleAssignAssetToSlice(idx, pingId);
+                        }
+                        setDragOverSlice(null);
+                        setDraggedAssetId(null);
+                      }}
                       className={cn(
                         "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[64px]",
-                        isFocused
+                        isDropTarget
+                          ? "border-[var(--accent)] bg-[var(--paper)] shadow-lg ring-2 ring-[var(--accent)] scale-102"
+                          : isFocused
                           ? "border-[var(--accent)] bg-[var(--paper)] shadow-sm ring-1 ring-[var(--accent)]"
                           : "border-[var(--line)] bg-[var(--surface)] hover:border-[var(--focus)]"
                       )}
@@ -696,15 +775,22 @@ export const PingsWheelView: FC = () => {
                         </span>
                         {isDup && (
                           <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-500 font-bold">
-                            DUP
+                            TRÙNG
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: asset?.color ?? "var(--accent)" }}
-                        />
+                        <div
+                          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 border border-white/5"
+                          style={{ backgroundColor: `${asset?.color ?? "var(--accent)"}20` }}
+                        >
+                          <PingVectorIcon
+                            pingId={assignedId}
+                            iconKey={asset?.vectorIcon}
+                            className="w-3 h-3"
+                            style={{ color: asset?.color ?? "var(--accent)" }}
+                          />
+                        </div>
                         <span className="text-xs font-semibold text-[var(--ink)] truncate">
                           {asset?.name ?? assignedId}
                         </span>
@@ -715,53 +801,138 @@ export const PingsWheelView: FC = () => {
               </div>
             </CardComponent>
 
-            {/* Asset Catalog Picker Grid */}
+            {/* Expanded Draggable Icon Catalog Grid */}
             <CardComponent
               variant="default"
               padding="md"
               title={
-                <div className="flex items-center justify-between w-full">
-                  <span>Catalog for {DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} ({DIRECTIONS[focusedSlice]})</span>
-                  <span className="text-xs font-normal text-[var(--muted)]">Click tile to assign & preview sound</span>
+                <div className="flex items-center justify-between w-full flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>Thư Viện Icon Pings & Emotes ({filteredCatalog.length} icons)</span>
+                  </div>
+                  <span className="text-[11px] font-normal text-[var(--muted)]">
+                    Kéo thả sang múi hoặc click để gán vào {DIRECTIONS[focusedSlice]}
+                  </span>
                 </div>
               }
               className="flex-1 flex flex-col min-h-0"
             >
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 overflow-y-auto max-h-[260px] pr-1 pt-1">
-                {activeCatalog.map((item) => {
+              {/* Category Filter Pills & Search Bar */}
+              <div className="flex items-center justify-between gap-2.5 mb-3 flex-wrap">
+                <div className="flex items-center gap-1 p-0.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg shrink-0">
+                  {[
+                    { id: "all", label: "Tất cả", icon: Sparkles },
+                    { id: "tactical", label: "Tactical LoL", icon: Target },
+                    { id: "objectives", label: "Mục Tiêu Map", icon: Flag },
+                    { id: "emotes", label: "Emotes & Sticker", icon: Smile },
+                    { id: "audio", label: "Studio Audio", icon: Radio },
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = catalogCategory === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setCatalogCategory(tab.id)}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1",
+                          isActive
+                            ? "bg-[var(--surface)] text-[var(--ink)] font-bold shadow-xs border border-[var(--line)]"
+                            : "text-[var(--muted)] hover:text-[var(--ink)]"
+                        )}
+                      >
+                        <Icon className="w-3 h-3" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-[140px] max-w-[220px]">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm icon pings…"
+                    className="w-full h-7 pl-8 pr-2.5 text-xs rounded-lg bg-[var(--paper)] text-[var(--ink)] border border-[var(--input-line)] focus:border-[var(--focus)] outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Draggable Icon Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 overflow-y-auto max-h-[280px] pr-1 pt-1">
+                {filteredCatalog.map((item) => {
                   const isAssigned = activeWheel[focusedSlice] === item.id;
                   const isUsedElsewhere = activeWheel.includes(item.id);
 
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
+                      draggable={true}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("application/ping-id", item.id);
+                        e.dataTransfer.setData("text/plain", item.id);
+                        e.dataTransfer.effectAllowed = "copy";
+                        setDraggedAssetId(item.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedAssetId(null);
+                        setDragOverSlice(null);
+                      }}
                       onClick={() => handleAssignAsset(item.id)}
                       className={cn(
-                        "relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all cursor-pointer text-center gap-1.5",
+                        "relative flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing select-none group",
                         isAssigned
                           ? "bg-[var(--paper)] border-[var(--accent)] ring-2 ring-[var(--accent)]/40 shadow-sm"
                           : "bg-[var(--surface)] border-[var(--line)] hover:border-[var(--focus)] hover:bg-[var(--paper)]"
                       )}
+                      title={`Kéo thả hoặc click để gán: ${item.name}`}
                     >
-                      <span
-                        className="w-4 h-4 rounded-full flex items-center justify-center shadow-xs"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-xs font-semibold text-[var(--ink)] leading-tight">
-                        {item.name}
-                      </span>
+                      {/* Drag Handle Icon */}
+                      <GripVertical className="w-3 h-3 text-[var(--muted)] opacity-40 group-hover:opacity-100 shrink-0" />
+
+                      {/* Vector Icon Emblem */}
+                      <div
+                        className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-xs"
+                        style={{ backgroundColor: `${item.color}20` }}
+                      >
+                        <PingVectorIcon
+                          pingId={item.id}
+                          iconKey={item.vectorIcon}
+                          className="w-3.5 h-3.5"
+                          style={{ color: item.color }}
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-xs font-semibold text-[var(--ink)] leading-tight truncate">
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-[var(--muted)] block capitalize truncate">
+                          {item.category}
+                        </span>
+                      </div>
+
                       {isAssigned && (
-                        <span className="text-[9px] font-bold text-[var(--accent)] uppercase tracking-wider">
-                          Active
+                        <span className="text-[8px] font-bold text-[var(--accent)] uppercase px-1 py-0.5 rounded bg-[var(--accent)]/15 shrink-0">
+                          Slot
                         </span>
                       )}
                       {!isAssigned && isUsedElsewhere && (
-                        <span className="text-[8px] text-[var(--muted)]">
-                          Used
+                        <span className="text-[8px] text-[var(--muted)] shrink-0">
+                          Đã dùng
                         </span>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>

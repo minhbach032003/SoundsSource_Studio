@@ -44,6 +44,8 @@ interface SettingsViewProps {
   authProvider?: string;
   dbStatus?: string;
   onSetWallpaperPreset: (id: WallpaperPresetId) => void;
+  onActivateCustomWallpaper?: () => void;
+  onRemoveCustomWallpaper?: () => void;
   onSetWallpaperDim: (dim: number) => void;
   onSetWallpaperBlur: (blur: number) => void;
   onUploadWallpaper: (file: File) => Promise<{ success: boolean; error?: string }>;
@@ -61,6 +63,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
   authProvider = "google",
   dbStatus = "Neon PostgreSQL Pooler Active",
   onSetWallpaperPreset,
+  onActivateCustomWallpaper,
+  onRemoveCustomWallpaper,
   onSetWallpaperDim,
   onSetWallpaperBlur,
   onUploadWallpaper,
@@ -79,6 +83,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
   // Confirmation Modals
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isResetWallpaperModalOpen, setIsResetWallpaperModalOpen] = useState(false);
+  const [isRemoveCustomWallpaperModalOpen, setIsRemoveCustomWallpaperModalOpen] = useState(false);
   const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
@@ -129,17 +134,26 @@ export const SettingsView: FC<SettingsViewProps> = ({
     onResetWallpaper();
   };
 
+  const handleConfirmRemoveCustomWallpaper = () => {
+    setIsRemoveCustomWallpaperModalOpen(false);
+    onRemoveCustomWallpaper?.();
+  };
+
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    await onUploadWallpaper(file);
-    setIsUploading(false);
-
-    // Reset input value so same file can be re-uploaded if desired
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    try {
+      await onUploadWallpaper(file);
+    } catch {
+      showToast?.("error", "Unexpected error uploading wallpaper");
+    } finally {
+      setIsUploading(false);
+      // Reset input value so same file can be re-uploaded if desired
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -149,8 +163,13 @@ export const SettingsView: FC<SettingsViewProps> = ({
     if (!file) return;
 
     setIsUploading(true);
-    await onUploadWallpaper(file);
-    setIsUploading(false);
+    try {
+      await onUploadWallpaper(file);
+    } catch {
+      showToast?.("error", "Unexpected error uploading wallpaper");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSampleRateChange = (val: string) => {
@@ -190,7 +209,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
           <div className="flex items-center gap-2">
             {wallpaper.mode === "custom" ? (
               <BadgeComponent variant="default" className="gap-1.5 h-6">
-                <ImageIcon className="w-3 h-3 text-sky-400" />
+                <ImageIcon className="w-3 h-3 text-rose-400" />
                 Custom Image Active
               </BadgeComponent>
             ) : (
@@ -231,7 +250,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     className={cn(
                       "p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-22 relative overflow-hidden group",
                       isSelected
-                        ? "bg-slate-900/90 border-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+                        ? "bg-[#271f2c] border-rose-400/60 shadow-[0_0_15px_rgba(251,113,133,0.2)]"
                         : "bg-slate-950/60 border-white/6 hover:border-white/15 hover:bg-slate-900/50"
                     )}
                   >
@@ -247,7 +266,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                         style={{ backgroundColor: p.accent }}
                       />
                       {isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_6px_#38bdf8]" />
+                        <span className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_6px_#fb7185]" />
                       )}
                     </div>
 
@@ -279,8 +298,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
               className="hidden"
             />
 
-            {wallpaper.mode === "custom" && wallpaper.customImage ? (
-              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/10 flex items-center justify-between gap-4">
+            {wallpaper.customImage ? (
+              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-16 h-12 rounded-lg overflow-hidden border border-white/15 shrink-0 shadow-md relative bg-slate-900">
                     <img
@@ -290,16 +309,39 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-200 m-0 truncate">
-                      Custom Wallpaper Active
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-slate-200 m-0 truncate">
+                        {wallpaper.mode === "custom"
+                          ? "Custom Wallpaper Active"
+                          : "Saved Custom Wallpaper"}
+                      </p>
+                      <BadgeComponent
+                        variant={wallpaper.mode === "custom" ? "default" : "secondary"}
+                        className="text-[9px] h-4.5 px-1.5"
+                      >
+                        {wallpaper.mode === "custom" ? "Active" : "Inactive"}
+                      </BadgeComponent>
+                    </div>
                     <p className="text-[11px] text-slate-400 m-0 mt-0.5">
-                      Applied with liquid blur & contrast dimming
+                      {wallpaper.mode === "custom"
+                        ? "Applied with liquid blur & contrast dimming"
+                        : "Preset is active. Click 'Use Custom Image' to re-activate."}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  {wallpaper.mode !== "custom" && onActivateCustomWallpaper && (
+                    <ButtonComponent
+                      variant="primary"
+                      size="sm"
+                      onClick={onActivateCustomWallpaper}
+                      className="h-8 text-xs font-medium"
+                    >
+                      Use Custom Image
+                    </ButtonComponent>
+                  )}
+
                   <ButtonComponent
                     variant="outline"
                     size="sm"
@@ -314,7 +356,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   <ButtonComponent
                     variant="destructive"
                     size="sm"
-                    onClick={() => setIsResetWallpaperModalOpen(true)}
+                    onClick={() => setIsRemoveCustomWallpaperModalOpen(true)}
                     leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                     className="h-8 text-xs"
                     title="Remove custom wallpaper"
@@ -328,9 +370,9 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="border border-dashed border-white/15 hover:border-sky-400/50 rounded-xl p-5 text-center bg-slate-950/50 hover:bg-slate-900/40 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group"
+                className="border border-dashed border-white/15 hover:border-rose-400/50 rounded-xl p-5 text-center bg-[#17121b]/60 hover:bg-[#251e2b]/50 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group"
               >
-                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-400/20 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                   <Upload className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-semibold text-slate-200 m-0 mt-1">
@@ -346,7 +388,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
           {/* Atmosphere Tuning: Dimming & Blur Sliders */}
           <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/6 space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-rose-400" />
               <span>Atmosphere Contrast & Readability Tuning</span>
             </div>
 
@@ -424,7 +466,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-sky-500/20 text-sky-400 flex items-center justify-center font-bold text-sm">
+                      <div className="w-full h-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold text-sm">
                         {user.name.slice(0, 1)}
                       </div>
                     )}
@@ -491,7 +533,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   Auth & Cryptography Stack
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-400/25 text-[10px] font-mono text-sky-300">
+                  <span className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-400/25 text-[10px] font-mono text-rose-300">
                     HMAC-SHA256 JWT
                   </span>
                   <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-400/25 text-[10px] font-mono text-indigo-300">
@@ -627,7 +669,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
           <CardComponent
             title="Performance & Memory Diagnostics"
             subtitle="Native macOS Mach task info & low-overhead background resource management"
-            extra={<Cpu className="w-4 h-4 text-sky-400" />}
+            extra={<Cpu className="w-4 h-4 text-rose-400" />}
           >
             <div className="space-y-4">
               {/* Telemetry Metrics Grid */}
@@ -635,7 +677,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 <div className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex flex-col gap-1">
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
                     <span className="flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-sky-400" />
+                      <HardDrive className="w-3.5 h-3.5 text-rose-400" />
                       RAM (RSS)
                     </span>
                     <BadgeComponent
@@ -771,7 +813,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
             <AppLogo size="lg" variant="with-wordmark" />
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-400/25 text-[11px] font-mono text-sky-300">
+              <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-400/25 text-[11px] font-mono text-rose-300">
                 v0.1.0-alpha · Tauri v2 + Rust
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-400/25 text-[11px] font-mono text-emerald-300">
@@ -784,6 +826,19 @@ export const SettingsView: FC<SettingsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Removing Custom Wallpaper */}
+      <ModalComponent
+        open={isRemoveCustomWallpaperModalOpen}
+        onClose={() => setIsRemoveCustomWallpaperModalOpen(false)}
+        title="Remove Custom Wallpaper?"
+        description="Are you sure you want to remove your custom wallpaper? The background will revert to the active lighting preset."
+        confirmText="Remove Wallpaper"
+        cancelText="Cancel"
+        confirmVariant="destructive"
+        icon={<Trash2 className="w-5 h-5 text-rose-400" />}
+        onConfirm={handleConfirmRemoveCustomWallpaper}
+      />
 
       {/* Confirmation Modal for Resetting Wallpaper */}
       <ModalComponent

@@ -15,11 +15,11 @@ export interface CardComponentProps
 
 const CARD_VARIANTS: Record<CardVariant, string> = {
   default:
-    "bg-[var(--surface)] text-[var(--ink)] border border-[var(--line)] hover:border-[var(--focus)] shadow-sm",
+    "bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] backdrop-blur-md text-[var(--ink)] border border-[var(--line)] hover:border-[var(--focus)] shadow-sm",
   muted:
-    "bg-[var(--paper)] text-[var(--ink)] border border-[var(--line)]",
+    "bg-[color-mix(in_srgb,var(--paper)_88%,transparent)] backdrop-blur-md text-[var(--ink)] border border-[var(--line)]",
   outline: "bg-transparent border border-[var(--line)] text-[var(--ink)]",
-  dashed: "bg-[var(--surface)] border border-dashed border-[var(--line)] text-center text-[var(--muted)]",
+  dashed: "bg-[color-mix(in_srgb,var(--surface)_60%,transparent)] backdrop-blur-sm border border-dashed border-[var(--line)] text-center text-[var(--muted)]",
 };
 
 const PADDING_CLASSES = {
