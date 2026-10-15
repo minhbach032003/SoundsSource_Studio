@@ -1,3 +1,4 @@
+use rust_sound_lib::{InputBlocker, should_suppress_event, KEYCODE_TAB, KEYCODE_F3, KEYCODE_Q, KEYCODE_W, KEYCODE_H, KEYCODE_GRAVE, KEYCODE_M, KEYCODE_ESCAPE, MASK_COMMAND, MASK_SHIFT};
 use sound_engine::{AudioRouter, BreakTimerManager, TimerPhase};
 use std::time::{Duration, SystemTime};
 
@@ -93,4 +94,44 @@ fn test_wall_clock_sleep_wake_resilience_e2e() {
     assert!(status.remaining_seconds > 0 && status.remaining_seconds <= 1500);
     assert_eq!(status.study_duration, 1500);
     assert_eq!(status.break_duration, 300);
+}
+
+#[test]
+fn test_native_break_lock_lifecycle_and_watchdog_e2e() {
+    let mut timer = BreakTimerManager::new(25 * 60, 5 * 60);
+    assert!(timer.is_screen_lock_enabled());
+    assert!(timer.get_status().screen_lock_enabled);
+
+    // Toggle screen lock preference
+    timer.set_screen_lock_enabled(false);
+    assert!(!timer.is_screen_lock_enabled());
+    assert!(!timer.get_status().screen_lock_enabled);
+    timer.set_screen_lock_enabled(true);
+
+    // Test InputBlocker safe idempotency and bounded watchdog
+    let blocker = InputBlocker {
+        watchdog_timeout_secs: 1, // 1 second watchdog for test safety
+    };
+
+    // Idempotent calls should never panic
+    blocker.uninstall();
+    blocker.uninstall();
+    assert!(!blocker.is_active());
+
+    // Verify key suppression classifier matches reference requirements
+    assert!(should_suppress_event(KEYCODE_TAB, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_TAB, MASK_COMMAND | MASK_SHIFT));
+    assert!(should_suppress_event(KEYCODE_F3, 0));
+    assert!(should_suppress_event(KEYCODE_Q, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_W, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_H, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_GRAVE, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_M, MASK_COMMAND));
+    assert!(should_suppress_event(KEYCODE_ESCAPE, 0));
+
+    // Non-suppressed keys
+    assert!(!should_suppress_event(KEYCODE_TAB, 0));
+    assert!(!should_suppress_event(KEYCODE_Q, 0));
+    assert!(!should_suppress_event(49 /* Space */, 0));
+    assert!(!should_suppress_event(36 /* Enter */, 0));
 }

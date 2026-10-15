@@ -1,9 +1,14 @@
 pub mod device;
+pub mod input_blocker;
 pub mod metrics;
 pub mod platform;
 pub mod process;
 
 pub use device::AudioDevice;
+pub use input_blocker::{
+    should_suppress_event, InputBlocker, KEYCODE_ESCAPE, KEYCODE_F3, KEYCODE_GRAVE, KEYCODE_H,
+    KEYCODE_M, KEYCODE_Q, KEYCODE_TAB, KEYCODE_W, MASK_COMMAND, MASK_SHIFT,
+};
 pub mod ring_buffer;
 pub mod tap;
 

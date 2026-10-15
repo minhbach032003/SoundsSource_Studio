@@ -33,6 +33,8 @@ pub struct TimerStatus {
     pub break_duration: u64,
     pub completed_sessions: u32,
     pub is_ducked: bool,
+    #[serde(default)]
+    pub screen_lock_enabled: bool,
 }
 
 pub struct BreakTimerManager {
@@ -45,6 +47,7 @@ pub struct BreakTimerManager {
     pub todo_items: Vec<TodoItem>,
     pre_break_volumes: HashMap<String, f32>,
     pub is_ducked: bool,
+    pub screen_lock_enabled: bool,
 }
 
 static TODO_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -67,7 +70,16 @@ impl BreakTimerManager {
             todo_items: Vec::new(),
             pre_break_volumes: HashMap::new(),
             is_ducked: false,
+            screen_lock_enabled: true,
         }
+    }
+
+    pub fn set_screen_lock_enabled(&mut self, enabled: bool) {
+        self.screen_lock_enabled = enabled;
+    }
+
+    pub fn is_screen_lock_enabled(&self) -> bool {
+        self.screen_lock_enabled
     }
 
     pub fn is_config_valid(&self) -> bool {
@@ -129,6 +141,7 @@ impl BreakTimerManager {
             break_duration: self.break_duration,
             completed_sessions: self.completed_sessions_today,
             is_ducked: self.is_ducked,
+            screen_lock_enabled: self.screen_lock_enabled,
         }
     }
 
@@ -265,6 +278,20 @@ mod tests {
         assert_eq!(timer.remaining_seconds(), 0);
         assert_eq!(timer.completed_sessions_today, 0);
         assert!(!timer.is_ducked);
+        assert!(timer.is_screen_lock_enabled());
+        assert!(timer.get_status().screen_lock_enabled);
+    }
+
+    #[test]
+    fn test_screen_lock_preference_tracking() {
+        let mut timer = BreakTimerManager::new(1500, 300);
+        timer.set_screen_lock_enabled(false);
+        assert!(!timer.is_screen_lock_enabled());
+        assert!(!timer.get_status().screen_lock_enabled);
+
+        timer.set_screen_lock_enabled(true);
+        assert!(timer.is_screen_lock_enabled());
+        assert!(timer.get_status().screen_lock_enabled);
     }
 
     #[test]

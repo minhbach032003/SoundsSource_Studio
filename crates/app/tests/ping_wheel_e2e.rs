@@ -1,7 +1,7 @@
 use rust_sound_lib::engine::wheel::{pick_slice, get_default_catalog, DIRECTIONS};
 use rust_sound_lib::{
     AppState, AudioRouter, AuthService, BreakTimerManager, GestureEngine, GestureState,
-    InputEvent, PetManager, PingloomSettings, Point, PresetStore,
+    InputBlocker, InputEvent, PetManager, PingloomSettings, Point, PresetStore,
 };
 use std::env;
 use std::sync::atomic::AtomicBool;
@@ -27,6 +27,7 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         gesture_engine: Mutex::new(GestureEngine::default()),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
+        input_blocker: InputBlocker::new(),
     };
 
     // 1. Verify initial settings and dual triggers

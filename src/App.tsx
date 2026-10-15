@@ -175,13 +175,38 @@ const AppContent: FC = () => {
     }
   });
 
-  const handleToggleScreenLock = useCallback((enabled: boolean) => {
-    setScreenLockEnabled(enabled);
-    try {
-      localStorage.setItem("rust_sound_timer_screen_lock", String(enabled));
-    } catch {}
-    showToast("info", enabled ? "Đã bật khóa màn hình khi nghỉ" : "Đã tắt khóa màn hình khi nghỉ");
-  }, [showToast]);
+  const isDesktop = isRunningInTauri();
+
+  const handleToggleScreenLock = useCallback(
+    async (enabled: boolean) => {
+      setScreenLockEnabled(enabled);
+      try {
+        localStorage.setItem("rust_sound_timer_screen_lock", String(enabled));
+      } catch {}
+
+      if (isDesktop) {
+        try {
+          await invoke("sync_break_screen_lock", { enabled });
+          if (enabled) {
+            const trusted = await invoke<boolean>("check_accessibility_permission");
+            if (!trusted) {
+              showToast(
+                "info",
+                "Chưa cấp quyền Accessibility: Màn hình vẫn phủ mờ nhưng phím tắt hệ thống sẽ không bị chặn cho đến khi cấp quyền."
+              );
+              // Trigger permission prompt in System Settings
+              await invoke("request_accessibility_permission").catch(() => {});
+            }
+          }
+        } catch {
+          // Ignore IPC sync error in browser or test environments
+        }
+      }
+
+      showToast("info", enabled ? "Đã bật khóa màn hình khi nghỉ" : "Đã tắt khóa màn hình khi nghỉ");
+    },
+    [isDesktop, showToast]
+  );
 
   const handleThemeSelect = useCallback(
     (palette: string) => {
@@ -195,8 +220,6 @@ const AppContent: FC = () => {
     toggleThemeMode();
     showToast("info", `Switched to ${resolvedThemeMode === "dark" ? "Light" : "Dark"} mode`);
   }, [toggleThemeMode, resolvedThemeMode, showToast]);
-
-  const isDesktop = isRunningInTauri();
 
   // Audio Mixer State
   const [processes, setProcesses] = useState<AudioProcess[]>(() =>
@@ -254,8 +277,12 @@ const AppContent: FC = () => {
   const inputVolThrottleRef = useRef<number>(0);
   const isDraggingVolRef = useRef<boolean>(false);
 
-  // Testing and automation event listener for break phase
+  // Testing and automation event listener for break phase (strictly development gated)
   useEffect(() => {
+    const isDev = Boolean(
+      (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
+    );
+    if (!isDev) return;
     const handleSimBreak = () => {
       setTimerStatus((prev) => ({
         ...prev,
@@ -267,6 +294,13 @@ const AppContent: FC = () => {
     window.addEventListener("simulate-break-phase", handleSimBreak);
     return () => window.removeEventListener("simulate-break-phase", handleSimBreak);
   }, []);
+
+  // Sync screen lock preference to backend on mount
+  useEffect(() => {
+    if (isDesktop) {
+      invoke("sync_break_screen_lock", { enabled: screenLockEnabled }).catch(() => {});
+    }
+  }, [isDesktop, screenLockEnabled]);
 
   // Poll timer status
   const pollTimer = useCallback(async () => {

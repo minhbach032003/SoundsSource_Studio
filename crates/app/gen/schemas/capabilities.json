@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Capability for the main window","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Capability for application windows","local":true,"windows":["main","pet-overlay","ping-overlay","break-overlay-*"],"permissions":["core:default"]}}
