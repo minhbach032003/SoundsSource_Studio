@@ -893,7 +893,7 @@ const AppContent: FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#131115] text-stone-100 font-sans overflow-hidden relative">
+    <div className="flex h-screen bg-[var(--paper)] text-[var(--ink)] font-sans overflow-hidden relative">
       {/* 0. Ambient Background Wallpaper Layer */}
       <div
         className="fixed inset-0 pointer-events-none z-0 transition-all duration-700 ease-out origin-center"
@@ -905,7 +905,7 @@ const AppContent: FC = () => {
       />
       {/* Dynamic Contrast Dimming Overlay */}
       <div
-        className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500 ease-out bg-[#131115]"
+        className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-500 ease-out bg-[var(--paper)]"
         style={{
           opacity: wallpaper.dim,
         }}

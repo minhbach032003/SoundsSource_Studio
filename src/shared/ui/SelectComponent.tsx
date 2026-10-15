@@ -68,9 +68,9 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
             disabled={disabled}
             onChange={handleChange}
             className={cn(
-              "h-7.5 w-full rounded-md bg-slate-950/80 border text-xs font-medium text-slate-200 transition-colors appearance-none pr-7",
-              "border-white/10 hover:border-white/20",
-              "focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400",
+              "h-7.5 w-full rounded-md bg-[var(--paper)] border text-xs font-medium text-[var(--ink)] transition-colors appearance-none pr-7",
+              "border-[var(--input-line)] hover:border-[var(--focus)]",
+              "focus:outline-none focus:border-[var(--focus)] focus:ring-1 focus:ring-[var(--focus)]/30",
               "disabled:opacity-45 disabled:cursor-not-allowed",
               "text-ellipsis whitespace-nowrap overflow-hidden",
               error && "border-rose-500 focus:border-rose-500",
@@ -84,14 +84,14 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
                 key={opt.value}
                 value={opt.value}
                 disabled={opt.disabled}
-                className="bg-slate-900 text-slate-200"
+                className="bg-[var(--paper)] text-[var(--ink)]"
               >
                 {opt.label}
               </option>
             ))}
           </select>
 
-          <ChevronDown className="absolute right-2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+          <ChevronDown className="absolute right-2 w-3.5 h-3.5 text-[var(--muted)] pointer-events-none" />
         </div>
 
         {error && <p className="text-[11px] text-rose-400 font-medium">{error}</p>}

@@ -111,10 +111,13 @@ fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) ->
 }
 
 #[tauri::command]
-fn open_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
+fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
     if let Some(win) = app.get_webview_window("pet-overlay") {
+        if let (Some(px), Some(py)) = (x, y) {
+            let _ = win.set_position(tauri::LogicalPosition::new(px, py));
+        }
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(true);
@@ -126,7 +129,7 @@ fn open_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
         WebviewUrl::App("index.html?overlay=1".into()),
     )
     .title("AgentPet Overlay")
-    .inner_size(240.0, 260.0)
+    .inner_size(260.0, 280.0)
     .transparent(true)
     .decorations(false)
     .always_on_top(true)
@@ -136,15 +139,27 @@ fn open_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
     .build()
     .map_err(|e| format!("Failed to create pet overlay window: {e}"))?;
 
-    // Anchor near bottom-right of primary monitor
-    if let Ok(Some(mon)) = app.primary_monitor() {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSWindow;
+        if let Ok(ns_win_ptr) = win.ns_window() {
+            unsafe {
+                let ns_win: &NSWindow = &*(ns_win_ptr as *const NSWindow);
+                ns_win.setMovableByWindowBackground(true);
+            }
+        }
+    }
+
+    if let (Some(px), Some(py)) = (x, y) {
+        let _ = win.set_position(tauri::LogicalPosition::new(px, py));
+    } else if let Ok(Some(mon)) = app.primary_monitor() {
         let sz = mon.size();
         let scale = mon.scale_factor();
         let screen_w = sz.width as f64 / scale;
         let screen_h = sz.height as f64 / scale;
-        let x = (screen_w - 260.0).max(20.0);
-        let y = (screen_h - 300.0).max(20.0);
-        let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+        let px = (screen_w - 280.0).max(20.0);
+        let py = (screen_h - 320.0).max(20.0);
+        let _ = win.set_position(tauri::LogicalPosition::new(px, py));
     }
 
     let _ = win.show();
@@ -164,7 +179,7 @@ fn close_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn toggle_pet_overlay(app: tauri::AppHandle, enable: Option<bool>) -> Result<bool, String> {
+fn toggle_pet_overlay(app: tauri::AppHandle, enable: Option<bool>, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
     use tauri::Manager;
     let is_open = app
         .get_webview_window("pet-overlay")
@@ -173,7 +188,7 @@ fn toggle_pet_overlay(app: tauri::AppHandle, enable: Option<bool>) -> Result<boo
 
     let target = enable.unwrap_or(!is_open);
     if target {
-        open_pet_overlay(app)
+        open_pet_overlay(app, x, y)
     } else {
         close_pet_overlay(app)
     }

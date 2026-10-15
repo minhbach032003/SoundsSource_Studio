@@ -87,8 +87,8 @@ export const ProcessCard: FC<ProcessCardProps> = ({
       variant={isMuted ? "muted" : "default"}
       padding="sm"
       className={cn(
-        "transition-all duration-150 border border-white/8 hover:border-white/16 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)] bg-gradient-to-r from-[#201925] to-[#17131b]",
-        isExpanded && "border-rose-400/40 ring-1 ring-rose-400/20"
+        "transition-all duration-150 border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--focus)]",
+        isExpanded && "border-[var(--accent)] ring-1 ring-[var(--accent)]/30"
       )}
     >
       {/* Primary Channel Strip Row */}
@@ -101,7 +101,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
             <div className="flex items-center gap-1.5">
               <h4
                 className={cn(
-                  "text-xs font-semibold tracking-tight text-slate-100 truncate m-0",
+                  "text-xs font-semibold tracking-tight text-[var(--ink)] truncate m-0",
                   isMuted && "opacity-80 line-through"
                 )}
                 title={name}
@@ -109,7 +109,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
                 {name}
               </h4>
             </div>
-            <p className="text-[10px] text-slate-400 truncate mt-0.5 m-0 font-mono">
+            <p className="text-[10px] text-[var(--muted)] truncate mt-0.5 m-0 font-mono">
               {detail}
             </p>
           </div>
@@ -123,7 +123,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               <span>Playing</span>
             </BadgeComponent>
           ) : (
-            <span className="text-[10px] text-slate-500 pl-1">Silent</span>
+            <span className="text-[10px] text-[var(--muted)] pl-1">Silent</span>
           )}
         </div>
 
@@ -140,7 +140,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
 
         {/* Dynamic Channel Output Level Meter */}
         <div
-          className="w-8 sm:w-10 h-2 bg-slate-900 border border-white/6 rounded-sm overflow-hidden flex shrink-0"
+          className="w-8 sm:w-10 h-2 bg-[var(--line)] rounded-sm overflow-hidden flex shrink-0"
           title={`${name} live output meter`}
         >
           <div
@@ -148,9 +148,9 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               "h-full rounded-sm transition-all duration-75",
               process.is_running_output && !isMuted
                 ? channelLvl > 75
-                  ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                  : "bg-gradient-to-r from-emerald-500 to-rose-400"
-                : "bg-slate-800"
+                  ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-[var(--accent)]"
+                  : "bg-[var(--accent)]"
+                : "bg-[var(--muted)]"
             )}
             style={{ width: `${channelLvl}%` }}
           />
@@ -181,8 +181,8 @@ export const ProcessCard: FC<ProcessCardProps> = ({
             className={cn(
               "h-7 w-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer",
               isExpanded
-                ? "bg-rose-500/15 border-rose-400/40 text-rose-300"
-                : "bg-slate-900 border-white/8 text-slate-400 hover:text-white hover:border-white/20"
+                ? "bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--accent)]"
+                : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--focus)]"
             )}
             title={isExpanded ? "Collapse channel rack" : "Expand channel rack"}
             aria-expanded={isExpanded}
@@ -199,11 +199,11 @@ export const ProcessCard: FC<ProcessCardProps> = ({
 
       {/* Expandable Channel Rack Details */}
       {isExpanded && (
-        <div className="mt-2 pt-2.5 pb-1 px-2 border-t border-white/6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+        <div className="mt-2 pt-2.5 pb-1 px-2 border-t border-[var(--line)] grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
           {/* Route to Device */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <ArrowUpRight className="w-3 h-3 text-rose-400" />
+            <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider flex items-center gap-1">
+              <ArrowUpRight className="w-3 h-3 text-[var(--accent)]" />
               Route Stream To
             </span>
             <SelectComponent
@@ -211,14 +211,14 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               onChange={(uid) => onRouteChange?.(uid)}
               options={deviceOptions}
               disabled={isDisabled}
-              className="h-7 text-xs bg-slate-950/90"
+              className="h-7 text-xs bg-[var(--paper)]"
             />
           </div>
 
           {/* Individual Channel EQ Toggle */}
           <div className="flex flex-col gap-1 justify-between">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <Sliders className="w-3 h-3 text-amber-400" />
+            <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider flex items-center gap-1">
+              <Sliders className="w-3 h-3 text-amber-500" />
               DSP Parametric EQ
             </span>
             <div className="flex items-center gap-2">
@@ -227,26 +227,26 @@ export const ProcessCard: FC<ProcessCardProps> = ({
                 className={cn(
                   "px-2.5 py-1 text-[11px] font-semibold rounded-md border transition-all cursor-pointer",
                   isEQEnabled
-                    ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
-                    : "bg-slate-900 border-white/10 text-slate-400"
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-500"
+                    : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)]"
                 )}
               >
                 {isEQEnabled ? "10-Band EQ Active" : "EQ Bypassed"}
               </button>
-              <span className="text-[10px] text-slate-500">48kHz stereo processing</span>
+              <span className="text-[10px] text-[var(--muted)]">48kHz stereo processing</span>
             </div>
           </div>
 
           {/* Hide Channel Action */}
           {onHide && (
-            <div className="sm:col-span-2 flex items-center justify-between pt-1 border-t border-white/6">
-              <span className="text-[10px] text-slate-500">
+            <div className="sm:col-span-2 flex items-center justify-between pt-1 border-t border-[var(--line)]">
+              <span className="text-[10px] text-[var(--muted)]">
                 Hide this application from active mixer channel strips
               </span>
               <button
                 type="button"
                 onClick={onHide}
-                className="text-[10px] text-slate-400 hover:text-rose-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/6 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all cursor-pointer"
+                className="text-[10px] text-[var(--muted)] hover:text-rose-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[var(--line)] hover:border-rose-500/30 hover:bg-rose-500/10 transition-all cursor-pointer"
                 title="Hide this channel from mixer"
               >
                 <EyeOff className="w-3 h-3 text-rose-400" />

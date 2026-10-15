@@ -477,7 +477,16 @@ export const AgentPetView: FC = () => {
     setShowDesktopOverlay(next);
     if (isDesktop) {
       try {
-        await invoke("toggle_pet_overlay", { enable: next });
+        let pos: { x: number; y: number } | null = null;
+        try {
+          const raw = localStorage.getItem("rust_sound_pet_overlay_pos");
+          if (raw) pos = JSON.parse(raw);
+        } catch {}
+        await invoke("toggle_pet_overlay", {
+          enable: next,
+          x: pos?.x,
+          y: pos?.y,
+        });
       } catch (e) {
         console.error("Failed to toggle desktop overlay", e);
       }
@@ -689,6 +698,7 @@ export const AgentPetView: FC = () => {
                     setSelectedPet(val);
                     try {
                       localStorage.setItem("rust_sound_pet_slug", val);
+                      window.dispatchEvent(new Event("storage"));
                     } catch {}
                     showToast("info", `Switched active companion to ${val}`);
                   }}
@@ -848,6 +858,7 @@ export const AgentPetView: FC = () => {
                       setSelectedPet(pet.id);
                       try {
                         localStorage.setItem("rust_sound_pet_slug", pet.id);
+                        window.dispatchEvent(new Event("storage"));
                       } catch {}
                       showToast("success", `Equipped ${pet.name}!`);
                     }}

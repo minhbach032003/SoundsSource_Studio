@@ -250,8 +250,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     className={cn(
                       "p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-22 relative overflow-hidden group",
                       isSelected
-                        ? "bg-[#271f2c] border-rose-400/60 shadow-[0_0_15px_rgba(251,113,133,0.2)]"
-                        : "bg-slate-950/60 border-white/6 hover:border-white/15 hover:bg-slate-900/50"
+                        ? "bg-[var(--accent)]/15 border-[var(--accent)] shadow-sm ring-1 ring-[var(--accent)]/30"
+                        : "bg-[var(--paper)] border-[var(--line)] hover:border-[var(--focus)]"
                     )}
                   >
                     {/* Visual gradient swatch preview */}
@@ -370,7 +370,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className="border border-dashed border-white/15 hover:border-rose-400/50 rounded-xl p-5 text-center bg-[#17121b]/60 hover:bg-[#251e2b]/50 transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group"
+                className="border border-dashed border-[var(--line)] hover:border-[var(--focus)] rounded-xl p-5 text-center bg-[var(--paper)] hover:bg-[var(--surface)] transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group"
               >
                 <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                   <Upload className="w-5 h-5" />

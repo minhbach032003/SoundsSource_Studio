@@ -610,7 +610,7 @@ export const TimerView: FC<TimerViewProps> = ({
         {/* Right Column (lg:col-span-5): Tasks Checklist & Interactive Session Configuration */}
         <div className="lg:col-span-5 flex flex-col gap-4 h-full min-h-0">
           {/* 3. Focus Tasks & Google Calendar Card */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm min-h-[260px]">
+          <div className="flex-1 flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm min-h-[260px]">
             {/* Task Header with Google Calendar Sync & Filter Tabs */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0">
               <div className="flex items-center gap-2">
@@ -973,7 +973,7 @@ export const TimerView: FC<TimerViewProps> = ({
           </div>
 
           {/* 4. Interactive Session Configuration Card with Real Clock Times */}
-          <div className="rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
                 Session Configuration & Clock
@@ -993,7 +993,7 @@ export const TimerView: FC<TimerViewProps> = ({
             {/* Interactive Steppers Grid for Study and Break */}
             <div className="grid grid-cols-2 gap-2.5 text-xs">
               {/* Study Duration Card with Stepper */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <span className="text-[10px] text-slate-500 block mb-1">
                   Focus Duration
                 </span>
@@ -1027,7 +1027,7 @@ export const TimerView: FC<TimerViewProps> = ({
               </div>
 
               {/* Rest Duration Card with Stepper */}
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 flex flex-col justify-between">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <span className="text-[10px] text-slate-500 block mb-1">
                   Rest Duration
                 </span>

@@ -386,7 +386,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
         </div>
 
         {/* Right Column (lg:col-span-7): Full Dialogue Stream & Quick Actions Console */}
-        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[#1e1823] border border-white/8 p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
+        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
           {/* Header & Quick Action Prompt Chips */}
           <div className="space-y-2.5 pb-3 border-b border-white/5 shrink-0">
             <div className="flex items-center justify-between">

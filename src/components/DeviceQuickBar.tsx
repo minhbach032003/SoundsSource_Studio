@@ -114,13 +114,13 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
 
   return (
     <section
-      className="p-4 rounded-2xl bg-gradient-to-b from-[#131924] to-[#0e121a] border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md"
+      className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm"
       aria-label="Master Output Console"
     >
       {/* Console Header */}
-      <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/6">
+      <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[var(--line)]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center text-rose-300">
+          <div className="w-7 h-7 rounded-lg bg-[var(--accent)]/15 border border-[var(--accent)]/30 flex items-center justify-center text-[var(--accent)]">
             {isHeadphones ? (
               <Headphones className="w-4 h-4" />
             ) : (
@@ -128,10 +128,10 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             )}
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-100 tracking-tight m-0">
+            <h3 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
               Master Output Channel
             </h3>
-            <p className="text-[10px] text-slate-400 m-0">
+            <p className="text-[10px] text-[var(--muted)] m-0">
               Hardware CoreAudio Master Bus
             </p>
           </div>
@@ -141,7 +141,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
           <BadgeComponent variant="emerald" dot={isAudioActive} className="text-[9px] px-2 py-0.5">
             {isAudioActive ? "Stream Active" : "Standby"}
           </BadgeComponent>
-          <span className="text-[10px] text-slate-400 tabular-nums hidden sm:inline">
+          <span className="text-[10px] text-[var(--muted)] tabular-nums hidden sm:inline">
             48.0 kHz · 24-bit Stereo
           </span>
         </div>
@@ -179,21 +179,21 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
       </div>
 
       {/* Master Volume Slider & Stereo VU Meter */}
-      <div className="flex flex-col gap-2.5 pt-1 border-t border-white/6">
+      <div className="flex flex-col gap-2.5 pt-1 border-t border-[var(--line)]">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-300 font-semibold flex items-center gap-1.5">
-            <Volume2 className="w-3.5 h-3.5 text-rose-400" />
+          <span className="text-[var(--ink)] font-semibold flex items-center gap-1.5">
+            <Volume2 className="w-3.5 h-3.5 text-[var(--accent)]" />
             Master Volume Fader
           </span>
           <div className="flex items-center gap-2">
             <span
               onDoubleClick={() => !disabled && handleVolumeCommit(100)}
               title="Double-click to reset to 100% (0 dB)"
-              className="font-mono text-stone-300 text-[10px] tabular-nums font-semibold cursor-pointer hover:text-rose-300"
+              className="font-mono text-[var(--ink)] text-[10px] tabular-nums font-semibold cursor-pointer hover:text-[var(--accent)]"
             >
               {internalMasterVol}%
             </span>
-            <span className="font-mono text-slate-500 text-[10px] tabular-nums">
+            <span className="font-mono text-[var(--muted)] text-[10px] tabular-nums">
               ({internalMasterVol === 0
                 ? "-∞ dB"
                 : `${Math.round(((internalMasterVol - 100) / 100) * 24)} dB`})
@@ -215,35 +215,35 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
 
           {/* Stereo VU Meter Simulation */}
           <div
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-950/80 border border-white/6 select-none shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--paper)] border border-[var(--line)] select-none shrink-0"
             title="Stereo Output VU Meter (L / R)"
             aria-label="Stereo Output VU Meter"
           >
-            <span className="text-[9px] font-bold text-stone-500 font-mono">L</span>
-            <div className="w-10 h-2 bg-stone-800 rounded-sm overflow-hidden flex">
+            <span className="text-[9px] font-bold text-[var(--muted)] font-mono">L</span>
+            <div className="w-10 h-2 bg-[var(--line)] rounded-sm overflow-hidden flex">
               <div
                 className={cn(
                   "h-full rounded-sm transition-all duration-75",
                   isAudioActive && !isMuted
                     ? dynamicL > 80
-                      ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                      : "bg-gradient-to-r from-emerald-500 to-rose-400"
-                    : "bg-stone-700"
+                      ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-[var(--accent)]"
+                      : "bg-[var(--accent)]"
+                    : "bg-[var(--muted)]"
                 )}
                 style={{ width: `${dynamicL}%` }}
               />
             </div>
 
-            <span className="text-[9px] font-bold text-stone-500 font-mono ml-0.5">R</span>
-            <div className="w-10 h-2 bg-stone-800 rounded-sm overflow-hidden flex">
+            <span className="text-[9px] font-bold text-[var(--muted)] font-mono ml-0.5">R</span>
+            <div className="w-10 h-2 bg-[var(--line)] rounded-sm overflow-hidden flex">
               <div
                 className={cn(
                   "h-full rounded-sm transition-all duration-75",
                   isAudioActive && !isMuted
                     ? dynamicR > 80
-                      ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500"
-                      : "bg-gradient-to-r from-emerald-500 to-rose-400"
-                    : "bg-stone-700"
+                      ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-[var(--accent)]"
+                      : "bg-[var(--accent)]"
+                    : "bg-[var(--muted)]"
                 )}
                 style={{ width: `${dynamicR}%` }}
               />
@@ -264,20 +264,20 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
               isMuted ? (
                 <VolumeX className="w-4 h-4 text-rose-400" />
               ) : (
-                <Volume2 className="w-4 h-4 text-slate-300" />
+                <Volume2 className="w-4 h-4 text-[var(--ink)]" />
               )
             }
           />
         </div>
 
         {/* Stereo Balance Slider (L - C - R) */}
-        <div className="flex items-center justify-between gap-3 pt-1 text-[10px] text-slate-400">
-          <span className="shrink-0 flex items-center gap-1 font-semibold text-slate-300">
-            <Sliders className="w-3 h-3 text-slate-400" />
+        <div className="flex items-center justify-between gap-3 pt-1 text-[10px] text-[var(--muted)]">
+          <span className="shrink-0 flex items-center gap-1 font-semibold text-[var(--ink)]">
+            <Sliders className="w-3 h-3 text-[var(--muted)]" />
             Balance
           </span>
           <div className="flex-1 max-w-[180px] flex items-center gap-2">
-            <span className="font-mono text-[9px] text-slate-500">L</span>
+            <span className="font-mono text-[9px] text-[var(--muted)]">L</span>
             <input
               type="range"
               min="-100"
@@ -286,13 +286,13 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
               disabled={disabled}
               onChange={(e) => setInternalBalance(Number(e.target.value))}
               onPointerUp={() => handleBalanceCommit(internalBalance)}
-              className="w-full h-1.5 bg-[#251e2b] rounded-full appearance-none accent-rose-400 cursor-pointer"
+              className="w-full h-1.5 bg-[var(--line)] rounded-full appearance-none accent-[var(--accent)] cursor-pointer"
             />
-            <span className="font-mono text-[9px] text-slate-500">R</span>
+            <span className="font-mono text-[9px] text-[var(--muted)]">R</span>
           </div>
           <button
             onClick={() => handleBalanceCommit(0)}
-            className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors font-medium cursor-pointer"
+            className="text-[10px] text-[var(--accent)] hover:opacity-80 transition-opacity font-medium cursor-pointer"
             title="Reset balance to center"
           >
             {internalBalance === 0

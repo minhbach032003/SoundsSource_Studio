@@ -111,7 +111,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 select-none">
       {/* 1. Input Microphone Channel */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#201925] to-[#17131b] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
@@ -119,16 +119,16 @@ export const AudioBuses: FC<AudioBusesProps> = ({
                 "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
                 isInputMuted
                   ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                  : "bg-purple-500/15 text-purple-400 border border-purple-400/30"
+                  : "bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30"
               )}
             >
               {isInputMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-200 tracking-tight m-0">
+              <h4 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
                 Microphone Input
               </h4>
-              <p className="text-[10px] text-slate-400 m-0">Hardware Input Bus</p>
+              <p className="text-[10px] text-[var(--muted)] m-0">Hardware Input Bus</p>
             </div>
           </div>
 
@@ -150,22 +150,22 @@ export const AudioBuses: FC<AudioBusesProps> = ({
             onToast?.(`Microphone switched to ${dev ? dev.name : "System Default"}`);
           }}
           options={micOptions}
-          className="h-7 text-xs bg-slate-950/80"
+          className="h-7 text-xs bg-[var(--paper)]"
         />
 
         {/* Mic Gain Slider & VU Meter */}
-        <div className="flex flex-col gap-1.5 pt-1 border-t border-white/5">
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--line)]">
+          <div className="flex items-center justify-between text-[11px] text-[var(--muted)] px-0.5">
             <span>Input Gain</span>
             <div className="flex items-center gap-1.5">
               <span
                 onDoubleClick={() => !isInputMuted && handleMicVolumeCommit(85)}
                 title="Double-click to reset to 85%"
-                className="font-mono text-slate-300 tabular-nums font-semibold cursor-pointer hover:text-purple-300"
+                className="font-mono text-[var(--ink)] tabular-nums font-semibold cursor-pointer hover:text-[var(--accent)]"
               >
                 {internalMicVol}%
               </span>
-              <span className="font-mono text-slate-500 text-[10px] tabular-nums">
+              <span className="font-mono text-[var(--muted)] text-[10px] tabular-nums">
                 ({internalMicVol === 0
                   ? "-∞ dB"
                   : `${Math.round(((internalMicVol - 100) / 100) * 24)} dB`})
@@ -187,7 +187,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
 
             {/* Input VU Meter */}
             <div
-              className="w-10 h-2 bg-slate-800 rounded-sm overflow-hidden flex shrink-0"
+              className="w-10 h-2 bg-[var(--line)] rounded-sm overflow-hidden flex shrink-0"
               title={`Microphone Input Level (${inputMeterLvl}%)`}
             >
               <div
@@ -196,8 +196,8 @@ export const AudioBuses: FC<AudioBusesProps> = ({
                   !isInputMuted
                     ? inputMeterLvl > 75
                       ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-400"
-                      : "bg-gradient-to-r from-emerald-500 via-rose-400 to-pink-400"
-                    : "bg-stone-700"
+                      : "bg-[var(--accent)]"
+                    : "bg-[var(--muted)]"
                 )}
                 style={{ width: `${inputMeterLvl}%` }}
               />
@@ -223,7 +223,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       </div>
 
       {/* 2. macOS System Alerts & Sounds Channel */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#201925] to-[#17131b] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
@@ -237,10 +237,10 @@ export const AudioBuses: FC<AudioBusesProps> = ({
               {isSystemMuted ? <BellOff className="w-3.5 h-3.5" /> : <Bell className="w-3.5 h-3.5" />}
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-200 tracking-tight m-0">
+              <h4 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
                 macOS System Sounds
               </h4>
-              <p className="text-[10px] text-slate-400 m-0">Alerts, Chimes & Notifications</p>
+              <p className="text-[10px] text-[var(--muted)] m-0">Alerts, Chimes & Notifications</p>
             </div>
           </div>
 
@@ -250,7 +250,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
               "px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer flex items-center gap-1",
               isPlayingChime
                 ? "bg-amber-500/20 border-amber-400 text-amber-200 shadow-sm"
-                : "bg-slate-900 border-white/10 text-slate-400 hover:text-white hover:border-white/20"
+                : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)] hover:border-[var(--focus)]"
             )}
             title="Play sample macOS notification sound"
           >
@@ -259,13 +259,13 @@ export const AudioBuses: FC<AudioBusesProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+        <div className="flex items-center justify-between text-[11px] text-[var(--muted)] px-0.5">
           <span>Alert Effects Volume</span>
-          <span className="font-mono text-slate-300 tabular-nums">{sysVolume}%</span>
+          <span className="font-mono text-[var(--ink)] tabular-nums">{sysVolume}%</span>
         </div>
 
         {/* Volume Slider & Mute */}
-        <div className="flex items-center gap-2.5 pt-1 border-t border-white/5">
+        <div className="flex items-center gap-2.5 pt-1 border-t border-[var(--line)]">
           <div className="flex-1 min-w-0">
             <SliderComponent
               value={sysVolume}
