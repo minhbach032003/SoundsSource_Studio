@@ -22,16 +22,16 @@ export const ThemeControls: FC<ThemeControlsProps> = ({
       </label>
       <select
         id="theme-preset"
-        className="theme-preset h-8 px-2.5 text-xs rounded-md bg-[var(--paper)] text-[var(--ink)] border border-[var(--input-line)] hover:border-[var(--focus)] focus:border-[var(--focus)] transition-colors cursor-pointer outline-none"
+        className="theme-preset h-8 px-2 text-[11px] sm:text-xs rounded-md bg-[var(--paper)] text-[var(--ink)] border border-[var(--input-line)] hover:border-[var(--focus)] focus:border-[var(--focus)] transition-colors cursor-pointer outline-none w-28 sm:w-36 md:w-40 truncate"
         value={selectedTheme}
         onChange={(e) => onSelectTheme(e.target.value)}
         aria-label="Select color theme palette"
       >
-        <option value="default">Pingloom Rose (Default)</option>
-        <option value="latte">Catppuccin Latte</option>
-        <option value="frappe">Catppuccin Frappé</option>
-        <option value="macchiato">Catppuccin Macchiato</option>
-        <option value="mocha">Catppuccin Mocha</option>
+        <option value="default">Pingloom Rose</option>
+        <option value="latte">Latte (Light)</option>
+        <option value="frappe">Frappé (Dark)</option>
+        <option value="macchiato">Macchiato</option>
+        <option value="mocha">Mocha (Dark)</option>
       </select>
       <button
         type="button"

@@ -236,7 +236,7 @@ export const MixerView: FC<MixerViewProps> = ({
 
               {/* Multi-Tier Filter Tabs */}
               <div
-                className="flex p-0.5 gap-0.5 bg-slate-950 border border-white/8 rounded-lg shrink-0"
+                className="flex p-0.5 gap-0.5 bg-slate-950 border border-white/8 rounded-lg shrink-0 overflow-x-auto max-w-full"
                 role="group"
                 aria-label="Filter applications"
               >

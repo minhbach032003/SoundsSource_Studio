@@ -924,10 +924,10 @@ const AppContent: FC = () => {
       {/* 2. Main Content Viewport */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 relative z-10">
         {/* Single Unified Header Toolbar (Pingloom desktop style) */}
-        <header className="h-12 px-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--paper)] z-20">
-          <div className="flex items-center gap-4 min-w-0">
-            <div>
-              <h1 className="text-sm font-bold text-[var(--ink)] tracking-tight m-0">
+        <header className="min-h-12 py-2 px-3 sm:px-5 border-b border-[var(--line)] flex items-center justify-between shrink-0 bg-[var(--paper)] z-20 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-[var(--ink)] tracking-tight m-0 truncate">
                 {activeTab === "mixer"
                   ? "Audio Mixer"
                   : activeTab === "timer"
@@ -940,7 +940,7 @@ const AppContent: FC = () => {
                   ? "Agent Pet Companion"
                   : "Settings & Account"}
               </h1>
-              <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5 truncate">
+              <p className="text-[10px] sm:text-[11px] text-[var(--muted)] m-0 mt-0.5 truncate hidden sm:block">
                 {activeTab === "mixer"
                   ? "Per-application CoreAudio stream routing & volume control"
                   : activeTab === "timer"
@@ -955,13 +955,13 @@ const AppContent: FC = () => {
               </p>
             </div>
 
-            <div className="status-indicator pl-2 hidden sm:flex">
+            <div className="status-indicator pl-1 hidden md:flex shrink-0">
               <span className="status-dot"></span>
-              <span className="text-[11px] font-semibold text-[var(--success)]">CoreAudio Active</span>
+              <span className="text-[10px] font-semibold text-[var(--success)]">CoreAudio Active</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Pingloom Theme Controls */}
             <ThemeControls
               selectedTheme={selectedTheme}
@@ -989,19 +989,21 @@ const AppContent: FC = () => {
                     }
                   />
                 }
+                className="h-8 px-2 sm:px-3 text-xs"
+                title="Refresh audio applications"
               >
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </ButtonComponent>
             )}
 
             {user ? (
               <button
                 onClick={() => setActiveTab("settings")}
-                className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--ink)] hover:border-[var(--focus)] transition-colors cursor-pointer shadow-sm"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--ink)] hover:border-[var(--focus)] transition-colors cursor-pointer shadow-sm max-w-[90px] sm:max-w-[130px] truncate"
                 title="Account Settings"
               >
-                <GoogleIcon className="w-3.5 h-3.5" />
-                <span className="font-semibold truncate max-w-[120px]">{user.name}</span>
+                <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-semibold truncate">{user.name}</span>
               </button>
             ) : (
               <ButtonComponent
@@ -1010,16 +1012,17 @@ const AppContent: FC = () => {
                 onClick={handleSignInGoogle}
                 loading={isLoadingAuth}
                 leftIcon={<GoogleIcon className="w-3.5 h-3.5" />}
-                className="text-[11px] h-7.5"
+                className="text-[11px] h-8 px-2 sm:px-3"
+                title="Sign in with Google"
               >
-                Sign In
+                <span className="hidden sm:inline">Sign In</span>
               </ButtonComponent>
             )}
           </div>
         </header>
 
         {/* Scrollable View Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 flex flex-col min-w-0">
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-5 lg:p-6 flex flex-col min-w-0">
           {activeTab === "mixer" && (
             <MixerView
               processes={processes}
@@ -1156,17 +1159,17 @@ const AppContent: FC = () => {
         </main>
 
         {/* Persistent Desktop Command Footer (Pingloom style) */}
-        <footer className="h-11 px-5 border-t border-[var(--line)] bg-[var(--paper)] flex items-center justify-between shrink-0 z-20">
-          <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <span className="status-dot text-[var(--success)]"></span>
-            <span>CoreAudio DSP active. Changes apply immediately.</span>
+        <footer className="h-11 px-3 sm:px-5 border-t border-[var(--line)] bg-[var(--paper)] flex items-center justify-between shrink-0 z-20 gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--muted)] min-w-0 flex-1 truncate">
+            <span className="status-dot text-[var(--success)] shrink-0"></span>
+            <span className="truncate">CoreAudio DSP active</span>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <ButtonComponent
               variant="outline"
               size="sm"
               onClick={() => setConfirmResetOpen(true)}
-              className="h-7 text-xs"
+              className="h-7 px-2 sm:px-3 text-xs whitespace-nowrap"
             >
               Reset Routing
             </ButtonComponent>
@@ -1177,7 +1180,7 @@ const AppContent: FC = () => {
                 loadProcesses(true);
                 showToast("success", "Audio routing refreshed and synchronized!");
               }}
-              className="h-7 text-xs"
+              className="h-7 px-2.5 sm:px-3 text-xs whitespace-nowrap"
             >
               Sync Engine
             </ButtonComponent>
