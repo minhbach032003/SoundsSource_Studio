@@ -1,9 +1,16 @@
 pub use sound_core::device;
+pub mod auth;
 pub mod eq;
 pub mod preset;
 pub mod router;
 pub mod timer;
 
+pub use auth::{
+    AuthRepository, AuthService, AuthSession, AuthenticatedUser, DualAuthError,
+    DualAuthValidator, GoogleAuthError, GoogleAuthVerifier, GoogleUserProfile,
+    JwtClaims, JwtError, JwtManager, KeycloakClaims, KeycloakError, KeycloakVerifier,
+    Pkce, PkceChallenge, PkceError, User, UserIdentity, NEON_MIGRATIONS_DDL,
+};
 pub use device::AudioDevice;
 pub use eq::{EQBandConfig, ParametricEQ, DEFAULT_EQ_FREQUENCIES};
 pub use preset::{AppAudioSettings, Preset, PresetStore};

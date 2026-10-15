@@ -1,27 +1,40 @@
 import { useState, useEffect, type FC } from "react";
 import { Mic, MicOff, Bell, BellOff, Sparkles } from "lucide-react";
 import { SliderComponent, ButtonComponent, BadgeComponent, SelectComponent } from "@/shared/ui";
+import type { AudioDevice } from "@/components/DeviceQuickBar";
+import { useLiveAudioMeters } from "@/shared/lib/useLiveAudioMeters";
 import { cn } from "@/lib/utils";
 
 interface AudioBusesProps {
+  inputDevices?: AudioDevice[];
+  selectedInputDevice?: string;
+  onSelectInputDevice?: (uid: string) => void;
   inputVolume?: number;
+  onInputVolumeChange?: (val: number) => void;
   onInputVolumeCommit?: (val: number) => void;
+  isInputMuted?: boolean;
+  onInputMuteToggle?: () => void;
   systemVolume?: number;
   onSystemVolumeCommit?: (val: number) => void;
   onToast?: (msg: string) => void;
 }
 
 export const AudioBuses: FC<AudioBusesProps> = ({
+  inputDevices = [],
+  selectedInputDevice = "",
+  onSelectInputDevice,
   inputVolume = 85,
+  onInputVolumeChange,
   onInputVolumeCommit,
+  isInputMuted = false,
+  onInputMuteToggle,
   systemVolume = 70,
   onSystemVolumeCommit,
   onToast,
 }) => {
   // Input Mic State
-  const [micVolume, setMicVolume] = useState(inputVolume);
-  const [isMicMuted, setIsMicMuted] = useState(false);
-  const [selectedMic, setSelectedMic] = useState("builtin-mic");
+  const [internalMicVol, setInternalMicVol] = useState(inputVolume);
+  const [internalSelectedMic, setInternalSelectedMic] = useState(selectedInputDevice);
 
   // System Sounds State
   const [sysVolume, setSysVolume] = useState(systemVolume);
@@ -29,12 +42,42 @@ export const AudioBuses: FC<AudioBusesProps> = ({
   const [isPlayingChime, setIsPlayingChime] = useState(false);
 
   useEffect(() => {
-    setMicVolume(inputVolume);
+    setInternalMicVol(inputVolume);
   }, [inputVolume]);
+
+  useEffect(() => {
+    if (selectedInputDevice) {
+      setInternalSelectedMic(selectedInputDevice);
+    }
+  }, [selectedInputDevice]);
 
   useEffect(() => {
     setSysVolume(systemVolume);
   }, [systemVolume]);
+
+  const handleMicVolumeChange = (val: number) => {
+    setInternalMicVol(val);
+    onInputVolumeChange?.(val);
+  };
+
+  const handleMicVolumeCommit = (val: number) => {
+    setInternalMicVol(val);
+    onInputVolumeCommit?.(val);
+  };
+
+  // Live input audio bouncing level meter
+  const liveMeters = useLiveAudioMeters(!isInputMuted);
+  const inputMeterLvl = isInputMuted
+    ? 0
+    : Math.round(liveMeters.levelL * (internalMicVol / 100));
+
+  const micOptions =
+    inputDevices.length === 0
+      ? [{ label: "Default Microphone", value: "" }]
+      : inputDevices.map((d) => ({
+          label: `${d.name}${d.is_default ? " (Default)" : ""}`,
+          value: d.uid,
+        }));
 
   const handleTestChime = () => {
     setIsPlayingChime(true);
@@ -74,12 +117,12 @@ export const AudioBuses: FC<AudioBusesProps> = ({
             <div
               className={cn(
                 "w-6 h-6 rounded-lg flex items-center justify-center transition-colors",
-                isMicMuted
+                isInputMuted
                   ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
                   : "bg-purple-500/15 text-purple-400 border border-purple-400/30"
               )}
             >
-              {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              {isInputMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-200 tracking-tight m-0">
@@ -89,76 +132,93 @@ export const AudioBuses: FC<AudioBusesProps> = ({
             </div>
           </div>
 
-          <BadgeComponent variant="secondary" className="text-[9px] px-1.5 py-0 font-mono">
-            {isMicMuted ? "MUTED" : "LIVE"}
+          <BadgeComponent
+            variant={isInputMuted ? "coral" : "secondary"}
+            className="text-[9px] px-1.5 py-0 font-mono"
+          >
+            {isInputMuted ? "MUTED" : "LIVE"}
           </BadgeComponent>
         </div>
 
         {/* Mic Source Dropdown */}
         <SelectComponent
-          value={selectedMic}
+          value={internalSelectedMic || (inputDevices.find((d) => d.is_default)?.uid ?? "")}
           onChange={(val) => {
-            setSelectedMic(val);
-            onToast?.(`Microphone switched to ${val === "builtin-mic" ? "Built-in / External Mic" : "Studio Input"}`);
+            setInternalSelectedMic(val);
+            onSelectInputDevice?.(val);
+            const dev = inputDevices.find((d) => d.uid === val);
+            onToast?.(`Microphone switched to ${dev ? dev.name : "System Default"}`);
           }}
-          options={[
-            { label: "External Microphone (Default)", value: "builtin-mic" },
-            { label: "Studio Aggregate Input", value: "studio-input" },
-          ]}
+          options={micOptions}
           className="h-7 text-xs bg-slate-950/80"
         />
 
         {/* Mic Gain Slider & VU Meter */}
-        <div className="flex items-center gap-2.5 pt-1 border-t border-white/5">
-          <div className="flex-1 min-w-0">
-            <SliderComponent
-              value={micVolume}
-              disabled={isMicMuted}
-              onCommit={(val) => {
-                setMicVolume(val);
-                onInputVolumeCommit?.(val);
-                onToast?.(`Microphone input gain set to ${val}%`);
-              }}
-              aria-label="Microphone input gain"
-              className={cn(isMicMuted && "opacity-40")}
-            />
+        <div className="flex flex-col gap-1.5 pt-1 border-t border-white/5">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+            <span>Input Gain</span>
+            <div className="flex items-center gap-1.5">
+              <span
+                onDoubleClick={() => !isInputMuted && handleMicVolumeCommit(85)}
+                title="Double-click to reset to 85%"
+                className="font-mono text-slate-300 tabular-nums font-semibold cursor-pointer hover:text-purple-300"
+              >
+                {internalMicVol}%
+              </span>
+              <span className="font-mono text-slate-500 text-[10px] tabular-nums">
+                ({internalMicVol === 0
+                  ? "-∞ dB"
+                  : `${Math.round(((internalMicVol - 100) / 100) * 24)} dB`})
+              </span>
+            </div>
           </div>
 
-          {/* Input VU Meter */}
-          <div
-            className="w-10 h-2 bg-slate-800 rounded-sm overflow-hidden flex shrink-0"
-            title="Microphone Input Level Meter"
-          >
+          <div className="flex items-center gap-2.5">
+            <div className="flex-1 min-w-0">
+              <SliderComponent
+                value={internalMicVol}
+                disabled={isInputMuted}
+                onChange={handleMicVolumeChange}
+                onCommit={handleMicVolumeCommit}
+                aria-label="Microphone input gain"
+                className={cn(isInputMuted && "opacity-40")}
+              />
+            </div>
+
+            {/* Input VU Meter */}
             <div
-              className={cn(
-                "h-full rounded-sm transition-all duration-150",
-                !isMicMuted
-                  ? "bg-gradient-to-r from-emerald-500 via-sky-400 to-purple-400 animate-pulse"
-                  : "bg-slate-700"
-              )}
-              style={{ width: isMicMuted ? "0%" : "68%" }}
+              className="w-10 h-2 bg-slate-800 rounded-sm overflow-hidden flex shrink-0"
+              title={`Microphone Input Level (${inputMeterLvl}%)`}
+            >
+              <div
+                className={cn(
+                  "h-full rounded-sm transition-all duration-75",
+                  !isInputMuted
+                    ? inputMeterLvl > 75
+                      ? "bg-gradient-to-r from-emerald-500 via-sky-400 to-rose-400"
+                      : "bg-gradient-to-r from-emerald-500 via-sky-400 to-purple-400"
+                    : "bg-slate-700"
+                )}
+                style={{ width: `${inputMeterLvl}%` }}
+              />
+            </div>
+
+            <ButtonComponent
+              variant={isInputMuted ? "destructive" : "outline"}
+              size="icon"
+              onClick={onInputMuteToggle}
+              className="h-7 w-7 shrink-0"
+              aria-label={isInputMuted ? "Unmute microphone" : "Mute microphone"}
+              title={isInputMuted ? "Unmute microphone" : "Mute microphone"}
+              leftIcon={
+                isInputMuted ? (
+                  <MicOff className="w-3.5 h-3.5 text-rose-400" />
+                ) : (
+                  <Mic className="w-3.5 h-3.5 text-slate-300" />
+                )
+              }
             />
           </div>
-
-          <ButtonComponent
-            variant={isMicMuted ? "destructive" : "outline"}
-            size="icon"
-            onClick={() => {
-              const next = !isMicMuted;
-              setIsMicMuted(next);
-              onToast?.(next ? "Microphone input muted" : "Microphone input unmuted");
-            }}
-            className="h-7 w-7 shrink-0"
-            aria-label={isMicMuted ? "Unmute microphone" : "Mute microphone"}
-            title={isMicMuted ? "Unmute microphone" : "Mute microphone"}
-            leftIcon={
-              isMicMuted ? (
-                <MicOff className="w-3.5 h-3.5 text-rose-400" />
-              ) : (
-                <Mic className="w-3.5 h-3.5 text-slate-300" />
-              )
-            }
-          />
         </div>
       </div>
 

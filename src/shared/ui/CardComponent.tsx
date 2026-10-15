@@ -15,18 +15,18 @@ export interface CardComponentProps
 
 const CARD_VARIANTS: Record<CardVariant, string> = {
   default:
-    "bg-[#151b23] border border-white/8 hover:border-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.25)]",
+    "bg-[#1e1823] border border-white/8 hover:border-white/14 shadow-[0_4px_16px_rgba(0,0,0,0.3)]",
   muted:
-    "bg-gradient-to-b from-rose-500/[0.04] to-[#151b23] border border-rose-500/30",
+    "bg-gradient-to-b from-rose-500/[0.06] to-[#1e1823] border border-rose-400/40 shadow-[0_0_16px_rgba(251,113,133,0.12)]",
   outline: "bg-transparent border border-white/10",
-  dashed: "bg-slate-900/40 border border-dashed border-white/10 text-center",
+  dashed: "bg-[#17131a]/60 border border-dashed border-white/12 text-center",
 };
 
 const PADDING_CLASSES = {
   none: "p-0",
-  sm: "p-2.5",
-  md: "p-3.5",
-  lg: "p-5",
+  sm: "p-3",
+  md: "p-4 sm:p-4.5",
+  lg: "p-5 sm:p-6",
 };
 
 /**
@@ -54,7 +54,7 @@ export const CardComponent = forwardRef<HTMLDivElement, CardComponentProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl transition-all duration-150 text-slate-100",
+          "rounded-2xl transition-all duration-150 text-stone-100",
           CARD_VARIANTS[variant],
           PADDING_CLASSES[padding],
           className
@@ -65,12 +65,12 @@ export const CardComponent = forwardRef<HTMLDivElement, CardComponentProps>(
           <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/5">
             <div>
               {title && (
-                <h3 className="text-xs font-semibold tracking-tight text-slate-100 m-0">
+                <h3 className="text-xs font-heading font-bold tracking-tight text-white m-0">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="text-[10px] text-slate-400 m-0 mt-0.5">{subtitle}</p>
+                <p className="text-[10px] text-stone-400 m-0 mt-0.5">{subtitle}</p>
               )}
             </div>
             {extra && <div className="flex items-center gap-2">{extra}</div>}

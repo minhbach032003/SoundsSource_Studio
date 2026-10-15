@@ -8,3 +8,10 @@ description = "Audio DSP, routing state and presets"
 sound-core = { path = "../core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+subtle = "2.5"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
+thiserror = "2.0"

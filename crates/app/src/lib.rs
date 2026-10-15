@@ -13,17 +13,88 @@ pub use core::{
     ProcessTap, RingBuffer,
 };
 pub use engine::{
-    AppAudioChannel, AppAudioSettings, AudioDevice, AudioRouter, BreakTimerManager, ChannelStateDto,
-    EQBandConfig, ParametricEQ, Preset, PresetStore, TimerPhase, TimerStatus, TodoItem,
-    DEFAULT_EQ_FREQUENCIES,
+    AppAudioChannel, AppAudioSettings, AudioDevice, AudioRouter, AuthService, AuthenticatedUser,
+    BreakTimerManager, ChannelStateDto, EQBandConfig, ParametricEQ, Pkce, PkceChallenge,
+    Preset, PresetStore, TimerPhase, TimerStatus, TodoItem, User, DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
     pub router: Mutex<AudioRouter>,
     pub preset_store: Mutex<PresetStore>,
     pub timer: Mutex<BreakTimerManager>,
+    pub auth: AuthService,
     pub start_time: Instant,
     pub background_mode: AtomicBool,
+}
+
+fn env_secret(key: &str) -> String {
+    std::env::var(key).unwrap_or_else(|_| panic!("missing env var {key}"))
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct AuthLoginResponse {
+    pub user: User,
+    pub token: String,
+    pub auth_provider: String,
+}
+
+// MARK: - Authentication & Neon DB Commands
+
+#[tauri::command]
+fn auth_google_login(id_token: String, state: State<'_, AppState>) -> Result<AuthLoginResponse, String> {
+    state
+        .auth
+        .handle_google_login(&id_token)
+        .map(|(user, token)| AuthLoginResponse {
+            user,
+            token,
+            auth_provider: "google".to_string(),
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn auth_keycloak_login(token: String, state: State<'_, AppState>) -> Result<AuthenticatedUser, String> {
+    state
+        .auth
+        .dual_auth
+        .authenticate_token(&token)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn auth_pkce_generate() -> PkceChallenge {
+    Pkce::generate_challenge()
+}
+
+#[tauri::command]
+fn auth_pkce_verify(verifier: String, challenge: String) -> Result<bool, String> {
+    Pkce::verify(&verifier, &challenge, "S256").map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn auth_validate_token(token: String, state: State<'_, AppState>) -> Result<AuthenticatedUser, String> {
+    state
+        .auth
+        .dual_auth
+        .authenticate_token(&token)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn auth_logout(session_id: Option<String>, state: State<'_, AppState>) -> bool {
+    if let Some(sid) = session_id {
+        let _ = state.auth.repo.delete_session(&sid);
+    }
+    true
+}
+
+#[tauri::command]
+fn auth_get_db_connection_status(state: State<'_, AppState>) -> String {
+    format!(
+        "Neon PostgreSQL Pooler Active ({})",
+        state.auth.repo.connection_string.split('@').last().unwrap_or("connected")
+    )
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -112,6 +183,7 @@ pub struct SystemVolumeSettings {
     pub output_volume: f32,
     pub output_muted: bool,
     pub input_volume: f32,
+    pub input_muted: bool,
     pub alert_volume: f32,
 }
 
@@ -119,29 +191,21 @@ pub struct SystemVolumeSettings {
 fn get_system_volume_settings() -> SystemVolumeSettings {
     let out_vol = AudioDevice::get_master_volume();
     let out_mute = AudioDevice::get_master_mute();
+    let in_vol = AudioDevice::get_input_volume();
+    let in_mute = AudioDevice::get_input_mute();
 
-    let mut in_vol = 0.85;
     let mut alert_vol = 0.70;
 
     #[cfg(target_os = "macos")]
     {
         if let Ok(out) = std::process::Command::new("osascript")
             .arg("-e")
-            .arg("get volume settings")
+            .arg("alert volume of (get volume settings)")
             .output()
         {
-            let text = String::from_utf8_lossy(&out.stdout);
-            for part in text.split(',') {
-                let part = part.trim();
-                if part.starts_with("input volume:") {
-                    if let Ok(v) = part.trim_start_matches("input volume:").trim().parse::<f32>() {
-                        in_vol = v / 100.0;
-                    }
-                } else if part.starts_with("alert volume:") {
-                    if let Ok(v) = part.trim_start_matches("alert volume:").trim().parse::<f32>() {
-                        alert_vol = v / 100.0;
-                    }
-                }
+            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if let Ok(v) = text.parse::<f32>() {
+                alert_vol = v / 100.0;
             }
         }
     }
@@ -150,6 +214,7 @@ fn get_system_volume_settings() -> SystemVolumeSettings {
         output_volume: out_vol,
         output_muted: out_mute,
         input_volume: in_vol,
+        input_muted: in_mute,
         alert_volume: alert_vol,
     }
 }
@@ -183,15 +248,36 @@ fn set_default_output_device(device_uid: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn set_input_volume(volume: f32) {
-    let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
-    #[cfg(target_os = "macos")]
-    {
-        let _ = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(format!("set volume input volume {vol_100}"))
-            .output();
-    }
+fn get_audio_input_devices() -> Vec<AudioDevice> {
+    AudioDevice::enumerate_system_input_devices()
+}
+
+#[tauri::command]
+fn set_default_input_device(device_uid: String) -> Result<(), String> {
+    AudioDevice::set_default_input_device_by_uid(&device_uid)
+        .map_err(|e| format!("Failed to set default input device: {e}"))
+}
+
+#[tauri::command]
+fn get_input_volume() -> f32 {
+    AudioDevice::get_input_volume()
+}
+
+#[tauri::command]
+fn set_input_volume(volume: f32) -> Result<(), String> {
+    AudioDevice::set_input_volume(volume)
+        .map_err(|e| format!("Failed to set input volume: {e}"))
+}
+
+#[tauri::command]
+fn get_input_mute() -> bool {
+    AudioDevice::get_input_mute()
+}
+
+#[tauri::command]
+fn set_input_mute(muted: bool) -> Result<(), String> {
+    AudioDevice::set_input_mute(muted)
+        .map_err(|e| format!("Failed to set input mute: {e}"))
 }
 
 #[tauri::command]
@@ -408,11 +494,13 @@ pub fn run() {
     let preset_store = PresetStore::new(preset_file);
     let router = AudioRouter::new(48000.0);
     let timer = BreakTimerManager::default();
+    let auth = AuthService::new(env_secret("RUST_SOUND_JWT_SECRET"), env_secret("RUST_SOUND_NEON_URL"));
 
     let state = AppState {
         router: Mutex::new(router),
         preset_store: Mutex::new(preset_store),
         timer: Mutex::new(timer),
+        auth,
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };
@@ -430,7 +518,12 @@ pub fn run() {
             get_master_mute,
             set_master_mute,
             set_default_output_device,
+            get_audio_input_devices,
+            set_default_input_device,
+            get_input_volume,
             set_input_volume,
+            get_input_mute,
+            set_input_mute,
             set_system_sounds_volume,
             set_app_volume,
             set_app_mute,
@@ -453,8 +546,43 @@ pub fn run() {
             get_performance_metrics,
             benchmark_ipc_latency,
             trim_memory,
-            set_background_mode
+            set_background_mode,
+            auth_google_login,
+            auth_keycloak_login,
+            auth_pkce_generate,
+            auth_pkce_verify,
+            auth_validate_token,
+            auth_logout,
+            auth_get_db_connection_status
         ])
+        .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png")) {
+                        let _ = window.set_icon(icon);
+                    }
+                }
+
+                // Explicitly set the macOS application Dock icon at runtime
+                unsafe {
+                    use objc2::AnyThread;
+                    use objc2_app_kit::{NSApplication, NSImage};
+                    use objc2_foundation::{MainThreadMarker, NSData};
+
+                    if let Some(mtm) = MainThreadMarker::new() {
+                        let icon_bytes = include_bytes!("../icons/icon.png");
+                        let ns_data = NSData::with_bytes(icon_bytes);
+                        let ns_image = NSImage::initWithData(NSImage::alloc(), &ns_data);
+                        if let Some(image) = ns_image {
+                            NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image));
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

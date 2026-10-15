@@ -8,6 +8,7 @@ import {
   ModalComponent,
 } from "@/shared/ui";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { AppLogo } from "@/components/icons/AppLogo";
 import type { GoogleUser } from "@/components/navigation/SideNavbar";
 import {
   WALLPAPER_PRESETS,
@@ -40,6 +41,8 @@ interface SettingsViewProps {
   user: GoogleUser | null;
   isLoadingAuth: boolean;
   wallpaper: WallpaperState;
+  authProvider?: string;
+  dbStatus?: string;
   onSetWallpaperPreset: (id: WallpaperPresetId) => void;
   onSetWallpaperDim: (dim: number) => void;
   onSetWallpaperBlur: (blur: number) => void;
@@ -55,6 +58,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
   user,
   isLoadingAuth,
   wallpaper,
+  authProvider = "google",
+  dbStatus = "Neon PostgreSQL Pooler Active",
   onSetWallpaperPreset,
   onSetWallpaperDim,
   onSetWallpaperBlur,
@@ -468,6 +473,41 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 </ButtonComponent>
               </div>
             )}
+
+            {/* Neon DB & Dual-Auth Architecture Shelf */}
+            <div className="mt-3.5 p-3 rounded-xl bg-slate-950/60 border border-white/6 text-xs space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Database & Cloud Connection
+                </span>
+                <span className="font-mono text-[10px] text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                  {dbStatus}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between flex-wrap gap-2 border-t border-white/5 pt-2">
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Auth & Cryptography Stack
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-400/25 text-[10px] font-mono text-sky-300">
+                    HMAC-SHA256 JWT
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-400/25 text-[10px] font-mono text-indigo-300">
+                    PKCE S256
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-400/25 text-[10px] font-mono text-purple-300">
+                    Keycloak OIDC
+                  </span>
+                  {user && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/25 text-[10px] font-mono text-emerald-300 uppercase">
+                      Provider: {authProvider}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </CardComponent>
         </div>
 
@@ -723,6 +763,25 @@ export const SettingsView: FC<SettingsViewProps> = ({
               </div>
             </div>
           </CardComponent>
+        </div>
+
+        {/* 7. Brand Identity & Engine Info */}
+        <div className="lg:col-span-2">
+          <div className="p-5 rounded-2xl bg-gradient-to-r from-[#141b26] via-[#101622] to-[#0c1017] border border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+            <AppLogo size="lg" variant="with-wordmark" />
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-400/25 text-[11px] font-mono text-sky-300">
+                v0.1.0-alpha · Tauri v2 + Rust
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-400/25 text-[11px] font-mono text-emerald-300">
+                CoreAudio 48kHz Linear Phase
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-400/25 text-[11px] font-mono text-purple-300">
+                Gemini 2.5 Live
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

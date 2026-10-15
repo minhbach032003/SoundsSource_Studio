@@ -86,25 +86,42 @@ export const ACOUSTIC_PROFILES: AcousticProfile[] = [
   },
 ];
 
-interface StudioEQInspectorProps {
+export interface StudioEQInspectorProps {
   activePresetName: string;
   isAudioActive?: boolean;
+  isBypassed?: boolean;
   onPresetSelect?: (presetName: string) => void;
   onBandChange?: (bandIndex: number, gainDb: number) => void;
+  onResetFlat?: () => void;
+  onToggleBypass?: (bypassed: boolean) => void;
 }
 
 export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
   activePresetName,
   isAudioActive = false,
+  isBypassed: externalBypassed = false,
   onPresetSelect,
   onBandChange,
+  onResetFlat,
+  onToggleBypass,
 }) => {
   const [bands, setBands] = useState<EQBandState[]>(DEFAULT_BANDS);
-  const [isBypassed, setIsBypassed] = useState(false);
+  const [internalBypassed, setInternalBypassed] = useState(externalBypassed);
+  const [hoveredNode, setHoveredNode] = useState<number | null>(null);
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  const activeDragNode = useRef<number | null>(null);
+
+  const isBypassed = externalBypassed || internalBypassed;
   const liveMeters = useLiveAudioMeters(isAudioActive && !isBypassed);
+
+  useEffect(() => {
+    setInternalBypassed(externalBypassed);
+  }, [externalBypassed]);
 
   // Sync bands whenever preset changes
   useEffect(() => {
+    if (!activePresetName) return;
     const profile = ACOUSTIC_PROFILES.find((p) => p.name === activePresetName);
     if (profile) {
       setBands(
@@ -126,9 +143,58 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
     onBandChange?.(idx, clamped);
   };
 
+  const handleSelectProfile = (profile: AcousticProfile) => {
+    const nextBands = DEFAULT_BANDS.map((b, idx) => ({
+      ...b,
+      gain: profile.gains[idx] ?? 0,
+    }));
+    setBands(nextBands);
+    onPresetSelect?.(profile.name);
+    nextBands.forEach((b, idx) => {
+      onBandChange?.(idx, b.gain);
+    });
+  };
+
   const handleResetFlat = () => {
     setBands(DEFAULT_BANDS);
     onPresetSelect?.("Flat (Default)");
+    onResetFlat?.();
+    DEFAULT_BANDS.forEach((_, idx) => {
+      onBandChange?.(idx, 0);
+    });
+  };
+
+  const handleToggleBypass = () => {
+    const next = !isBypassed;
+    setInternalBypassed(next);
+    onToggleBypass?.(next);
+  };
+
+  // Node Drag handlers on SVG
+  const handleNodePointerDown = (index: number, e: PointerEvent<SVGCircleElement>) => {
+    if (isBypassed) return;
+    activeDragNode.current = index;
+    (e.target as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handleSvgPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    if (activeDragNode.current === null || isBypassed || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const ratio = Math.max(0, Math.min(1, offsetY / rect.height));
+    const calculatedGain = Math.round((12 - ratio * 24) * 2) / 2;
+    updateGain(activeDragNode.current, calculatedGain);
+  };
+
+  const handleSvgPointerUp = (e: PointerEvent<SVGSVGElement>) => {
+    if (activeDragNode.current !== null) {
+      try {
+        (e.target as Element).releasePointerCapture(e.pointerId);
+      } catch {
+        // Ignore capture release
+      }
+      activeDragNode.current = null;
+    }
   };
 
   // Generate SVG curve points across 10 bands
@@ -139,7 +205,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
   const points = bands.map((b, i) => {
     const x = (i / (bands.length - 1)) * (width - 40) + 20;
     const y = zeroY - (b.gain / 12) * (zeroY - 14);
-    return { x, y };
+    return { x, y, gain: b.gain, frequency: b.frequency };
   });
 
   const pathD = points.reduce((acc, pt, i, arr) => {
@@ -174,7 +240,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsBypassed((prev) => !prev)}
+            onClick={handleToggleBypass}
             className={cn(
               "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer",
               isBypassed
@@ -205,10 +271,13 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
 
         {/* SVG Curve */}
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
+          onPointerMove={handleSvgPointerMove}
+          onPointerUp={handleSvgPointerUp}
           className={cn(
             "w-full h-26 overflow-visible transition-opacity duration-200",
-            isBypassed && "opacity-25"
+            isBypassed && "opacity-25 pointer-events-none"
           )}
         >
           <defs>
@@ -230,19 +299,82 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
             strokeLinecap="round"
           />
 
-          {/* Band Marker Nodes */}
-          {points.map((pt, i) => (
-            <g key={i}>
-              <circle
-                cx={pt.x}
-                cy={pt.y}
-                r="4.5"
-                fill="#ffffff"
-                stroke="#0284c7"
-                strokeWidth="2"
-              />
-            </g>
-          ))}
+          {/* Band Marker Nodes with Pointer Capture Dragging */}
+          {points.map((pt, i) => {
+            const isHovered = hoveredNode === i;
+            const freqLabel =
+              pt.frequency >= 1000
+                ? `${pt.frequency / 1000}k`
+                : `${pt.frequency}`;
+
+            return (
+              <g key={i}>
+                {/* Large touch/pointer target */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="14"
+                  fill="transparent"
+                  className="cursor-ns-resize"
+                  onPointerDown={(e) => handleNodePointerDown(i, e)}
+                  onPointerEnter={() => setHoveredNode(i)}
+                  onPointerLeave={() => setHoveredNode(null)}
+                  onDoubleClick={() => !isBypassed && updateGain(i, 0)}
+                />
+
+                {/* Hover / Active Pulse Ring */}
+                {isHovered && (
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r="8"
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth="1.5"
+                    className="animate-pulse"
+                  />
+                )}
+
+                {/* Visual Handle Dot */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="4.5"
+                  fill="#ffffff"
+                  stroke={pt.gain !== 0 ? "#38bdf8" : "#0284c7"}
+                  strokeWidth="2"
+                  className="pointer-events-none"
+                />
+
+                {/* Node Tooltip Readout */}
+                {isHovered && (
+                  <g className="pointer-events-none">
+                    <rect
+                      x={pt.x - 28}
+                      y={pt.y < 28 ? pt.y + 10 : pt.y - 24}
+                      width="56"
+                      height="16"
+                      rx="4"
+                      fill="#0f172a"
+                      stroke="#38bdf8"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={pt.x}
+                      y={pt.y < 28 ? pt.y + 21 : pt.y - 13}
+                      textAnchor="middle"
+                      fill="#e2e8f0"
+                      fontSize="9"
+                      fontWeight="bold"
+                      fontFamily="monospace"
+                    >
+                      {freqLabel}: {pt.gain > 0 ? `+${pt.gain}` : pt.gain}dB
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
         </svg>
       </div>
 
@@ -284,7 +416,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
             return (
               <button
                 key={profile.id}
-                onClick={() => onPresetSelect?.(profile.name)}
+                onClick={() => handleSelectProfile(profile)}
                 className={cn(
                   "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 group",
                   isSelected

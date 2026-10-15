@@ -31,6 +31,7 @@ interface DeviceQuickBarProps {
   onPresetChange?: (name: string) => void;
   masterVolume?: number;
   onMasterVolumeChange?: (vol: number) => void;
+  onMasterVolumeCommit?: (vol: number) => void;
   balance?: number;
   onBalanceChange?: (bal: number) => void;
   isMuted?: boolean;
@@ -48,6 +49,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
   onPresetChange,
   masterVolume = 100,
   onMasterVolumeChange,
+  onMasterVolumeCommit,
   balance = 0,
   onBalanceChange,
   isMuted = false,
@@ -95,9 +97,14 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
     ? /headphone|airpods|earphones/i.test(activeDeviceObj.name)
     : true;
 
-  const handleVolumeCommit = (val: number) => {
+  const handleVolumeChange = (val: number) => {
     setInternalMasterVol(val);
     onMasterVolumeChange?.(val);
+  };
+
+  const handleVolumeCommit = (val: number) => {
+    setInternalMasterVol(val);
+    onMasterVolumeCommit?.(val);
   };
 
   const handleBalanceCommit = (val: number) => {
@@ -178,11 +185,20 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             <Volume2 className="w-3.5 h-3.5 text-sky-400" />
             Master Volume Fader
           </span>
-          <span className="font-mono text-slate-400 text-[10px] tabular-nums">
-            {internalMasterVol === 0
-              ? "-∞ dB"
-              : `${Math.round(((internalMasterVol - 100) / 100) * 24)} dB`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              onDoubleClick={() => !disabled && handleVolumeCommit(100)}
+              title="Double-click to reset to 100% (0 dB)"
+              className="font-mono text-slate-300 text-[10px] tabular-nums font-semibold cursor-pointer hover:text-sky-300"
+            >
+              {internalMasterVol}%
+            </span>
+            <span className="font-mono text-slate-500 text-[10px] tabular-nums">
+              ({internalMasterVol === 0
+                ? "-∞ dB"
+                : `${Math.round(((internalMasterVol - 100) / 100) * 24)} dB`})
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -190,6 +206,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             <SliderComponent
               value={internalMasterVol}
               disabled={disabled}
+              onChange={handleVolumeChange}
               onCommit={handleVolumeCommit}
               aria-label="Master output volume"
               className={cn(isMuted && "opacity-40")}

@@ -12,7 +12,17 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 serde = { version = "1.0", features = ["derive"] }
 sound-core = { path = "../core" }
 sound-engine = { path = "../engine" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage"] }
+objc2-foundation = { version = "0.3", features = ["NSData"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+chrono = "0.4"
+base64 = "0.22"

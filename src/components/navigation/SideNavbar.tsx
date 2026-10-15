@@ -7,6 +7,7 @@ import {
   Settings,
   User,
 } from "lucide-react";
+import { AppLogo } from "@/components/icons/AppLogo";
 import { cn } from "@/lib/utils";
 
 export type NavTab = "mixer" | "timer" | "voice" | "pet" | "settings";
@@ -53,16 +54,10 @@ export const SideNavbar: FC<SideNavbarProps> = ({
       <div className="flex flex-col items-center gap-5">
         <button
           onClick={() => onSelectTab("mixer")}
-          className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-400 flex items-center justify-center text-slate-950 shadow-[0_2px_12px_rgba(56,189,248,0.4)] cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+          className="cursor-pointer hover:scale-105 active:scale-95 transition-transform"
           title="SoundsSource Studio"
         >
-          <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5" aria-hidden="true">
-            <rect x="2" y="10" width="3" height="4" rx="1.5" fill="currentColor" />
-            <rect x="7" y="6" width="3" height="12" rx="1.5" fill="currentColor" />
-            <rect x="12" y="3" width="3" height="18" rx="1.5" fill="currentColor" />
-            <rect x="17" y="7" width="3" height="10" rx="1.5" fill="currentColor" />
-            <rect x="22" y="11" width="3" height="2" rx="1" fill="currentColor" />
-          </svg>
+          <AppLogo size="md" variant="icon-only" animated />
         </button>
 
         {/* Navigation Rail Items */}

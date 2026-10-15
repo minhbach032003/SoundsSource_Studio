@@ -1,5 +1,5 @@
 import { useState, type FC } from "react";
-import { Volume2, VolumeX, ChevronDown, Sliders, ArrowUpRight } from "lucide-react";
+import { Volume2, VolumeX, ChevronDown, Sliders, ArrowUpRight, EyeOff } from "lucide-react";
 import {
   ButtonComponent,
   CardComponent,
@@ -24,6 +24,7 @@ interface ProcessCardProps {
   onVolumeCommit: (volume: number) => Promise<void>;
   onMuteToggle: (muted: boolean) => Promise<void>;
   onRouteChange?: (deviceUid: string) => void;
+  onHide?: () => void;
   onError: (msg: string) => void;
 }
 
@@ -36,6 +37,7 @@ export const ProcessCard: FC<ProcessCardProps> = ({
   onVolumeCommit,
   onMuteToggle,
   onRouteChange,
+  onHide,
   onError,
 }) => {
   const [isCommitting, setIsCommitting] = useState(false);
@@ -234,6 +236,24 @@ export const ProcessCard: FC<ProcessCardProps> = ({
               <span className="text-[10px] text-slate-500">48kHz stereo processing</span>
             </div>
           </div>
+
+          {/* Hide Channel Action */}
+          {onHide && (
+            <div className="sm:col-span-2 flex items-center justify-between pt-1 border-t border-white/6">
+              <span className="text-[10px] text-slate-500">
+                Hide this application from active mixer channel strips
+              </span>
+              <button
+                type="button"
+                onClick={onHide}
+                className="text-[10px] text-slate-400 hover:text-rose-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-white/6 hover:border-rose-500/30 hover:bg-rose-500/10 transition-all cursor-pointer"
+                title="Hide this channel from mixer"
+              >
+                <EyeOff className="w-3 h-3 text-rose-400" />
+                Hide Channel
+              </button>
+            </div>
+          )}
         </div>
       )}
     </CardComponent>

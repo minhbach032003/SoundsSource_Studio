@@ -100,6 +100,28 @@ fn test_coreaudio_system_volume_and_mute() {
 }
 
 #[test]
+fn test_coreaudio_system_input_devices_query() {
+    let input_devices = AudioDevice::enumerate_system_input_devices();
+    assert!(!input_devices.is_empty(), "Should enumerate at least one audio input device");
+    for dev in &input_devices {
+        assert!(!dev.uid.is_empty());
+        assert!(!dev.name.is_empty());
+        assert!(!dev.name.contains("(err:"));
+    }
+}
+
+#[test]
+fn test_coreaudio_system_input_volume_and_mute() {
+    let vol = AudioDevice::get_input_volume();
+    assert!(vol >= 0.0 && vol <= 1.0, "Input volume must be in [0.0, 1.0]");
+    let is_muted = AudioDevice::get_input_mute();
+    println!("Current system input volume: {}, muted: {}", vol, is_muted);
+
+    // Test restoring volume
+    assert!(AudioDevice::set_input_volume(vol).is_ok());
+}
+
+#[test]
 fn test_master_eq_pipeline_e2e() {
     let mut router = AudioRouter::new(48000.0);
     assert_eq!(router.master_eq().bands().len(), 10);

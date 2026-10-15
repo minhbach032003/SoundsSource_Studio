@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { RefreshCw } from "lucide-react";
-import { ButtonComponent, BadgeComponent } from "@/shared/ui";
+import { ButtonComponent } from "@/shared/ui";
+import { AppLogo } from "@/components/icons/AppLogo";
 
 interface AppHeaderProps {
   onRefresh: () => void;
@@ -11,21 +12,7 @@ export const AppHeader: FC<AppHeaderProps> = ({ onRefresh, isLoading }) => {
   return (
     <header className="flex items-center justify-between pb-4 border-b border-white/8">
       <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-sky-600 to-sky-400 flex items-center justify-center text-slate-950 shadow-[0_2px_10px_rgba(56,189,248,0.35)] shrink-0">
-          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" aria-hidden="true">
-            <rect x="2" y="10" width="3" height="4" rx="1.5" fill="currentColor" />
-            <rect x="7" y="6" width="3" height="12" rx="1.5" fill="currentColor" />
-            <rect x="12" y="3" width="3" height="18" rx="1.5" fill="currentColor" />
-            <rect x="17" y="7" width="3" height="10" rx="1.5" fill="currentColor" />
-            <rect x="22" y="11" width="3" height="2" rx="1" fill="currentColor" />
-          </svg>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold tracking-tight text-slate-100">
-            SoundsSource
-          </span>
-          <BadgeComponent variant="default">Studio</BadgeComponent>
-        </div>
+        <AppLogo size="sm" variant="with-wordmark" />
       </div>
 
       <div className="flex items-center gap-3">

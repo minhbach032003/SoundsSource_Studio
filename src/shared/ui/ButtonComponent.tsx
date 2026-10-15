@@ -24,22 +24,22 @@ export interface ButtonComponentProps
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-sky-500 text-slate-950 font-semibold shadow hover:bg-sky-400 active:scale-95 border border-sky-400/30",
+    "bg-[#f2a4b8] text-[#191116] font-bold shadow-sm hover:bg-[#f472b6] active:scale-95 border border-rose-300/40 shadow-[0_2px_10px_rgba(242,164,184,0.25)]",
   secondary:
-    "bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 border border-white/5",
+    "bg-[#241e29] text-stone-200 hover:bg-[#2d2533] active:scale-95 border border-white/8",
   outline:
-    "border border-white/10 bg-slate-900/60 hover:bg-slate-800 hover:text-white hover:border-white/20 active:scale-95 text-slate-300",
+    "border border-white/10 bg-[#1c1822]/80 hover:bg-[#27212f] hover:text-white hover:border-white/20 active:scale-95 text-stone-300",
   destructive:
-    "bg-rose-500/15 text-rose-400 border border-rose-500/35 hover:bg-rose-500/25 active:scale-95 shadow-[0_0_10px_rgba(251,113,133,0.15)]",
-  ghost: "hover:bg-white/5 hover:text-white text-slate-400 active:scale-95",
-  link: "text-sky-400 underline-offset-4 hover:underline p-0 h-auto",
+    "bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95 shadow-[0_0_10px_rgba(251,113,133,0.15)]",
+  ghost: "hover:bg-white/6 hover:text-white text-stone-400 active:scale-95",
+  link: "text-rose-400 underline-offset-4 hover:underline p-0 h-auto",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[11px] rounded-md gap-1.5",
-  md: "h-8 px-3.5 text-xs rounded-lg gap-2",
-  lg: "h-10 px-4 text-sm rounded-lg gap-2.5",
-  icon: "h-8 w-8 rounded-lg p-0 justify-center",
+  sm: "h-7 px-3 text-[11px] rounded-lg gap-1.5",
+  md: "h-8.5 px-4 text-xs rounded-xl gap-2",
+  lg: "h-10 px-5 text-sm rounded-xl gap-2.5",
+  icon: "h-8.5 w-8.5 rounded-xl p-0 justify-center",
 };
 
 /**

@@ -349,6 +349,10 @@ impl AudioProcess {
                     continue;
                 }
 
+                if Self::is_non_audio_utility(&app.bundle_id, &app.name) {
+                    continue;
+                }
+
                 let norm_bundle = Self::normalize_bundle_id(&app.bundle_id);
                 if let Some(existing) = process_map.get_mut(&norm_bundle) {
                     existing.is_regular_app = true;
@@ -358,7 +362,7 @@ impl AudioProcess {
                     {
                         existing.name = app.name;
                     }
-                } else {
+                } else if Self::is_audio_capable_app(&app.bundle_id, &app.name) {
                     process_map.insert(
                         norm_bundle,
                         AudioProcess::new(
@@ -435,6 +439,114 @@ impl AudioProcess {
         }
         false
     }
+
+    pub fn is_non_audio_utility(bundle_id: &str, app_name: &str) -> bool {
+        let b = bundle_id.to_ascii_lowercase();
+        let n = app_name.to_ascii_lowercase();
+
+        if b.starts_with("com.apple.textedit")
+            || b.starts_with("com.apple.preview")
+            || b.starts_with("com.apple.calculator")
+            || b.starts_with("com.apple.notes")
+            || b.starts_with("com.apple.reminders")
+            || b.starts_with("com.apple.systempreferences")
+            || b.starts_with("com.apple.preferences")
+            || b.starts_with("com.apple.appstore")
+            || b.starts_with("com.apple.dt.xcode")
+            || b.starts_with("com.apple.photos")
+            || b.starts_with("com.apple.clock")
+            || b.starts_with("com.apple.maps")
+            || b.starts_with("com.apple.weather")
+            || b.starts_with("com.apple.stocks")
+            || b.starts_with("com.apple.home")
+            || b.starts_with("com.apple.fontbook")
+            || b.starts_with("com.apple.keychainaccess")
+            || b.starts_with("com.apple.diskutility")
+            || b.starts_with("com.apple.console")
+            || b.starts_with("com.apple.activitymonitor")
+            || b.starts_with("com.apple.terminal")
+            || b.starts_with("com.apple.finder")
+            || b == "systemsoundserverd"
+            || b == "com.apple.audio.audiocomponentregistrar"
+        {
+            return true;
+        }
+
+        if n == "textedit"
+            || n == "preview"
+            || n == "calculator"
+            || n == "notes"
+            || n == "reminders"
+            || n == "xcode"
+            || n == "terminal"
+            || n == "activity monitor"
+            || n == "finder"
+            || n == "rust-sound"
+        {
+            return true;
+        }
+
+        false
+    }
+
+    pub fn is_audio_capable_app(bundle_id: &str, app_name: &str) -> bool {
+        if Self::is_non_audio_utility(bundle_id, app_name) {
+            return false;
+        }
+
+        let b = bundle_id.to_ascii_lowercase();
+        let n = app_name.to_ascii_lowercase();
+
+        b.contains("spotify")
+            || b.contains("music")
+            || b.contains("podcasts")
+            || b.contains("quicktime")
+            || b.contains("chrome")
+            || b.contains("safari")
+            || b.contains("brave")
+            || b.contains("firefox")
+            || b.contains("edge")
+            || b.contains("arc")
+            || b.contains("opera")
+            || b.contains("discord")
+            || b.contains("telegram")
+            || b.contains("zalo")
+            || b.contains("slack")
+            || b.contains("teams")
+            || b.contains("zoom")
+            || b.contains("skype")
+            || b.contains("whatsapp")
+            || b.contains("vlc")
+            || b.contains("iina")
+            || b.contains("youtube")
+            || b.contains("netflix")
+            || b.contains("audacity")
+            || b.contains("logic")
+            || b.contains("ableton")
+            || b.contains("reaper")
+            || b.contains("flstudio")
+            || b.contains("protools")
+            || b.contains("garageband")
+            || b.contains("sound")
+            || b.contains("voice")
+            || b.contains("media")
+            || b.contains("player")
+            || b.contains("audio")
+            || n.contains("spotify")
+            || n.contains("music")
+            || n.contains("browser")
+            || n.contains("chrome")
+            || n.contains("safari")
+            || n.contains("brave")
+            || n.contains("telegram")
+            || n.contains("zalo")
+            || n.contains("discord")
+            || n.contains("slack")
+            || n.contains("teams")
+            || n.contains("zoom")
+            || n.contains("vlc")
+            || n.contains("player")
+    }
 }
 
 #[cfg(test)]
@@ -462,5 +574,29 @@ mod tests {
         assert!(AudioProcess::is_helper_like_name("Google Chrome Helper"));
         assert!(AudioProcess::is_helper_like_name("Discord Helper (Renderer)"));
         assert!(!AudioProcess::is_helper_like_name("Spotify"));
+    }
+
+    #[test]
+    fn test_non_audio_utility_filter() {
+        assert!(AudioProcess::is_non_audio_utility("com.apple.TextEdit", "TextEdit"));
+        assert!(AudioProcess::is_non_audio_utility("com.apple.Calculator", "Calculator"));
+        assert!(AudioProcess::is_non_audio_utility("com.apple.Notes", "Notes"));
+        assert!(AudioProcess::is_non_audio_utility("com.apple.Preview", "Preview"));
+        assert!(AudioProcess::is_non_audio_utility("com.apple.dt.Xcode", "Xcode"));
+        assert!(!AudioProcess::is_non_audio_utility("com.spotify.client", "Spotify"));
+        assert!(!AudioProcess::is_non_audio_utility("com.brave.Browser", "Brave Browser"));
+        assert!(!AudioProcess::is_non_audio_utility("com.vng.zalo", "Zalo"));
+        assert!(!AudioProcess::is_non_audio_utility("com.tdesktop.Telegram", "Telegram"));
+    }
+
+    #[test]
+    fn test_audio_capable_app_classification() {
+        assert!(AudioProcess::is_audio_capable_app("com.spotify.client", "Spotify"));
+        assert!(AudioProcess::is_audio_capable_app("com.brave.Browser", "Brave Browser"));
+        assert!(AudioProcess::is_audio_capable_app("com.vng.zalo", "Zalo"));
+        assert!(AudioProcess::is_audio_capable_app("com.tdesktop.Telegram", "Telegram"));
+        assert!(AudioProcess::is_audio_capable_app("com.discordapp.Discord", "Discord"));
+        assert!(!AudioProcess::is_audio_capable_app("com.apple.TextEdit", "TextEdit"));
+        assert!(!AudioProcess::is_audio_capable_app("com.apple.Calculator", "Calculator"));
     }
 }

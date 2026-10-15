@@ -5,7 +5,6 @@ import { StudioEQInspector } from "@/components/StudioEQInspector";
 import { AudioBuses } from "@/components/AudioBuses";
 import {
   BadgeComponent,
-  EmptyStateComponent,
   SkeletonComponent,
 } from "@/shared/ui";
 import {
@@ -13,8 +12,12 @@ import {
   Volume2,
   Cpu,
   CheckCircle2,
+  Search,
+  X,
+  Filter,
+  Eye,
 } from "lucide-react";
-import { processKey, isAudibleApplication } from "@/audio";
+import { processKey, isAudibleApplication, isMediaOrCommunicationApp, displayName } from "@/audio";
 import type { AudioProcess } from "@/audio";
 import { cn } from "@/lib/utils";
 
@@ -22,27 +25,37 @@ interface MixerViewProps {
   processes: AudioProcess[];
   channelState: Record<string, { volume: number; muted: boolean }>;
   devices: AudioDevice[];
+  inputDevices?: AudioDevice[];
   presets: Preset[];
   selectedDevice: string;
+  selectedInputDevice?: string;
   selectedPreset: string;
   masterVolume?: number;
+  onMasterVolumeChange?: (val: number) => void;
   onMasterVolumeCommit?: (val: number) => void;
   isMasterMuted?: boolean;
   onMasterMuteToggle?: () => void;
   inputVolume?: number;
+  onInputVolumeChange?: (val: number) => void;
   onInputVolumeCommit?: (val: number) => void;
+  isInputMuted?: boolean;
+  onInputMuteToggle?: () => void;
   systemVolume?: number;
   onSystemVolumeCommit?: (val: number) => void;
   onlyPlaying: boolean;
   isLoading: boolean;
   error: string | null;
   onSelectDevice: (uid: string) => void;
+  onSelectInputDevice?: (uid: string) => void;
   onSelectPreset: (name: string) => void;
   onToggleOnlyPlaying: (playing: boolean) => void;
   onVolumeCommit: (process: AudioProcess, volume: number) => Promise<void>;
   onMuteToggle: (process: AudioProcess, muted: boolean) => Promise<void>;
   onRouteChange?: (process: AudioProcess, deviceUid: string) => void;
   onEQBandChange?: (bandIndex: number, gainDb: number) => void;
+  isEQBypassed?: boolean;
+  onResetEQFlat?: () => void;
+  onToggleEQBypass?: (bypassed: boolean) => void;
   onError: (msg: string) => void;
 }
 
@@ -50,36 +63,100 @@ export const MixerView: FC<MixerViewProps> = ({
   processes,
   channelState,
   devices,
+  inputDevices = [],
   presets,
   selectedDevice,
+  selectedInputDevice = "",
   selectedPreset,
   masterVolume = 100,
+  onMasterVolumeChange,
   onMasterVolumeCommit,
   isMasterMuted = false,
   onMasterMuteToggle,
   inputVolume = 85,
+  onInputVolumeChange,
   onInputVolumeCommit,
+  isInputMuted = false,
+  onInputMuteToggle,
   systemVolume = 70,
   onSystemVolumeCommit,
   onlyPlaying,
   isLoading,
   error,
   onSelectDevice,
+  onSelectInputDevice,
   onSelectPreset,
   onToggleOnlyPlaying,
   onVolumeCommit,
   onMuteToggle,
   onRouteChange,
   onEQBandChange,
+  isEQBypassed = false,
+  onResetEQFlat,
+  onToggleEQBypass,
   onError,
 }) => {
   const [masterBalance, setMasterBalance] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [channelFilter, setChannelFilter] = useState<"all" | "playing" | "media">("all");
+  const [hiddenAppKeys, setHiddenAppKeys] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("rust_sound_hidden_apps");
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
-  // Filter out non-audio system utilities and prioritize actively playing apps
-  const visibleProcesses = processes
+  const handleHideApp = (key: string, appName: string) => {
+    setHiddenAppKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      try {
+        localStorage.setItem("rust_sound_hidden_apps", JSON.stringify([...next]));
+      } catch {
+        // Ignore storage error
+      }
+      return next;
+    });
+    onError(`Hidden "${appName}" from mixer`);
+  };
+
+  const handleUnhideAll = () => {
+    setHiddenAppKeys(new Set());
+    try {
+      localStorage.removeItem("rust_sound_hidden_apps");
+    } catch {
+      // Ignore storage error
+    }
+    onError("Restored all hidden applications");
+  };
+
+  // 1. Strictly filter out non-audio desktop utilities (TextEdit, Calculator, etc.)
+  const audibleProcesses = processes.filter((p) => isAudibleApplication(p));
+
+  // 2. Filter by search query, category tabs, and hidden state
+  const visibleProcesses = audibleProcesses
     .filter((p) => {
-      if (onlyPlaying) return p.is_running_output;
-      return isAudibleApplication(p);
+      const key = processKey(p);
+      if (hiddenAppKeys.has(key)) return false;
+
+      // Category tab filtering
+      if (channelFilter === "playing" || onlyPlaying) {
+        if (!p.is_running_output) return false;
+      } else if (channelFilter === "media") {
+        if (!isMediaOrCommunicationApp(p) && !p.is_running_output) return false;
+      }
+
+      // Search query filtering
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const name = displayName(p).toLowerCase();
+        const bundle = (p.bundle_id || "").toLowerCase();
+        return name.includes(q) || bundle.includes(q);
+      }
+
+      return true;
     })
     .sort((a, b) => {
       if (a.is_running_output && !b.is_running_output) return -1;
@@ -104,7 +181,8 @@ export const MixerView: FC<MixerViewProps> = ({
             onDeviceChange={onSelectDevice}
             onPresetChange={onSelectPreset}
             masterVolume={masterVolume}
-            onMasterVolumeChange={onMasterVolumeCommit}
+            onMasterVolumeChange={onMasterVolumeChange}
+            onMasterVolumeCommit={onMasterVolumeCommit}
             balance={masterBalance}
             onBalanceChange={setMasterBalance}
             isMuted={isMasterMuted}
@@ -115,8 +193,14 @@ export const MixerView: FC<MixerViewProps> = ({
 
           {/* 2. Hardware Input & macOS System Alerts Buses */}
           <AudioBuses
+            inputDevices={inputDevices}
+            selectedInputDevice={selectedInputDevice}
+            onSelectInputDevice={onSelectInputDevice}
             inputVolume={inputVolume}
+            onInputVolumeChange={onInputVolumeChange}
             onInputVolumeCommit={onInputVolumeCommit}
+            isInputMuted={isInputMuted}
+            onInputMuteToggle={onInputMuteToggle}
             systemVolume={systemVolume}
             onSystemVolumeCommit={onSystemVolumeCommit}
             onToast={onError}
@@ -124,7 +208,7 @@ export const MixerView: FC<MixerViewProps> = ({
 
           {/* 3. Applications Channel Section */}
           <section aria-labelledby="mixer-title" className="space-y-2.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
                 <span
                   id="mixer-title"
@@ -136,35 +220,70 @@ export const MixerView: FC<MixerViewProps> = ({
                 <BadgeComponent variant="secondary" className="text-[10px] px-2 py-0.5 font-mono">
                   {visibleProcesses.length}
                 </BadgeComponent>
+
+                {hiddenAppKeys.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUnhideAll}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Click to restore all hidden applications"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>{hiddenAppKeys.size} Hidden · Restore</span>
+                  </button>
+                )}
               </div>
 
-              {/* Filter Tabs: All vs Playing */}
+              {/* Multi-Tier Filter Tabs */}
               <div
-                className="flex p-0.5 gap-0.5 bg-slate-950 border border-white/8 rounded-lg"
+                className="flex p-0.5 gap-0.5 bg-slate-950 border border-white/8 rounded-lg shrink-0"
                 role="group"
                 aria-label="Filter applications"
               >
                 <button
                   className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer",
-                    !onlyPlaying
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer",
+                    channelFilter === "all" && !onlyPlaying
                       ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
                       : "text-slate-400 hover:text-white"
                   )}
-                  onClick={() => onToggleOnlyPlaying(false)}
-                  aria-pressed={!onlyPlaying}
+                  onClick={() => {
+                    setChannelFilter("all");
+                    onToggleOnlyPlaying(false);
+                  }}
+                  aria-pressed={channelFilter === "all" && !onlyPlaying}
                 >
-                  All Channels
+                  All Audible
                 </button>
+
                 <button
                   className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5",
-                    onlyPlaying
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer",
+                    channelFilter === "media"
                       ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
                       : "text-slate-400 hover:text-white"
                   )}
-                  onClick={() => onToggleOnlyPlaying(true)}
-                  aria-pressed={onlyPlaying}
+                  onClick={() => {
+                    setChannelFilter("media");
+                    onToggleOnlyPlaying(false);
+                  }}
+                  aria-pressed={channelFilter === "media"}
+                >
+                  Media & Calling
+                </button>
+
+                <button
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    channelFilter === "playing" || onlyPlaying
+                      ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
+                      : "text-slate-400 hover:text-white"
+                  )}
+                  onClick={() => {
+                    setChannelFilter("playing");
+                    onToggleOnlyPlaying(true);
+                  }}
+                  aria-pressed={channelFilter === "playing" || onlyPlaying}
                 >
                   <span
                     className={cn(
@@ -175,6 +294,34 @@ export const MixerView: FC<MixerViewProps> = ({
                   Playing Now
                 </button>
               </div>
+            </div>
+
+            {/* Quick Search & Summary Bar */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter applications by name or bundle…"
+                  className="w-full h-8 pl-8 pr-7 text-xs rounded-lg bg-slate-950/70 border border-white/8 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all font-sans"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <span className="text-[11px] text-slate-500 font-mono shrink-0 hidden sm:inline-block">
+                Showing {visibleProcesses.length} of {audibleProcesses.length} apps
+              </span>
             </div>
 
             {error && (
@@ -198,10 +345,33 @@ export const MixerView: FC<MixerViewProps> = ({
                 </p>
               </div>
             ) : visibleProcesses.length === 0 ? (
-              <EmptyStateComponent
-                title={onlyPlaying ? "No applications outputting audio right now" : "No active audio applications found"}
-                description="Play music or audio in Spotify, YouTube, Chrome or Discord to mix their streams."
-              />
+              <div className="p-6 rounded-2xl bg-slate-950/60 border border-white/6 flex flex-col items-center justify-center text-center gap-2">
+                <Filter className="w-7 h-7 text-slate-600 mb-1" />
+                <h4 className="text-xs font-semibold text-slate-200 m-0">
+                  {searchQuery
+                    ? `No applications found matching "${searchQuery}"`
+                    : "No matching audio applications found"}
+                </h4>
+                <p className="text-[11px] text-slate-400 max-w-sm m-0">
+                  {searchQuery || channelFilter !== "all" || onlyPlaying
+                    ? "Try clearing your search query or switching to All Audible channels."
+                    : "Play music or audio in Spotify, YouTube, Chrome, or Discord to mix their streams."}
+                </p>
+                {(searchQuery || channelFilter !== "all" || onlyPlaying || hiddenAppKeys.size > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setChannelFilter("all");
+                      onToggleOnlyPlaying(false);
+                      if (hiddenAppKeys.size > 0) handleUnhideAll();
+                    }}
+                    className="mt-2 text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20 transition-all cursor-pointer"
+                  >
+                    Reset Search & Filters
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col gap-2">
                 {visibleProcesses.map((process) => {
@@ -218,6 +388,7 @@ export const MixerView: FC<MixerViewProps> = ({
                       onVolumeCommit={(val) => onVolumeCommit(process, val)}
                       onMuteToggle={(muted) => onMuteToggle(process, muted)}
                       onRouteChange={(devUid) => onRouteChange?.(process, devUid)}
+                      onHide={() => handleHideApp(key, displayName(process))}
                       onError={onError}
                     />
                   );
@@ -232,8 +403,11 @@ export const MixerView: FC<MixerViewProps> = ({
           <StudioEQInspector
             activePresetName={selectedPreset}
             isAudioActive={isAnyAudioPlaying}
+            isBypassed={isEQBypassed}
             onPresetSelect={onSelectPreset}
             onBandChange={onEQBandChange}
+            onResetFlat={onResetEQFlat}
+            onToggleBypass={onToggleEQBypass}
           />
         </div>
       </div>

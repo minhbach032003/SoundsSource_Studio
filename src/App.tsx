@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FC } from "react";
+import { useState, useEffect, useCallback, useRef, type FC } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { SideNavbar, type NavTab } from "@/components/navigation/SideNavbar";
 import { MixerView } from "@/views/MixerView";
@@ -66,6 +66,12 @@ const MOCK_DEVICES: AudioDevice[] = [
   { name: "AirPods Pro", uid: "airpods_pro", is_default: false },
 ];
 
+const MOCK_INPUT_DEVICES: AudioDevice[] = [
+  { name: "MOONDROP EDGE (Default)", uid: "moondrop_edge_in", is_default: true },
+  { name: "UGREEN Camera 4K", uid: "ugreen_cam_in", is_default: false },
+  { name: "MacBook Pro Microphone", uid: "builtin_mic", is_default: false },
+];
+
 const MOCK_PRESETS: Preset[] = [
   { name: "Flat (Default)", is_default: true },
   { name: "Bass Boost", is_default: false },
@@ -109,7 +115,14 @@ interface ChannelStateDto {
 
 const AppContent: FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>("mixer");
-  const { user, isLoading: isLoadingAuth, signInWithGoogle, signOut } = useGoogleAuth();
+  const {
+    user,
+    isLoading: isLoadingAuth,
+    signInWithGoogle,
+    signOut,
+    authProvider,
+    dbStatus,
+  } = useGoogleAuth();
   const {
     events: calendarEvents,
     isLoading: isLoadingCalendar,
@@ -153,25 +166,38 @@ const AppContent: FC = () => {
   const [devices, setDevices] = useState<AudioDevice[]>(() =>
     isDesktop ? [] : MOCK_DEVICES
   );
+  const [inputDevices, setInputDevices] = useState<AudioDevice[]>(() =>
+    isDesktop ? [] : MOCK_INPUT_DEVICES
+  );
   const [presets, setPresets] = useState<Preset[]>(() =>
     isDesktop ? [] : MOCK_PRESETS
   );
   const [selectedDevice, setSelectedDevice] = useState<string>(() =>
     isDesktop ? "" : MOCK_DEVICES[0].uid
   );
-  const [selectedPreset, setSelectedPreset] = useState<string>(() =>
-    isDesktop ? "" : MOCK_PRESETS[0].name
+  const [selectedInputDevice, setSelectedInputDevice] = useState<string>(() =>
+    isDesktop ? "" : MOCK_INPUT_DEVICES[0].uid
   );
+  const [selectedPreset, setSelectedPreset] = useState<string>(
+    "Flat (Default)"
+  );
+  const [isEQBypassed, setIsEQBypassed] = useState<boolean>(false);
 
   // System Hardware Audio States
   const [masterVolume, setMasterVolume] = useState<number>(100);
   const [isMasterMuted, setIsMasterMuted] = useState<boolean>(false);
   const [inputVolume, setInputVolume] = useState<number>(85);
+  const [isInputMuted, setIsInputMuted] = useState<boolean>(false);
   const [systemSoundsVolume, setSystemSoundsVolume] = useState<number>(70);
 
   // Timer & Todo State
   const [timerStatus, setTimerStatus] = useState<TimerStatus>(INITIAL_TIMER_STATUS);
   const [todos, setTodos] = useState<TodoItem[]>(INITIAL_TODOS);
+
+  // Live volume throttling refs
+  const masterVolThrottleRef = useRef<number>(0);
+  const inputVolThrottleRef = useRef<number>(0);
+  const isDraggingVolRef = useRef<boolean>(false);
 
   // Poll timer status
   const pollTimer = useCallback(async () => {
@@ -281,6 +307,39 @@ const AppContent: FC = () => {
     };
   }, [isDesktop]);
 
+  // Periodic background hardware volume & mute sync polling (every 2 seconds)
+  useEffect(() => {
+    if (!isDesktop) return;
+
+    const pollHardwareVolume = async () => {
+      // Do not overwrite user's active slider dragging
+      if (isDraggingVolRef.current) return;
+      if (typeof document !== "undefined" && document.hidden) return;
+
+      try {
+        const sysSettings = await invoke<{
+          output_volume: number;
+          output_muted: boolean;
+          input_volume: number;
+          input_muted: boolean;
+          alert_volume: number;
+        }>("get_system_volume_settings");
+        if (sysSettings && !isDraggingVolRef.current) {
+          setMasterVolume(Math.round(sysSettings.output_volume * 100));
+          setIsMasterMuted(sysSettings.output_muted);
+          setInputVolume(Math.round(sysSettings.input_volume * 100));
+          setIsInputMuted(sysSettings.input_muted);
+          setSystemSoundsVolume(Math.round(sysSettings.alert_volume * 100));
+        }
+      } catch {
+        // Ignore background poll errors
+      }
+    };
+
+    const intervalId = setInterval(pollHardwareVolume, 2000);
+    return () => clearInterval(intervalId);
+  }, [isDesktop]);
+
   const loadProcesses = useCallback(async (showFeedback = false) => {
     setIsLoading(true);
     setError(null);
@@ -325,8 +384,10 @@ const AppContent: FC = () => {
   const loadConfiguration = useCallback(async () => {
     if (!isDesktop) {
       setDevices(MOCK_DEVICES);
+      setInputDevices(MOCK_INPUT_DEVICES);
       setPresets(MOCK_PRESETS);
       setSelectedDevice(MOCK_DEVICES[0].uid);
+      setSelectedInputDevice(MOCK_INPUT_DEVICES[0].uid);
       setSelectedPreset(MOCK_PRESETS[0].name);
       return;
     }
@@ -338,6 +399,15 @@ const AppContent: FC = () => {
       if (defDev) setSelectedDevice(defDev.uid);
     } catch {
       setError("Couldn't load audio devices.");
+    }
+
+    try {
+      const inDevList = await invoke<AudioDevice[]>("get_audio_input_devices");
+      setInputDevices(inDevList);
+      const defInDev = inDevList.find((d) => d.is_default) || inDevList[0];
+      if (defInDev) setSelectedInputDevice(defInDev.uid);
+    } catch {
+      // Ignore input devices fetch error
     }
 
     try {
@@ -354,16 +424,30 @@ const AppContent: FC = () => {
         output_volume: number;
         output_muted: boolean;
         input_volume: number;
+        input_muted: boolean;
         alert_volume: number;
       }>("get_system_volume_settings");
       if (sysSettings) {
         setMasterVolume(Math.round(sysSettings.output_volume * 100));
         setIsMasterMuted(sysSettings.output_muted);
         setInputVolume(Math.round(sysSettings.input_volume * 100));
+        setIsInputMuted(sysSettings.input_muted);
         setSystemSoundsVolume(Math.round(sysSettings.alert_volume * 100));
       }
     } catch {
       // Ignore system volume fetch errors
+    }
+
+    try {
+      const eqState = await invoke<{
+        bands: Array<{ frequency: number; gain: number; bypass: boolean }>;
+        bypass: boolean;
+      }>("get_master_eq_bands");
+      if (eqState) {
+        setIsEQBypassed(eqState.bypass);
+      }
+    } catch {
+      // Ignore initial EQ fetch error
     }
 
     try {
@@ -427,6 +511,18 @@ const AppContent: FC = () => {
     if (isDesktop) {
       try {
         await invoke("set_default_output_device", { deviceUid: uid });
+        // Immediately sync hardware volume settings of newly active output device
+        const sysSettings = await invoke<{
+          output_volume: number;
+          output_muted: boolean;
+          input_volume: number;
+          input_muted: boolean;
+          alert_volume: number;
+        }>("get_system_volume_settings");
+        if (sysSettings) {
+          setMasterVolume(Math.round(sysSettings.output_volume * 100));
+          setIsMasterMuted(sysSettings.output_muted);
+        }
       } catch {
         // Fallback
       }
@@ -434,8 +530,21 @@ const AppContent: FC = () => {
     if (dev) showToast("info", `Audio output routed to ${dev.name}`);
   };
 
-  const handleMasterVolumeCommit = async (vol: number) => {
+  const handleMasterVolumeChange = useCallback((vol: number) => {
     setMasterVolume(vol);
+    isDraggingVolRef.current = true;
+    const now = performance.now();
+    if (now - masterVolThrottleRef.current > 35) {
+      masterVolThrottleRef.current = now;
+      if (isDesktop) {
+        invoke("set_master_volume", { volume: vol / 100 }).catch(() => {});
+      }
+    }
+  }, [isDesktop]);
+
+  const handleMasterVolumeCommit = useCallback(async (vol: number) => {
+    setMasterVolume(vol);
+    isDraggingVolRef.current = false;
     if (isDesktop) {
       try {
         await invoke("set_master_volume", { volume: vol / 100 });
@@ -444,7 +553,7 @@ const AppContent: FC = () => {
       }
     }
     showToast("info", `Master output volume set to ${vol}%`);
-  };
+  }, [isDesktop, showToast]);
 
   const handleMasterMuteToggle = async () => {
     const next = !isMasterMuted;
@@ -459,8 +568,62 @@ const AppContent: FC = () => {
     showToast("info", next ? "Master output muted" : "Master output unmuted");
   };
 
-  const handleInputVolumeCommit = async (vol: number) => {
+  const handleSelectInputDevice = async (uid: string) => {
+    setSelectedInputDevice(uid);
+    if (isDesktop) {
+      try {
+        await invoke("set_default_input_device", { deviceUid: uid });
+        // Immediately sync hardware volume settings of newly active input microphone
+        const sysSettings = await invoke<{
+          output_volume: number;
+          output_muted: boolean;
+          input_volume: number;
+          input_muted: boolean;
+          alert_volume: number;
+        }>("get_system_volume_settings");
+        if (sysSettings) {
+          setInputVolume(Math.round(sysSettings.input_volume * 100));
+          setIsInputMuted(sysSettings.input_muted);
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    const targetDev = inputDevices.find((d) => d.uid === uid);
+    showToast(
+      "info",
+      `Microphone input switched to ${targetDev ? targetDev.name : "System Default"}`
+    );
+  };
+
+  const handleInputMuteToggle = async () => {
+    const next = !isInputMuted;
+    setIsInputMuted(next);
+    if (isDesktop) {
+      try {
+        await invoke("set_input_mute", { muted: next });
+      } catch {
+        // Fallback
+      }
+    }
+    showToast("info", next ? "Microphone input muted" : "Microphone input unmuted");
+  };
+
+  const handleInputVolumeChange = useCallback((vol: number) => {
     setInputVolume(vol);
+    isDraggingVolRef.current = true;
+    const now = performance.now();
+    if (now - inputVolThrottleRef.current > 35) {
+      inputVolThrottleRef.current = now;
+      if (isDesktop) {
+        invoke("set_input_volume", { volume: vol / 100 }).catch(() => {});
+      }
+    }
+  }, [isDesktop]);
+
+  const handleInputVolumeCommit = useCallback(async (vol: number) => {
+    setInputVolume(vol);
+    isDraggingVolRef.current = false;
     if (isDesktop) {
       try {
         await invoke("set_input_volume", { volume: vol / 100 });
@@ -469,7 +632,7 @@ const AppContent: FC = () => {
       }
     }
     showToast("info", `Microphone input gain set to ${vol}%`);
-  };
+  }, [isDesktop, showToast]);
 
   const handleSystemSoundsVolumeCommit = async (vol: number) => {
     setSystemSoundsVolume(vol);
@@ -496,21 +659,58 @@ const AppContent: FC = () => {
   };
 
   const handleEQBandChange = async (bandIndex: number, gainDb: number) => {
-    if (isDesktop && processes.length > 0) {
+    if (isDesktop) {
       try {
-        // Apply EQ to active playing processes
-        const active = processes.filter((p) => p.is_running_output && p.bundle_id);
-        for (const p of active) {
-          await invoke("set_app_eq_band", {
-            bundleId: p.bundle_id,
-            bandIndex,
-            gainDb,
-          });
-        }
+        await invoke("set_master_eq_band", { bandIndex, gainDb });
       } catch {
-        // Ignore minor EQ update errors
+        // Fallback
+      }
+
+      if (processes.length > 0) {
+        try {
+          // Apply EQ to active playing processes
+          const active = processes.filter((p) => p.is_running_output && p.bundle_id);
+          for (const p of active) {
+            await invoke("set_app_eq_band", {
+              bundleId: p.bundle_id,
+              bandIndex,
+              gainDb,
+            });
+          }
+        } catch {
+          // Ignore minor EQ update errors
+        }
       }
     }
+  };
+
+  const handleResetEQFlat = async () => {
+    setSelectedPreset("Flat (Default)");
+    if (isDesktop) {
+      try {
+        await invoke("reset_master_eq");
+      } catch {
+        // Fallback
+      }
+    }
+    showToast("info", "Parametric EQ reset to 0 dB Flat curve");
+  };
+
+  const handleToggleEQBypass = async (bypassed: boolean) => {
+    setIsEQBypassed(bypassed);
+    if (isDesktop) {
+      try {
+        await invoke("set_master_eq_bypass", { bypass: bypassed });
+      } catch {
+        // Fallback
+      }
+    }
+    showToast(
+      "info",
+      bypassed
+        ? "Master EQ bypassed (DSP filtering paused)"
+        : "Master EQ active (DSP filtering enabled)"
+    );
   };
 
   // Timer Handlers
@@ -770,27 +970,37 @@ const AppContent: FC = () => {
               processes={processes}
               channelState={channelState}
               devices={devices}
+              inputDevices={inputDevices}
               presets={presets}
               selectedDevice={selectedDevice}
+              selectedInputDevice={selectedInputDevice}
               selectedPreset={selectedPreset}
               masterVolume={masterVolume}
+              onMasterVolumeChange={handleMasterVolumeChange}
               onMasterVolumeCommit={handleMasterVolumeCommit}
               isMasterMuted={isMasterMuted}
               onMasterMuteToggle={handleMasterMuteToggle}
               inputVolume={inputVolume}
+              onInputVolumeChange={handleInputVolumeChange}
               onInputVolumeCommit={handleInputVolumeCommit}
+              isInputMuted={isInputMuted}
+              onInputMuteToggle={handleInputMuteToggle}
               systemVolume={systemSoundsVolume}
               onSystemVolumeCommit={handleSystemSoundsVolumeCommit}
               onlyPlaying={onlyPlaying}
               isLoading={isLoading}
               error={error}
               onSelectDevice={handleSelectDevice}
+              onSelectInputDevice={handleSelectInputDevice}
               onSelectPreset={handleSelectPreset}
               onToggleOnlyPlaying={setOnlyPlaying}
               onVolumeCommit={handleVolumeCommit}
               onMuteToggle={handleMuteToggle}
               onRouteChange={handleRouteChange}
               onEQBandChange={handleEQBandChange}
+              isEQBypassed={isEQBypassed}
+              onResetEQFlat={handleResetEQFlat}
+              onToggleEQBypass={handleToggleEQBypass}
               onError={(msg) => {
                 setError(msg);
                 showToast("error", msg);
@@ -847,6 +1057,8 @@ const AppContent: FC = () => {
               user={user}
               isLoadingAuth={isLoadingAuth}
               wallpaper={wallpaper}
+              authProvider={authProvider}
+              dbStatus={dbStatus}
               onSetWallpaperPreset={(id) => {
                 setWallpaperPreset(id);
                 showToast("success", `Wallpaper preset applied: ${id}`);

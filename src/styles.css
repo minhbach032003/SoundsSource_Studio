@@ -1,28 +1,37 @@
 @import "tailwindcss";
 
+@theme {
+  --font-heading: "Outfit", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
-    --background: #0b0f14;
-    --foreground: #f8fafc;
-    --card: #151b23;
+    --font-heading: "Outfit", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --background: #131115;
+    --foreground: #f1f5f9;
+    --card: #1d1822;
     --card-foreground: #f8fafc;
-    --popover: #151b23;
+    --popover: #1e1924;
     --popover-foreground: #f8fafc;
-    --primary: #38bdf8;
-    --primary-foreground: #08111e;
-    --secondary: #1e2633;
+    --primary: #fb7185;
+    --primary-foreground: #181116;
+    --secondary: #27202c;
     --secondary-foreground: #f8fafc;
-    --muted: #1e2633;
-    --muted-foreground: #94a3b8;
-    --accent: #38bdf8;
-    --accent-foreground: #08111e;
-    --destructive: #fb7185;
+    --muted: #27202c;
+    --muted-foreground: #a8a29e;
+    --accent: #fb7185;
+    --accent-foreground: #181116;
+    --destructive: #f43f5e;
     --destructive-foreground: #ffffff;
     --border: rgba(255, 255, 255, 0.08);
     --input: rgba(255, 255, 255, 0.1);
-    --ring: #38bdf8;
-    --radius: 0.5rem;
+    --ring: #fb7185;
+    --radius: 0.75rem;
   }
 
   body {
@@ -30,9 +39,21 @@
     padding: 0;
     background-color: var(--background);
     color: var(--foreground);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.011em;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.022em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1, "zero" 1;
   }
 }
 
@@ -53,8 +74,8 @@
   border-radius: 6px;
   background: linear-gradient(
     to right,
-    #38bdf8 0% var(--level, 100%),
-    #1e2633 var(--level, 100%) 100%
+    #fb7185 0% var(--level, 100%),
+    #2a222f var(--level, 100%) 100%
   );
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 }
@@ -67,26 +88,26 @@
   margin-top: -4.5px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid #38bdf8;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 8px rgba(56, 189, 248, 0.35);
+  border: 2px solid #fb7185;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(251, 113, 133, 0.45);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .volume-slider:hover:not(:disabled)::-webkit-slider-thumb {
   transform: scale(1.15);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 14px rgba(251, 113, 133, 0.65);
 }
 
 .volume-slider::-moz-range-track {
   height: 6px;
   border-radius: 6px;
-  background: #1e2633;
+  background: #2a222f;
 }
 
 .volume-slider::-moz-range-progress {
   height: 6px;
   border-radius: 6px;
-  background: #38bdf8;
+  background: #fb7185;
 }
 
 .volume-slider::-moz-range-thumb {
@@ -94,7 +115,7 @@
   height: 15px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2px solid #38bdf8;
+  border: 2px solid #fb7185;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -223,16 +244,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b0f14;
+  background: #131115;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e2633;
+  background: #2b2331;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a3547;
+  background: #3d3045;
 }
 
 @media (prefers-reduced-motion: reduce) {
