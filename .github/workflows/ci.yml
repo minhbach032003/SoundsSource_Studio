@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Check, Test & Build (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    env:
+      RUST_SOUND_JWT_SECRET: "ci-test-jwt-secret-key-2026"
+      RUST_SOUND_NEON_URL: "postgresql://postgres:postgres@localhost:5432/testdb"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate OpenSpec Specifications
+        run: npx @fission-ai/openspec validate --specs
+
+      - name: Frontend Typecheck & Build
+        run: pnpm build
+
+      - name: Run Node Unit Tests
+        run: |
+          for f in tests/*.test.mjs; do
+            echo "Running $f"
+            node "$f"
+          done
+
+      - name: Cargo Check
+        run: cargo check --workspace --all-targets
+
+      - name: Cargo Test
+        run: cargo test --workspace
