@@ -14,8 +14,8 @@ export interface CardComponentProps
 }
 
 const CARD_VARIANTS: Record<CardVariant, string> = {
-  default:
-    "bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] backdrop-blur-md text-[var(--ink)] border border-[var(--line)] hover:border-[var(--focus)] shadow-sm",
+  // .panel carries pingloom's bezel ring + plate, including its own radius and shadow.
+  default: "panel text-[var(--ink)]",
   muted:
     "bg-[color-mix(in_srgb,var(--paper)_88%,transparent)] backdrop-blur-md text-[var(--ink)] border border-[var(--line)]",
   outline: "bg-transparent border border-[var(--line)] text-[var(--ink)]",

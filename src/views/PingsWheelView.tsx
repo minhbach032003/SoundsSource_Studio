@@ -377,7 +377,7 @@ export const PingsWheelView: FC = () => {
       {activeSubTab !== "triggers" ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
           {/* Left Column: Direct Interactive Radial Wheel & Drop Zone (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-start gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm">
+          <div className="lg:col-span-5 flex flex-col items-center justify-start gap-4 p-5 panel">
             <div className="w-full flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1.5">
                 <Crosshair className="w-3.5 h-3.5 text-[var(--accent)]" />

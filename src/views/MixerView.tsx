@@ -355,7 +355,7 @@ export const MixerView: FC<MixerViewProps> = ({
                 </p>
               </div>
             ) : visibleProcesses.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col items-center justify-center text-center gap-2">
+              <div className="p-6 panel flex flex-col items-center justify-center text-center gap-2">
                 <Filter className="w-7 h-7 text-[var(--muted)] opacity-40 mb-1" />
                 <h4 className="text-xs font-semibold text-[var(--ink)] m-0">
                   {searchQuery
@@ -433,7 +433,7 @@ export const MixerView: FC<MixerViewProps> = ({
 
         {/* Right Column (5 cols): Unified Studio DSP Processing Rack */}
         <div className="lg:col-span-5 flex flex-col gap-3">
-          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm overflow-hidden flex flex-col">
+          <div className="panel overflow-hidden flex flex-col">
             {/* Segmented Rack Header Switcher */}
             <div className="p-3 border-b border-[var(--line)] bg-[var(--paper)] flex items-center justify-between flex-wrap gap-2">
               <div className="flex p-0.5 gap-1 bg-[var(--surface)] border border-[var(--line)] rounded-lg">
@@ -496,7 +496,7 @@ export const MixerView: FC<MixerViewProps> = ({
       </div>
 
       {/* Full-Width CoreAudio Telemetry & Stream Diagnostics Status Shelf */}
-      <footer className="w-full p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm">
+      <footer className="w-full p-4 panel">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 pb-2.5 border-b border-[var(--line)] gap-2">
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-[var(--accent)]" />

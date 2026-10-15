@@ -139,6 +139,31 @@
 @keyframes drift-b { from { transform: scale(1.08); } to { transform: translate3d(-240px,-110px,0) scale(.9); } }
 @media (prefers-reduced-motion: reduce) { .aurora-a, .aurora-b { animation: none; } }
 
+/* Pingloom bezel+plate collapsed into one element: the 6px transparent border
+   carries the bezel ring (border-box layers), the padding box carries the plate
+   (padding-box layers), and 36px - 6px yields the plate's 30px inner radius for
+   free. Padding stays on the call site so existing p-* spacing is preserved. */
+.panel {
+  position: relative;
+  min-width: 0;
+  border: 6px solid transparent;
+  border-radius: 36px;
+  /* background-color fills the border box, so it shows only through the ring.
+     Layers are topmost-first: plate spotlight, opaque plate, ring spotlight. */
+  background-color: var(--shell);
+  background-image:
+    radial-gradient(560px circle at var(--mx, -999px) var(--my, -999px), var(--spot-core), transparent 65%),
+    linear-gradient(var(--core), var(--core)),
+    radial-gradient(380px circle at var(--mx, -999px) var(--my, -999px), var(--spot), transparent 70%);
+  background-clip: padding-box, padding-box, border-box;
+  background-origin: padding-box, padding-box, border-box;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--shell-line);
+}
+
+/* Nested panels read as inner trays, not stacked bezels. */
+.panel .panel { border-radius: 24px; }
+
 /* Pingloom Tab Buttons */
 .tab-btn {
   display: flex;

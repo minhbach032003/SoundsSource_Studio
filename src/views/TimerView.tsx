@@ -455,7 +455,7 @@ export const TimerView: FC<TimerViewProps> = ({
       {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-7): Studio Focus Timer Cockpit */}
-        <div className="lg:col-span-7 flex flex-col justify-between p-5 sm:p-6 lg:p-7 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[500px]">
+        <div className="lg:col-span-7 flex flex-col justify-between p-5 sm:p-6 lg:p-7 panel relative overflow-hidden h-full min-h-[500px]">
           {/* 1. Cockpit Header Bar */}
           <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)] w-full shrink-0">
             <div className="flex items-center gap-2.5">
@@ -703,7 +703,7 @@ export const TimerView: FC<TimerViewProps> = ({
         {/* Right Column (lg:col-span-5): Tasks Checklist & Interactive Session Configuration */}
         <div className="lg:col-span-5 flex flex-col gap-4 h-full min-h-0">
           {/* 3. Focus Tasks & Google Calendar Card */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm min-h-[260px]">
+          <div className="flex-1 flex flex-col panel p-4 sm:p-5 shadow-sm min-h-[260px]">
             {/* Task Header with Google Calendar Sync & Filter Tabs */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--line)] shrink-0">
               <div className="flex items-center gap-2">
@@ -1073,7 +1073,7 @@ export const TimerView: FC<TimerViewProps> = ({
           </div>
 
           {/* 4. Interactive Session Configuration Card with Real Clock Times */}
-          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+          <div className="panel p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
                 Session Configuration & Clock

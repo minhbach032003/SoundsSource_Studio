@@ -270,7 +270,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
       {/* 2. Fluid 2-Column Responsive Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-5): Interactive Voice Stage & Audio Hardware Controls */}
-        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[460px]">
+        <div className="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 panel relative overflow-hidden h-full min-h-[460px]">
           {/* Top Stage Header: Google Persona Selector */}
           <div className="w-full space-y-2 shrink-0">
             <div className="flex items-center justify-between text-xs">
@@ -386,7 +386,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
         </div>
 
         {/* Right Column (lg:col-span-7): Full Dialogue Stream & Quick Actions Console */}
-        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
+        <div className="lg:col-span-7 flex flex-col justify-between panel p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
           {/* Header & Quick Action Prompt Chips */}
           <div className="space-y-2.5 pb-3 border-b border-[var(--line)] shrink-0">
             <div className="flex items-center justify-between">

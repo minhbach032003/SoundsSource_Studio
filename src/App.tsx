@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useRef, type FC } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type FC,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { SideNavbar, type NavTab } from "@/components/navigation/SideNavbar";
 import { MixerView } from "@/views/MixerView";
@@ -18,6 +25,7 @@ import { ThemeControls } from "@/components/ThemeControls";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 import { GoogleLoginModal } from "@/components/GoogleLoginModal";
 import { BreakScreenLockOverlay } from "@/components/BreakScreenLockOverlay";
+import { prefersReducedMotion } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 import { groupProcesses, processKey, displayName } from "@/audio";
 import type { AudioProcess } from "@/audio";
@@ -926,8 +934,21 @@ const AppContent: FC = () => {
     showToast("success", `${setting} updated: ${val}`);
   };
 
+  // Pingloom bezel spotlight: track the pointer inside whichever panel it is over.
+  const handlePanelSpotlight = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch" || prefersReducedMotion()) return;
+    const panel = (event.target as HTMLElement).closest<HTMLElement>(".panel");
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    panel.style.setProperty("--mx", `${event.clientX - rect.left}px`);
+    panel.style.setProperty("--my", `${event.clientY - rect.top}px`);
+  }, []);
+
   return (
-    <div className="flex h-screen bg-[var(--paper)] text-[var(--ink)] font-sans overflow-hidden relative">
+    <div
+      className="flex h-screen bg-[var(--paper)] text-[var(--ink)] font-sans overflow-hidden relative"
+      onPointerMove={handlePanelSpotlight}
+    >
       {/* Global In-App Ping Gesture Engine & Overlay Bursts */}
       <GlobalPingHost />
 

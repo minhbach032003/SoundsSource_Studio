@@ -727,7 +727,7 @@ export const AgentPetView: FC = () => {
         {/* Left Column (lg:col-span-7): Hologram Stage & Vitals Cockpit */}
         <div className="lg:col-span-7 flex flex-col gap-4.5">
           {/* Main Companion Hologram Stage */}
-          <div className="flex flex-col items-center p-5 sm:p-6 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden gap-3">
+          <div className="flex flex-col items-center p-5 sm:p-6 panel relative overflow-hidden gap-3">
             {/* Ambient Background Aura */}
             <div
               className={cn(
@@ -876,7 +876,7 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* 7-Companion Visual Showcase Gallery */}
-          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
+          <div className="panel p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[var(--accent-text)]" />
@@ -945,7 +945,7 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* Progression Bar & Vitals Cockpit */}
-          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
+          <div className="panel p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
             {/* Level & XP Progression Bar matching CareTabView */}
             <div className="bg-[var(--paper)] border border-[var(--line)] rounded-xl p-3 px-3.5">
               <div className="flex items-center justify-between text-xs mb-1.5">
@@ -1167,7 +1167,7 @@ export const AgentPetView: FC = () => {
         {/* Right Column (lg:col-span-5): Socket Diagnostics & Real-Time Console */}
         <div className="lg:col-span-5 flex flex-col gap-4.5">
           {/* Socket & Desktop Bridge Card */}
-          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
+          <div className="panel p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
             <div className="flex items-center justify-between pb-2.5 border-b border-[var(--line)]">
               <div>
                 <span className="text-xs font-semibold text-[var(--ink)] tracking-tight block">
@@ -1332,7 +1332,7 @@ export const AgentPetView: FC = () => {
           </div>
 
           {/* Live Activity Console (Takes Remaining Height) */}
-          <div className="flex-1 flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm min-h-[300px]">
+          <div className="flex-1 flex flex-col panel p-4 sm:p-5 shadow-sm min-h-[300px]">
             {/* Console Navigation Tabs */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--line)] shrink-0 gap-2 flex-wrap">
               <div className="flex items-center gap-1 p-0.5 bg-[var(--paper)] border border-[var(--line)] rounded-lg">

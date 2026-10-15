@@ -142,7 +142,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
 
   return (
     <section
-      className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm"
+      className="p-4 panel"
       aria-label="Master Output Console"
     >
       {/* Console Header */}

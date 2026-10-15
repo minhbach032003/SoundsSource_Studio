@@ -236,7 +236,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
     <aside
       className={cn(
         "flex flex-col gap-3.5 select-none w-full",
-        !embedded && "p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm h-full"
+        !embedded && "p-4 panel h-full"
       )}
       aria-label="Studio 10-Band Parametric Equalizer Inspector"
     >

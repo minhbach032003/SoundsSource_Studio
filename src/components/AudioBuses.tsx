@@ -117,7 +117,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 select-none">
       {/* 1. Input Microphone Channel */}
-      <div className="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 panel flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
@@ -229,7 +229,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       </div>
 
       {/* 2. macOS System Alerts & Sounds Channel */}
-      <div className="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 panel flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div

@@ -628,7 +628,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
 
         {/* 7. Brand Identity & Engine Info */}
         <div className="lg:col-span-2">
-          <div className="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="p-5 panel flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
             <AppLogo size="lg" variant="with-wordmark" />
 
             <div className="flex items-center gap-2 flex-wrap">
