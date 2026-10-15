@@ -1,6 +1,6 @@
 use rust_sound_lib::core::{get_memory_info, trim_memory_cache};
 use rust_sound_lib::{
-    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, PresetStore, AuthService, PetManager,
+    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, PresetStore, AuthService, PetManager, PingloomSettings,
 };
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,6 +36,7 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         timer: Mutex::new(timer),
         auth,
         pet,
+        wheel_settings: Mutex::new(PingloomSettings::default()),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };

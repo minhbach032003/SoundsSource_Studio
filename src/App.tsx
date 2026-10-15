@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { SideNavbar, type NavTab } from "@/components/navigation/SideNavbar";
 import { MixerView } from "@/views/MixerView";
 import { TimerView, type TimerStatus, type TodoItem } from "@/views/TimerView";
+import { PingsWheelView } from "@/views/PingsWheelView";
 import { VoiceAiView } from "@/views/VoiceAiView";
 import { AgentPetView } from "@/views/AgentPetView";
 import { SettingsView } from "@/views/SettingsView";
@@ -922,6 +923,8 @@ const AppContent: FC = () => {
                   ? "Audio Mixer"
                   : activeTab === "timer"
                   ? "Focus Timer"
+                  : activeTab === "pings"
+                  ? "Tactical Pings & Wheel"
                   : activeTab === "voice"
                   ? "Voice AI 1:1"
                   : activeTab === "pet"
@@ -933,6 +936,8 @@ const AppContent: FC = () => {
                   ? "Per-application CoreAudio stream routing & volume control"
                   : activeTab === "timer"
                   ? "Pomodoro timing with smart audio ducking"
+                  : activeTab === "pings"
+                  ? "Pingloom 8-directional radial wheel gestures & tactical pings"
                   : activeTab === "voice"
                   ? "Real-time conversational voice assistant"
                   : activeTab === "pet"
@@ -1083,6 +1088,8 @@ const AppContent: FC = () => {
               }}
             />
           )}
+
+          {activeTab === "pings" && <PingsWheelView />}
 
           {activeTab === "voice" && (
             <VoiceAiView

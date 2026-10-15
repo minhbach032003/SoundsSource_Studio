@@ -30,6 +30,13 @@ import {
   Plug,
   Trash2,
   Bot,
+  Leaf,
+  PawPrint,
+  Compass,
+  Shield,
+  Crown,
+  Trophy,
+  Utensils,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +84,78 @@ export interface AgentIntegrationDto {
   is_supported: boolean;
   is_installed: boolean;
   note?: string | null;
+}
+
+export const STAGE_CONFIGS: Record<
+  string,
+  {
+    icon: typeof Leaf;
+    color: string;
+    bg: string;
+    border: string;
+    text: string;
+  }
+> = {
+  Hatchling: {
+    icon: Leaf,
+    color: "#10b981",
+    bg: "bg-emerald-500/15",
+    border: "border-emerald-500/30",
+    text: "text-emerald-400",
+  },
+  Companion: {
+    icon: PawPrint,
+    color: "#14b8a6",
+    bg: "bg-teal-500/15",
+    border: "border-teal-500/30",
+    text: "text-teal-400",
+  },
+  Scout: {
+    icon: Compass,
+    color: "#0284c7",
+    bg: "bg-sky-500/15",
+    border: "border-sky-500/30",
+    text: "text-sky-400",
+  },
+  Hero: {
+    icon: Shield,
+    color: "#a855f7",
+    bg: "bg-purple-500/15",
+    border: "border-purple-500/30",
+    text: "text-purple-400",
+  },
+  Legend: {
+    icon: Crown,
+    color: "#f59e0b",
+    bg: "bg-amber-500/15",
+    border: "border-amber-500/30",
+    text: "text-amber-400",
+  },
+};
+
+export const ACHIEVEMENTS_METADATA = [
+  { id: "firstMeal", name: "First Meal", description: "1st finished session", icon: Utensils },
+  { id: "sessions100", name: "100 Sessions", description: "Completed 100 sessions", icon: Trophy },
+  { id: "sessions500", name: "500 Sessions", description: "Completed 500 sessions", icon: Crown },
+  { id: "tokens1M", name: "1M Tokens", description: "Consumed 1,000,000 tokens", icon: Zap },
+  { id: "tokens10M", name: "10M Tokens", description: "Consumed 10,000,000 tokens", icon: Flame },
+  { id: "level5", name: "Companion", description: "Evolution Stage 2", icon: PawPrint },
+  { id: "level10", name: "Scout", description: "Evolution Stage 3", icon: Compass },
+  { id: "level20", name: "Hero", description: "Evolution Stage 4", icon: Shield },
+  { id: "streak7", name: "7-Day Streak", description: "7 consecutive days active", icon: Flame },
+  { id: "streak30", name: "30-Day Streak", description: "30 consecutive days active", icon: Award },
+];
+
+export function xpToReach(level: number): number {
+  return level <= 1 ? 0 : 60 * level * (level - 1);
+}
+
+export function getInternalLevel(xp: number): number {
+  let level = 1;
+  while (xpToReach(level + 1) <= xp) {
+    level++;
+  }
+  return level;
 }
 
 const INITIAL_EVENTS: PetEvent[] = [

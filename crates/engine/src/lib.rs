@@ -5,6 +5,7 @@ pub mod pet;
 pub mod preset;
 pub mod router;
 pub mod timer;
+pub mod wheel;
 
 pub use auth::{
     AuthRepository, AuthService, AuthSession, AuthenticatedUser, DualAuthError,
@@ -22,3 +23,4 @@ pub use pet::{
 pub use preset::{AppAudioSettings, Preset, PresetStore};
 pub use router::{AppAudioChannel, AudioRouter, ChannelStateDto};
 pub use timer::{BreakTimerManager, TimerPhase, TimerStatus, TodoItem};
+pub use wheel::{pick_slice, select_slot, CatalogEntry, GestureResult, PingloomSettings, DIRECTIONS, DIRECTION_LABELS};

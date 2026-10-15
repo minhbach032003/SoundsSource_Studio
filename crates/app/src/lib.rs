@@ -14,9 +14,10 @@ pub use core::{
 };
 pub use engine::{
     AgentIntegrationInfo, AgentSession, AppAudioChannel, AppAudioSettings, AudioDevice,
-    AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager, ChannelStateDto,
-    EQBandConfig, ParametricEQ, PetCareState, PetManager, Pkce, PkceChallenge, Preset,
-    PresetStore, TimerPhase, TimerStatus, TodoItem, User, DEFAULT_EQ_FREQUENCIES,
+    AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager, CatalogEntry, ChannelStateDto,
+    EQBandConfig, GestureResult, ParametricEQ, PetCareState, PetManager, PingloomSettings, Pkce,
+    PkceChallenge, Preset, PresetStore, TimerPhase, TimerStatus, TodoItem, User,
+    DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
@@ -25,6 +26,7 @@ pub struct AppState {
     pub timer: Mutex<BreakTimerManager>,
     pub auth: AuthService,
     pub pet: PetManager,
+    pub wheel_settings: Mutex<PingloomSettings>,
     pub start_time: Instant,
     pub background_mode: AtomicBool,
 }
@@ -108,8 +110,53 @@ fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) ->
     state.pet.toggle_hook(&kind, enabled)
 }
 
+#[tauri::command]
+fn get_ping_settings(state: State<'_, AppState>) -> PingloomSettings {
+    state.wheel_settings.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn save_ping_settings(settings: PingloomSettings, state: State<'_, AppState>) -> Result<PingloomSettings, String> {
+    settings.validate()?;
+    let mut current = state.wheel_settings.lock().unwrap();
+    *current = settings.clone();
+    Ok(settings)
+}
+
+#[tauri::command]
+fn get_ping_catalog() -> Vec<CatalogEntry> {
+    sound_engine::wheel::get_default_catalog()
+}
+
+#[tauri::command]
+fn simulate_ping_gesture(dx: f64, dy: f64, state: State<'_, AppState>) -> Option<GestureResult> {
+    let settings = state.wheel_settings.lock().unwrap().clone();
+    let dead_zone = settings.drag_threshold_px as f64;
+    let slice_idx = sound_engine::wheel::pick_slice(dx, dy, dead_zone)?;
+    let ping_id = settings.wheel.get(slice_idx).cloned().unwrap_or_else(|| "danger".to_string());
+    let catalog = sound_engine::wheel::get_default_catalog();
+    let entry = catalog.iter().find(|c| c.id == ping_id);
+    let ping_name = entry.map(|e| e.name.clone()).unwrap_or_else(|| ping_id.clone());
+    let color = entry.map(|e| e.color.clone()).unwrap_or_else(|| "#38bdf8".to_string());
+    let direction = sound_engine::wheel::DIRECTIONS.get(slice_idx).unwrap_or(&"N").to_string();
+
+    Some(GestureResult {
+        slice_index: slice_idx,
+        direction,
+        ping_id,
+        ping_name,
+        color,
+    })
+}
+
 fn env_secret(key: &str) -> String {
-    std::env::var(key).unwrap_or_else(|_| panic!("missing env var {key}"))
+    std::env::var(key).unwrap_or_else(|_| match key {
+        "RUST_SOUND_JWT_SECRET" => "rust-sound-neon-auth-secret-key-2026".to_string(),
+        "RUST_SOUND_NEON_URL" => {
+            "postgresql://neondb_owner:npg_dnSqB1Lp7gfk@ep-odd-butterfly-b40tuch4-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require".to_string()
+        }
+        _ => panic!("missing env var {key}"),
+    })
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -585,6 +632,7 @@ pub fn run() {
         timer: Mutex::new(timer),
         auth,
         pet,
+        wheel_settings: Mutex::new(PingloomSettings::default()),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
     };
@@ -644,7 +692,11 @@ pub fn run() {
             get_agent_sessions,
             dismiss_agent_session,
             get_agent_integrations,
-            toggle_agent_hook
+            toggle_agent_hook,
+            get_ping_settings,
+            save_ping_settings,
+            get_ping_catalog,
+            simulate_ping_gesture
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

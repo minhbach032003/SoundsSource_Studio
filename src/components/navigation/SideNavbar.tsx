@@ -2,6 +2,7 @@ import type { FC } from "react";
 import {
   SlidersHorizontal,
   Timer,
+  Target,
   Mic,
   Bot,
   Settings,
@@ -10,7 +11,7 @@ import {
 import { AppLogo } from "@/components/icons/AppLogo";
 import { cn } from "@/lib/utils";
 
-export type NavTab = "mixer" | "timer" | "voice" | "pet" | "settings";
+export type NavTab = "mixer" | "timer" | "pings" | "voice" | "pet" | "settings";
 
 export interface GoogleUser {
   name: string;
@@ -34,6 +35,7 @@ interface NavItemConfig {
 const NAV_ITEMS: NavItemConfig[] = [
   { id: "mixer", label: "Mixer", icon: SlidersHorizontal },
   { id: "timer", label: "Focus", icon: Timer },
+  { id: "pings", label: "Pings", icon: Target },
   { id: "voice", label: "Voice AI", icon: Mic },
   { id: "pet", label: "Agent Pet", icon: Bot },
   { id: "settings", label: "Settings", icon: Settings },
