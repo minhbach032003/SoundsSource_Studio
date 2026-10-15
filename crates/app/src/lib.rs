@@ -157,10 +157,26 @@ fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) ->
 fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+    let (screen_w, screen_h) = if let Ok(Some(mon)) = app.primary_monitor() {
+        let sz = mon.size();
+        let scale = mon.scale_factor();
+        (sz.width as f64 / scale, sz.height as f64 / scale)
+    } else {
+        (1920.0, 1080.0)
+    };
+
+    let (clamped_x, clamped_y) = if let (Some(px), Some(py)) = (x, y) {
+        let cx = px.clamp(20.0, (screen_w - 280.0).max(20.0));
+        let cy = py.clamp(20.0, (screen_h - 320.0).max(20.0));
+        (cx, cy)
+    } else {
+        let cx = (screen_w - 280.0).max(20.0);
+        let cy = (screen_h - 320.0).max(20.0);
+        (cx, cy)
+    };
+
     if let Some(win) = app.get_webview_window("pet-overlay") {
-        if let (Some(px), Some(py)) = (x, y) {
-            let _ = win.set_position(tauri::LogicalPosition::new(px, py));
-        }
+        let _ = win.set_position(tauri::LogicalPosition::new(clamped_x, clamped_y));
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(true);
@@ -169,40 +185,37 @@ fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Re
     let win = WebviewWindowBuilder::new(
         &app,
         "pet-overlay",
-        WebviewUrl::App("index.html?overlay=1".into()),
+        WebviewUrl::App("index.html".into()),
     )
     .title("AgentPet Overlay")
     .inner_size(260.0, 280.0)
+    .position(clamped_x, clamped_y)
     .transparent(true)
     .decorations(false)
     .always_on_top(true)
     .skip_taskbar(true)
     .shadow(false)
     .resizable(false)
+    .initialization_script("window.__IS_PET_OVERLAY__ = true; window.__TAURI_WINDOW_LABEL__ = 'pet-overlay';")
     .build()
     .map_err(|e| format!("Failed to create pet overlay window: {e}"))?;
 
     #[cfg(target_os = "macos")]
     {
-        use objc2_app_kit::NSWindow;
+        use objc2_app_kit::{NSColor, NSWindow, NSWindowCollectionBehavior};
         if let Ok(ns_win_ptr) = win.ns_window() {
             unsafe {
                 let ns_win: &NSWindow = &*(ns_win_ptr as *const NSWindow);
+                ns_win.setOpaque(false);
+                ns_win.setHasShadow(false);
+                ns_win.setBackgroundColor(Some(&NSColor::clearColor()));
                 ns_win.setMovableByWindowBackground(true);
+                ns_win.setCollectionBehavior(
+                    NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary,
+                );
             }
         }
-    }
-
-    if let (Some(px), Some(py)) = (x, y) {
-        let _ = win.set_position(tauri::LogicalPosition::new(px, py));
-    } else if let Ok(Some(mon)) = app.primary_monitor() {
-        let sz = mon.size();
-        let scale = mon.scale_factor();
-        let screen_w = sz.width as f64 / scale;
-        let screen_h = sz.height as f64 / scale;
-        let px = (screen_w - 280.0).max(20.0);
-        let py = (screen_h - 320.0).max(20.0);
-        let _ = win.set_position(tauri::LogicalPosition::new(px, py));
     }
 
     let _ = win.show();

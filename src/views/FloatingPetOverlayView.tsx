@@ -73,7 +73,10 @@ export const FloatingPetOverlayView: FC = () => {
   // Sync pet archetype from local storage across windows
   useEffect(() => {
     document.documentElement.style.background = "transparent";
+    document.documentElement.style.backgroundColor = "transparent";
     document.body.style.background = "transparent";
+    document.body.style.backgroundColor = "transparent";
+    document.body.classList.remove("bg-[var(--paper)]");
     document.body.style.overflow = "hidden";
     document.body.style.margin = "0";
     document.body.style.padding = "0";
@@ -94,16 +97,23 @@ export const FloatingPetOverlayView: FC = () => {
     };
   }, [petSlug]);
 
-  // Window position tracking on desktop
+  // Window position tracking on desktop in logical coordinates
   useEffect(() => {
     if (!isDesktop) return;
     let unlisten: (() => void) | undefined;
     (async () => {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        unlisten = await getCurrentWindow().onMoved(({ payload: pos }) => {
+        const win = getCurrentWindow();
+        unlisten = await win.onMoved(async () => {
           try {
-            localStorage.setItem("rust_sound_pet_overlay_pos", JSON.stringify(pos));
+            const factor = await win.scaleFactor();
+            const pos = await win.outerPosition();
+            const logicalPos = {
+              x: Math.round(pos.x / factor),
+              y: Math.round(pos.y / factor),
+            };
+            localStorage.setItem("rust_sound_pet_overlay_pos", JSON.stringify(logicalPos));
           } catch {}
         });
       } catch {}

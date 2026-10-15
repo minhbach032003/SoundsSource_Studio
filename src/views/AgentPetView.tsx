@@ -330,10 +330,34 @@ export const AgentPetView: FC = () => {
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
   // Settings Toggles
-  const [showDesktopOverlay, setShowDesktopOverlay] = useState(true);
+  const [showDesktopOverlay, setShowDesktopOverlay] = useState(false);
   const [audioReactive, setAudioReactive] = useState(true);
   const [focusTimerSync, setFocusTimerSync] = useState(true);
   const [activityTheme, setActivityTheme] = useState<string>("Chef");
+
+  // Synchronize desktop overlay window status & auto-launch if preference is enabled
+  useEffect(() => {
+    if (!isDesktop) return;
+    const savedPref = localStorage.getItem("rust_sound_show_desktop_pet");
+    invoke<boolean>("is_pet_overlay_open")
+      .then((isOpen) => {
+        if (isOpen) {
+          setShowDesktopOverlay(true);
+        } else if (savedPref === "true") {
+          let pos: { x: number; y: number } | null = null;
+          try {
+            const raw = localStorage.getItem("rust_sound_pet_overlay_pos");
+            if (raw) pos = JSON.parse(raw);
+          } catch {}
+          invoke("open_pet_overlay", { x: pos?.x, y: pos?.y })
+            .then(() => setShowDesktopOverlay(true))
+            .catch(() => {});
+        } else {
+          setShowDesktopOverlay(false);
+        }
+      })
+      .catch(() => {});
+  }, [isDesktop]);
 
   // Load activity theme
   useEffect(() => {
@@ -497,6 +521,9 @@ export const AgentPetView: FC = () => {
   const handleToggleDesktopOverlay = async () => {
     const next = !showDesktopOverlay;
     setShowDesktopOverlay(next);
+    try {
+      localStorage.setItem("rust_sound_show_desktop_pet", next ? "true" : "false");
+    } catch {}
     if (isDesktop) {
       try {
         let pos: { x: number; y: number } | null = null;

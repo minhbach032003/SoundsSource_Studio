@@ -17,6 +17,7 @@ import { useTheme } from "@/shared/lib/useTheme";
 import { ThemeControls } from "@/components/ThemeControls";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
 import { GoogleLoginModal } from "@/components/GoogleLoginModal";
+import { BreakScreenLockOverlay } from "@/components/BreakScreenLockOverlay";
 import { RefreshCw } from "lucide-react";
 import { groupProcesses, processKey, displayName } from "@/audio";
 import type { AudioProcess } from "@/audio";
@@ -157,6 +158,22 @@ const AppContent: FC = () => {
     toggleThemeMode,
   } = useTheme();
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [screenLockEnabled, setScreenLockEnabled] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem("rust_sound_timer_screen_lock");
+      return raw !== null ? raw === "true" : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const handleToggleScreenLock = useCallback((enabled: boolean) => {
+    setScreenLockEnabled(enabled);
+    try {
+      localStorage.setItem("rust_sound_timer_screen_lock", String(enabled));
+    } catch {}
+    showToast("info", enabled ? "Đã bật khóa màn hình khi nghỉ" : "Đã tắt khóa màn hình khi nghỉ");
+  }, [showToast]);
 
   const handleThemeSelect = useCallback(
     (palette: string) => {
@@ -228,6 +245,20 @@ const AppContent: FC = () => {
   const masterVolThrottleRef = useRef<number>(0);
   const inputVolThrottleRef = useRef<number>(0);
   const isDraggingVolRef = useRef<boolean>(false);
+
+  // Testing and automation event listener for break phase
+  useEffect(() => {
+    const handleSimBreak = () => {
+      setTimerStatus((prev) => ({
+        ...prev,
+        phase: "breaking",
+        remaining_seconds: prev.break_duration > 0 ? prev.break_duration : 300,
+        is_ducked: true,
+      }));
+    };
+    window.addEventListener("simulate-break-phase", handleSimBreak);
+    return () => window.removeEventListener("simulate-break-phase", handleSimBreak);
+  }, []);
 
   // Poll timer status
   const pollTimer = useCallback(async () => {
@@ -1112,6 +1143,8 @@ const AppContent: FC = () => {
                 deleteCalendarEvent(id);
                 showToast("info", "Calendar event removed from view");
               }}
+              screenLockEnabled={screenLockEnabled}
+              onToggleScreenLock={handleToggleScreenLock}
             />
           )}
 
@@ -1222,6 +1255,14 @@ const AppContent: FC = () => {
           onClose={() => setIsLoginModalOpen(false)}
           onLogin={signInWithGoogle}
           isLoading={isLoadingAuth}
+        />
+
+        {/* Fullscreen Break Screen Lock Overlay */}
+        <BreakScreenLockOverlay
+          active={timerStatus.phase === "breaking"}
+          remainingSeconds={timerStatus.remaining_seconds}
+          onSkip={handleSkipTimer}
+          enabled={screenLockEnabled}
         />
       </div>
     </div>

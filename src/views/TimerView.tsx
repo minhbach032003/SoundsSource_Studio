@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Video,
   Timer,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,8 @@ interface TimerViewProps {
   onSignInGoogle: () => void;
   onToggleCalendarEvent: (id: string) => void;
   onDeleteCalendarEvent: (id: string) => void;
+  screenLockEnabled?: boolean;
+  onToggleScreenLock?: (enabled: boolean) => void;
 }
 
 function formatCountdown(seconds: number): string {
@@ -133,6 +136,8 @@ export const TimerView: FC<TimerViewProps> = ({
   onSignInGoogle,
   onToggleCalendarEvent,
   onDeleteCalendarEvent,
+  screenLockEnabled = true,
+  onToggleScreenLock,
 }) => {
   // Task input state
   const [newTodoTitle, setNewTodoTitle] = useState("");
@@ -355,9 +360,10 @@ export const TimerView: FC<TimerViewProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1">
-      {/* 1. Top Bar: Preset Selector with Custom Setup & Stats */}
-      <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0">
-        <div className="inline-flex p-1 gap-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] backdrop-blur-md">
+      {/* 1. Top Bar: Preset Selector (Left) & Screen Lock / Session Stats (Right) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        {/* Left Container: Preset Pills */}
+        <div className="inline-flex p-1 gap-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] backdrop-blur-md shrink-0 overflow-x-auto max-w-full">
           {PRESETS.map((p) => {
             const isSelected =
               status.study_duration === p.study && status.break_duration === p.breakDur;
@@ -406,13 +412,46 @@ export const TimerView: FC<TimerViewProps> = ({
           </button>
         </div>
 
-        <BadgeComponent variant="secondary" className="gap-1.5 select-none h-7 px-3">
-          <Flame className="w-3.5 h-3.5 text-amber-400" />
-          <span>Sessions Completed Today: {status.completed_sessions}</span>
-        </BadgeComponent>
+        {/* Right Container: Screen Lock Toggle + Sessions Completed Today Counter */}
+        <div className="inline-flex items-center gap-2 p-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] backdrop-blur-md shrink-0 self-start sm:self-auto">
+          {/* Screen Lock Toggle Button */}
+          <button
+            type="button"
+            onClick={() => onToggleScreenLock?.(!screenLockEnabled)}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 select-none",
+              screenLockEnabled
+                ? "bg-[var(--surface)] text-[var(--ink)] font-semibold shadow-xs border border-[var(--line)]"
+                : "text-[var(--muted)] hover:text-[var(--ink)]"
+            )}
+            title={screenLockEnabled ? "Khóa màn hình khi đến giờ nghỉ: BẬT" : "Khóa màn hình khi đến giờ nghỉ: TẮT"}
+          >
+            <ShieldCheck className={cn("w-3.5 h-3.5", screenLockEnabled ? "text-emerald-500" : "text-[var(--muted)]")} />
+            <span>Khóa Khi Nghỉ</span>
+            <span
+              className={cn(
+                "text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase",
+                screenLockEnabled
+                  ? "bg-emerald-500/15 text-emerald-500"
+                  : "bg-[var(--line)] text-[var(--muted)]"
+              )}
+            >
+              {screenLockEnabled ? "Bật" : "Tắt"}
+            </span>
+          </button>
+
+          <div className="w-[1px] h-4 bg-[var(--line)]" />
+
+          {/* Sessions Completed Today */}
+          <div className="flex items-center gap-1.5 px-2 py-1 text-xs text-[var(--ink)] font-semibold">
+            <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>
+              Hôm nay: <strong className="font-mono text-[var(--accent-text)]">{status.completed_sessions}</strong>
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
         {/* Left Column (lg:col-span-7): Studio Focus Timer Cockpit */}
