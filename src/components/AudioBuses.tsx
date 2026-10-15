@@ -111,7 +111,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 select-none">
       {/* 1. Input Microphone Channel */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#131924] to-[#0e121a] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#201925] to-[#17131b] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
@@ -195,9 +195,9 @@ export const AudioBuses: FC<AudioBusesProps> = ({
                   "h-full rounded-sm transition-all duration-75",
                   !isInputMuted
                     ? inputMeterLvl > 75
-                      ? "bg-gradient-to-r from-emerald-500 via-sky-400 to-rose-400"
-                      : "bg-gradient-to-r from-emerald-500 via-sky-400 to-purple-400"
-                    : "bg-slate-700"
+                      ? "bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-400"
+                      : "bg-gradient-to-r from-emerald-500 via-rose-400 to-pink-400"
+                    : "bg-stone-700"
                 )}
                 style={{ width: `${inputMeterLvl}%` }}
               />
@@ -223,7 +223,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       </div>
 
       {/* 2. macOS System Alerts & Sounds Channel */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#131924] to-[#0e121a] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
+      <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#201925] to-[#17131b] border border-white/8 shadow-sm flex flex-col justify-between gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div

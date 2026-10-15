@@ -559,7 +559,7 @@ const CustomVerticalFader: FC<CustomVerticalFaderProps> = ({
       <span
         className={cn(
           "text-[9px] font-mono tabular-nums leading-none",
-          gain > 0 ? "text-sky-300 font-bold" : gain < 0 ? "text-amber-400" : "text-slate-500"
+          gain > 0 ? "text-rose-300 font-bold" : gain < 0 ? "text-amber-400" : "text-stone-500"
         )}
       >
         {gain > 0 ? `+${gain.toFixed(0)}` : gain.toFixed(0)}
@@ -591,7 +591,7 @@ const CustomVerticalFader: FC<CustomVerticalFaderProps> = ({
             style={{
               top: gain > 0 ? `${topPercent}%` : "50%",
               height: `${Math.abs(topPercent - 50)}%`,
-              backgroundColor: gain > 0 ? "#38bdf8" : "#f59e0b",
+              backgroundColor: gain > 0 ? "#fb7185" : "#f59e0b",
             }}
           />
         )}

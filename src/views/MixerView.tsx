@@ -214,7 +214,7 @@ export const MixerView: FC<MixerViewProps> = ({
                   id="mixer-title"
                   className="text-xs font-bold uppercase tracking-wider text-slate-300 m-0 flex items-center gap-1.5"
                 >
-                  <Volume2 className="w-3.5 h-3.5 text-sky-400" />
+                  <Volume2 className="w-3.5 h-3.5 text-rose-400" />
                   Application Channel Strips
                 </span>
                 <BadgeComponent variant="secondary" className="text-[10px] px-2 py-0.5 font-mono">
@@ -244,8 +244,8 @@ export const MixerView: FC<MixerViewProps> = ({
                   className={cn(
                     "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer",
                     channelFilter === "all" && !onlyPlaying
-                      ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-[#2c2232] text-rose-300 shadow-sm font-semibold border border-rose-400/20"
+                      : "text-stone-400 hover:text-white"
                   )}
                   onClick={() => {
                     setChannelFilter("all");
@@ -260,8 +260,8 @@ export const MixerView: FC<MixerViewProps> = ({
                   className={cn(
                     "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer",
                     channelFilter === "media"
-                      ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-[#2c2232] text-rose-300 shadow-sm font-semibold border border-rose-400/20"
+                      : "text-stone-400 hover:text-white"
                   )}
                   onClick={() => {
                     setChannelFilter("media");
@@ -276,8 +276,8 @@ export const MixerView: FC<MixerViewProps> = ({
                   className={cn(
                     "px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer flex items-center gap-1.5",
                     channelFilter === "playing" || onlyPlaying
-                      ? "bg-[#1f2838] text-sky-300 shadow-sm font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      ? "bg-[#2c2232] text-rose-300 shadow-sm font-semibold border border-rose-400/20"
+                      : "text-stone-400 hover:text-white"
                   )}
                   onClick={() => {
                     setChannelFilter("playing");
@@ -305,7 +305,7 @@ export const MixerView: FC<MixerViewProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter applications by name or bundle…"
-                  className="w-full h-8 pl-8 pr-7 text-xs rounded-lg bg-slate-950/70 border border-white/8 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all font-sans"
+                  className="w-full h-8 pl-8 pr-7 text-xs rounded-lg bg-[#19141d] border border-white/8 text-stone-200 placeholder:text-stone-500 focus:outline-none focus:border-rose-400/50 focus:ring-1 focus:ring-rose-400/20 transition-all font-sans"
                 />
                 {searchQuery && (
                   <button
@@ -366,7 +366,7 @@ export const MixerView: FC<MixerViewProps> = ({
                       onToggleOnlyPlaying(false);
                       if (hiddenAppKeys.size > 0) handleUnhideAll();
                     }}
-                    className="mt-2 text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 px-3 py-1.5 rounded-lg border border-sky-500/20 transition-all cursor-pointer"
+                    className="mt-2 text-xs font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-400/20 transition-all cursor-pointer"
                   >
                     Reset Search & Filters
                   </button>
@@ -416,7 +416,7 @@ export const MixerView: FC<MixerViewProps> = ({
       <footer className="w-full p-4 rounded-2xl bg-gradient-to-r from-[#121824] via-[#0f141f] to-[#121824] border border-white/8 backdrop-blur-md shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 pb-2.5 border-b border-white/6 gap-2">
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-sky-400" />
+            <Cpu className="w-4 h-4 text-rose-400" />
             <span className="text-xs font-bold text-slate-100 uppercase tracking-wider">
               CoreAudio Hardware DSP & Diagnostics Shelf
             </span>
@@ -440,7 +440,7 @@ export const MixerView: FC<MixerViewProps> = ({
           </div>
           <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/4">
             <span className="text-[10px] text-slate-400 block font-medium">DSP Latency</span>
-            <span className="text-xs font-mono font-bold text-sky-300 mt-0.5 block">1.8 ms</span>
+            <span className="text-xs font-mono font-bold text-rose-300 mt-0.5 block">1.8 ms</span>
           </div>
           <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/4">
             <span className="text-[10px] text-slate-400 block font-medium">Sample Rate</span>

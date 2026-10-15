@@ -111,6 +111,71 @@ fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) ->
 }
 
 #[tauri::command]
+fn open_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    if let Some(win) = app.get_webview_window("pet-overlay") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(true);
+    }
+
+    let win = WebviewWindowBuilder::new(
+        &app,
+        "pet-overlay",
+        WebviewUrl::App("index.html?overlay=1".into()),
+    )
+    .title("AgentPet Overlay")
+    .inner_size(240.0, 260.0)
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .shadow(false)
+    .resizable(false)
+    .build()
+    .map_err(|e| format!("Failed to create pet overlay window: {e}"))?;
+
+    let _ = win.show();
+    Ok(true)
+}
+
+#[tauri::command]
+fn close_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("pet-overlay") {
+        let _ = win.hide();
+        Ok(false)
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn toggle_pet_overlay(app: tauri::AppHandle, enable: Option<bool>) -> Result<bool, String> {
+    use tauri::Manager;
+    let is_open = app
+        .get_webview_window("pet-overlay")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
+
+    let target = enable.unwrap_or(!is_open);
+    if target {
+        open_pet_overlay(app)
+    } else {
+        close_pet_overlay(app)
+    }
+}
+
+#[tauri::command]
+fn is_pet_overlay_open(app: tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.get_webview_window("pet-overlay")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
 fn get_ping_settings(state: State<'_, AppState>) -> PingloomSettings {
     state.wheel_settings.lock().unwrap().clone()
 }
@@ -693,6 +758,10 @@ pub fn run() {
             dismiss_agent_session,
             get_agent_integrations,
             toggle_agent_hook,
+            open_pet_overlay,
+            close_pet_overlay,
+            toggle_pet_overlay,
+            is_pet_overlay_open,
             get_ping_settings,
             save_ping_settings,
             get_ping_catalog,

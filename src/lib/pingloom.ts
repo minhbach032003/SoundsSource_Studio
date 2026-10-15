@@ -1,5 +1,7 @@
 export type TriggerKey =
   | "alt"
+  | "g"
+  | "v"
   | "ctrl"
   | "shift"
   | "win"
@@ -60,7 +62,9 @@ export const DIRECTION_LABELS: Record<DirectionCode, string> = {
 };
 
 export const TRIGGERS: { value: TriggerKey; label: string }[] = [
-  { value: "alt", label: "Option / Alt" },
+  { value: "alt", label: "Alt / Option (LoL Smart Ping Default)" },
+  { value: "g", label: "G Key (LoL Quick Ping Key)" },
+  { value: "v", label: "V Key (LoL Retreat / Danger Ping)" },
   { value: "ctrl", label: "Control" },
   { value: "shift", label: "Shift" },
   { value: "win", label: "Command / Super" },

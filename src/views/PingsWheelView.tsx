@@ -11,9 +11,10 @@ import {
   formatAssetName,
   type PingloomSettings,
   type CatalogEntry,
-  type GestureResult,
 } from "@/lib/pingloom";
 import { playSectorTick, playPingChime } from "@/lib/pingAudio";
+import { useLolPingGesture } from "@/shared/lib/useLolPingGesture";
+import { PingBurstMarker, type PingBurstItem } from "@/components/radial/PingBurstMarker";
 import { ButtonComponent, BadgeComponent, CardComponent, SliderComponent, useToast } from "@/shared/ui";
 import { ModalComponent } from "@/shared/ui/ModalComponent";
 import {
@@ -23,11 +24,11 @@ import {
   AlertTriangle,
   RotateCcw,
   Check,
-  MousePointer,
   Crosshair,
   Volume2,
   VolumeX,
   Sparkles,
+  Gamepad2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,13 +69,11 @@ export const PingsWheelView: FC = () => {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Mouse rotation & drag tracking state on the wheel
-  const [isDraggingWheel, setIsDraggingWheel] = useState(false);
-  const [pointerCoord, setPointerCoord] = useState<{ x: number; y: number } | null>(null);
-  const [activeGesture, setActiveGesture] = useState<GestureResult | null>(null);
-  const [rotationDegrees, setRotationDegrees] = useState<number>(0);
+  // Active Ping Bursts dropping on screen
+  const [bursts, setBursts] = useState<PingBurstItem[]>([]);
+
+  // Wheel container reference
   const wheelContainerRef = useRef<HTMLDivElement>(null);
-  const lastSliceRef = useRef<number>(0);
 
   // Load from Tauri backend if available
   useEffect(() => {
@@ -117,6 +116,79 @@ export const PingsWheelView: FC = () => {
     activeSubTab === "emotes" ? c.category === "emote" : c.category === "ping"
   );
 
+  // Expire ping bursts
+  const handleExpireBurst = useCallback((id: string) => {
+    setBursts((prev) => prev.filter((b) => b.id !== id));
+  }, []);
+
+  // Dispatch ping callback when LoL hotkey is released
+  const handleDispatchLoLPing = useCallback(
+    ({ sliceIndex, x, y }: { sliceIndex: number; x: number; y: number }) => {
+      const pingId = activeWheel[sliceIndex] ?? "danger";
+      const entry = catalog.find((c) => c.id === pingId);
+      const name = entry?.name ?? formatAssetName(pingId);
+      const color = entry?.color ?? "#ff3b55";
+
+      if (!settings.muted) {
+        playPingChime(pingId, settings.volume);
+      }
+
+      const newBurst: PingBurstItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        pingId,
+        name,
+        color,
+        durationMs: Math.round(settings.ping_duration_s * 1000),
+      };
+
+      setBursts((prev) => [...prev.slice(-9), newBurst]);
+      showToast("success", `[${DIRECTIONS[sliceIndex]}] ${name} ping dropped!`);
+    },
+    [activeWheel, catalog, settings.muted, settings.volume, settings.ping_duration_s, showToast]
+  );
+
+  // Quick alert ping when hotkey is tapped without dragging
+  const handleDispatchLoLQuickPing = useCallback(
+    ({ x, y }: { x: number; y: number }) => {
+      const pingId = settings.click_ping_id || "danger";
+      const entry = catalog.find((c) => c.id === pingId);
+      const name = entry?.name ?? formatAssetName(pingId);
+      const color = entry?.color ?? "#ff3b55";
+
+      if (!settings.muted) {
+        playPingChime(pingId, settings.volume);
+      }
+
+      const newBurst: PingBurstItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        x,
+        y,
+        pingId,
+        name: `Quick: ${name}`,
+        color,
+        durationMs: Math.round(settings.ping_duration_s * 1000),
+      };
+
+      setBursts((prev) => [...prev.slice(-9), newBurst]);
+      showToast("info", `Quick Alert Ping dropped!`);
+    },
+    [settings.click_ping_id, settings.muted, settings.volume, settings.ping_duration_s, catalog, showToast]
+  );
+
+  // League of Legends Hold-Hotkey Gesture Hook
+  const lolGesture = useLolPingGesture({
+    triggerKey: settings.trigger,
+    dragThreshold: settings.drag_threshold_px,
+    clickPing: settings.click_ping,
+    tickSound: settings.tick_sound,
+    volume: settings.volume,
+    enabled: true,
+    onDispatch: handleDispatchLoLPing,
+    onQuickPing: handleDispatchLoLQuickPing,
+  });
+
   // Assign asset to currently focused slice
   const handleAssignAsset = (assetId: string) => {
     const isEmote = activeSubTab === "emotes";
@@ -137,6 +209,38 @@ export const PingsWheelView: FC = () => {
       "info",
       `Assigned ${asset?.name ?? assetId} to ${DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} (${DIRECTIONS[focusedSlice]})`
     );
+  };
+
+  // 1-Click "Apply LoL Smart Ping Preset"
+  const handleApplyLoLPreset = () => {
+    const lolSettings: PingloomSettings = {
+      ...settings,
+      trigger: "alt",
+      emote_trigger: "ctrl",
+      drag_threshold_px: 65,
+      click_ping: true,
+      click_ping_id: "danger",
+      wheel: [
+        "danger",      // North (Up)
+        "push",        // North-East
+        "omw",         // East (Right)
+        "allin",       // South-East
+        "assist",      // South (Down)
+        "needvision",  // South-West
+        "missing",     // West (Left)
+        "enemyvision", // North-West
+      ],
+      ping_size_px: 52,
+      ping_duration_s: 3.0,
+      tick_sound: true,
+      volume: 80,
+    };
+
+    updateSettings(lolSettings);
+    if (!settings.muted) {
+      playPingChime("omw", 80);
+    }
+    showToast("success", "LoL Smart Ping preset applied! Hold Alt and drag mouse to drop pings.");
   };
 
   // Save Settings explicitly
@@ -183,87 +287,140 @@ export const PingsWheelView: FC = () => {
     }
   };
 
-  // Direct mouse rotation & pointer gesture on the wheel canvas
-  const handleWheelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!wheelContainerRef.current) return;
-    setIsDraggingWheel(true);
-    wheelContainerRef.current.setPointerCapture(e.pointerId);
-    handleWheelPointerMove(e);
-  };
-
-  const handleWheelPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!wheelContainerRef.current) return;
-      const rect = wheelContainerRef.current.getBoundingClientRect();
-      const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top;
-      setPointerCoord({ x: currentX, y: currentY });
-
-      // Wheel center is (140, 140) in the 280x280 container
-      const dx = currentX - 140;
-      const dy = currentY - 140;
-      const dist = Math.hypot(dx, dy);
-
-      // Raw angle in radians -> degrees clockwise from North
-      const rawAngle = Math.atan2(dy, dx) * (180 / Math.PI);
-      const clockwiseDeg = (rawAngle + 90 + 360) % 360;
-      setRotationDegrees(clockwiseDeg);
-
-      const deadZone = settings.drag_threshold_px;
-      if (dist < deadZone) {
-        setActiveGesture(null);
-        return;
-      }
-
-      // Slice index 0..8 (North is centered at 0 deg, covering 337.5 to 22.5 deg)
-      const sliceIdx = Math.floor(((clockwiseDeg + 22.5) % 360) / 45) % 8;
-
-      if (sliceIdx !== lastSliceRef.current) {
-        if (settings.tick_sound) {
-          playSectorTick(settings.volume);
-        }
-        lastSliceRef.current = sliceIdx;
-        setFocusedSlice(sliceIdx);
-      }
-
-      const pingId = activeWheel[sliceIdx] ?? "danger";
-      const entry = catalog.find((c) => c.id === pingId);
-
-      setActiveGesture({
-        slice_index: sliceIdx,
-        direction: DIRECTIONS[sliceIdx],
-        ping_id: pingId,
-        ping_name: entry?.name ?? formatAssetName(pingId),
-        color: entry?.color ?? "#38bdf8",
-      });
-    },
-    [settings.drag_threshold_px, settings.tick_sound, settings.volume, activeWheel, catalog]
-  );
-
-  const handleWheelPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    setIsDraggingWheel(false);
-    setPointerCoord(null);
-    if (wheelContainerRef.current && wheelContainerRef.current.hasPointerCapture(e.pointerId)) {
-      wheelContainerRef.current.releasePointerCapture(e.pointerId);
-    }
-
-    if (activeGesture) {
-      if (!settings.muted) {
-        playPingChime(activeGesture.ping_id, settings.volume);
-      }
-      showToast(
-        "success",
-        `Activated [${activeGesture.direction}] ${activeGesture.ping_name}!`
-      );
-    }
-    setActiveGesture(null);
-  };
-
   return (
-    <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1">
+    <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1 relative">
+      {/* Dynamic Active Ping Burst Particles Container */}
+      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+        {bursts.map((burst) => (
+          <PingBurstMarker key={burst.id} burst={burst} onExpire={handleExpireBurst} />
+        ))}
+      </div>
+
+      {/* Floating LoL Cursor-Centered Radial Wheel HUD */}
+      {lolGesture.isHolding && lolGesture.origin && (
+        <div
+          style={{
+            left: `${lolGesture.origin.x}px`,
+            top: `${lolGesture.origin.y}px`,
+          }}
+          className="fixed -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] z-[999] pointer-events-none select-none animate-in zoom-in-75 fade-in duration-100"
+        >
+          <svg className="w-full h-full" viewBox="0 0 280 280">
+            <defs>
+              <linearGradient id="floatingWheelSurface" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="rgba(30, 24, 35, 0.95)" />
+                <stop offset="100%" stopColor="rgba(18, 14, 22, 0.95)" />
+              </linearGradient>
+            </defs>
+
+            {/* Slices 0 to 7 */}
+            {DIRECTIONS.map((dir, idx) => {
+              const aStart = ((idx * 45 - 22.5) * Math.PI) / 180;
+              const aEnd = (((idx + 1) * 45 - 22.5) * Math.PI) / 180;
+              const pathD = sectorPath(140, 140, 52, 136, aStart, aEnd);
+              const isSelected = lolGesture.activeSlice === idx;
+
+              return (
+                <path
+                  key={dir}
+                  d={pathD}
+                  fill={
+                    isSelected
+                      ? "color-mix(in srgb, var(--accent) 45%, rgba(20, 16, 25, 0.9))"
+                      : "rgba(25, 20, 30, 0.88)"
+                  }
+                  stroke={isSelected ? "var(--accent)" : "rgba(255, 255, 255, 0.15)"}
+                  strokeWidth={isSelected ? "3" : "1"}
+                  className="transition-colors duration-75"
+                />
+              );
+            })}
+
+            {/* Boundary Rings */}
+            <circle cx="140" cy="140" r="136" fill="none" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
+            <circle cx="140" cy="140" r="52" fill="none" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
+
+            {/* Aiming Vector Needle Line */}
+            {lolGesture.currentPos && (
+              <line
+                x1="140"
+                y1="140"
+                x2={140 + (lolGesture.currentPos.x - lolGesture.origin.x)}
+                y2={140 + (lolGesture.currentPos.y - lolGesture.origin.y)}
+                stroke="var(--accent)"
+                strokeWidth="2.5"
+                strokeDasharray="4 3"
+                className="animate-pulse"
+              />
+            )}
+          </svg>
+
+          {/* Center Hub Indicator */}
+          <div
+            className={cn(
+              "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center border backdrop-blur-md transition-all duration-100",
+              lolGesture.activeSlice !== null
+                ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-xl scale-105"
+                : "bg-slate-950/90 text-white border-white/20 shadow-md"
+            )}
+          >
+            {lolGesture.activeSlice !== null ? (
+              <>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                  {DIRECTIONS[lolGesture.activeSlice]}
+                </span>
+                <span className="text-[11px] font-black leading-tight truncate max-w-[80px]">
+                  {catalog.find((c) => c.id === activeWheel[lolGesture.activeSlice!])?.name ?? "Ping"}
+                </span>
+              </>
+            ) : (
+              <>
+                <Target className="w-4 h-4 text-[var(--accent)] mb-0.5 animate-pulse" />
+                <span className="text-[10px] font-black tracking-wider">DRAG AIM</span>
+                <span className="text-[8px] opacity-75">{settings.drag_threshold_px}px deadzone</span>
+              </>
+            )}
+          </div>
+
+          {/* Directional Perimeter Labels */}
+          {DIRECTIONS.map((dir, idx) => {
+            const angle = (idx * 45 * Math.PI) / 180;
+            const r = 94;
+            const x = 140 + r * Math.sin(angle);
+            const y = 140 - r * Math.cos(angle);
+            const isSelected = lolGesture.activeSlice === idx;
+            const assignedId = activeWheel[idx];
+            const asset = catalog.find((c) => c.id === assignedId);
+
+            return (
+              <div
+                key={dir}
+                style={{ left: `${x}px`, top: `${y}px` }}
+                className={cn(
+                  "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center transition-transform p-0.5 shadow-md",
+                  isSelected
+                    ? "scale-120 ring-2 ring-[var(--accent)] bg-[var(--paper)] text-[var(--ink)] shadow-xl"
+                    : "bg-slate-900/90 text-slate-300 border border-white/15"
+                )}
+              >
+                <span
+                  className="text-[9px] font-black leading-none"
+                  style={{ color: asset?.color ?? "var(--accent)" }}
+                >
+                  {dir}
+                </span>
+                <span className="text-[8px] font-bold truncate max-w-[38px] leading-tight mt-0.5">
+                  {asset?.name ? asset.name.split(" ")[0] : assignedId}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-1 border-b border-[var(--line)]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1 p-0.5 bg-[var(--surface)] border border-[var(--line)] rounded-lg">
             <button
               type="button"
@@ -314,8 +471,19 @@ export const PingsWheelView: FC = () => {
             </button>
           </div>
 
+          <ButtonComponent
+            variant="outline"
+            size="sm"
+            onClick={handleApplyLoLPreset}
+            leftIcon={<Gamepad2 className="w-3.5 h-3.5 text-emerald-400" />}
+            className="border-emerald-500/30 hover:border-emerald-500/60 text-xs"
+            title="Configure League of Legends smart ping defaults"
+          >
+            Apply LoL Preset
+          </ButtonComponent>
+
           <BadgeComponent variant="default" className="text-[11px] font-mono px-2 py-0.5">
-            Hold {settings.trigger.toUpperCase()} + Rotate Mouse
+            Hold [{settings.trigger.toUpperCase()}] anywhere to Ping
           </BadgeComponent>
         </div>
 
@@ -350,25 +518,22 @@ export const PingsWheelView: FC = () => {
             <div className="w-full flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1.5">
                 <Crosshair className="w-3.5 h-3.5 text-[var(--accent)]" />
-                Interactive Radial Wheel
+                Radial Wheel Preview & Arena
               </span>
               <span className="text-[10px] text-[var(--muted)] font-mono">
-                {activeGesture ? `Angle: ${Math.round(rotationDegrees)}°` : `Slice: ${DIRECTIONS[focusedSlice]}`}
+                Slice: {DIRECTIONS[focusedSlice]} ({DIRECTION_LABELS[DIRECTIONS[focusedSlice]]})
               </span>
             </div>
 
-            {/* Direct Pointer Capture Radial Wheel Container */}
+            {/* Direct Interactive Wheel Canvas */}
             <div
               ref={wheelContainerRef}
               tabIndex={0}
               onKeyDown={handleWheelKeyDown}
-              onPointerDown={handleWheelPointerDown}
-              onPointerMove={handleWheelPointerMove}
-              onPointerUp={handleWheelPointerUp}
-              className="relative w-[280px] h-[280px] my-auto select-none outline-none cursor-crosshair touch-none focus:ring-2 focus:ring-[var(--accent)]/40 rounded-full"
-              title="Click and drag to rotate mouse around slices. Use arrow keys to cycle."
+              className="relative w-[280px] h-[280px] my-auto select-none outline-none focus:ring-2 focus:ring-[var(--accent)]/40 rounded-full"
+              title="Click slices or hold trigger hotkey to drop pings."
             >
-              <svg className="w-full h-full pointer-events-none" viewBox="0 0 280 280">
+              <svg className="w-full h-full" viewBox="0 0 280 280">
                 <defs>
                   <linearGradient id="wheelSurface" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="var(--paper)" />
@@ -403,7 +568,11 @@ export const PingsWheelView: FC = () => {
                           : "var(--line)"
                       }
                       strokeWidth={isFocused ? "2.5" : "1"}
-                      className="transition-colors duration-100"
+                      className="transition-colors duration-100 cursor-pointer"
+                      onClick={() => {
+                        setFocusedSlice(idx);
+                        if (settings.tick_sound) playSectorTick(settings.volume);
+                      }}
                     />
                   );
                 })}
@@ -411,53 +580,21 @@ export const PingsWheelView: FC = () => {
                 {/* Outer & Inner Ring Boundaries */}
                 <circle cx="140" cy="140" r="136" fill="none" stroke="var(--line)" strokeWidth="1" />
                 <circle cx="140" cy="140" r="52" fill="none" stroke="var(--line)" strokeWidth="1" />
-
-                {/* Dynamic Aiming Vector Needle when rotating */}
-                {isDraggingWheel && pointerCoord && (
-                  <line
-                    x1="140"
-                    y1="140"
-                    x2={pointerCoord.x}
-                    y2={pointerCoord.y}
-                    stroke="var(--accent)"
-                    strokeWidth="2.5"
-                    strokeDasharray="4 3"
-                    className="animate-pulse"
-                  />
-                )}
               </svg>
 
-              {/* Center Dead Zone Pill */}
+              {/* Center Hub Badge */}
               <div
-                className={cn(
-                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border transition-all duration-120",
-                  activeGesture
-                    ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-lg scale-105"
-                    : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm"
-                )}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm"
               >
-                {activeGesture ? (
-                  <>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider">
-                      {activeGesture.direction}
-                    </span>
-                    <span className="text-[11px] font-bold leading-tight truncate max-w-[80px]">
-                      {activeGesture.ping_name}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
-                    <span className="text-[10px] font-bold">DRAG ROTATE</span>
-                    <span className="text-[9px] text-[var(--muted)]">{settings.drag_threshold_px}px</span>
-                  </>
-                )}
+                <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
+                <span className="text-[10px] font-black">HOLD [{settings.trigger.toUpperCase()}]</span>
+                <span className="text-[8px] text-[var(--muted)]">{settings.drag_threshold_px}px threshold</span>
               </div>
 
-              {/* Directional Overlay Badges / Node Labels */}
+              {/* Directional Perimeter Labels */}
               {DIRECTIONS.map((dir, idx) => {
                 const angle = (idx * 45 * Math.PI) / 180;
-                const r = 94; // radius for node center
+                const r = 94;
                 const x = 140 + r * Math.sin(angle);
                 const y = 140 - r * Math.cos(angle);
                 const isFocused = focusedSlice === idx;
@@ -466,14 +603,19 @@ export const PingsWheelView: FC = () => {
                 const asset = catalog.find((c) => c.id === assignedId);
 
                 return (
-                  <div
+                  <button
                     key={dir}
+                    type="button"
+                    onClick={() => {
+                      setFocusedSlice(idx);
+                      if (settings.tick_sound) playSectorTick(settings.volume);
+                    }}
                     style={{ left: `${x}px`, top: `${y}px` }}
                     className={cn(
-                      "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center pointer-events-none transition-transform p-0.5 z-10",
+                      "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center transition-transform p-0.5 cursor-pointer z-10",
                       isFocused
                         ? "scale-115 shadow-md ring-2 ring-[var(--accent)] bg-[var(--paper)]"
-                        : "bg-[var(--surface)] border border-[var(--line)]"
+                        : "bg-[var(--surface)] border border-[var(--line)] hover:scale-105"
                     )}
                   >
                     <span
@@ -490,18 +632,24 @@ export const PingsWheelView: FC = () => {
                         !
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
 
-            {/* Gesture Feedback Instructions Banner */}
-            <div className="w-full p-2.5 rounded-xl border border-[var(--line)] bg-[var(--paper)] text-[11px] text-[var(--muted)] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MousePointer className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
-                <span>Drag mouse around wheel to rotate slices. Release to dispatch.</span>
+            {/* LoL Hotkey Gesture Instructions Banner */}
+            <div className="w-full p-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] text-xs text-[var(--muted)] space-y-1">
+              <div className="flex items-center gap-2 text-[var(--ink)] font-bold">
+                <Gamepad2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>League of Legends Smart Ping Active:</span>
               </div>
-              <span className="font-mono text-[10px] text-[var(--ink)]">Arrow keys ◄►</span>
+              <p className="text-[11px] leading-relaxed m-0">
+                1. <strong>Giữ phím {settings.trigger.toUpperCase()}</strong>: Vòng tròn xuyên tâm sẽ nở ngay tại con trỏ chuột.
+                <br />
+                2. <strong>Xoay/kéo chuột</strong>: Hướng về 8 phân vùng để chọn ping mong muốn.
+                <br />
+                3. <strong>Buông phím</strong>: Ping chiến thuật lập tức rơi xuống toạ độ đó kèm âm thanh LoL chân thực!
+              </p>
             </div>
           </div>
 
@@ -627,13 +775,13 @@ export const PingsWheelView: FC = () => {
           <CardComponent
             variant="default"
             padding="lg"
-            title="Activation Keybinds"
-            subtitle="Configure modifier keys that trigger the tactical radial wheel when held."
+            title="LoL Hotkey & Activation Trigger"
+            subtitle="Configure the modifier or character key held to bloom the radial ping HUD."
           >
             <div className="space-y-4 pt-2">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="ping-trigger-select" className="text-xs font-semibold text-[var(--ink)]">
-                  Primary Ping Wheel Trigger
+                  Primary Ping Trigger Key
                 </label>
                 <select
                   id="ping-trigger-select"
@@ -675,7 +823,7 @@ export const PingsWheelView: FC = () => {
 
               <div className="pt-2 border-t border-[var(--line)]">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[var(--ink)]">Instant Click Ping</span>
+                  <span className="font-semibold text-[var(--ink)]">Instant Quick Alert Ping</span>
                   <input
                     type="checkbox"
                     checked={settings.click_ping}
@@ -684,7 +832,7 @@ export const PingsWheelView: FC = () => {
                   />
                 </div>
                 <p className="text-[11px] text-[var(--muted)] mt-1">
-                  Single tap trigger key without dragging immediately drops the default alert ping.
+                  Single tap trigger key without dragging immediately drops the default alert ping at cursor.
                 </p>
               </div>
             </div>
@@ -694,7 +842,7 @@ export const PingsWheelView: FC = () => {
           <CardComponent
             variant="default"
             padding="lg"
-            title="Gesture Geometry & Audio"
+            title="LoL Gesture Geometry & Chime Audio"
             subtitle="Fine tune dead zone threshold, animation duration, and acoustic volume."
           >
             <div className="space-y-4 pt-2">
@@ -715,7 +863,7 @@ export const PingsWheelView: FC = () => {
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-[var(--ink)]">Ping Audio Volume</span>
+                  <span className="font-semibold text-[var(--ink)]">Tactical Ping Chime Volume</span>
                   <span className="font-mono text-[var(--muted)]">{settings.volume} %</span>
                 </div>
                 <SliderComponent
@@ -731,7 +879,7 @@ export const PingsWheelView: FC = () => {
               <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-xs">
                 <span className="font-semibold text-[var(--ink)] flex items-center gap-2">
                   {settings.tick_sound ? <Volume2 className="w-4 h-4 text-[var(--accent)]" /> : <VolumeX className="w-4 h-4 text-[var(--muted)]" />}
-                  Direction Tick Sound
+                  Direction Transition Tick Sound
                 </span>
                 <input
                   type="checkbox"
@@ -750,7 +898,7 @@ export const PingsWheelView: FC = () => {
         open={isResetModalOpen}
         onClose={() => setIsResetModalOpen(false)}
         title="Reset Tactical Wheel"
-        description="Are you sure you want to restore the tactical ping and emote wheels back to Pingloom factory defaults? Custom slot assignments will be replaced."
+        description="Are you sure you want to restore the tactical ping and emote wheels back to factory defaults? Custom slot assignments will be replaced."
         confirmText="Reset to Defaults"
         confirmVariant="destructive"
         icon={<AlertTriangle className="w-5 h-5 text-rose-400" />}
