@@ -13,6 +13,7 @@ import {
   type CatalogEntry,
   type GestureResult,
 } from "@/lib/pingloom";
+import { playSectorTick, playPingChime } from "@/lib/pingAudio";
 import { ButtonComponent, BadgeComponent, CardComponent, SliderComponent, useToast } from "@/shared/ui";
 import { ModalComponent } from "@/shared/ui/ModalComponent";
 import {
@@ -30,6 +31,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const PINGLOOM_STORAGE_KEY = "rust-sound.pingloom-settings";
+
 function isRunningInTauri(): boolean {
   if (typeof window === "undefined") return false;
   return (
@@ -39,29 +42,51 @@ function isRunningInTauri(): boolean {
   );
 }
 
+function loadInitialSettings(): PingloomSettings {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(PINGLOOM_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.wheel) && parsed.wheel.length === 8) {
+          return { ...DEFAULT_PINGLOOM_SETTINGS, ...parsed };
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_PINGLOOM_SETTINGS;
+}
+
 export const PingsWheelView: FC = () => {
   const { showToast } = useToast();
   const isDesktop = isRunningInTauri();
 
   const [activeSubTab, setActiveSubTab] = useState<"pings" | "emotes" | "triggers">("pings");
-  const [settings, setSettings] = useState<PingloomSettings>(DEFAULT_PINGLOOM_SETTINGS);
+  const [settings, setSettings] = useState<PingloomSettings>(loadInitialSettings);
   const [catalog, setCatalog] = useState<CatalogEntry[]>(DEFAULT_CATALOG);
   const [focusedSlice, setFocusedSlice] = useState<number>(0);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Gesture Simulation Pad State
-  const [gestureOrigin, setGestureOrigin] = useState<{ x: number; y: number } | null>(null);
+  // Mouse rotation & drag tracking state on the wheel
+  const [isDraggingWheel, setIsDraggingWheel] = useState(false);
+  const [pointerCoord, setPointerCoord] = useState<{ x: number; y: number } | null>(null);
   const [activeGesture, setActiveGesture] = useState<GestureResult | null>(null);
-  const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
-  const padRef = useRef<HTMLDivElement>(null);
+  const [rotationDegrees, setRotationDegrees] = useState<number>(0);
+  const wheelContainerRef = useRef<HTMLDivElement>(null);
+  const lastSliceRef = useRef<number>(0);
 
-  // Load initial settings and catalog from backend if available
+  // Load from Tauri backend if available
   useEffect(() => {
     if (!isDesktop) return;
     invoke<PingloomSettings>("get_ping_settings")
       .then((s) => {
-        if (s) setSettings(s);
+        if (s && s.wheel && s.wheel.length === 8) {
+          setSettings(s);
+          try {
+            localStorage.setItem(PINGLOOM_STORAGE_KEY, JSON.stringify(s));
+          } catch {}
+        }
       })
       .catch(() => {});
 
@@ -72,6 +97,20 @@ export const PingsWheelView: FC = () => {
       .catch(() => {});
   }, [isDesktop]);
 
+  // Persist settings helper
+  const updateSettings = useCallback(
+    (next: PingloomSettings) => {
+      setSettings(next);
+      try {
+        localStorage.setItem(PINGLOOM_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      if (isDesktop) {
+        invoke("save_ping_settings", { settings: next }).catch(() => {});
+      }
+    },
+    [isDesktop]
+  );
+
   const activeWheel = activeSubTab === "emotes" ? settings.emote_wheel : settings.wheel;
   const duplicates = duplicateSlots(activeWheel);
   const activeCatalog = catalog.filter((c) =>
@@ -80,29 +119,31 @@ export const PingsWheelView: FC = () => {
 
   // Assign asset to currently focused slice
   const handleAssignAsset = (assetId: string) => {
-    setSettings((prev) => {
-      const isEmote = activeSubTab === "emotes";
-      const targetWheel = isEmote ? [...prev.emote_wheel] : [...prev.wheel];
-      targetWheel[focusedSlice] = assetId;
+    const isEmote = activeSubTab === "emotes";
+    const targetWheel = isEmote ? [...settings.emote_wheel] : [...settings.wheel];
+    targetWheel[focusedSlice] = assetId;
 
-      const next = isEmote
-        ? { ...prev, emote_wheel: targetWheel }
-        : { ...prev, wheel: targetWheel };
+    const next: PingloomSettings = isEmote
+      ? { ...settings, emote_wheel: targetWheel }
+      : { ...settings, wheel: targetWheel };
 
-      return next;
-    });
+    updateSettings(next);
 
     const asset = catalog.find((c) => c.id === assetId);
+    if (!settings.muted) {
+      playPingChime(assetId, settings.volume);
+    }
     showToast(
       "info",
       `Assigned ${asset?.name ?? assetId} to ${DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} (${DIRECTIONS[focusedSlice]})`
     );
   };
 
-  // Save Settings via IPC
+  // Save Settings explicitly
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
+      localStorage.setItem(PINGLOOM_STORAGE_KEY, JSON.stringify(settings));
       if (isDesktop) {
         const saved = await invoke<PingloomSettings>("save_ping_settings", { settings });
         setSettings(saved);
@@ -117,48 +158,73 @@ export const PingsWheelView: FC = () => {
 
   // Factory Reset
   const handleConfirmReset = () => {
-    setSettings(DEFAULT_PINGLOOM_SETTINGS);
+    updateSettings(DEFAULT_PINGLOOM_SETTINGS);
     setIsResetModalOpen(false);
-    if (isDesktop) {
-      invoke("save_ping_settings", { settings: DEFAULT_PINGLOOM_SETTINGS }).catch(() => {});
-    }
     showToast("info", "Tactical wheel restored to factory defaults");
   };
 
-  // Gesture simulation pad handlers
-  const handlePadPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!padRef.current) return;
-    const rect = padRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setGestureOrigin({ x, y });
-    setDragOffset({ dx: 0, dy: 0 });
-    setActiveGesture(null);
-    padRef.current.setPointerCapture(e.pointerId);
+  // Keyboard navigation across slices
+  const handleWheelKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = (focusedSlice + 1) % 8;
+      setFocusedSlice(next);
+      if (settings.tick_sound) playSectorTick(settings.volume);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = (focusedSlice + 7) % 8;
+      setFocusedSlice(next);
+      if (settings.tick_sound) playSectorTick(settings.volume);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const pingId = activeWheel[focusedSlice];
+      if (!settings.muted) playPingChime(pingId, settings.volume);
+      showToast("success", `Dispatched ${DIRECTIONS[focusedSlice]}: ${formatAssetName(pingId)}`);
+    }
   };
 
-  const handlePadPointerMove = useCallback(
+  // Direct mouse rotation & pointer gesture on the wheel canvas
+  const handleWheelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!wheelContainerRef.current) return;
+    setIsDraggingWheel(true);
+    wheelContainerRef.current.setPointerCapture(e.pointerId);
+    handleWheelPointerMove(e);
+  };
+
+  const handleWheelPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!gestureOrigin || !padRef.current) return;
-      const rect = padRef.current.getBoundingClientRect();
+      if (!wheelContainerRef.current) return;
+      const rect = wheelContainerRef.current.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
-      const dx = currentX - gestureOrigin.x;
-      const dy = currentY - gestureOrigin.y;
-      setDragOffset({ dx, dy });
+      setPointerCoord({ x: currentX, y: currentY });
 
-      const deadZone = settings.drag_threshold_px;
+      // Wheel center is (140, 140) in the 280x280 container
+      const dx = currentX - 140;
+      const dy = currentY - 140;
       const dist = Math.hypot(dx, dy);
 
+      // Raw angle in radians -> degrees clockwise from North
+      const rawAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+      const clockwiseDeg = (rawAngle + 90 + 360) % 360;
+      setRotationDegrees(clockwiseDeg);
+
+      const deadZone = settings.drag_threshold_px;
       if (dist < deadZone) {
         setActiveGesture(null);
         return;
       }
 
-      // Calculate clockwise degrees from North (screen coordinates: dy < 0 is North)
-      const degrees = ((Math.atan2(dy, dx) * (180 / Math.PI) + 90 + 22.5 + 360) % 360);
-      const sliceIdx = Math.floor(degrees / 45) % 8;
-      setFocusedSlice(sliceIdx);
+      // Slice index 0..8 (North is centered at 0 deg, covering 337.5 to 22.5 deg)
+      const sliceIdx = Math.floor(((clockwiseDeg + 22.5) % 360) / 45) % 8;
+
+      if (sliceIdx !== lastSliceRef.current) {
+        if (settings.tick_sound) {
+          playSectorTick(settings.volume);
+        }
+        lastSliceRef.current = sliceIdx;
+        setFocusedSlice(sliceIdx);
+      }
 
       const pingId = activeWheel[sliceIdx] ?? "danger";
       const entry = catalog.find((c) => c.id === pingId);
@@ -171,19 +237,26 @@ export const PingsWheelView: FC = () => {
         color: entry?.color ?? "#38bdf8",
       });
     },
-    [gestureOrigin, settings.drag_threshold_px, activeWheel, catalog]
+    [settings.drag_threshold_px, settings.tick_sound, settings.volume, activeWheel, catalog]
   );
 
-  const handlePadPointerUp = () => {
+  const handleWheelPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDraggingWheel(false);
+    setPointerCoord(null);
+    if (wheelContainerRef.current && wheelContainerRef.current.hasPointerCapture(e.pointerId)) {
+      wheelContainerRef.current.releasePointerCapture(e.pointerId);
+    }
+
     if (activeGesture) {
+      if (!settings.muted) {
+        playPingChime(activeGesture.ping_id, settings.volume);
+      }
       showToast(
         "success",
-        `Triggered: [${activeGesture.direction}] ${activeGesture.ping_name}!`
+        `Activated [${activeGesture.direction}] ${activeGesture.ping_name}!`
       );
     }
-    setGestureOrigin(null);
     setActiveGesture(null);
-    setDragOffset({ dx: 0, dy: 0 });
   };
 
   return (
@@ -242,7 +315,7 @@ export const PingsWheelView: FC = () => {
           </div>
 
           <BadgeComponent variant="default" className="text-[11px] font-mono px-2 py-0.5">
-            Hold {settings.trigger.toUpperCase()} + Drag
+            Hold {settings.trigger.toUpperCase()} + Rotate Mouse
           </BadgeComponent>
         </div>
 
@@ -272,20 +345,29 @@ export const PingsWheelView: FC = () => {
       {/* 2. Main Workspace Layout */}
       {activeSubTab !== "triggers" ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
-          {/* Left Column: 8-Slice Interactive Radial Wheel (5 cols) */}
+          {/* Left Column: Direct Interactive Radial Wheel (5 cols) */}
           <div className="lg:col-span-5 flex flex-col items-center justify-start gap-4 p-5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm">
             <div className="w-full flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <span className="text-xs font-bold text-[var(--ink)] flex items-center gap-1.5">
                 <Crosshair className="w-3.5 h-3.5 text-[var(--accent)]" />
-                8-Directional Radial Wheel
+                Interactive Radial Wheel
               </span>
               <span className="text-[10px] text-[var(--muted)] font-mono">
-                Slice: {DIRECTIONS[focusedSlice]} ({DIRECTION_LABELS[DIRECTIONS[focusedSlice]]})
+                {activeGesture ? `Angle: ${Math.round(rotationDegrees)}°` : `Slice: ${DIRECTIONS[focusedSlice]}`}
               </span>
             </div>
 
-            {/* Radial SVG Wheel Canvas */}
-            <div className="relative w-[280px] h-[280px] my-auto select-none">
+            {/* Direct Pointer Capture Radial Wheel Container */}
+            <div
+              ref={wheelContainerRef}
+              tabIndex={0}
+              onKeyDown={handleWheelKeyDown}
+              onPointerDown={handleWheelPointerDown}
+              onPointerMove={handleWheelPointerMove}
+              onPointerUp={handleWheelPointerUp}
+              className="relative w-[280px] h-[280px] my-auto select-none outline-none cursor-crosshair touch-none focus:ring-2 focus:ring-[var(--accent)]/40 rounded-full"
+              title="Click and drag to rotate mouse around slices. Use arrow keys to cycle."
+            >
               <svg className="w-full h-full pointer-events-none" viewBox="0 0 280 280">
                 <defs>
                   <linearGradient id="wheelSurface" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -308,7 +390,7 @@ export const PingsWheelView: FC = () => {
                       d={pathD}
                       fill={
                         isFocused
-                          ? "color-mix(in srgb, var(--accent) 35%, var(--paper))"
+                          ? "color-mix(in srgb, var(--accent) 30%, var(--paper))"
                           : isDup
                           ? "color-mix(in srgb, var(--warning-bg) 60%, var(--paper))"
                           : "var(--paper)"
@@ -321,8 +403,7 @@ export const PingsWheelView: FC = () => {
                           : "var(--line)"
                       }
                       strokeWidth={isFocused ? "2.5" : "1"}
-                      className="transition-colors duration-120 pointer-events-auto cursor-pointer"
-                      onClick={() => setFocusedSlice(idx)}
+                      className="transition-colors duration-100"
                     />
                   );
                 })}
@@ -330,20 +411,34 @@ export const PingsWheelView: FC = () => {
                 {/* Outer & Inner Ring Boundaries */}
                 <circle cx="140" cy="140" r="136" fill="none" stroke="var(--line)" strokeWidth="1" />
                 <circle cx="140" cy="140" r="52" fill="none" stroke="var(--line)" strokeWidth="1" />
+
+                {/* Dynamic Aiming Vector Needle when rotating */}
+                {isDraggingWheel && pointerCoord && (
+                  <line
+                    x1="140"
+                    y1="140"
+                    x2={pointerCoord.x}
+                    y2={pointerCoord.y}
+                    stroke="var(--accent)"
+                    strokeWidth="2.5"
+                    strokeDasharray="4 3"
+                    className="animate-pulse"
+                  />
+                )}
               </svg>
 
               {/* Center Dead Zone Pill */}
               <div
                 className={cn(
-                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border transition-all duration-150",
+                  "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center pointer-events-none border transition-all duration-120",
                   activeGesture
-                    ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-md"
+                    ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-lg scale-105"
                     : "bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm"
                 )}
               >
                 {activeGesture ? (
                   <>
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider">
                       {activeGesture.direction}
                     </span>
                     <span className="text-[11px] font-bold leading-tight truncate max-w-[80px]">
@@ -353,7 +448,7 @@ export const PingsWheelView: FC = () => {
                 ) : (
                   <>
                     <Target className="w-4 h-4 text-[var(--accent)] mb-0.5" />
-                    <span className="text-[10px] font-bold">DEAD ZONE</span>
+                    <span className="text-[10px] font-bold">DRAG ROTATE</span>
                     <span className="text-[9px] text-[var(--muted)]">{settings.drag_threshold_px}px</span>
                   </>
                 )}
@@ -371,18 +466,15 @@ export const PingsWheelView: FC = () => {
                 const asset = catalog.find((c) => c.id === assignedId);
 
                 return (
-                  <button
+                  <div
                     key={dir}
-                    type="button"
-                    onClick={() => setFocusedSlice(idx)}
                     style={{ left: `${x}px`, top: `${y}px` }}
                     className={cn(
-                      "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center cursor-pointer transition-transform p-0.5 z-10",
+                      "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center pointer-events-none transition-transform p-0.5 z-10",
                       isFocused
-                        ? "scale-110 shadow-md ring-2 ring-[var(--accent)] bg-[var(--paper)]"
-                        : "hover:scale-105 bg-[var(--surface)] border border-[var(--line)]"
+                        ? "scale-115 shadow-md ring-2 ring-[var(--accent)] bg-[var(--paper)]"
+                        : "bg-[var(--surface)] border border-[var(--line)]"
                     )}
-                    title={`${DIRECTION_LABELS[dir]}: ${asset?.name ?? assignedId}`}
                   >
                     <span
                       className="text-[9px] font-bold leading-none"
@@ -398,34 +490,18 @@ export const PingsWheelView: FC = () => {
                         !
                       </span>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Gesture Simulator Test Pad */}
-            <div
-              ref={padRef}
-              onPointerDown={handlePadPointerDown}
-              onPointerMove={handlePadPointerMove}
-              onPointerUp={handlePadPointerUp}
-              className="w-full h-24 rounded-xl border border-dashed border-[var(--line)] bg-[var(--paper)] flex flex-col items-center justify-center p-3 text-center cursor-crosshair touch-none relative overflow-hidden"
-            >
-              {gestureOrigin ? (
-                <div className="flex flex-col items-center gap-1 z-10">
-                  <span className="text-xs font-bold text-[var(--accent)]">
-                    Dragging: Δx={Math.round(dragOffset.dx)}, Δy={Math.round(dragOffset.dy)}
-                  </span>
-                  <span className="text-[10px] text-[var(--muted)]">
-                    Release mouse to dispatch ping gesture
-                  </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-[var(--muted)] z-10">
-                  <MousePointer className="w-4 h-4 text-[var(--accent)]" />
-                  <span>Click and drag here to simulate gesture</span>
-                </div>
-              )}
+            {/* Gesture Feedback Instructions Banner */}
+            <div className="w-full p-2.5 rounded-xl border border-[var(--line)] bg-[var(--paper)] text-[11px] text-[var(--muted)] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MousePointer className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                <span>Drag mouse around wheel to rotate slices. Release to dispatch.</span>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--ink)]">Arrow keys ◄►</span>
             </div>
           </div>
 
@@ -441,7 +517,7 @@ export const PingsWheelView: FC = () => {
                   <span>Directional Slot Assignments ({activeSubTab === "pings" ? "Pings" : "Emotes"})</span>
                 </div>
               }
-              subtitle="Select a direction then pick an asset from the catalog grid below to assign."
+              subtitle="Select a direction below then choose an asset to instantly update its slot."
             >
               {/* 8 Directions Row Selector */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
@@ -455,7 +531,10 @@ export const PingsWheelView: FC = () => {
                     <button
                       key={dir}
                       type="button"
-                      onClick={() => setFocusedSlice(idx)}
+                      onClick={() => {
+                        setFocusedSlice(idx);
+                        if (settings.tick_sound) playSectorTick(settings.volume);
+                      }}
                       className={cn(
                         "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[64px]",
                         isFocused
@@ -494,8 +573,8 @@ export const PingsWheelView: FC = () => {
               padding="md"
               title={
                 <div className="flex items-center justify-between w-full">
-                  <span>Asset Catalog for {DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} ({DIRECTIONS[focusedSlice]})</span>
-                  <span className="text-xs font-normal text-[var(--muted)]">Click tile to assign</span>
+                  <span>Catalog for {DIRECTION_LABELS[DIRECTIONS[focusedSlice]]} ({DIRECTIONS[focusedSlice]})</span>
+                  <span className="text-xs font-normal text-[var(--muted)]">Click tile to assign & preview sound</span>
                 </div>
               }
               className="flex-1 flex flex-col min-h-0"
@@ -559,7 +638,7 @@ export const PingsWheelView: FC = () => {
                 <select
                   id="ping-trigger-select"
                   value={settings.trigger}
-                  onChange={(e) => setSettings({ ...settings, trigger: e.target.value })}
+                  onChange={(e) => updateSettings({ ...settings, trigger: e.target.value })}
                   className="h-9 px-3 rounded-lg bg-[var(--paper)] text-[var(--ink)] border border-[var(--input-line)] focus:border-[var(--focus)] text-xs cursor-pointer outline-none"
                 >
                   {TRIGGERS.map((t) => (
@@ -578,7 +657,7 @@ export const PingsWheelView: FC = () => {
                   id="emote-trigger-select"
                   value={settings.emote_trigger ?? "none"}
                   onChange={(e) =>
-                    setSettings({
+                    updateSettings({
                       ...settings,
                       emote_trigger: e.target.value === "none" ? null : e.target.value,
                     })
@@ -600,7 +679,7 @@ export const PingsWheelView: FC = () => {
                   <input
                     type="checkbox"
                     checked={settings.click_ping}
-                    onChange={(e) => setSettings({ ...settings, click_ping: e.target.checked })}
+                    onChange={(e) => updateSettings({ ...settings, click_ping: e.target.checked })}
                     className="w-4 h-4 rounded cursor-pointer accent-[var(--accent)]"
                   />
                 </div>
@@ -630,7 +709,7 @@ export const PingsWheelView: FC = () => {
                   max={200}
                   step={2}
                   unit="px"
-                  onChange={(val) => setSettings({ ...settings, drag_threshold_px: val })}
+                  onChange={(val) => updateSettings({ ...settings, drag_threshold_px: val })}
                 />
               </div>
 
@@ -645,7 +724,7 @@ export const PingsWheelView: FC = () => {
                   max={100}
                   step={1}
                   unit="%"
-                  onChange={(val) => setSettings({ ...settings, volume: val })}
+                  onChange={(val) => updateSettings({ ...settings, volume: val })}
                 />
               </div>
 
@@ -657,7 +736,7 @@ export const PingsWheelView: FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.tick_sound}
-                  onChange={(e) => setSettings({ ...settings, tick_sound: e.target.checked })}
+                  onChange={(e) => updateSettings({ ...settings, tick_sound: e.target.checked })}
                   className="w-4 h-4 rounded cursor-pointer accent-[var(--accent)]"
                 />
               </div>
