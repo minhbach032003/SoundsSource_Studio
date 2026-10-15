@@ -53,6 +53,16 @@ impl AudioDevice {
         crate::platform::current::set_master_mute(muted)
     }
 
+    /// Get master output stereo balance (-1.0 to 1.0).
+    pub fn get_master_balance() -> f32 {
+        crate::platform::current::get_master_balance()
+    }
+
+    /// Set master output stereo balance (-1.0 to 1.0).
+    pub fn set_master_balance(balance: f32) -> Result<(), String> {
+        crate::platform::current::set_master_balance(balance)
+    }
+
     /// Get current input volume (0.0 to 1.0).
     pub fn get_input_volume() -> f32 {
         crate::platform::current::get_input_volume()

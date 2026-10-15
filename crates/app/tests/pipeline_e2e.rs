@@ -195,3 +195,43 @@ fn test_audio_filter_pipeline_e2e() {
     router.process_master(&mut stereo_output);
     assert!(!stereo_output.is_empty());
 }
+
+#[test]
+fn test_master_stereo_balance_pipeline_e2e() {
+    let mut router = AudioRouter::new(48000.0);
+
+    // Initial balance is center 0.0
+    assert_eq!(router.get_master_balance(), 0.0);
+
+    // Pan full left (-1.0)
+    router.set_master_balance(-1.0);
+    assert_eq!(router.get_master_balance(), -1.0);
+
+    let mut samples = vec![1.0f32; 128]; // [L, R, L, R, ...]
+    router.process_master(&mut samples);
+    // Left channel should be unaffected (1.0), right channel should be attenuated to 0.0
+    for chunk in samples.chunks_exact(2) {
+        assert!((chunk[0] - 1.0).abs() < 1e-4);
+        assert!(chunk[1].abs() < 1e-4);
+    }
+
+    // Pan full right (1.0)
+    router.set_master_balance(1.0);
+    assert_eq!(router.get_master_balance(), 1.0);
+    let mut samples = vec![1.0f32; 128];
+    router.process_master(&mut samples);
+    for chunk in samples.chunks_exact(2) {
+        assert!(chunk[0].abs() < 1e-4);
+        assert!((chunk[1] - 1.0).abs() < 1e-4);
+    }
+
+    // Reset to center
+    router.set_master_balance(0.0);
+    assert_eq!(router.get_master_balance(), 0.0);
+
+    // Test CoreAudio device balance functions
+    let _ = AudioDevice::set_master_balance(-0.4);
+    let current_bal = AudioDevice::get_master_balance();
+    assert!(current_bal >= -1.0 && current_bal <= 1.0);
+    let _ = AudioDevice::set_master_balance(0.0);
+}

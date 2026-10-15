@@ -93,6 +93,7 @@ export interface StudioEQInspectorProps {
   activePresetName: string;
   isAudioActive?: boolean;
   isBypassed?: boolean;
+  embedded?: boolean;
   onPresetSelect?: (presetName: string) => void;
   onBandChange?: (bandIndex: number, gainDb: number) => void;
   onResetFlat?: () => void;
@@ -103,6 +104,7 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
   activePresetName,
   isAudioActive = false,
   isBypassed: externalBypassed = false,
+  embedded = false,
   onPresetSelect,
   onBandChange,
   onResetFlat,
@@ -232,73 +234,141 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
 
   return (
     <aside
-      className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col gap-4.5 select-none h-full"
+      className={cn(
+        "flex flex-col gap-3.5 select-none w-full",
+        !embedded && "p-4 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm h-full"
+      )}
       aria-label="Studio 10-Band Parametric Equalizer Inspector"
     >
       {/* Inspector Header */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-[var(--line)]">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+      {!embedded && (
+        <div className="flex items-center justify-between pb-2.5 border-b border-[var(--line)]">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
+                Parametric EQ & Spectrum
+              </h3>
+              <p className="text-[10px] text-[var(--muted)] m-0">
+                10-Band Linear Phase DSP Studio Rack
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
-              Parametric EQ & Spectrum
-            </h3>
-            <p className="text-[10px] text-[var(--muted)] m-0">
-              10-Band Linear Phase DSP Studio Rack
-            </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isPlayingTestTone) {
+                  audioDspChain.stopGrooveSample();
+                  setIsPlayingTestTone(false);
+                } else {
+                  setIsPlayingTestTone(true);
+                  audioDspChain.playBassAndGrooveSample(3.5, (progress) => {
+                    if (progress >= 1.0) {
+                      setIsPlayingTestTone(false);
+                    }
+                  });
+                }
+              }}
+              className={cn(
+                "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer flex items-center gap-1",
+                isPlayingTestTone
+                  ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-sm animate-pulse"
+                  : "bg-[var(--paper)] border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)]"
+              )}
+              title="Nghe thử âm thanh với đường cong EQ và âm trầm hiện tại"
+            >
+              {isPlayingTestTone ? <Square className="w-2.5 h-2.5 fill-current" /> : <Play className="w-2.5 h-2.5 fill-current" />}
+              <span>{isPlayingTestTone ? "Dừng" : "Nghe Thử EQ"}</span>
+            </button>
+
+            <button
+              onClick={handleToggleBypass}
+              className={cn(
+                "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer",
+                isBypassed
+                  ? "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                  : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+              )}
+            >
+              {isBypassed ? "EQ BYPASS" : "EQ ACTIVE"}
+            </button>
+            <button
+              onClick={handleResetFlat}
+              className="p-1 rounded-md text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors cursor-pointer"
+              title="Reset EQ to flat 0 dB"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (isPlayingTestTone) {
-                audioDspChain.stopGrooveSample();
-                setIsPlayingTestTone(false);
-              } else {
-                setIsPlayingTestTone(true);
-                audioDspChain.playBassAndGrooveSample(3.5, (progress) => {
-                  if (progress >= 1.0) {
-                    setIsPlayingTestTone(false);
-                  }
-                });
-              }
-            }}
-            className={cn(
-              "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer flex items-center gap-1",
-              isPlayingTestTone
-                ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-sm animate-pulse"
-                : "bg-[var(--paper)] border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)]"
-            )}
-            title="Nghe thử âm thanh với đường cong EQ và âm trầm hiện tại"
-          >
-            {isPlayingTestTone ? <Square className="w-2.5 h-2.5 fill-current" /> : <Play className="w-2.5 h-2.5 fill-current" />}
-            <span>{isPlayingTestTone ? "Dừng" : "Nghe Thử EQ"}</span>
-          </button>
+      {/* When embedded, show compact control row */}
+      {embedded && (
+        <div className="flex items-center justify-between pb-1.5 border-b border-[var(--line)]">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-[var(--ink)]">
+              Đường Cong Tần Số (10 Băng Tần)
+            </span>
+            <BadgeComponent variant="secondary" className="text-[10px] px-1.5 py-0">
+              {activePresetName}
+            </BadgeComponent>
+          </div>
 
-          <button
-            onClick={handleToggleBypass}
-            className={cn(
-              "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer",
-              isBypassed
-                ? "bg-rose-500/15 border-rose-500/40 text-rose-300"
-                : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
-            )}
-          >
-            {isBypassed ? "EQ BYPASS" : "EQ ACTIVE"}
-          </button>
-          <button
-            onClick={handleResetFlat}
-            className="p-1 rounded-md text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)] transition-colors cursor-pointer"
-            title="Reset EQ to flat 0 dB"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (isPlayingTestTone) {
+                  audioDspChain.stopGrooveSample();
+                  setIsPlayingTestTone(false);
+                } else {
+                  setIsPlayingTestTone(true);
+                  audioDspChain.playBassAndGrooveSample(3.5, (progress) => {
+                    if (progress >= 1.0) {
+                      setIsPlayingTestTone(false);
+                    }
+                  });
+                }
+              }}
+              className={cn(
+                "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer flex items-center gap-1",
+                isPlayingTestTone
+                  ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-sm animate-pulse"
+                  : "bg-[var(--paper)] border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)]"
+              )}
+              title="Nghe thử âm thanh với EQ hiện tại"
+            >
+              {isPlayingTestTone ? <Square className="w-2.5 h-2.5 fill-current" /> : <Play className="w-2.5 h-2.5 fill-current" />}
+              <span>{isPlayingTestTone ? "Dừng" : "Nghe Thử EQ"}</span>
+            </button>
+
+            <button
+              onClick={handleToggleBypass}
+              className={cn(
+                "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer",
+                isBypassed
+                  ? "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                  : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+              )}
+            >
+              {isBypassed ? "Bypass" : "Active"}
+            </button>
+
+            <button
+              onClick={handleResetFlat}
+              className="p-1 rounded-md text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--paper)] transition-colors cursor-pointer"
+              title="Reset EQ về phẳng 0 dB"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Interactive Frequency Response Curve Display */}
       <div className="relative rounded-xl bg-[var(--paper)] border border-[var(--line)] p-3 overflow-hidden shadow-inner">

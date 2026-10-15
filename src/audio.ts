@@ -1,3 +1,5 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 export interface AudioProcess {
   object_id: number;
   pid: number;
@@ -142,3 +144,31 @@ export function displayName(process: AudioProcess): string {
   };
   return names[process.bundle_id] || process.name || process.bundle_id || `Process ${process.pid}`;
 }
+
+export async function getMasterBalance(): Promise<number> {
+  if (!isTauri()) return 0;
+  try {
+    return await invoke<number>("get_master_balance");
+  } catch {
+    return 0;
+  }
+}
+
+export async function setMasterBalance(balance: number): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await invoke("set_master_balance", { balance });
+  } catch (err) {
+    console.error("Failed to set master balance:", err);
+  }
+}
+
+export async function testHeadphoneChannel(channel: "left" | "right"): Promise<string> {
+  if (!isTauri()) return `Testing ${channel === "left" ? "Left" : "Right"} Headphone Channel`;
+  try {
+    return await invoke<string>("test_headphone_channel", { channel });
+  } catch {
+    return `Testing ${channel === "left" ? "Left" : "Right"} Channel`;
+  }
+}
+

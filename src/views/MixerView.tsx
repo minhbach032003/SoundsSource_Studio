@@ -18,8 +18,17 @@ import {
   Filter,
   Eye,
   Mic,
+  SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
-import { processKey, isAudibleApplication, isMediaOrCommunicationApp, displayName } from "@/audio";
+import {
+  processKey,
+  isAudibleApplication,
+  isMediaOrCommunicationApp,
+  displayName,
+  setMasterBalance as setBackendMasterBalance,
+  testHeadphoneChannel,
+} from "@/audio";
 import type { AudioProcess } from "@/audio";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +108,17 @@ export const MixerView: FC<MixerViewProps> = ({
   onError,
 }) => {
   const [masterBalance, setMasterBalance] = useState(0);
+  const [dspRackTab, setDspRackTab] = useState<"eq" | "filter">("eq");
+
+  const handleBalanceCommit = async (val: number) => {
+    setMasterBalance(val);
+    await setBackendMasterBalance(val / 100);
+  };
+
+  const handleTestHeadphoneChannel = async (channel: "left" | "right") => {
+    const feedback = await testHeadphoneChannel(channel);
+    onError(feedback);
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<"all" | "playing" | "media">("all");
   const [hiddenAppKeys, setHiddenAppKeys] = useState<Set<string>>(() => {
@@ -186,7 +206,8 @@ export const MixerView: FC<MixerViewProps> = ({
             onMasterVolumeChange={onMasterVolumeChange}
             onMasterVolumeCommit={onMasterVolumeCommit}
             balance={masterBalance}
-            onBalanceChange={setMasterBalance}
+            onBalanceChange={handleBalanceCommit}
+            onTestChannel={handleTestHeadphoneChannel}
             isMuted={isMasterMuted}
             onMasterMuteToggle={onMasterMuteToggle}
             isAudioActive={isAnyAudioPlaying}
@@ -408,21 +429,67 @@ export const MixerView: FC<MixerViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column (5 cols): Studio 10-Band EQ (Top, paired with Master Output) -> Audio Filter & Voice Isolation (Bottom, paired with Input Mic) */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
-          {/* Master 10-Band Parametric EQ & Spectrum Visualizer */}
-          <StudioEQInspector
-            activePresetName={selectedPreset}
-            isAudioActive={isAnyAudioPlaying}
-            isBypassed={isEQBypassed}
-            onPresetSelect={onSelectPreset}
-            onBandChange={onEQBandChange}
-            onResetFlat={onResetEQFlat}
-            onToggleBypass={onToggleEQBypass}
-          />
+        {/* Right Column (5 cols): Unified Studio DSP Processing Rack */}
+        <div className="lg:col-span-5 flex flex-col gap-3">
+          <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm overflow-hidden flex flex-col">
+            {/* Segmented Rack Header Switcher */}
+            <div className="p-3 border-b border-[var(--line)] bg-[var(--paper)] flex items-center justify-between flex-wrap gap-2">
+              <div className="flex p-0.5 gap-1 bg-[var(--surface)] border border-[var(--line)] rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setDspRackTab("eq")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    dspRackTab === "eq"
+                      ? "bg-[var(--paper)] text-[var(--ink)] shadow-xs font-bold border border-[var(--line)]"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
+                  )}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span>Parametric EQ (10-Band)</span>
+                </button>
 
-          {/* Microphone Voice Isolation & Noise Suppression DSP Rack */}
-          <AudioFilterPanel />
+                <button
+                  type="button"
+                  onClick={() => setDspRackTab("filter")}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5",
+                    dspRackTab === "filter"
+                      ? "bg-[var(--paper)] text-[var(--ink)] shadow-xs font-bold border border-[var(--line)]"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
+                  )}
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Bộ Lọc & Voice Isolation</span>
+                </button>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1 text-[10px] font-bold font-mono text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  DSP ACTIVE
+                </span>
+              </div>
+            </div>
+
+            {/* Content Slot */}
+            <div className="p-4 flex-1">
+              {dspRackTab === "eq" ? (
+                <StudioEQInspector
+                  activePresetName={selectedPreset}
+                  isAudioActive={isAnyAudioPlaying}
+                  isBypassed={isEQBypassed}
+                  onPresetSelect={onSelectPreset}
+                  onBandChange={onEQBandChange}
+                  onResetFlat={onResetEQFlat}
+                  onToggleBypass={onToggleEQBypass}
+                />
+              ) : (
+                <AudioFilterPanel />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

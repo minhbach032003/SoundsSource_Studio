@@ -270,3 +270,17 @@ pub fn set_app_mute(bundle_or_pid: &str, muted: bool) {
         }
     }
 }
+
+static LINUX_BALANCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(50); // 50 is 0.0 center
+
+pub fn get_master_balance() -> f32 {
+    let raw = LINUX_BALANCE.load(std::sync::atomic::Ordering::Relaxed);
+    (raw as f32 - 50.0) / 50.0
+}
+
+pub fn set_master_balance(balance: f32) -> Result<(), String> {
+    let clamped = balance.clamp(-1.0, 1.0);
+    let mapped = ((clamped + 1.0) * 50.0).round() as u32;
+    LINUX_BALANCE.store(mapped, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
+}

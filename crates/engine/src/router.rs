@@ -67,6 +67,7 @@ pub struct AudioRouter {
     sample_rate: f32,
     pub master_eq: ParametricEQ,
     pub filter_engine: AudioFilterEngine,
+    pub master_balance: f32,
 }
 
 impl AudioRouter {
@@ -76,6 +77,36 @@ impl AudioRouter {
             sample_rate,
             master_eq: ParametricEQ::new(sample_rate),
             filter_engine: AudioFilterEngine::new(sample_rate),
+            master_balance: 0.0,
+        }
+    }
+
+    pub fn get_master_balance(&self) -> f32 {
+        self.master_balance
+    }
+
+    pub fn set_master_balance(&mut self, balance: f32) {
+        self.master_balance = balance.clamp(-1.0, 1.0);
+    }
+
+    /// Calculate Left and Right channel gains for a given balance value in [-1.0, 1.0]
+    pub fn compute_channel_gains(balance: f32) -> (f32, f32) {
+        let b = balance.clamp(-1.0, 1.0);
+        let left_gain = if b > 0.0 { 1.0 - b } else { 1.0 };
+        let right_gain = if b < 0.0 { 1.0 + b } else { 1.0 };
+        (left_gain, right_gain)
+    }
+
+    /// Apply stereo balance in-place to interleaved stereo samples [L, R, L, R, ...]
+    pub fn apply_stereo_balance(samples: &mut [f32], balance: f32) {
+        let (left_gain, right_gain) = Self::compute_channel_gains(balance);
+        if (left_gain - 1.0).abs() < 1e-4 && (right_gain - 1.0).abs() < 1e-4 {
+            return;
+        }
+
+        for chunk in samples.chunks_exact_mut(2) {
+            chunk[0] *= left_gain;
+            chunk[1] *= right_gain;
         }
     }
 
@@ -126,6 +157,7 @@ impl AudioRouter {
     pub fn process_master(&mut self, samples: &mut [f32]) {
         self.master_eq.process_interleaved_stereo(samples);
         self.filter_engine.process_output_interleaved_stereo(samples);
+        Self::apply_stereo_balance(samples, self.master_balance);
     }
 
     pub fn get_or_create_channel(&mut self, bundle_id: &str) -> &mut AppAudioChannel {
@@ -192,6 +224,22 @@ impl AudioRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_stereo_balance_gains_and_processing() {
+        assert_eq!(AudioRouter::compute_channel_gains(0.0), (1.0, 1.0));
+        assert_eq!(AudioRouter::compute_channel_gains(-1.0), (1.0, 0.0));
+        assert_eq!(AudioRouter::compute_channel_gains(1.0), (0.0, 1.0));
+        assert_eq!(AudioRouter::compute_channel_gains(-0.5), (1.0, 0.5));
+        assert_eq!(AudioRouter::compute_channel_gains(0.5), (0.5, 1.0));
+
+        let mut samples = [1.0f32, 1.0, 1.0, 1.0];
+        AudioRouter::apply_stereo_balance(&mut samples, -0.5);
+        assert!((samples[0] - 1.0).abs() < 1e-4);
+        assert!((samples[1] - 0.5).abs() < 1e-4);
+        assert!((samples[2] - 1.0).abs() < 1e-4);
+        assert!((samples[3] - 0.5).abs() < 1e-4);
+    }
 
     #[test]
     fn test_audio_router_mute_and_volume() {

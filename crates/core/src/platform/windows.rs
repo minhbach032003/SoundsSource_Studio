@@ -6,6 +6,19 @@ static WIN_MASTER_VOL: AtomicU32 = AtomicU32::new(100);
 static WIN_MASTER_MUTE: AtomicBool = AtomicBool::new(false);
 static WIN_INPUT_VOL: AtomicU32 = AtomicU32::new(85);
 static WIN_INPUT_MUTE: AtomicBool = AtomicBool::new(false);
+static WIN_BALANCE: AtomicU32 = AtomicU32::new(50); // 50 is 0.0 center
+
+pub fn get_master_balance() -> f32 {
+    let raw = WIN_BALANCE.load(Ordering::Relaxed);
+    (raw as f32 - 50.0) / 50.0
+}
+
+pub fn set_master_balance(balance: f32) -> Result<(), String> {
+    let clamped = balance.clamp(-1.0, 1.0);
+    let mapped = ((clamped + 1.0) * 50.0).round() as u32;
+    WIN_BALANCE.store(mapped, Ordering::Relaxed);
+    Ok(())
+}
 
 // Windows Core Audio COM GUIDs
 // CLSID_MMDeviceEnumerator = "BCDE0395-E52F-467C-8E3D-C4579291692E"

@@ -430,6 +430,120 @@ pub fn set_master_mute(muted: bool) -> Result<(), String> {
     }
 }
 
+static CACHED_MACOS_BALANCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(50);
+
+pub fn get_master_balance() -> f32 {
+    let dev_id = get_default_output_device_id();
+    if dev_id == 0 {
+        let raw = CACHED_MACOS_BALANCE.load(std::sync::atomic::Ordering::Relaxed);
+        return (raw as f32 - 50.0) / 50.0;
+    }
+
+    let mut vol_l: f32 = 1.0;
+    let mut vol_r: f32 = 1.0;
+    let mut size = std::mem::size_of::<f32>() as u32;
+
+    let addr_l = AudioObjectPropertyAddress {
+        m_selector: K_AUDIO_DEVICE_PROPERTY_VOLUME_SCALAR,
+        m_scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_OUTPUT,
+        m_element: 1, // Channel 1 (Left)
+    };
+    let status_l = unsafe {
+        AudioObjectGetPropertyData(
+            dev_id,
+            &addr_l,
+            0,
+            std::ptr::null(),
+            &mut size,
+            &mut vol_l as *mut _ as *mut c_void,
+        )
+    };
+
+    let addr_r = AudioObjectPropertyAddress {
+        m_selector: K_AUDIO_DEVICE_PROPERTY_VOLUME_SCALAR,
+        m_scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_OUTPUT,
+        m_element: 2, // Channel 2 (Right)
+    };
+    let status_r = unsafe {
+        AudioObjectGetPropertyData(
+            dev_id,
+            &addr_r,
+            0,
+            std::ptr::null(),
+            &mut size,
+            &mut vol_r as *mut _ as *mut c_void,
+        )
+    };
+
+    if status_l == NO_ERR && status_r == NO_ERR {
+        if vol_l > vol_r && vol_l > 1e-4 {
+            let bal = (vol_r / vol_l) - 1.0;
+            return bal.clamp(-1.0, 1.0);
+        } else if vol_r > vol_l && vol_r > 1e-4 {
+            let bal = 1.0 - (vol_l / vol_r);
+            return bal.clamp(-1.0, 1.0);
+        } else {
+            return 0.0;
+        }
+    }
+
+    let raw = CACHED_MACOS_BALANCE.load(std::sync::atomic::Ordering::Relaxed);
+    (raw as f32 - 50.0) / 50.0
+}
+
+pub fn set_master_balance(balance: f32) -> Result<(), String> {
+    let dev_id = get_default_output_device_id();
+    let balance = balance.clamp(-1.0, 1.0);
+    let mapped = ((balance + 1.0) * 50.0).round() as u32;
+    CACHED_MACOS_BALANCE.store(mapped, std::sync::atomic::Ordering::Relaxed);
+
+    if dev_id == 0 {
+        return Ok(());
+    }
+
+    let master_vol = get_master_volume();
+    let left_gain = if balance > 0.0 { master_vol * (1.0 - balance) } else { master_vol };
+    let right_gain = if balance < 0.0 { master_vol * (1.0 + balance) } else { master_vol };
+
+    let size = std::mem::size_of::<f32>() as u32;
+
+    // Apply to Left channel (1)
+    let addr_l = AudioObjectPropertyAddress {
+        m_selector: K_AUDIO_DEVICE_PROPERTY_VOLUME_SCALAR,
+        m_scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_OUTPUT,
+        m_element: 1,
+    };
+    let _ = unsafe {
+        AudioObjectSetPropertyData(
+            dev_id,
+            &addr_l,
+            0,
+            std::ptr::null(),
+            size,
+            &left_gain as *const _ as *const c_void,
+        )
+    };
+
+    // Apply to Right channel (2)
+    let addr_r = AudioObjectPropertyAddress {
+        m_selector: K_AUDIO_DEVICE_PROPERTY_VOLUME_SCALAR,
+        m_scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_OUTPUT,
+        m_element: 2,
+    };
+    let _ = unsafe {
+        AudioObjectSetPropertyData(
+            dev_id,
+            &addr_r,
+            0,
+            std::ptr::null(),
+            size,
+            &right_gain as *const _ as *const c_void,
+        )
+    };
+
+    Ok(())
+}
+
 pub fn get_input_volume() -> f32 {
     let dev_id = get_default_input_device_id();
     if dev_id == 0 {

@@ -447,6 +447,35 @@ fn set_master_volume(volume: f32) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_master_balance(state: State<'_, AppState>) -> f32 {
+    let hw = AudioDevice::get_master_balance();
+    let router_bal = state.router.lock().unwrap().get_master_balance();
+    if hw.abs() > 1e-4 {
+        hw
+    } else {
+        router_bal
+    }
+}
+
+#[tauri::command]
+fn set_master_balance(balance: f32, state: State<'_, AppState>) -> Result<(), String> {
+    let b = balance.clamp(-1.0, 1.0);
+    state.router.lock().unwrap().set_master_balance(b);
+    let _ = AudioDevice::set_master_balance(b);
+    Ok(())
+}
+
+#[tauri::command]
+fn test_headphone_channel(channel: String) -> Result<String, String> {
+    let ch = channel.trim().to_lowercase();
+    match ch.as_str() {
+        "left" | "l" => Ok("Testing Left Headphone Channel (L)".to_string()),
+        "right" | "r" => Ok("Testing Right Headphone Channel (R)".to_string()),
+        other => Err(format!("Invalid headphone channel: {other}. Expected 'left' or 'right'")),
+    }
+}
+
+#[tauri::command]
 fn get_master_mute() -> bool {
     AudioDevice::get_master_mute()
 }
@@ -872,6 +901,9 @@ pub fn run() {
             get_system_volume_settings,
             get_master_volume,
             set_master_volume,
+            get_master_balance,
+            set_master_balance,
+            test_headphone_channel,
             get_master_mute,
             set_master_mute,
             set_default_output_device,

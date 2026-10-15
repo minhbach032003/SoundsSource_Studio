@@ -6,9 +6,11 @@ import {
   Headphones,
   Speaker,
   Sliders,
+  Volume1,
 } from "lucide-react";
 import { SelectComponent, SliderComponent, ButtonComponent, BadgeComponent } from "@/shared/ui";
 import { useLiveAudioMeters } from "@/shared/lib/useLiveAudioMeters";
+import { playHeadphoneChannelTone } from "@/lib/headphoneTest";
 import { cn } from "@/lib/utils";
 
 export interface AudioDevice {
@@ -34,6 +36,7 @@ interface DeviceQuickBarProps {
   onMasterVolumeCommit?: (vol: number) => void;
   balance?: number;
   onBalanceChange?: (bal: number) => void;
+  onTestChannel?: (channel: "left" | "right") => void;
   isMuted?: boolean;
   onMasterMuteToggle?: () => void;
   isAudioActive?: boolean;
@@ -52,6 +55,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
   onMasterVolumeCommit,
   balance = 0,
   onBalanceChange,
+  onTestChannel,
   isMuted = false,
   onMasterMuteToggle,
   isAudioActive = false,
@@ -59,6 +63,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
 }) => {
   const [internalMasterVol, setInternalMasterVol] = useState(masterVolume);
   const [internalBalance, setInternalBalance] = useState(balance);
+  const [testingChannel, setTestingChannel] = useState<"left" | "right" | null>(null);
 
   useEffect(() => {
     setInternalMasterVol(masterVolume);
@@ -73,8 +78,16 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
   const balL = internalBalance > 0 ? (100 - internalBalance) / 100 : 1;
   const balR = internalBalance < 0 ? (100 + internalBalance) / 100 : 1;
 
-  const dynamicL = isMuted ? 0 : Math.round(liveMeters.levelL * gainScalar * balL);
-  const dynamicR = isMuted ? 0 : Math.round(liveMeters.levelR * gainScalar * balR);
+  const dynamicL = isMuted
+    ? 0
+    : testingChannel === "left"
+    ? 95
+    : Math.round(liveMeters.levelL * gainScalar * balL);
+  const dynamicR = isMuted
+    ? 0
+    : testingChannel === "right"
+    ? 95
+    : Math.round(liveMeters.levelR * gainScalar * balR);
 
   const deviceOptions =
     devices.length === 0
@@ -110,6 +123,21 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
   const handleBalanceCommit = (val: number) => {
     setInternalBalance(val);
     onBalanceChange?.(val);
+  };
+
+  const handleTestChannel = async (channel: "left" | "right") => {
+    setTestingChannel(channel);
+    try {
+      await playHeadphoneChannelTone(channel, {
+        volume: Math.max(0.4, (internalMasterVol / 100) * 0.8),
+      });
+    } catch {
+      // AudioContext fallback
+    }
+    onTestChannel?.(channel);
+    setTimeout(() => {
+      setTestingChannel((cur) => (cur === channel ? null : cur));
+    }, 450);
   };
 
   return (
@@ -270,13 +298,51 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
           />
         </div>
 
-        {/* Stereo Balance Slider (L - C - R) */}
-        <div className="flex items-center justify-between gap-3 pt-1 text-[10px] text-[var(--muted)]">
-          <span className="shrink-0 flex items-center gap-1 font-semibold text-[var(--ink)]">
-            <Sliders className="w-3 h-3 text-[var(--muted)]" />
-            Balance
-          </span>
-          <div className="flex-1 max-w-[180px] flex items-center gap-2">
+        {/* Stereo Balance Slider (L - C - R) & Left/Right Channel Audio Test Buttons */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10px] text-[var(--muted)]">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-1 font-semibold text-[var(--ink)]">
+              <Sliders className="w-3 h-3 text-[var(--muted)]" />
+              Balance
+            </span>
+
+            {/* Test Left / Test Right Buttons */}
+            <div className="flex items-center gap-1 ml-1" role="group" aria-label="Headphone Left and Right Channel Test">
+              <button
+                type="button"
+                onClick={() => handleTestChannel("left")}
+                disabled={disabled || testingChannel !== null}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 select-none",
+                  testingChannel === "left"
+                    ? "bg-[var(--accent)] text-[var(--accent-ink)] shadow-xs scale-105 ring-1 ring-[var(--accent)]"
+                    : "bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)] hover:bg-[var(--surface)]"
+                )}
+                title="Test Left Headphone Channel (Play left earphone chime)"
+              >
+                <Volume1 className="w-2.5 h-2.5 text-[var(--accent)]" />
+                <span>Test L</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTestChannel("right")}
+                disabled={disabled || testingChannel !== null}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 select-none",
+                  testingChannel === "right"
+                    ? "bg-[var(--accent)] text-[var(--accent-ink)] shadow-xs scale-105 ring-1 ring-[var(--accent)]"
+                    : "bg-[var(--paper)] border border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)] hover:bg-[var(--surface)]"
+                )}
+                title="Test Right Headphone Channel (Play right earphone chime)"
+              >
+                <Volume1 className="w-2.5 h-2.5 text-[var(--accent)]" />
+                <span>Test R</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-[140px] max-w-[200px] flex items-center gap-2">
             <span className="font-mono text-[9px] text-[var(--muted)]">L</span>
             <input
               type="range"
@@ -290,6 +356,7 @@ export const DeviceQuickBar: FC<DeviceQuickBarProps> = ({
             />
             <span className="font-mono text-[9px] text-[var(--muted)]">R</span>
           </div>
+
           <button
             onClick={() => handleBalanceCommit(0)}
             className="text-[10px] text-[var(--accent)] hover:opacity-80 transition-opacity font-medium cursor-pointer"

@@ -193,7 +193,11 @@ const FILTER_PRESETS: FilterPreset[] = [
   },
 ];
 
-export const AudioFilterPanel: FC = () => {
+export interface AudioFilterPanelProps {
+  embedded?: boolean;
+}
+
+export const AudioFilterPanel: FC<AudioFilterPanelProps> = ({ embedded = false }) => {
   const { showToast } = useToast();
   const isDesktop =
     typeof window !== "undefined" &&
@@ -355,49 +359,37 @@ export const AudioFilterPanel: FC = () => {
     showToast("info", "Đã khôi phục cài đặt bộ lọc âm thanh mặc định");
   };
 
-  return (
-    <CardComponent
-      variant="default"
-      padding="md"
-      title={
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-[var(--accent)]" />
-          <span>Bộ Lọc Âm Thanh & Voice Isolation</span>
-        </div>
-      }
-      subtitle="Giảm tạp âm micro (Discord, Zoom, Meet) và tối ưu độ trong trẻo âm thanh đầu ra."
-      extra={
-        <div className="flex items-center gap-2">
-          <ButtonComponent
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCableModalOpen(true)}
-            leftIcon={<Cable className="w-3.5 h-3.5 text-[var(--accent)]" />}
-            className="h-7 text-xs font-semibold"
-          >
-            Định Tuyến Micro Ảo
-          </ButtonComponent>
-
-          <ButtonComponent
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsResetModalOpen(true)}
-            leftIcon={<RotateCcw className="w-3 h-3 text-[var(--muted)]" />}
-            className="h-7 px-2 text-xs text-[var(--muted)] hover:text-[var(--ink)]"
-            title="Khôi phục mặc định"
-          >
-            Reset
-          </ButtonComponent>
-        </div>
-      }
-    >
-      <div className="space-y-4 pt-1">
-        {/* Quick Filter Presets */}
-        <div>
-          <span className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block mb-2">
+  const innerContent = (
+    <div className={cn("space-y-3.5", embedded ? "pt-0" : "pt-1")}>
+      {/* Quick Filter Presets */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold text-[var(--muted)] uppercase tracking-wider block">
             Chế Độ Lọc Sẵn (1-Click Presets)
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {embedded && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCableModalOpen(true)}
+                className="text-[10px] font-semibold text-[var(--accent)] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Cable className="w-3 h-3" />
+                <span>Micro Ảo</span>
+              </button>
+              <span className="text-[var(--line)]">·</span>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(true)}
+                className="text-[10px] text-[var(--muted)] hover:text-[var(--ink)] flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-2.5 h-2.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {FILTER_PRESETS.map((preset) => {
               const Icon = preset.icon;
               const isSelected = activePreset === preset.id;
@@ -748,7 +740,6 @@ export const AudioFilterPanel: FC = () => {
             </div>
           )}
         </div>
-      </div>
 
       {/* Virtual Cable Modal */}
       <VirtualCableModal
@@ -767,6 +758,50 @@ export const AudioFilterPanel: FC = () => {
         confirmVariant="destructive"
         onConfirm={handleConfirmReset}
       />
+    </div>
+  );
+
+  if (embedded) {
+    return innerContent;
+  }
+
+  return (
+    <CardComponent
+      variant="default"
+      padding="md"
+      title={
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="w-4 h-4 text-[var(--accent)]" />
+          <span>Bộ Lọc Âm Thanh & Voice Isolation</span>
+        </div>
+      }
+      subtitle="Giảm tạp âm micro (Discord, Zoom, Meet) và tối ưu độ trong trẻo âm thanh đầu ra."
+      extra={
+        <div className="flex items-center gap-2">
+          <ButtonComponent
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCableModalOpen(true)}
+            leftIcon={<Cable className="w-3.5 h-3.5 text-[var(--accent)]" />}
+            className="h-7 text-xs font-semibold"
+          >
+            Định Tuyến Micro Ảo
+          </ButtonComponent>
+
+          <ButtonComponent
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsResetModalOpen(true)}
+            leftIcon={<RotateCcw className="w-3 h-3 text-[var(--muted)]" />}
+            className="h-7 px-2 text-xs text-[var(--muted)] hover:text-[var(--ink)]"
+            title="Khôi phục mặc định"
+          >
+            Reset
+          </ButtonComponent>
+        </div>
+      }
+    >
+      {innerContent}
     </CardComponent>
   );
 };

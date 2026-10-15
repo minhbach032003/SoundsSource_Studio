@@ -6,6 +6,19 @@ static FALLBACK_MASTER_VOL: AtomicU32 = AtomicU32::new(100);
 static FALLBACK_MASTER_MUTE: AtomicBool = AtomicBool::new(false);
 static FALLBACK_INPUT_VOL: AtomicU32 = AtomicU32::new(85);
 static FALLBACK_INPUT_MUTE: AtomicBool = AtomicBool::new(false);
+static FALLBACK_BALANCE: AtomicU32 = AtomicU32::new(50); // 50 is 0.0 center
+
+pub fn get_master_balance() -> f32 {
+    let raw = FALLBACK_BALANCE.load(Ordering::Relaxed);
+    (raw as f32 - 50.0) / 50.0
+}
+
+pub fn set_master_balance(balance: f32) -> Result<(), String> {
+    let clamped = balance.clamp(-1.0, 1.0);
+    let mapped = ((clamped + 1.0) * 50.0).round() as u32;
+    FALLBACK_BALANCE.store(mapped, Ordering::Relaxed);
+    Ok(())
+}
 
 pub fn enumerate_system_devices() -> Vec<AudioDevice> {
     vec![
