@@ -29,6 +29,7 @@ import {
   Calendar,
   RefreshCw,
   Video,
+  Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -412,198 +413,251 @@ export const TimerView: FC<TimerViewProps> = ({
       </div>
 
       {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
+      {/* 2. Fluid 2-Column Grid Filling 100% Width and Height */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
-        {/* Left Column (lg:col-span-7): Circular Dial Canvas & Controls */}
-        <div className="lg:col-span-7 flex flex-col items-center justify-center p-6 sm:p-8 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[460px]">
-          {/* Audio Ducking Pill Indicator */}
-          {status.is_ducked && (
-            <div className="absolute top-4 flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold tracking-wide animate-pulse">
-              <VolumeX className="w-3.5 h-3.5" />
-              <span>CoreAudio Streams Ducked (15%) for Rest</span>
+        {/* Left Column (lg:col-span-7): Studio Focus Timer Cockpit */}
+        <div className="lg:col-span-7 flex flex-col justify-between p-5 sm:p-6 lg:p-7 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden h-full min-h-[500px]">
+          {/* 1. Cockpit Header Bar */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)] w-full shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[var(--accent)]/15 border border-[var(--accent)]/30 flex items-center justify-center text-[var(--accent)]">
+                <Timer className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
+                  Focus Timer Cockpit
+                </h3>
+                <p className="text-[10px] text-[var(--muted)] m-0">
+                  Pomodoro Smart Ducking & Session Automation
+                </p>
+              </div>
             </div>
-          )}
 
-          {/* Circular Dial Gauge */}
-          <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 flex items-center justify-center my-auto py-2">
-            <svg
-              className="w-full h-full transform -rotate-90 drop-shadow-md"
-              viewBox="0 0 220 220"
-            >
-              <defs>
-                <linearGradient id="studyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f472b6" />
-                  <stop offset="100%" stopColor="#fb7185" />
-                </linearGradient>
-                <linearGradient id="breakGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fb7185" />
-                  <stop offset="100%" stopColor="#e11d48" />
-                </linearGradient>
-                <linearGradient id="warnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fbbf24" />
-                  <stop offset="100%" stopColor="#f59e0b" />
-                </linearGradient>
-                <filter id="dialGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3.5" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-
-              {/* Background Track Ring */}
-              <circle
-                cx="110"
-                cy="110"
-                r={radius}
-                fill="none"
-                stroke="var(--line)"
-                strokeWidth="7"
-              />
-
-              {/* Foreground Progress Ring */}
-              <circle
-                cx="110"
-                cy="110"
-                r={radius}
-                fill="none"
-                stroke={
-                  isBreaking
-                    ? "url(#breakGrad)"
-                    : isWarning
-                    ? "url(#warnGrad)"
-                    : isStudying
-                    ? "url(#studyGrad)"
-                    : "rgba(251, 113, 133, 0.25)"
-                }
-                strokeWidth="7"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                filter={!isIdle ? "url(#dialGlow)" : undefined}
-                className="transition-[stroke-dashoffset] duration-300 ease-out"
-              />
-            </svg>
-
-            {/* Center Countdown, Active Task Banner & Real-Time Schedule */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-              {/* Active Task / Calendar Goal Banner */}
-              {activeGoal ? (
-                <div
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-200 text-[11px] font-semibold mb-1 max-w-[220px] truncate shadow-sm"
-                  title={`Active Goal: ${activeGoal.title}`}
-                >
-                  {activeGoal.source === "google-calendar" ? (
-                    <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
-                  ) : (
-                    <Target className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  )}
-                  <span className="truncate">{activeGoal.title}</span>
-                </div>
+            <div className="flex items-center gap-2">
+              {status.is_ducked ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--accent)]/15 border border-[var(--accent)]/30 text-[var(--accent-text)] text-[10px] font-semibold animate-pulse">
+                  <VolumeX className="w-3 h-3" />
+                  <span>Ducking Active (15%)</span>
+                </span>
               ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/4 border border-white/8 text-[11px] font-semibold uppercase tracking-wider mb-1">
-                  <span
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      isBreaking
-                        ? "bg-rose-400 shadow-[0_0_6px_#fb7185] animate-ping"
-                        : isWarning
-                        ? "bg-amber-400 shadow-[0_0_6px_#fbbf24] animate-pulse"
-                        : isStudying
-                        ? "bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse"
-                        : "bg-slate-500"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      isBreaking
-                        ? "text-rose-300"
-                        : isWarning
-                        ? "text-amber-300"
-                        : isStudying
-                        ? "text-emerald-300"
-                        : "text-slate-400"
-                    )}
-                  >
-                    {isBreaking
-                      ? "Resting Eyes"
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 text-[10px] font-semibold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Engine Armed</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 2. Central Gauge & Circular Dial */}
+          <div className="relative flex flex-col items-center justify-center my-auto py-3">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 flex items-center justify-center">
+              <svg
+                className="w-full h-full transform -rotate-90 drop-shadow-md"
+                viewBox="0 0 220 220"
+              >
+                <defs>
+                  <linearGradient id="studyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#f472b6" />
+                    <stop offset="100%" stopColor="#fb7185" />
+                  </linearGradient>
+                  <linearGradient id="breakGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fb7185" />
+                    <stop offset="100%" stopColor="#e11d48" />
+                  </linearGradient>
+                  <linearGradient id="warnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fbbf24" />
+                    <stop offset="100%" stopColor="#f59e0b" />
+                  </linearGradient>
+                  <filter id="dialGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Background Track Ring */}
+                <circle
+                  cx="110"
+                  cy="110"
+                  r={radius}
+                  fill="none"
+                  stroke="var(--line)"
+                  strokeWidth="7"
+                />
+
+                {/* Foreground Progress Ring */}
+                <circle
+                  cx="110"
+                  cy="110"
+                  r={radius}
+                  fill="none"
+                  stroke={
+                    isBreaking
+                      ? "url(#breakGrad)"
                       : isWarning
-                      ? "Break in ~10s"
+                      ? "url(#warnGrad)"
                       : isStudying
-                      ? "Focusing"
-                      : "Ready"}
+                      ? "url(#studyGrad)"
+                      : "rgba(251, 113, 133, 0.25)"
+                  }
+                  strokeWidth="7"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  filter={!isIdle ? "url(#dialGlow)" : undefined}
+                  className="transition-[stroke-dashoffset] duration-300 ease-out"
+                />
+              </svg>
+
+              {/* Center Countdown, Active Task Banner & Real-Time Schedule */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+                {/* Active Task / Calendar Goal Banner */}
+                {activeGoal ? (
+                  <div
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/40 text-rose-200 text-[11px] font-semibold mb-1 max-w-[220px] truncate shadow-sm"
+                    title={`Active Goal: ${activeGoal.title}`}
+                  >
+                    {activeGoal.source === "google-calendar" ? (
+                      <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <Target className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    )}
+                    <span className="truncate">{activeGoal.title}</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--paper)] border border-[var(--line)] text-[11px] font-semibold uppercase tracking-wider mb-1">
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        isBreaking
+                          ? "bg-rose-400 shadow-[0_0_6px_#fb7185] animate-ping"
+                          : isWarning
+                          ? "bg-amber-400 shadow-[0_0_6px_#fbbf24] animate-pulse"
+                          : isStudying
+                          ? "bg-emerald-400 shadow-[0_0_6px_#10b981] animate-pulse"
+                          : "bg-[var(--muted)]"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        isBreaking
+                          ? "text-rose-400"
+                          : isWarning
+                          ? "text-amber-400"
+                          : isStudying
+                          ? "text-emerald-500"
+                          : "text-[var(--muted)]"
+                      )}
+                    >
+                      {isBreaking
+                        ? "Resting Eyes"
+                        : isWarning
+                        ? "Break in ~10s"
+                        : isStudying
+                        ? "Focusing"
+                        : "Ready"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Countdown Numbers */}
+                <span className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono tracking-tight text-[var(--ink)] tabular-nums drop-shadow-sm my-0.5">
+                  {formatCountdown(currentSeconds)}
+                </span>
+
+                {/* Real Wall-Clock Timeline (từ mấy giờ đến mấy giờ) */}
+                <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-[var(--muted)] bg-[var(--paper)] px-3 py-1 rounded-full border border-[var(--line)]">
+                  <Clock className="w-3 h-3 text-[var(--accent)] shrink-0" />
+                  <span>
+                    {isBreaking
+                      ? `Break Ends at ${expectedEndClockStr}`
+                      : isStudying
+                      ? `Ends at ${expectedEndClockStr}`
+                      : `${nowClockStr} → ${expectedEndClockStr}`}
                   </span>
                 </div>
-              )}
-
-              {/* Countdown Numbers */}
-              <span className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono tracking-tight text-[var(--ink)] tabular-nums drop-shadow-sm my-0.5">
-                {formatCountdown(currentSeconds)}
-              </span>
-
-              {/* Real Wall-Clock Timeline (từ mấy giờ đến mấy giờ) */}
-              <div className="text-[11px] font-medium tracking-tight mt-1 flex items-center gap-1.5 text-[var(--muted)] bg-[var(--paper)] px-3 py-1 rounded-full border border-[var(--line)]">
-                <Clock className="w-3 h-3 text-rose-400 shrink-0" />
-                <span>
-                  {isBreaking
-                    ? `Break Ends at ${expectedEndClockStr}`
-                    : isStudying
-                    ? `Ends at ${expectedEndClockStr}`
-                    : `${nowClockStr} → ${expectedEndClockStr}`}
-                </span>
               </div>
             </div>
           </div>
 
-          {/* Primary & Secondary Action Controls */}
-          <div className="flex items-center justify-center gap-3 mt-4 shrink-0">
-            {isIdle ? (
-              <button
-                onClick={onStart}
-                className="h-11 px-8 rounded-xl bg-[#f2a4b8] hover:bg-[#f472b6] text-[#191116] font-bold text-xs tracking-tight shadow-[0_2px_18px_rgba(242,164,184,0.35)] transition-all cursor-pointer active:scale-95 flex items-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>
-                  {activeGoal
-                    ? `Start: "${activeGoal.title.slice(0, 18)}…"`
-                    : "Start Focus Session"}
-                </span>
-              </button>
-            ) : (
-              <>
+          {/* 3. Primary Actions & Session Telemetry Footer */}
+          <div className="space-y-3.5 pt-3 border-t border-[var(--line)] w-full shrink-0">
+            {/* Primary Start / Stop Controls */}
+            <div className="flex items-center justify-center gap-3">
+              {isIdle ? (
                 <button
-                  onClick={() => setIsStopModalOpen(true)}
-                  className="h-10 px-5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-semibold text-xs transition-all cursor-pointer active:scale-95 flex items-center gap-2 shadow-sm"
+                  onClick={onStart}
+                  className="h-11 px-8 rounded-xl bg-[var(--accent)] hover:opacity-90 text-[var(--accent-ink)] font-bold text-xs tracking-tight shadow-md transition-all cursor-pointer active:scale-95 flex items-center gap-2"
                 >
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>Stop Session</span>
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>
+                    {activeGoal
+                      ? `Start: "${activeGoal.title.slice(0, 20)}…"`
+                      : "Start Focus Session"}
+                  </span>
                 </button>
-
-                {(isBreaking || isWarning) && (
-                  <ButtonComponent
-                    variant="outline"
-                    size="md"
-                    onClick={onSkip}
-                    leftIcon={<SkipForward className="w-4 h-4" />}
-                    className="h-10 px-5"
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsStopModalOpen(true)}
+                    className="h-11 px-6 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-[var(--error)] font-bold text-xs transition-all cursor-pointer active:scale-95 flex items-center gap-2 shadow-sm"
                   >
-                    Skip Break
-                  </ButtonComponent>
-                )}
+                    <Square className="w-4 h-4 fill-current" />
+                    <span>Stop Session</span>
+                  </button>
 
-                {isWarning && (
-                  <ButtonComponent
-                    variant="secondary"
-                    size="md"
-                    onClick={onSnooze}
-                    leftIcon={<Clock className="w-4 h-4 text-amber-400" />}
-                    className="h-10 px-5"
-                  >
-                    Snooze (+5m)
-                  </ButtonComponent>
-                )}
-              </>
-            )}
+                  {(isBreaking || isWarning) && (
+                    <ButtonComponent
+                      variant="outline"
+                      size="md"
+                      onClick={onSkip}
+                      leftIcon={<SkipForward className="w-4 h-4" />}
+                      className="h-11 px-5 text-xs font-semibold"
+                    >
+                      Skip Break
+                    </ButtonComponent>
+                  )}
+
+                  {isWarning && (
+                    <ButtonComponent
+                      variant="secondary"
+                      size="md"
+                      onClick={onSnooze}
+                      leftIcon={<Clock className="w-4 h-4 text-amber-400" />}
+                      className="h-11 px-5 text-xs font-semibold"
+                    >
+                      Snooze (+5m)
+                    </ButtonComponent>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Quick Session Stats Bar */}
+            <div className="grid grid-cols-3 gap-2 text-center text-xs p-2 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Completed Today</span>
+                <span className="font-mono font-bold text-[var(--ink)] text-xs">
+                  {status.completed_sessions} Sessions
+                </span>
+              </div>
+              <div className="border-x border-[var(--line)]">
+                <span className="text-[10px] text-[var(--muted)] block">Rest Duration</span>
+                <span className="font-mono font-bold text-[var(--ink)] text-xs">
+                  {status.break_duration >= 60
+                    ? `${Math.round(status.break_duration / 60)}m`
+                    : `${status.break_duration}s`}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[var(--muted)] block">Audio Ducking</span>
+                <span className="font-mono font-bold text-emerald-500 text-xs">
+                  {status.is_ducked ? "15% (Ducked)" : "Armed (15%)"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -823,13 +877,22 @@ export const TimerView: FC<TimerViewProps> = ({
             {/* Schedule List Items (Unified Calendar + Tasks) */}
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
               {unifiedItems.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center p-6 text-center text-xs text-slate-500 italic space-y-2">
-                  <Calendar className="w-8 h-8 text-slate-600 stroke-[1.5]" />
-                  <span>
-                    {activeFilter === "calendar"
-                      ? "No Google Calendar events for today."
-                      : "No scheduled activities yet. Connect Google Calendar or add a task above."}
-                  </span>
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center text-xs text-[var(--muted)] space-y-2.5 my-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--accent)]/10 border border-[var(--accent)]/20 flex items-center justify-center text-[var(--accent)] shadow-sm">
+                    <Calendar className="w-6 h-6 stroke-[1.8]" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-xs text-[var(--ink)] m-0">
+                      {activeFilter === "calendar"
+                        ? "Không có lịch hẹn Google Calendar hôm nay"
+                        : "Chưa có mục tiêu hoặc công việc nào"}
+                    </p>
+                    <p className="text-[11px] text-[var(--muted)] mt-1 max-w-xs m-0">
+                      {activeFilter === "calendar"
+                        ? "Kết nối tài khoản Google để tự động đồng bộ lịch hẹn."
+                        : "Thêm công việc vào ô phía trên để bắt đầu phiên tập trung."}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 unifiedItems.map((item) => {
@@ -973,14 +1036,14 @@ export const TimerView: FC<TimerViewProps> = ({
           {/* 4. Interactive Session Configuration Card with Real Clock Times */}
           <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-[var(--ink)] uppercase tracking-wider block">
                 Session Configuration & Clock
               </span>
 
               {isIdle && (
                 <button
                   onClick={() => setIsCustomModalOpen(true)}
-                  className="flex items-center gap-1 text-[11px] text-rose-400 hover:text-rose-300 font-medium transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-[11px] text-[var(--accent)] hover:opacity-80 font-semibold transition-opacity cursor-pointer"
                 >
                   <Edit3 className="w-3 h-3" />
                   <span>Setup Custom</span>
@@ -992,12 +1055,12 @@ export const TimerView: FC<TimerViewProps> = ({
             <div className="grid grid-cols-2 gap-2.5 text-xs">
               {/* Study Duration Card with Stepper */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
-                <span className="text-[10px] text-slate-500 block mb-1">
+                <span className="text-[10px] text-[var(--muted)] block mb-1">
                   Focus Duration
                 </span>
 
                 <div className="flex items-center justify-between gap-1 my-1">
-                  <span className="font-semibold text-slate-100 text-sm tabular-nums">
+                  <span className="font-semibold text-[var(--ink)] text-sm tabular-nums">
                     {Math.round(status.study_duration / 60)} min
                   </span>
 
@@ -1005,33 +1068,33 @@ export const TimerView: FC<TimerViewProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleStepStudy(-5)}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-white/5"
+                        className="w-6 h-6 rounded-md bg-[var(--surface)] hover:bg-[var(--paper)] active:scale-95 text-[var(--ink)] flex items-center justify-center transition-all cursor-pointer border border-[var(--line)] shadow-xs"
                         title="Decrease focus by 5 minutes"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleStepStudy(5)}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-white/5"
+                        className="w-6 h-6 rounded-md bg-[var(--surface)] hover:bg-[var(--paper)] active:scale-95 text-[var(--ink)] flex items-center justify-center transition-all cursor-pointer border border-[var(--line)] shadow-xs"
                         title="Increase focus by 5 minutes"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[9px] text-slate-500 uppercase">Locked</span>
+                    <span className="text-[9px] text-[var(--muted)] uppercase font-mono">Locked</span>
                   )}
                 </div>
               </div>
 
               {/* Rest Duration Card with Stepper */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
-                <span className="text-[10px] text-slate-500 block mb-1">
+                <span className="text-[10px] text-[var(--muted)] block mb-1">
                   Rest Duration
                 </span>
 
                 <div className="flex items-center justify-between gap-1 my-1">
-                  <span className="font-semibold text-slate-100 text-sm tabular-nums">
+                  <span className="font-semibold text-[var(--ink)] text-sm tabular-nums">
                     {status.break_duration >= 60
                       ? `${Math.round(status.break_duration / 60)} min`
                       : `${status.break_duration} sec`}
@@ -1041,21 +1104,21 @@ export const TimerView: FC<TimerViewProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleStepBreak(-1)}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-white/5"
+                        className="w-6 h-6 rounded-md bg-[var(--surface)] hover:bg-[var(--paper)] active:scale-95 text-[var(--ink)] flex items-center justify-center transition-all cursor-pointer border border-[var(--line)] shadow-xs"
                         title="Decrease break duration"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleStepBreak(1)}
-                        className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 active:scale-95 text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-white/5"
+                        className="w-6 h-6 rounded-md bg-[var(--surface)] hover:bg-[var(--paper)] active:scale-95 text-[var(--ink)] flex items-center justify-center transition-all cursor-pointer border border-[var(--line)] shadow-xs"
                         title="Increase break duration"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[9px] text-slate-500 uppercase">Locked</span>
+                    <span className="text-[9px] text-[var(--muted)] uppercase font-mono">Locked</span>
                   )}
                 </div>
               </div>
@@ -1064,7 +1127,7 @@ export const TimerView: FC<TimerViewProps> = ({
             {/* Real Clock Timeline Indicator */}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] text-[11px] text-[var(--muted)] border border-[var(--line)]">
               <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-rose-400" />
+                <Clock className="w-3.5 h-3.5 text-[var(--accent)]" />
                 <span>Session Timeline</span>
               </div>
               <span className="text-[var(--ink)] font-mono text-[11px] font-semibold">
@@ -1074,10 +1137,10 @@ export const TimerView: FC<TimerViewProps> = ({
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] text-[11px] text-[var(--muted)] border border-[var(--line)]">
               <div className="flex items-center gap-2">
-                <Headphones className="w-3.5 h-3.5 text-rose-400" />
+                <Headphones className="w-3.5 h-3.5 text-[var(--accent)]" />
                 <span>Audio Ducking</span>
               </div>
-              <span className="text-emerald-500 font-medium">Automatic (15%)</span>
+              <span className="text-emerald-500 font-semibold font-mono">Automatic (15%)</span>
             </div>
           </div>
         </div>
