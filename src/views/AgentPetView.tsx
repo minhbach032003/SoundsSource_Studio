@@ -26,7 +26,6 @@ import {
   Eye,
   Terminal,
   FolderGit2,
-  Headphones,
   Plug,
   Trash2,
   Bot,
@@ -38,6 +37,7 @@ import {
   Trophy,
   Utensils,
 } from "lucide-react";
+import { AgentPetSprite } from "@/components/AgentPetSprite";
 import { cn } from "@/lib/utils";
 
 interface PetEvent {
@@ -514,12 +514,46 @@ export const AgentPetView: FC = () => {
     (e) => feedFilter === "all" || e.category === feedFilter
   );
 
+  // Within-level calculations matching AgentPet CareTabView
+  const internalLevel = getInternalLevel(careState.xp);
+  const floorXP = xpToReach(internalLevel);
+  const ceilingXP = xpToReach(internalLevel + 1);
+  const inLevelXP = Math.max(0, careState.xp - floorXP);
+  const spanXP = Math.max(1, ceilingXP - floorXP);
+  const progressPercent = Math.min(100, Math.max(0, Math.round((inLevelXP / spanXP) * 100)));
+  const tokensToNext = Math.max(0, (ceilingXP - careState.xp) * 5000);
+
+  const stageConfig = STAGE_CONFIGS[careState.stage_name] || STAGE_CONFIGS["Hatchling"];
+  const StageIcon = stageConfig.icon;
+
+  const topActiveSession = agentSessions.find((s) => s.state === "working" || s.state === "waiting");
+  const liveBubbleMessage = topActiveSession
+    ? topActiveSession.tool_name
+      ? `Executing ${topActiveSession.tool_name}: ${topActiveSession.tool_summary || "Working..."}`
+      : topActiveSession.message || `Working on ${topActiveSession.project || "code"}...`
+    : currentQuote;
+
+  const currentMood: "idle" | "working" | "waiting" | "done" | "celebrate" | "sleepy" = isInteracting
+    ? interactionAction === "purring"
+      ? "celebrate"
+      : "working"
+    : topActiveSession
+    ? topActiveSession.state === "working"
+      ? "working"
+      : topActiveSession.state === "waiting"
+      ? "waiting"
+      : topActiveSession.state === "done"
+      ? "done"
+      : "idle"
+    : "idle";
+
   return (
     <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1">
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0 pb-1">
         <div className="flex items-center gap-2.5">
-          <BadgeComponent variant="default" className="text-xs px-2.5 py-1 font-semibold">
+          <BadgeComponent variant="default" className="text-xs px-2.5 py-1 font-semibold flex items-center gap-1.5">
+            <StageIcon className={cn("w-3.5 h-3.5", stageConfig.text)} />
             Lv {careState.display_level} · {careState.stage_name}
           </BadgeComponent>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/70 border border-white/8 text-[11px] text-slate-300">
@@ -578,16 +612,19 @@ export const AgentPetView: FC = () => {
                   }}
                   options={[
                     { label: "Code Frenzy Cat (Active)", value: "code-frenzy-cat" },
-                    { label: "Boba Dog (Shiba)", value: "boba" },
+                    { label: "Boba Otter (Bubble Tea)", value: "boba" },
                     { label: "Shinchan 3 (Action Hero)", value: "shinchan-3" },
-                    { label: "Work Blue Cat (Cyber)", value: "work-blue-cat" },
+                    { label: "Work Blue Cat (Cyber Coding)", value: "work-blue-cat" },
+                    { label: "Super Saiyan Goku (Anime)", value: "super-saiyan-goku" },
+                    { label: "Sword & Shield Guardian", value: "wode-daodun-3d" },
+                    { label: "Eddy Educator Bear", value: "eddy" },
                   ]}
                 />
               </div>
 
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-semibold shadow-sm">
                 <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>7-Day Coding Streak</span>
+                <span>{careState.streak_days > 0 ? `${careState.streak_days}-Day Streak` : "7-Day Streak"}</span>
               </div>
             </div>
 
@@ -601,7 +638,7 @@ export const AgentPetView: FC = () => {
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0 animate-spin" style={{ animationDuration: "8s" }} />
                   <p className="text-xs font-medium text-slate-100 m-0 group-hover:text-sky-200 transition-colors">
-                    "{currentQuote}"
+                    "{liveBubbleMessage}"
                   </p>
                 </div>
                 {/* Speech arrow tail */}
@@ -609,127 +646,35 @@ export const AgentPetView: FC = () => {
               </div>
             </div>
 
-            {/* Character Stage & Avatar */}
-            <div className="relative w-full flex-1 flex items-center justify-center select-none py-2 z-10">
+            {/* Character Stage & Authentic Animated Pixel Sprite */}
+            <div className="relative w-full flex-1 flex flex-col items-center justify-center select-none py-2 z-10">
               <div
                 onClick={handlePet}
                 className={cn(
-                  "relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center cursor-pointer transition-transform duration-300 transform",
+                  "relative flex flex-col items-center justify-center cursor-pointer transition-transform duration-300",
                   isInteracting && "scale-110",
-                  interactionAction === "purring" && "rotate-2",
                   !isInteracting && "hover:scale-105"
                 )}
                 title="Click companion to interact!"
               >
-                {selectedPet === "boba" ? (
-                  /* Boba Dog Avatar */
-                  <svg viewBox="0 0 160 160" className="w-44 h-44 drop-shadow-[0_12px_28px_rgba(0,0,0,0.6)]">
-                    <circle cx="80" cy="80" r="60" fill="#f59e0b" />
-                    <circle cx="55" cy="70" r="6" fill="#1e293b" />
-                    <circle cx="105" cy="70" r="6" fill="#1e293b" />
-                    <ellipse cx="80" cy="88" rx="14" ry="10" fill="#fef3c7" />
-                    <ellipse cx="80" cy="84" rx="6" ry="4" fill="#1e293b" />
-                    {/* Studio Headphones */}
-                    <path d="M 30 75 A 50 50 0 0 1 130 75" fill="none" stroke="#38bdf8" strokeWidth="6" strokeLinecap="round" />
-                    <rect x="25" y="70" width="12" height="20" rx="4" fill="#0284c7" />
-                    <rect x="123" y="70" width="12" height="20" rx="4" fill="#0284c7" />
-                    {/* Boba cup */}
-                    <rect x="68" y="105" width="24" height="32" rx="4" fill="#38bdf8" opacity="0.85" />
-                    <rect x="78" y="95" width="4" height="20" fill="#e0f2fe" />
-                    <circle cx="74" cy="128" r="3" fill="#0f172a" />
-                    <circle cx="86" cy="128" r="3" fill="#0f172a" />
-                    <circle cx="80" cy="124" r="3" fill="#0f172a" />
-                  </svg>
-                ) : selectedPet === "shinchan-3" ? (
-                  /* Shinchan 3 Avatar */
-                  <svg viewBox="0 0 160 160" className="w-44 h-44 drop-shadow-[0_12px_28px_rgba(0,0,0,0.6)]">
-                    <circle cx="80" cy="75" r="54" fill="#fecdd3" />
-                    <ellipse cx="56" cy="68" rx="8" ry="12" fill="#0f172a" />
-                    <ellipse cx="104" cy="68" rx="8" ry="12" fill="#0f172a" />
-                    <path d="M 45 52 Q 56 46 66 52" stroke="#0f172a" strokeWidth="4" strokeLinecap="round" fill="none" />
-                    <path d="M 94 52 Q 104 46 115 52" stroke="#0f172a" strokeWidth="4" strokeLinecap="round" fill="none" />
-                    <ellipse cx="80" cy="92" rx="10" ry="6" fill="#e11d48" />
-                    {/* Hero Scarf */}
-                    <path d="M 40 120 Q 80 140 120 120" stroke="#ef4444" strokeWidth="12" strokeLinecap="round" fill="none" />
-                  </svg>
-                ) : selectedPet === "work-blue-cat" ? (
-                  /* Work Blue Cat (Cyber) */
-                  <svg viewBox="0 0 180 180" className="w-48 h-48 drop-shadow-[0_12px_28px_rgba(0,0,0,0.6)]">
-                    <polygon points="40,25 65,75 25,65" fill="#1e3a8a" />
-                    <polygon points="140,25 115,75 155,65" fill="#1e3a8a" />
-                    <ellipse cx="90" cy="85" rx="55" ry="45" fill="#2563eb" />
-                    <ellipse cx="70" cy="80" rx="9" ry="12" fill="#38bdf8" />
-                    <ellipse cx="110" cy="80" rx="9" ry="12" fill="#38bdf8" />
-                    <circle cx="70" cy="80" r="4" fill="#0f172a" />
-                    <circle cx="110" cy="80" r="4" fill="#0f172a" />
-                    {/* Striped Green Hoodie */}
-                    <path d="M 45 130 C 45 105, 135 105, 135 130 L 140 170 L 40 170 Z" fill="#059669" />
-                    <line x1="45" y1="140" x2="135" y2="140" stroke="#34d399" strokeWidth="4" />
-                    <line x1="42" y1="155" x2="138" y2="155" stroke="#34d399" strokeWidth="4" />
-                  </svg>
-                ) : (
-                  /* Code Frenzy Cat (Default Hero Cat) */
-                  <svg viewBox="0 0 180 180" className="w-48 h-48 drop-shadow-[0_16px_32px_rgba(0,0,0,0.7)]">
-                    <defs>
-                      <linearGradient id="catBody" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#475569" />
-                        <stop offset="100%" stopColor="#1e293b" />
-                      </linearGradient>
-                      <linearGradient id="laptopGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" />
-                        <stop offset="100%" stopColor="#0284c7" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Ears */}
-                    <polygon points="45,28 68,76 28,64" fill="url(#catBody)" />
-                    <polygon points="50,38 64,70 36,62" fill="#f43f5e" opacity="0.6" />
-                    <polygon points="135,28 112,76 152,64" fill="url(#catBody)" />
-                    <polygon points="130,38 116,70 144,62" fill="#f43f5e" opacity="0.6" />
-
-                    {/* Head */}
-                    <ellipse cx="90" cy="80" rx="52" ry="42" fill="url(#catBody)" />
-
-                    {/* Studio Headphones */}
-                    <path d="M 42 75 A 48 48 0 0 1 138 75" fill="none" stroke="#38bdf8" strokeWidth="5.5" strokeLinecap="round" />
-                    <rect x="36" y="70" width="10" height="20" rx="4" fill="#0284c7" />
-                    <rect x="134" y="70" width="10" height="20" rx="4" fill="#0284c7" />
-
-                    {/* Big Anime Eyes */}
-                    <ellipse cx="72" cy="76" rx="8" ry="11" fill="#38bdf8" />
-                    <circle cx="74" cy="74" r="3.5" fill="#ffffff" />
-                    <ellipse cx="108" cy="76" rx="8" ry="11" fill="#38bdf8" />
-                    <circle cx="110" cy="74" r="3.5" fill="#ffffff" />
-
-                    {/* Nose and Whiskers */}
-                    <polygon points="90,87 86,83 94,83" fill="#f43f5e" />
-                    <path d="M 86 90 Q 90 94 94 90" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
-                    <line x1="46" y1="82" x2="26" y2="80" stroke="#64748b" strokeWidth="1.5" />
-                    <line x1="48" y1="88" x2="28" y2="92" stroke="#64748b" strokeWidth="1.5" />
-                    <line x1="134" y1="82" x2="154" y2="80" stroke="#64748b" strokeWidth="1.5" />
-                    <line x1="132" y1="88" x2="152" y2="92" stroke="#64748b" strokeWidth="1.5" />
-
-                    {/* Body */}
-                    <ellipse cx="90" cy="135" rx="40" ry="32" fill="url(#catBody)" />
-
-                    {/* Laptop with Neon Screen */}
-                    <rect x="58" y="118" width="64" height="42" rx="4" fill="#0f172a" stroke="#38bdf8" strokeWidth="1.5" />
-                    <rect x="62" y="122" width="56" height="34" rx="2" fill="url(#laptopGlow)" opacity="0.8" />
-                    {/* Code lines on screen */}
-                    <line x1="68" y1="128" x2="84" y2="128" stroke="#ffffff" strokeWidth="1.5" />
-                    <line x1="68" y1="133" x2="108" y2="133" stroke="#e0f2fe" strokeWidth="1.5" />
-                    <line x1="68" y1="138" x2="98" y2="138" stroke="#bae6fd" strokeWidth="1.5" />
-                    <line x1="68" y1="143" x2="88" y2="143" stroke="#7dd3fc" strokeWidth="1.5" />
-
-                    {/* Typing Paws */}
-                    <ellipse cx="65" cy="158" rx="8" ry="6" fill="#94a3b8" stroke="#475569" strokeWidth="1.5" />
-                    <ellipse cx="115" cy="158" rx="8" ry="6" fill="#94a3b8" stroke="#475569" strokeWidth="1.5" />
-                  </svg>
-                )}
+                <AgentPetSprite
+                  slug={selectedPet}
+                  mood={currentMood}
+                  size={200}
+                />
 
                 {/* Status Micro-Badge */}
-                <span className="absolute bottom-1 right-2 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-950/90 border border-sky-400/40 text-sky-300 shadow-lg flex items-center gap-1.5 backdrop-blur-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="mt-2 px-3 py-1 rounded-full text-[10px] font-bold bg-slate-950/90 border border-sky-400/40 text-sky-300 shadow-lg flex items-center gap-1.5 backdrop-blur-md">
+                  <span
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      currentMood === "working"
+                        ? "bg-emerald-400 animate-ping"
+                        : currentMood === "waiting"
+                        ? "bg-amber-400 animate-bounce"
+                        : "bg-sky-400"
+                    )}
+                  />
                   <span>
                     {isInteracting
                       ? interactionAction === "purring"
@@ -737,7 +682,9 @@ export const AgentPetView: FC = () => {
                         : interactionAction === "coffee"
                         ? "Energized on Espresso"
                         : "Devouring Tuna"
-                      : "Coding Frenzy (142 WPM)"}
+                      : topActiveSession
+                      ? `${topActiveSession.agent_kind.toUpperCase()} (${topActiveSession.state})`
+                      : "Coding Companion (Active)"}
                   </span>
                 </span>
               </div>
@@ -789,30 +736,60 @@ export const AgentPetView: FC = () => {
 
           {/* Progression Bar & Vitals Cockpit */}
           <div className="rounded-2xl bg-[#141a24] border border-white/8 p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
-            {/* Level & XP Progression Bar */}
+            {/* Level & XP Progression Bar matching CareTabView */}
             <div className="bg-slate-950/60 border border-white/6 rounded-xl p-3 px-3.5">
               <div className="flex items-center justify-between text-xs mb-1.5">
-                <div className="flex items-center gap-1.5 text-slate-200 font-semibold text-[11px]">
-                  <Award className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>XP Progression ({careState.stage_name})</span>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "w-6 h-6 rounded-lg flex items-center justify-center border",
+                      stageConfig.bg,
+                      stageConfig.border
+                    )}
+                  >
+                    <StageIcon className={cn("w-3.5 h-3.5", stageConfig.text)} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-100 text-xs">
+                      Lv {careState.display_level}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                        stageConfig.bg,
+                        stageConfig.border,
+                        stageConfig.text
+                      )}
+                    >
+                      {careState.stage_name}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[11px] font-semibold text-sky-400 tabular-nums">
-                  {careState.xp.toLocaleString()} Total XP
-                </span>
+
+                <div className="text-right">
+                  <span className="text-[11px] font-semibold text-sky-400 tabular-nums">
+                    {inLevelXP.toLocaleString()} / {spanXP.toLocaleString()} XP
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono ml-1.5">
+                    ({progressPercent}%)
+                  </span>
+                </div>
               </div>
-              <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+
+              <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mt-1.5">
                 <div
                   className="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.max(5, Math.min(100, Math.round(careState.progress * 100)))}%` }}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
+
               <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/5 text-[10px] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Headphones className="w-3 h-3 text-sky-400" />
-                  Burned Today: {careState.tokens_today.toLocaleString()} tokens
+                <span className="flex items-center gap-1 text-slate-300">
+                  <Sparkles className="w-3 h-3 text-sky-400" />
+                  Lifetime XP: {careState.xp.toLocaleString()}
                 </span>
-                <span className="text-emerald-400 font-medium">
-                  {careState.meals_today} sessions completed today
+                <span className={cn("font-medium", stageConfig.text)}>
+                  ≈ {tokensToNext.toLocaleString()} tokens to Lv {careState.display_level + 1}
                 </span>
               </div>
             </div>
@@ -895,6 +872,83 @@ export const AgentPetView: FC = () => {
                     )}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Tamagotchi Daily Feeding & Lifetime Ledger */}
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
+                <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  Daily Feeding & Work Activity
+                </span>
+                <span className="font-mono text-emerald-400 font-semibold text-[10px]">
+                  {careState.streak_days} Day Streak
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+                <div>
+                  <span className="text-slate-500 block">Tokens Today</span>
+                  <span className="font-mono font-semibold text-slate-200">
+                    {careState.tokens_today.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Meals Today</span>
+                  <span className="font-mono font-semibold text-slate-200">
+                    {careState.meals_today} sessions
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Lifetime Tokens</span>
+                  <span className="font-mono font-semibold text-slate-300">
+                    {careState.total_tokens.toLocaleString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Lifetime Meals</span>
+                  <span className="font-mono font-semibold text-slate-300">
+                    {careState.total_meals} sessions
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Achievements Showcase (AgentPet Trophy Shelf) */}
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
+                <span className="text-slate-400 flex items-center gap-1.5 font-medium">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  Achievements Showcase
+                </span>
+                <span className="text-slate-500 font-mono text-[10px]">
+                  {careState.unlocked_achievements.length} / {ACHIEVEMENTS_METADATA.length} Unlocked
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                {ACHIEVEMENTS_METADATA.map((ach) => {
+                  const isUnlocked = careState.unlocked_achievements.includes(ach.id);
+                  const Icon = ach.icon;
+                  return (
+                    <div
+                      key={ach.id}
+                      className={cn(
+                        "p-2 rounded-lg border text-center transition-all flex flex-col items-center gap-1",
+                        isUnlocked
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
+                          : "bg-slate-900/40 border-white/5 text-slate-500 opacity-40"
+                      )}
+                      title={`${ach.name}: ${ach.description} (${isUnlocked ? "Unlocked" : "Locked"})`}
+                    >
+                      <Icon
+                        className={cn("w-3.5 h-3.5", isUnlocked ? "text-amber-400" : "text-slate-500")}
+                      />
+                      <span className="text-[9px] font-semibold truncate w-full block">
+                        {ach.name}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
