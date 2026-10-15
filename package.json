@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:app": "pnpm tauri dev",
     "build": "tsc && vite build",
+    "rebuild:app": "rm -rf dist target/release/bundle /Applications/rust-sound.app && pnpm tauri build && cp -R target/release/bundle/macos/rust-sound.app /Applications/",
     "preview": "vite preview",
     "tauri": "TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=. tauri"
   },

@@ -519,6 +519,7 @@ fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppState>) {
     let mut router = state.router.lock().unwrap();
     router.set_app_volume(&bundle_id, volume);
     apply_media_app_volume(&bundle_id, volume);
+    AudioProcess::set_app_volume(&bundle_id, volume);
 }
 
 #[tauri::command]
@@ -531,6 +532,7 @@ fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>) {
         router.get_or_create_channel(&bundle_id).volume
     };
     apply_media_app_volume(&bundle_id, vol);
+    AudioProcess::set_app_mute(&bundle_id, muted);
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -681,6 +683,8 @@ fn get_todo_items(state: State<'_, AppState>) -> Vec<TodoItem> {
 fn get_config_preset_path() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home).join(".config/rust-sound/presets.json")
+    } else if let Ok(appdata) = std::env::var("APPDATA") {
+        PathBuf::from(appdata).join("rust-sound/presets.json")
     } else {
         PathBuf::from("presets.json")
     }

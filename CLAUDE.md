@@ -35,15 +35,19 @@ Spec-driven workflow. `openspec/specs/<capability>/spec.md` are the live require
 
 `AuthService` is built from `RUST_SOUND_JWT_SECRET` and `RUST_SOUND_NEON_URL` (`env_secret` in `crates/app/src/lib.rs`), and the app panics at startup if either is missing. Export both before `pnpm tauri dev`. The live-DB test in `crates/app/tests/auth_integration_test.rs` skips itself when `RUST_SOUND_NEON_URL` is unset.
 
-## Git workflow
+## Git workflow & Automated Rebuild Rule
 
-After finishing a self-contained piece of work, commit and push to `origin` without asking:
+Whenever finishing a self-contained piece of work, feature, or bug fix:
+1. Automatically rebuild the production macOS desktop app into `/Applications/rust-sound.app` so the user's installed application is immediately up-to-date:
+   ```bash
+   pnpm rebuild:app
+   ```
+2. Then commit and push to `origin` without asking:
+   ```bash
+   git add -A && git commit -m "feat/fix: <what changed>" && git push
+   ```
 
-```bash
-git add -A && git commit -m "feat: <what changed>" && git push
-```
-
-Commit messages follow the conventional prefixes already in the history (`feat:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
+Commit messages follow the conventional prefixes already in the history (`feat:`, `fix:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
 
 ## UI conventions & Vector Icon Standard
 

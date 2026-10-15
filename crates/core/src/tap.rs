@@ -78,6 +78,7 @@ pub const K_AUDIO_PROCESS_PROPERTY_PID: u32 = 0x70706964; // 'ppid'
 pub const K_AUDIO_PROCESS_PROPERTY_BUNDLE_ID: u32 = 0x70626964; // 'pbid'
 pub const K_AUDIO_PROCESS_PROPERTY_IS_RUNNING_OUTPUT: u32 = 0x7069726f; // 'piro'
 
+#[cfg(target_os = "macos")]
 #[link(name = "CoreAudio", kind = "framework")]
 unsafe extern "C" {
     pub fn AudioObjectGetPropertyDataSize(
@@ -112,6 +113,59 @@ unsafe extern "C" {
     ) -> OSStatus;
 
     pub fn AudioHardwareDestroyProcessTap(tap_id: AudioObjectID) -> OSStatus;
+}
+
+#[cfg(not(target_os = "macos"))]
+#[allow(unused_variables)]
+pub unsafe fn AudioObjectGetPropertyDataSize(
+    in_object_id: AudioObjectID,
+    in_address: *const AudioObjectPropertyAddress,
+    in_qualifier_data_size: u32,
+    in_qualifier_data: *const c_void,
+    out_data_size: *mut u32,
+) -> OSStatus {
+    -1
+}
+
+#[cfg(not(target_os = "macos"))]
+#[allow(unused_variables)]
+pub unsafe fn AudioObjectGetPropertyData(
+    in_object_id: AudioObjectID,
+    in_address: *const AudioObjectPropertyAddress,
+    in_qualifier_data_size: u32,
+    in_qualifier_data: *const c_void,
+    io_data_size: *mut u32,
+    out_data: *mut c_void,
+) -> OSStatus {
+    -1
+}
+
+#[cfg(not(target_os = "macos"))]
+#[allow(unused_variables)]
+pub unsafe fn AudioObjectSetPropertyData(
+    in_object_id: AudioObjectID,
+    in_address: *const AudioObjectPropertyAddress,
+    in_qualifier_data_size: u32,
+    in_qualifier_data: *const c_void,
+    in_data_size: u32,
+    in_data: *const c_void,
+) -> OSStatus {
+    -1
+}
+
+#[cfg(not(target_os = "macos"))]
+#[allow(unused_variables)]
+pub unsafe fn AudioHardwareCreateProcessTap(
+    tap_description: *const c_void,
+    out_tap_id: *mut AudioObjectID,
+) -> OSStatus {
+    -1
+}
+
+#[cfg(not(target_os = "macos"))]
+#[allow(unused_variables)]
+pub unsafe fn AudioHardwareDestroyProcessTap(tap_id: AudioObjectID) -> OSStatus {
+    0
 }
 
 /// Represents an active CoreAudio Process Tap instance.

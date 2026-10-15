@@ -1,5 +1,6 @@
 pub mod device;
 pub mod metrics;
+pub mod platform;
 pub mod process;
 
 pub use device::AudioDevice;

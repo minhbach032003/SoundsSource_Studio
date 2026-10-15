@@ -23,3 +23,12 @@ Instructions, conventions, and operational rules for AI coding agents (Pi, Claud
 - Never commit secrets, connection strings, or JWT keys. `.env*` files are strictly excluded from git.
 - Display a confirmation modal (`ModalComponent`) prior to sensitive or destructive actions (such as resetting settings or audio routing).
 - Display a toast notification (`useToast`) upon completing state-changing operations.
+
+## 4. Automated Post-Work App Rebuild & Local Deployment Rule
+
+- **MANDATORY AUTO-REBUILD & DEPLOYMENT**: Whenever completing any feature, bug fix, UI enhancement, or requested modification, the AI Agent MUST automatically rebuild the production macOS desktop app and copy it to `/Applications/rust-sound.app`:
+  ```bash
+  pnpm rebuild:app
+  ```
+- This ensures the user can immediately open and test the updated app from Spotlight / Launchpad without needing to ask for a manual rebuild or encountering stale builds.
+
