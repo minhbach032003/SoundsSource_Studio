@@ -50,7 +50,19 @@ impl AgentPetServer {
             std::fs::create_dir_all(parent)?;
         }
 
-        // Never unlink an existing endpoint: it may belong to a live process.
+        if self.socket_path.exists() {
+            // Check if another live instance is actually connected/listening:
+            if std::os::unix::net::UnixStream::connect(&self.socket_path).is_ok() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AddrInUse,
+                    "Pet server already running by another live process",
+                ));
+            } else {
+                // Stale dead socket file left over from crashed/killed process: clean it up!
+                let _ = std::fs::remove_file(&self.socket_path);
+            }
+        }
+
         let listener = UnixListener::bind(&self.socket_path)?;
         let owned = std::fs::symlink_metadata(&self.socket_path)?;
         listener.set_nonblocking(true)?;

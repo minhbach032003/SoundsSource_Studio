@@ -27,7 +27,7 @@ export const ThemeControls: FC<ThemeControlsProps> = ({
         onChange={(e) => onSelectTheme(e.target.value)}
         aria-label="Select color theme palette"
       >
-        <option value="default">Default Sapphire</option>
+        <option value="default">Pingloom Rose (Default)</option>
         <option value="latte">Catppuccin Latte</option>
         <option value="frappe">Catppuccin Frappé</option>
         <option value="macchiato">Catppuccin Macchiato</option>

@@ -46,6 +46,10 @@ impl PetManager {
             .start(self.sessions.clone(), self.care_store.clone());
     }
 
+    pub fn stop_daemon(&self) {
+        self.server.stop();
+    }
+
     pub fn get_care_state(&self) -> PetCareState {
         let store = self.care_store.lock().unwrap();
         store.load()

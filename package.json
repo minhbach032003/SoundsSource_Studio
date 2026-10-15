@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:app": "pnpm tauri dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=. tauri"

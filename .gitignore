@@ -4,6 +4,8 @@ node_modules
 dist
 .DS_Store
 *.swp
+*.log
+app.log
 .env
 .env.*
 .env.local

@@ -474,7 +474,7 @@ export const TimerView: FC<TimerViewProps> = ({
                     ? "url(#warnGrad)"
                     : isStudying
                     ? "url(#studyGrad)"
-                    : "rgba(56, 189, 248, 0.25)"
+                    : "rgba(251, 113, 133, 0.25)"
                 }
                 strokeWidth="7"
                 strokeLinecap="round"

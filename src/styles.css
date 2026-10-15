@@ -11,35 +11,35 @@
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: italic; font-weight: 200 800; font-display: swap; src: url('./fonts/plus-jakarta-sans-latin-wght-italic.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
-  --font-heading: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-heading: "Outfit", "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Inter", "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 @layer base {
   :root {
-    font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font-sans);
     font-size: 14px;
     font-variant-numeric: tabular-nums;
     line-height: 1.5;
     font-synthesis: none;
-    color-scheme: light;
-    --paper: #fffdfc;
-    --surface: #fff5f5;
-    --line: #e8deda;
-    --input-line: #756369;
-    --ink: #4a4a4a;
-    --muted: #736664;
-    --accent: #85c1dc;
-    --accent-ink: #11111b;
-    --focus: #4a4a4a;
-    --accent-text: #4a4a4a;
-    --rose: var(--accent);
+    color-scheme: dark;
+    --paper: #131115;
+    --surface: #1e1923;
+    --line: rgba(255, 255, 255, 0.08);
+    --input-line: rgba(255, 255, 255, 0.12);
+    --ink: #f1f5f9;
+    --muted: #a8a29e;
+    --accent: #fb7185;
+    --accent-ink: #181116;
+    --focus: #fb7185;
+    --accent-text: #fb7185;
+    --rose: #fb7185;
     --peach: var(--surface);
-    --error: #b52e3b;
-    --warning: #865015;
-    --warning-bg: #fff3df;
-    --success: #357055;
+    --error: #f43f5e;
+    --warning: #fbbf24;
+    --warning-bg: #2b1f13;
+    --success: #34d399;
 
     /* Semantic compatibility aliases */
     --background: var(--paper);
@@ -68,20 +68,20 @@
   :root[data-theme-mode="dark"][data-theme-palette="default-dark"],
   :root:not([data-theme-palette])[data-theme-mode="dark"] {
     color-scheme: dark;
-    --paper: #242020;
-    --surface: #31292b;
-    --line: #4d4143;
-    --input-line: #c5b5b3;
-    --ink: #f7eeeb;
-    --muted: #c5b5b3;
-    --accent: #85c1dc;
-    --accent-ink: #11111b;
-    --focus: #85c1dc;
-    --accent-text: #85c1dc;
-    --error: #ff9c9e;
-    --warning: #efc381;
-    --warning-bg: #403222;
-    --success: #9bc7ae;
+    --paper: #131115;
+    --surface: #1e1923;
+    --line: rgba(255, 255, 255, 0.08);
+    --input-line: rgba(255, 255, 255, 0.12);
+    --ink: #f1f5f9;
+    --muted: #a8a29e;
+    --accent: #fb7185;
+    --accent-ink: #181116;
+    --focus: #fb7185;
+    --accent-text: #fb7185;
+    --error: #f43f5e;
+    --warning: #fbbf24;
+    --warning-bg: #2b1f13;
+    --success: #34d399;
   }
 
   :root[data-theme-palette="latte"] {

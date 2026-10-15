@@ -418,41 +418,60 @@ const AppContent: FC = () => {
       return;
     }
 
-    try {
-      const devList = await invoke<AudioDevice[]>("get_audio_devices");
-      setDevices(devList);
-      const defDev = devList.find((d) => d.is_default) || devList[0];
-      if (defDev) setSelectedDevice(defDev.uid);
-    } catch {
-      setError("Couldn't load audio devices.");
-    }
-
-    try {
-      const inDevList = await invoke<AudioDevice[]>("get_audio_input_devices");
-      setInputDevices(inDevList);
-      const defInDev = inDevList.find((d) => d.is_default) || inDevList[0];
-      if (defInDev) setSelectedInputDevice(defInDev.uid);
-    } catch {
-      // Ignore input devices fetch error
-    }
-
-    try {
-      const preList = await invoke<Preset[]>("get_presets");
-      setPresets(preList);
-      const defPre = preList.find((p) => p.is_default) || preList[0];
-      if (defPre) setSelectedPreset(defPre.name);
-    } catch {
-      setError("Couldn't load saved presets.");
-    }
-
-    try {
-      const sysSettings = await invoke<{
+    const [
+      devListRes,
+      inDevListRes,
+      preListRes,
+      sysSettingsRes,
+      eqStateRes,
+      timerRes,
+      todosRes,
+    ] = await Promise.allSettled([
+      invoke<AudioDevice[]>("get_audio_devices"),
+      invoke<AudioDevice[]>("get_audio_input_devices"),
+      invoke<Preset[]>("get_presets"),
+      invoke<{
         output_volume: number;
         output_muted: boolean;
         input_volume: number;
         input_muted: boolean;
         alert_volume: number;
-      }>("get_system_volume_settings");
+      }>("get_system_volume_settings"),
+      invoke<{
+        bands: Array<{ frequency: number; gain: number; bypass: boolean }>;
+        bypass: boolean;
+      }>("get_master_eq_bands"),
+      invoke<TimerStatus>("get_break_timer_status"),
+      invoke<TodoItem[]>("get_todo_items"),
+    ]);
+
+    if (devListRes.status === "fulfilled") {
+      const devList = devListRes.value;
+      setDevices(devList);
+      const defDev = devList.find((d) => d.is_default) || devList[0];
+      if (defDev) setSelectedDevice(defDev.uid);
+    } else {
+      setError("Couldn't load audio devices.");
+    }
+
+    if (inDevListRes.status === "fulfilled") {
+      const inDevList = inDevListRes.value;
+      setInputDevices(inDevList);
+      const defInDev = inDevList.find((d) => d.is_default) || inDevList[0];
+      if (defInDev) setSelectedInputDevice(defInDev.uid);
+    }
+
+    if (preListRes.status === "fulfilled") {
+      const preList = preListRes.value;
+      setPresets(preList);
+      const defPre = preList.find((p) => p.is_default) || preList[0];
+      if (defPre) setSelectedPreset(defPre.name);
+    } else {
+      setError("Couldn't load saved presets.");
+    }
+
+    if (sysSettingsRes.status === "fulfilled") {
+      const sysSettings = sysSettingsRes.value;
       if (sysSettings) {
         setMasterVolume(Math.round(sysSettings.output_volume * 100));
         setIsMasterMuted(sysSettings.output_muted);
@@ -460,34 +479,22 @@ const AppContent: FC = () => {
         setIsInputMuted(sysSettings.input_muted);
         setSystemSoundsVolume(Math.round(sysSettings.alert_volume * 100));
       }
-    } catch {
-      // Ignore system volume fetch errors
     }
 
-    try {
-      const eqState = await invoke<{
-        bands: Array<{ frequency: number; gain: number; bypass: boolean }>;
-        bypass: boolean;
-      }>("get_master_eq_bands");
-      if (eqState) {
-        setIsEQBypassed(eqState.bypass);
-      }
-    } catch {
-      // Ignore initial EQ fetch error
+    if (eqStateRes.status === "fulfilled" && eqStateRes.value) {
+      setIsEQBypassed(eqStateRes.value.bypass);
     }
 
-    try {
-      const initialTimer = await invoke<TimerStatus>("get_break_timer_status");
-      setTimerStatus(initialTimer);
-      const initialTodos = await invoke<TodoItem[]>("get_todo_items");
-      setTodos(initialTodos);
-    } catch {
-      // Ignore initial timer fetch on start
+    if (timerRes.status === "fulfilled") {
+      setTimerStatus(timerRes.value);
+    }
+    if (todosRes.status === "fulfilled") {
+      setTodos(todosRes.value);
     }
   }, [isDesktop]);
 
   useEffect(() => {
-    void loadProcesses().then(loadConfiguration);
+    void Promise.all([loadProcesses(), loadConfiguration()]);
   }, [loadProcesses, loadConfiguration]);
 
   // Audio Handlers

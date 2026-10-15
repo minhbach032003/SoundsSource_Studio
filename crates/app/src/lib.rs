@@ -383,6 +383,8 @@ fn get_channel_states(state: State<'_, AppState>) -> HashMap<String, ChannelStat
     router.get_channel_states()
 }
 
+static CACHED_ALERT_VOLUME: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(70);
+
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct SystemVolumeSettings {
     pub output_volume: f32,
@@ -398,22 +400,7 @@ fn get_system_volume_settings() -> SystemVolumeSettings {
     let out_mute = AudioDevice::get_master_mute();
     let in_vol = AudioDevice::get_input_volume();
     let in_mute = AudioDevice::get_input_mute();
-
-    let mut alert_vol = 0.70;
-
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(out) = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg("alert volume of (get volume settings)")
-            .output()
-        {
-            let text = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if let Ok(v) = text.parse::<f32>() {
-                alert_vol = v / 100.0;
-            }
-        }
-    }
+    let alert_vol = (CACHED_ALERT_VOLUME.load(std::sync::atomic::Ordering::Relaxed) as f32) / 100.0;
 
     SystemVolumeSettings {
         output_volume: out_vol,
@@ -488,12 +475,15 @@ fn set_input_mute(muted: bool) -> Result<(), String> {
 #[tauri::command]
 fn set_system_sounds_volume(volume: f32) {
     let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
+    CACHED_ALERT_VOLUME.store(vol_100, std::sync::atomic::Ordering::Relaxed);
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg(format!("set volume alert volume {vol_100}"))
-            .output();
+        std::thread::spawn(move || {
+            let _ = std::process::Command::new("osascript")
+                .arg("-e")
+                .arg(format!("set volume alert volume {vol_100}"))
+                .output();
+        });
     }
 }
 
@@ -501,23 +491,26 @@ fn apply_media_app_volume(bundle_id: &str, volume: f32) {
     let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
     #[cfg(target_os = "macos")]
     {
-        if bundle_id == "com.spotify.client" {
-            let _ = std::process::Command::new("osascript")
-                .arg("-e")
-                .arg(format!("tell application \"Spotify\" to set sound volume to {vol_100}"))
-                .output();
-        } else if bundle_id == "com.apple.Music" {
-            let _ = std::process::Command::new("osascript")
-                .arg("-e")
-                .arg(format!("tell application \"Music\" to set sound volume to {vol_100}"))
-                .output();
-        } else if bundle_id == "com.apple.QuickTimePlayerX" {
-            let frac = volume.clamp(0.0, 1.0);
-            let _ = std::process::Command::new("osascript")
-                .arg("-e")
-                .arg(format!("tell application \"QuickTime Player\" to set audio volume of front document to {frac}"))
-                .output();
-        }
+        let bundle = bundle_id.to_string();
+        std::thread::spawn(move || {
+            if bundle == "com.spotify.client" {
+                let _ = std::process::Command::new("osascript")
+                    .arg("-e")
+                    .arg(format!("tell application \"Spotify\" to set sound volume to {vol_100}"))
+                    .output();
+            } else if bundle == "com.apple.Music" {
+                let _ = std::process::Command::new("osascript")
+                    .arg("-e")
+                    .arg(format!("tell application \"Music\" to set sound volume to {vol_100}"))
+                    .output();
+            } else if bundle == "com.apple.QuickTimePlayerX" {
+                let frac = volume.clamp(0.0, 1.0);
+                let _ = std::process::Command::new("osascript")
+                    .arg("-e")
+                    .arg(format!("tell application \"QuickTime Player\" to set audio volume of front document to {frac}"))
+                    .output();
+            }
+        });
     }
 }
 
@@ -714,7 +707,7 @@ pub fn run() {
         background_mode: AtomicBool::new(false),
     };
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_audio_processes,
@@ -808,6 +801,15 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            use tauri::Manager;
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                state.pet.stop_daemon();
+            }
+        }
+    });
 }
