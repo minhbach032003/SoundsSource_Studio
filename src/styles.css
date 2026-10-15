@@ -179,22 +179,21 @@
     --success: #a6e3a1;
   }
 
-  :root[data-theme-palette="mocha"] {
-    color-scheme: dark;
-    --paper: #1e1e2e;
-    --surface: #181825;
-    --line: #313244;
-    --input-line: #bac2de;
-    --ink: #cdd6f4;
-    --muted: #bac2de;
-    --accent: #74c7ec;
-    --accent-ink: #11111b;
-    --focus: #74c7ec;
-    --accent-text: #74c7ec;
-    --error: #f38ba8;
-    --warning: #f9e2af;
-    --warning-bg: #313244;
-    --success: #a6e3a1;
+  :root[data-theme-palette="default-light"],
+  :root[data-theme-mode="light"][data-theme-palette="default-light"],
+  :root:not([data-theme-palette]):not([data-theme-mode="dark"]) {
+    --muted: #58524f;
+    --accent-text: #a63f56;
+    --error: #b42339;
+    --warning: #925900;
+    --success: #18734b;
+  }
+
+  :root[data-theme-palette="latte"] {
+    --muted: #5c5f75;
+    --accent-text: #3855b8;
+    --warning: #875200;
+    --success: #28751b;
   }
 
   body {

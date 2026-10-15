@@ -356,7 +356,7 @@ export const TimerView: FC<TimerViewProps> = ({
     <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1">
       {/* 1. Top Bar: Preset Selector with Custom Setup & Stats */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0">
-        <div className="inline-flex p-1 gap-1 rounded-xl bg-slate-950/80 border border-white/8 backdrop-blur-md">
+        <div className="inline-flex p-1 gap-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] backdrop-blur-md">
           {PRESETS.map((p) => {
             const isSelected =
               status.study_duration === p.study && status.break_duration === p.breakDur;
@@ -369,8 +369,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
                   isSelected
-                    ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/40 shadow-sm"
-                    : "text-stone-400 hover:text-stone-200 hover:bg-white/5 border border-transparent",
+                    ? "bg-[var(--surface)] text-[var(--ink)] font-semibold border border-[var(--line)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)]/50 border border-transparent",
                   !isIdle && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -386,13 +386,13 @@ export const TimerView: FC<TimerViewProps> = ({
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
               isCustomPreset
-                ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/40 shadow-sm"
-                : "text-stone-400 hover:text-stone-200 hover:bg-white/5 border border-transparent",
+                ? "bg-[var(--surface)] text-[var(--ink)] font-semibold border border-[var(--line)] shadow-xs"
+                : "text-[var(--muted)] hover:text-[var(--ink)] hover:bg-[var(--surface)]/50 border border-transparent",
               !isIdle && "opacity-50 cursor-not-allowed"
             )}
             title="Setup custom study and break intervals with clock timeline"
           >
-            <SlidersHorizontal className="w-3 h-3 text-rose-400" />
+            <SlidersHorizontal className="w-3 h-3 text-[var(--accent-text)]" />
             <span>
               {isCustomPreset
                 ? `Custom (${Math.round(status.study_duration / 60)}m / ${
@@ -747,7 +747,7 @@ export const TimerView: FC<TimerViewProps> = ({
                   value={newTodoTitle}
                   onChange={(e) => setNewTodoTitle(e.target.value)}
                   fullWidth
-                  className="h-8.5 bg-slate-950/70 text-xs"
+                  className="h-8.5 text-xs"
                 />
                 <ButtonComponent
                   type="submit"
@@ -763,38 +763,38 @@ export const TimerView: FC<TimerViewProps> = ({
 
               {/* Timebox Inputs (Start Time -> End Time) */}
               {showTimeboxOptions && (
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-white/6 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <div className="p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-rose-400" />
+                      <Clock className="w-3 h-3 text-[var(--accent-text)]" />
                       Time-blocking schedule:
                     </span>
-                    <span className="font-mono text-rose-300 font-semibold">
+                    <span className="font-mono text-[var(--accent-text)] font-semibold">
                       {diffMinutesBetween(newStartTime, newEndTime)} minutes
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-[10px] text-slate-500 block mb-0.5">
+                      <span className="text-[10px] text-[var(--muted)] block mb-0.5">
                         Start Time
                       </span>
                       <input
                         type="time"
                         value={newStartTime}
                         onChange={(e) => setNewStartTime(e.target.value)}
-                        className="w-full h-7 bg-slate-900 border border-white/10 rounded-lg px-2 text-xs text-slate-200 font-mono"
+                        className="w-full h-7 bg-[var(--surface)] border border-[var(--line)] rounded-lg px-2 text-xs text-[var(--ink)] font-mono"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500 block mb-0.5">
+                      <span className="text-[10px] text-[var(--muted)] block mb-0.5">
                         End Time
                       </span>
                       <input
                         type="time"
                         value={newEndTime}
                         onChange={(e) => setNewEndTime(e.target.value)}
-                        className="w-full h-7 bg-slate-900 border border-white/10 rounded-lg px-2 text-xs text-slate-200 font-mono"
+                        className="w-full h-7 bg-[var(--surface)] border border-[var(--line)] rounded-lg px-2 text-xs text-[var(--ink)] font-mono"
                       />
                     </div>
                   </div>
@@ -810,7 +810,7 @@ export const TimerView: FC<TimerViewProps> = ({
                           setNewStartTime(nowStr);
                           setNewEndTime(addMinutesToTime(nowStr, dur));
                         }}
-                        className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-white/5 cursor-pointer"
+                        className="px-2 py-0.5 rounded bg-[var(--surface)] hover:bg-[var(--paper)] text-[10px] text-[var(--ink)] border border-[var(--line)] cursor-pointer"
                       >
                         +{dur}m
                       </button>
@@ -842,12 +842,10 @@ export const TimerView: FC<TimerViewProps> = ({
                       className={cn(
                         "group flex items-center justify-between p-2.5 rounded-xl border transition-all text-xs",
                         isActive
-                          ? "bg-rose-500/15 border-rose-400/50 shadow-sm ring-1 ring-rose-400/20"
+                          ? "bg-[var(--accent)]/15 border-[var(--accent)] shadow-sm ring-1 ring-[var(--accent)]/30 text-[var(--ink)]"
                           : item.is_completed
-                          ? "bg-[#18131c]/50 border-transparent opacity-60"
-                          : isGCal
-                          ? "bg-[#1f1924]/80 border-rose-500/20 hover:border-rose-500/40"
-                          : "bg-[#19141d]/70 border-white/6 hover:border-white/12"
+                          ? "bg-[var(--paper)] border-[var(--line)] opacity-60 text-[var(--muted)]"
+                          : "bg-[var(--paper)] border-[var(--line)] hover:border-[var(--focus)] text-[var(--ink)]"
                       )}
                     >
                       {/* Completion check & Title */}
@@ -888,8 +886,8 @@ export const TimerView: FC<TimerViewProps> = ({
                               className={cn(
                                 "truncate font-medium m-0",
                                 item.is_completed
-                                  ? "line-through text-slate-500"
-                                  : "text-slate-200"
+                                  ? "line-through text-[var(--muted)]"
+                                  : "text-[var(--ink)]"
                               )}
                             >
                               {item.title}
@@ -897,7 +895,7 @@ export const TimerView: FC<TimerViewProps> = ({
                           </div>
 
                           {/* Timeblock indicator (từ mấy giờ đến mấy giờ) */}
-                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-400 font-mono">
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[var(--muted)] font-mono">
                             {(item.start_time || item.duration_minutes) && (
                               <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3 text-rose-400" />
@@ -1136,26 +1134,26 @@ export const TimerView: FC<TimerViewProps> = ({
           {/* Wall-Clock Pickers (Từ mấy giờ đến mấy giờ) */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-200">
+              <span className="text-xs font-semibold text-[var(--ink)]">
                 Start Time
               </span>
               <input
                 type="time"
                 value={modalStartTime}
                 onChange={(e) => handleModalStartTimeChange(e.target.value)}
-                className="w-full h-9 bg-slate-950/80 border border-white/10 rounded-lg px-3 text-sm text-slate-200 font-mono font-semibold"
+                className="w-full h-9 bg-[var(--paper)] border border-[var(--line)] rounded-lg px-3 text-sm text-[var(--ink)] font-mono font-semibold"
               />
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-200">
+              <span className="text-xs font-semibold text-[var(--ink)]">
                 End Time
               </span>
               <input
                 type="time"
                 value={modalEndTime}
                 onChange={(e) => handleModalEndTimeChange(e.target.value)}
-                className="w-full h-9 bg-slate-950/80 border border-white/10 rounded-lg px-3 text-sm text-slate-200 font-mono font-semibold"
+                className="w-full h-9 bg-[var(--paper)] border border-[var(--line)] rounded-lg px-3 text-sm text-[var(--ink)] font-mono font-semibold"
               />
             </div>
           </div>
@@ -1163,10 +1161,10 @@ export const TimerView: FC<TimerViewProps> = ({
           {/* Focus Duration (Minutes) */}
           <div className="space-y-2">
             <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-200">
+              <span className="font-semibold text-[var(--ink)]">
                 Focus Duration (Minutes)
               </span>
-              <span className="text-slate-400 font-mono text-[11px]">
+              <span className="text-[var(--muted)] font-mono text-[11px]">
                 {modalStudyMinutes} min (
                 {Math.round((modalStudyMinutes / 60) * 10) / 10}h)
               </span>
@@ -1179,7 +1177,7 @@ export const TimerView: FC<TimerViewProps> = ({
               value={modalStudyMinutes}
               onChange={(e) => handleModalDurationChange(Number(e.target.value))}
               fullWidth
-              className="h-9 bg-slate-950/80 font-mono font-semibold text-sm"
+              className="h-9 font-mono font-semibold text-sm"
             />
 
             {/* Quick Chips for Focus */}
@@ -1192,8 +1190,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer",
                     modalStudyMinutes === m
-                      ? "bg-rose-500/20 text-rose-300 border-rose-400/40 font-semibold"
-                      : "bg-[#251e2b] border-white/8 text-stone-400 hover:text-white"
+                      ? "bg-[var(--accent)]/20 text-[var(--accent-text)] border-[var(--accent)]/40 font-semibold"
+                      : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
                   {m}m
@@ -1203,14 +1201,14 @@ export const TimerView: FC<TimerViewProps> = ({
           </div>
 
           {/* Break Duration Input with Unit Toggle */}
-          <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="space-y-2 pt-2 border-t border-[var(--line)]">
             <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-slate-200">
+              <span className="font-semibold text-[var(--ink)]">
                 Break Duration
               </span>
 
               {/* Unit Toggle: Minutes vs Seconds */}
-              <div className="inline-flex p-0.5 rounded-lg bg-slate-950 border border-white/8 text-[10px]">
+              <div className="inline-flex p-0.5 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-[10px]">
                 <button
                   type="button"
                   onClick={() => {
@@ -1222,8 +1220,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2 py-0.5 rounded cursor-pointer transition-colors",
                     breakUnit === "min"
-                      ? "bg-[#2c2232] text-rose-300 font-semibold"
-                      : "text-stone-400 hover:text-white"
+                      ? "bg-[var(--surface)] text-[var(--ink)] font-semibold shadow-xs"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
                   Minutes
@@ -1239,8 +1237,8 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "px-2 py-0.5 rounded cursor-pointer transition-colors",
                     breakUnit === "sec"
-                      ? "bg-[#2c2232] text-rose-300 font-semibold"
-                      : "text-stone-400 hover:text-white"
+                      ? "bg-[var(--surface)] text-[var(--ink)] font-semibold shadow-xs"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
                   Seconds (Eye-Rest)
@@ -1258,7 +1256,7 @@ export const TimerView: FC<TimerViewProps> = ({
                 setCustomError(null);
               }}
               fullWidth
-              className="h-9 bg-slate-950/80 font-mono font-semibold text-sm"
+              className="h-9 font-mono font-semibold text-sm"
             />
 
             {/* Quick Chips for Break */}
@@ -1272,8 +1270,8 @@ export const TimerView: FC<TimerViewProps> = ({
                       className={cn(
                         "px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer",
                         modalBreakVal === m
-                          ? "bg-rose-500/20 text-rose-300 border-rose-400/40 font-semibold"
-                          : "bg-slate-900/60 border-white/8 text-slate-400 hover:text-white"
+                          ? "bg-[var(--accent)]/20 text-[var(--accent-text)] border-[var(--accent)]/40 font-semibold"
+                          : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)]"
                       )}
                     >
                       {m}m
@@ -1287,8 +1285,8 @@ export const TimerView: FC<TimerViewProps> = ({
                       className={cn(
                         "px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer",
                         modalBreakVal === s
-                          ? "bg-rose-500/20 text-rose-300 border-rose-400/40 font-semibold"
-                          : "bg-slate-900/60 border-white/8 text-slate-400 hover:text-white"
+                          ? "bg-[var(--accent)]/20 text-[var(--accent-text)] border-[var(--accent)]/40 font-semibold"
+                          : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] hover:text-[var(--ink)]"
                       )}
                     >
                       {s}s

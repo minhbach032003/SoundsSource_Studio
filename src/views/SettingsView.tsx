@@ -209,7 +209,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
           <div className="flex items-center gap-2">
             {wallpaper.mode === "custom" ? (
               <BadgeComponent variant="default" className="gap-1.5 h-6">
-                <ImageIcon className="w-3 h-3 text-rose-400" />
+                <ImageIcon className="w-3 h-3 text-[var(--accent-text)]" />
                 Custom Image Active
               </BadgeComponent>
             ) : (
@@ -222,8 +222,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsResetWallpaperModalOpen(true)}
-              leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-400" />}
-              className="h-7 px-2 text-xs text-slate-400 hover:text-slate-200"
+              leftIcon={<RotateCcw className="w-3.5 h-3.5 text-[var(--muted)]" />}
+              className="h-7 px-2 text-xs text-[var(--muted)] hover:text-[var(--ink)]"
               title="Reset wallpaper to default obsidian theme"
             >
               Reset
@@ -234,7 +234,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         <div className="space-y-4 pt-1">
           {/* Preset Lighting Atmosphere Selector */}
           <div>
-            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block mb-2">
+            <span className="text-[11px] font-semibold text-[var(--ink)] uppercase tracking-wider block mb-2">
               Studio Lighting Presets
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -256,13 +256,13 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   >
                     {/* Visual gradient swatch preview */}
                     <div
-                      className="absolute inset-0 opacity-25 group-hover:opacity-35 transition-opacity"
+                      className="absolute inset-x-0 top-0 h-1.5 opacity-60 group-hover:opacity-80 transition-opacity"
                       style={{ background: p.gradient }}
                     />
 
                     <div className="relative z-10 flex items-center justify-between">
                       <span
-                        className="w-3 h-3 rounded-full border border-white/20 shadow-sm"
+                        className="w-3 h-3 rounded-full border border-[var(--line)] shadow-sm"
                         style={{ backgroundColor: p.accent }}
                       />
                       {isSelected && (
@@ -271,10 +271,10 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     </div>
 
                     <div className="relative z-10">
-                      <p className="text-xs font-semibold text-slate-200 m-0 truncate">
+                      <p className="text-xs font-semibold text-[var(--ink)] m-0 truncate">
                         {p.name}
                       </p>
-                      <p className="text-[10px] text-slate-400 m-0 truncate">
+                      <p className="text-[10px] text-[var(--muted)] m-0 truncate">
                         {p.description}
                       </p>
                     </div>
@@ -286,7 +286,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
 
           {/* Custom Image Upload Zone */}
           <div>
-            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block mb-2">
+            <span className="text-[11px] font-semibold text-[var(--ink)] uppercase tracking-wider block mb-2">
               Custom Wallpaper Image
             </span>
 
@@ -372,13 +372,13 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 onClick={() => fileInputRef.current?.click()}
                 className="border border-dashed border-[var(--line)] hover:border-[var(--focus)] rounded-xl p-5 text-center bg-[var(--paper)] hover:bg-[var(--surface)] transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 group"
               >
-                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-400/20 text-[var(--accent-text)] flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
                   <Upload className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-semibold text-slate-200 m-0 mt-1">
+                <p className="text-xs font-semibold text-[var(--ink)] m-0 mt-1">
                   Click or drag image here to set custom background
                 </p>
-                <p className="text-[11px] text-slate-400 m-0">
+                <p className="text-[11px] text-[var(--muted)] m-0">
                   Supports PNG, JPG, or WEBP up to 8MB. Automatically scaled and contrast-protected.
                 </p>
               </div>
@@ -386,9 +386,9 @@ export const SettingsView: FC<SettingsViewProps> = ({
           </div>
 
           {/* Atmosphere Tuning: Dimming & Blur Sliders */}
-          <div className="p-3.5 rounded-xl bg-slate-950/60 border border-white/6 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-rose-400" />
+          <div className="p-3.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--ink)]">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--accent-text)]" />
               <span>Atmosphere Contrast & Readability Tuning</span>
             </div>
 
@@ -396,10 +396,10 @@ export const SettingsView: FC<SettingsViewProps> = ({
               {/* Background Dimming Slider */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[11px]">
+                  <span className="text-[var(--muted)] text-[11px]">
                     Background Dimming (Contrast Protection)
                   </span>
-                  <span className="font-mono text-slate-200 font-semibold text-[11px]">
+                  <span className="font-mono text-[var(--ink)] font-semibold text-[11px]">
                     {Math.round(wallpaper.dim * 100)}%
                   </span>
                 </div>
@@ -417,10 +417,10 @@ export const SettingsView: FC<SettingsViewProps> = ({
               {/* Background Blur Slider */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[11px]">
+                  <span className="text-[var(--muted)] text-[11px]">
                     Background Blur (Frosted Diffusion)
                   </span>
-                  <span className="font-mono text-slate-200 font-semibold text-[11px]">
+                  <span className="font-mono text-[var(--ink)] font-semibold text-[11px]">
                     {wallpaper.blur}px
                   </span>
                 </div>
@@ -456,9 +456,9 @@ export const SettingsView: FC<SettingsViewProps> = ({
             }
           >
             {user ? (
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-950/70 border border-white/8">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 shrink-0 shadow-md">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-[var(--line)] shrink-0 shadow-md">
                     {user.avatar ? (
                       <img
                         src={user.avatar}
@@ -466,19 +466,19 @@ export const SettingsView: FC<SettingsViewProps> = ({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-rose-500/20 text-rose-300 flex items-center justify-center font-bold text-sm">
+                      <div className="w-full h-full bg-rose-500/20 text-[var(--accent-text)] flex items-center justify-center font-bold text-sm">
                         {user.name.slice(0, 1)}
                       </div>
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-slate-100">
+                      <span className="text-xs font-semibold text-[var(--ink)]">
                         {user.name}
                       </span>
                       <GoogleIcon className="w-3.5 h-3.5" />
                     </div>
-                    <p className="text-[11px] text-slate-400 m-0">{user.email}</p>
+                    <p className="text-[11px] text-[var(--muted)] m-0">{user.email}</p>
                   </div>
                 </div>
 
@@ -509,7 +509,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   onClick={onSignInGoogle}
                   loading={isLoadingAuth}
                   leftIcon={<GoogleIcon className="w-4 h-4" />}
-                  className="bg-white hover:bg-slate-100 text-slate-900 border border-[var(--line)] font-semibold hover:text-slate-950 shadow-sm"
+                  className="bg-[var(--surface)] hover:bg-[var(--paper)] text-[var(--ink)] border border-[var(--line)] font-semibold shadow-sm"
                 >
                   Sign in with Google
                 </ButtonComponent>
@@ -522,7 +522,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                 <span className="text-[11px] font-semibold text-[var(--muted)]">
                   Database & Cloud Connection
                 </span>
-                <span className="font-mono text-[10px] text-emerald-500 flex items-center gap-1.5">
+                <span className="font-mono text-[10px] text-[var(--success)] flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#34d399]" />
                   {dbStatus}
                 </span>
@@ -533,17 +533,17 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   Auth & Cryptography Stack
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-400/25 text-[10px] font-mono text-rose-300">
+                  <span className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-400/25 text-[10px] font-mono text-[var(--accent-text)]">
                     HMAC-SHA256 JWT
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-400/25 text-[10px] font-mono text-indigo-300">
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-400/25 text-[10px] font-mono text-[var(--accent-text)]">
                     PKCE S256
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-400/25 text-[10px] font-mono text-purple-300">
+                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-400/25 text-[10px] font-mono text-[var(--accent-text)]">
                     Keycloak OIDC
                   </span>
                   {user && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/25 text-[10px] font-mono text-emerald-300 uppercase">
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-400/25 text-[10px] font-mono text-[var(--success)] uppercase">
                       Provider: {authProvider}
                     </span>
                   )}
@@ -557,7 +557,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         <CardComponent
           title="CoreAudio Engine"
           subtitle="Low-level audio buffer and routing performance options"
-          extra={<Sliders className="w-4 h-4 text-slate-400" />}
+          extra={<Sliders className="w-4 h-4 text-[var(--muted)]" />}
         >
           <div className="space-y-3">
             <SelectComponent
@@ -588,7 +588,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         <CardComponent
           title="Voice AI 1:1"
           subtitle="Microphone capture and conversational intelligence settings"
-          extra={<Mic className="w-4 h-4 text-slate-400" />}
+          extra={<Mic className="w-4 h-4 text-[var(--muted)]" />}
         >
           <div className="space-y-3">
             <SelectComponent
@@ -619,17 +619,17 @@ export const SettingsView: FC<SettingsViewProps> = ({
           <CardComponent
             title="Agent Pet Desktop Companion"
             subtitle="Socket bridge to ~/.agentpet/agentpet.sock"
-            extra={<Bot className="w-4 h-4 text-slate-400" />}
+            extra={<Bot className="w-4 h-4 text-[var(--muted)]" />}
           >
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/80 border border-white/6 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[var(--paper)] border border-[var(--line)] text-xs">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
-                  <span className="font-mono text-slate-300 text-[11px]">
+                  <span className="font-mono text-[var(--ink)] text-[11px]">
                     ~/.agentpet/agentpet.sock
                   </span>
                 </div>
-                <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                <span className="text-[10px] font-medium text-[var(--success)] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   Socket Active
                 </span>
@@ -640,7 +640,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                   label="Selected Desktop Pet"
                   value={activePet}
                   onChange={handlePetChange}
-                  leftIcon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+                  leftIcon={<Sparkles className="w-3.5 h-3.5 text-[var(--warning)]" />}
                   options={[
                     { label: "Code Frenzy Cat (Active)", value: "code-frenzy-cat" },
                     { label: "Midnight Owl (Lofi)", value: "midnight-owl" },
@@ -653,7 +653,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     variant="outline"
                     size="md"
                     onClick={() => onSettingChange?.("Pet State", "Petted")}
-                    leftIcon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
+                    leftIcon={<Sparkles className="w-3.5 h-3.5 text-[var(--warning)]" />}
                     className="w-full h-9 text-xs"
                   >
                     Send Heartbeat Ping
@@ -669,15 +669,15 @@ export const SettingsView: FC<SettingsViewProps> = ({
           <CardComponent
             title="Performance & Memory Diagnostics"
             subtitle="Native macOS Mach task info & low-overhead background resource management"
-            extra={<Cpu className="w-4 h-4 text-rose-400" />}
+            extra={<Cpu className="w-4 h-4 text-[var(--accent-text)]" />}
           >
             <div className="space-y-4">
               {/* Telemetry Metrics Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-rose-400" />
+                      <HardDrive className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                       RAM (RSS)
                     </span>
                     <BadgeComponent
@@ -693,58 +693,58 @@ export const SettingsView: FC<SettingsViewProps> = ({
                       {metrics.resident_size_mb < 90 ? "OPTIMAL" : "ELEVATED"}
                     </BadgeComponent>
                   </div>
-                  <span className="text-lg font-bold font-mono text-slate-100 tracking-tight">
+                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
                     {metrics.resident_size_mb.toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-slate-400">MB</span>
+                    <span className="text-xs font-normal text-[var(--muted)]">MB</span>
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                      <Zap className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                       Virtual RAM
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500">64-bit Mach</span>
+                    <span className="text-[10px] font-mono text-[var(--muted)]">64-bit Mach</span>
                   </div>
-                  <span className="text-lg font-bold font-mono text-slate-100 tracking-tight">
+                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
                     {(metrics.virtual_size_mb / 1024).toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-slate-400">GB</span>
+                    <span className="text-xs font-normal text-[var(--muted)]">GB</span>
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                      <Activity className="w-3.5 h-3.5 text-[var(--success)]" />
                       Render Rate
                     </span>
                     <BadgeComponent variant="emerald" className="text-[9px] px-1 py-0">
                       VSYNC
                     </BadgeComponent>
                   </div>
-                  <span className="text-lg font-bold font-mono text-slate-100 tracking-tight">
-                    {fps} <span className="text-xs font-normal text-slate-400">FPS</span>
+                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
+                    {fps} <span className="text-xs font-normal text-[var(--muted)]">FPS</span>
                   </span>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
                     <span className="flex items-center gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                      <RefreshCw className="w-3.5 h-3.5 text-[var(--warning)]" />
                       IPC Latency
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500">RTT</span>
+                    <span className="text-[10px] font-mono text-[var(--muted)]">RTT</span>
                   </div>
-                  <span className="text-lg font-bold font-mono text-slate-100 tracking-tight">
+                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
                     {latencyMs.toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-slate-400">ms</span>
+                    <span className="text-xs font-normal text-[var(--muted)]">ms</span>
                   </span>
                 </div>
               </div>
 
               {/* Resource Controls */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-950/50 border border-white/6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -759,7 +759,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     }}
                     className={cn(
                       "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                      backgroundRamSaver ? "bg-emerald-500" : "bg-slate-700"
+                      backgroundRamSaver ? "bg-emerald-500" : "bg-[var(--input-line)]"
                     )}
                   >
                     <span
@@ -770,10 +770,10 @@ export const SettingsView: FC<SettingsViewProps> = ({
                     />
                   </button>
                   <div>
-                    <span className="text-xs font-medium text-slate-200 block">
+                    <span className="text-xs font-medium text-[var(--ink)] block">
                       Background Eco & RAM Saver
                     </span>
-                    <span className="text-[11px] text-slate-400 block">
+                    <span className="text-[11px] text-[var(--muted)] block">
                       Auto-throttles 60FPS visualizers and trims inactive memory heap when minimized
                     </span>
                   </div>
@@ -816,7 +816,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
               <span className="px-2.5 py-1 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/25 text-[11px] font-mono text-[var(--accent)]">
                 v0.1.0-alpha · Tauri v2 + Rust
               </span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-emerald-500">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-mono text-[var(--success)]">
                 CoreAudio 48kHz Linear Phase
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/25 text-[11px] font-mono text-purple-500">
@@ -836,7 +836,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         confirmText="Remove Wallpaper"
         cancelText="Cancel"
         confirmVariant="destructive"
-        icon={<Trash2 className="w-5 h-5 text-rose-400" />}
+        icon={<Trash2 className="w-5 h-5 text-[var(--accent-text)]" />}
         onConfirm={handleConfirmRemoveCustomWallpaper}
       />
 
@@ -849,7 +849,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         confirmText="Reset Theme"
         cancelText="Cancel"
         confirmVariant="destructive"
-        icon={<AlertTriangle className="w-5 h-5 text-amber-400" />}
+        icon={<AlertTriangle className="w-5 h-5 text-[var(--warning)]" />}
         onConfirm={handleConfirmResetWallpaper}
       />
 
@@ -862,7 +862,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         confirmText="Sign Out"
         cancelText="Cancel"
         confirmVariant="destructive"
-        icon={<AlertTriangle className="w-5 h-5 text-rose-400" />}
+        icon={<AlertTriangle className="w-5 h-5 text-[var(--accent-text)]" />}
         onConfirm={handleConfirmSignOut}
       />
 
@@ -875,7 +875,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         confirmText="Purge Memory"
         cancelText="Cancel"
         confirmVariant="destructive"
-        icon={<Trash2 className="w-5 h-5 text-amber-400" />}
+        icon={<Trash2 className="w-5 h-5 text-[var(--warning)]" />}
         onConfirm={handleConfirmPurgeMemory}
       />
     </div>

@@ -2,6 +2,7 @@ import { useState, type FC } from "react";
 import { DeviceQuickBar, type AudioDevice, type Preset } from "@/components/DeviceQuickBar";
 import { ProcessCard } from "@/components/ProcessCard";
 import { StudioEQInspector } from "@/components/StudioEQInspector";
+import { AudioFilterPanel } from "@/components/AudioFilterPanel";
 import { AudioBuses } from "@/components/AudioBuses";
 import {
   BadgeComponent,
@@ -345,14 +346,14 @@ export const MixerView: FC<MixerViewProps> = ({
                 </p>
               </div>
             ) : visibleProcesses.length === 0 ? (
-              <div className="p-6 rounded-2xl bg-slate-950/60 border border-white/6 flex flex-col items-center justify-center text-center gap-2">
-                <Filter className="w-7 h-7 text-slate-600 mb-1" />
-                <h4 className="text-xs font-semibold text-slate-200 m-0">
+              <div className="p-6 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm flex flex-col items-center justify-center text-center gap-2">
+                <Filter className="w-7 h-7 text-[var(--muted)] opacity-40 mb-1" />
+                <h4 className="text-xs font-semibold text-[var(--ink)] m-0">
                   {searchQuery
                     ? `No applications found matching "${searchQuery}"`
                     : "No matching audio applications found"}
                 </h4>
-                <p className="text-[11px] text-slate-400 max-w-sm m-0">
+                <p className="text-[11px] text-[var(--muted)] max-w-sm m-0">
                   {searchQuery || channelFilter !== "all" || onlyPlaying
                     ? "Try clearing your search query or switching to All Audible channels."
                     : "Play music or audio in Spotify, YouTube, Chrome, or Discord to mix their streams."}
@@ -398,8 +399,10 @@ export const MixerView: FC<MixerViewProps> = ({
           </section>
         </div>
 
-        {/* Right Column (5 cols): Studio 10-Band Parametric EQ & Spectrum Inspector */}
+        {/* Right Column (5 cols): Audio Filter & Voice Isolation + Studio 10-Band EQ */}
         <div className="lg:col-span-5 flex flex-col gap-3.5">
+          <AudioFilterPanel />
+
           <StudioEQInspector
             activePresetName={selectedPreset}
             isAudioActive={isAnyAudioPlaying}

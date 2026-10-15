@@ -54,7 +54,7 @@ export const CardComponent = forwardRef<HTMLDivElement, CardComponentProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-2xl transition-all duration-150 text-stone-100",
+          "rounded-2xl transition-all duration-150",
           CARD_VARIANTS[variant],
           PADDING_CLASSES[padding],
           className
@@ -62,15 +62,15 @@ export const CardComponent = forwardRef<HTMLDivElement, CardComponentProps>(
         {...props}
       >
         {hasHeader && (
-          <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/5">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-[var(--line)]">
             <div>
               {title && (
-                <h3 className="text-xs font-heading font-bold tracking-tight text-white m-0">
+                <h3 className="text-xs font-heading font-bold tracking-tight text-[var(--ink)] m-0">
                   {title}
                 </h3>
               )}
               {subtitle && (
-                <p className="text-[10px] text-stone-400 m-0 mt-0.5">{subtitle}</p>
+                <p className="text-[10px] text-[var(--muted)] m-0 mt-0.5">{subtitle}</p>
               )}
             </div>
             {extra && <div className="flex items-center gap-2">{extra}</div>}
@@ -80,7 +80,7 @@ export const CardComponent = forwardRef<HTMLDivElement, CardComponentProps>(
         <div>{children}</div>
 
         {footer && (
-          <div className="mt-3 pt-2 border-t border-white/5 text-xs text-slate-400">
+          <div className="mt-3 pt-2 border-t border-[var(--line)] text-xs text-[var(--muted)]">
             {footer}
           </div>
         )}

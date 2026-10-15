@@ -153,3 +153,45 @@ fn test_master_eq_pipeline_e2e() {
     assert_eq!(router.master_eq().bands()[0].gain, 0.0);
     assert_eq!(router.master_eq().bands()[5].gain, 0.0);
 }
+
+#[test]
+fn test_audio_filter_pipeline_e2e() {
+    use rust_sound_lib::engine::{AudioFilterSettings, MicFilterConfig, OutputFilterConfig};
+
+    let mut router = AudioRouter::new(48000.0);
+    let initial_settings = router.get_filter_settings();
+    assert!(initial_settings.mic.enabled);
+
+    // 1. Configure aggressive noise gate
+    let custom = AudioFilterSettings {
+        mic: MicFilterConfig {
+            enabled: true,
+            noise_gate_enabled: true,
+            noise_gate_threshold_db: -35.0,
+            high_pass_enabled: true,
+            high_pass_cutoff_hz: 90.0,
+            voice_presence_enabled: true,
+            voice_presence_db: 4.0,
+            de_esser_enabled: true,
+        },
+        output: OutputFilterConfig {
+            enabled: true,
+            dialogue_boost: true,
+            night_mode_compression: true,
+            bass_warmth: true,
+            de_hiss: true,
+        },
+    };
+    router.set_filter_settings(custom);
+    assert_eq!(router.get_filter_settings().mic.noise_gate_threshold_db, -35.0);
+
+    // 2. Test mic processing on quiet noise
+    let mut quiet_noise = vec![0.0005f32; 256];
+    let stats = router.process_mic_buffer(&mut quiet_noise);
+    assert!(!stats.gate_open);
+
+    // 3. Test output processing with dynamic compression and bass warmth
+    let mut stereo_output = vec![0.8f32; 512];
+    router.process_master(&mut stereo_output);
+    assert!(!stereo_output.is_empty());
+}

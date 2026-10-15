@@ -38,7 +38,7 @@ export const InputComponent = forwardRef<HTMLInputElement, InputComponentProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="text-xs font-medium text-slate-300 select-none"
+            className="text-xs font-medium text-[var(--ink)] select-none"
           >
             {label}
           </label>
@@ -46,7 +46,7 @@ export const InputComponent = forwardRef<HTMLInputElement, InputComponentProps>(
 
         <div className="relative flex items-center">
           {leftIcon && (
-            <span className="absolute left-2.5 text-slate-400 pointer-events-none flex items-center">
+            <span className="absolute left-2.5 text-[var(--muted)] pointer-events-none flex items-center">
               {leftIcon}
             </span>
           )}
@@ -56,9 +56,9 @@ export const InputComponent = forwardRef<HTMLInputElement, InputComponentProps>(
             id={inputId}
             disabled={disabled}
             className={cn(
-              "h-8 px-3 rounded-lg bg-slate-950/80 border text-xs text-slate-200 transition-colors",
-              "border-white/10 placeholder:text-slate-500",
-              "focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400",
+              "h-8 px-3 rounded-lg bg-[var(--paper)] border text-xs text-[var(--ink)] transition-colors",
+              "border-[var(--line)] placeholder:text-[var(--muted)]",
+              "focus:outline-none focus:border-[var(--focus)] focus:ring-1 focus:ring-[var(--focus)]/30",
               "disabled:opacity-45 disabled:cursor-not-allowed",
               error && "border-rose-500 focus:border-rose-500 focus:ring-rose-500",
               leftIcon && "pl-8",
@@ -70,16 +70,16 @@ export const InputComponent = forwardRef<HTMLInputElement, InputComponentProps>(
           />
 
           {rightIcon && (
-            <span className="absolute right-2.5 text-slate-400 pointer-events-none flex items-center">
+            <span className="absolute right-2.5 text-[var(--muted)] pointer-events-none flex items-center">
               {rightIcon}
             </span>
           )}
         </div>
 
         {error ? (
-          <p className="text-[11px] text-rose-400 font-medium">{error}</p>
+          <p className="text-[11px] text-[var(--error)] font-medium">{error}</p>
         ) : helperText ? (
-          <p className="text-[11px] text-slate-500">{helperText}</p>
+          <p className="text-[11px] text-[var(--muted)]">{helperText}</p>
         ) : null}
       </div>
     );

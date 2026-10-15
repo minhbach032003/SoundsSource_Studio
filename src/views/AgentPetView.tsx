@@ -157,7 +157,7 @@ export const STAGE_CONFIGS: Record<
     color: "#10b981",
     bg: "bg-emerald-500/15",
     border: "border-emerald-500/30",
-    text: "text-emerald-400",
+    text: "text-[var(--success)]",
   },
   Companion: {
     icon: PawPrint,
@@ -171,21 +171,21 @@ export const STAGE_CONFIGS: Record<
     color: "#fb7185",
     bg: "bg-rose-500/15",
     border: "border-rose-500/30",
-    text: "text-rose-300",
+    text: "text-[var(--accent-text)]",
   },
   Hero: {
     icon: Shield,
     color: "#a855f7",
     bg: "bg-purple-500/15",
     border: "border-purple-500/30",
-    text: "text-purple-400",
+    text: "text-[var(--accent-text)]",
   },
   Legend: {
     icon: Crown,
     color: "#f59e0b",
     bg: "bg-amber-500/15",
     border: "border-amber-500/30",
-    text: "text-amber-400",
+    text: "text-[var(--warning)]",
   },
 };
 
@@ -628,18 +628,18 @@ export const AgentPetView: FC = () => {
     <div className="w-full flex flex-col space-y-4 select-none pb-8">
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2.5 shrink-0 pb-1">
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5 min-w-0">
           <BadgeComponent variant="default" className="text-xs px-2.5 py-1 font-semibold flex items-center gap-1.5">
             <StageIcon className={cn("w-3.5 h-3.5", stageConfig.text)} />
             Lv {careState.display_level} · {careState.stage_name}
           </BadgeComponent>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/70 border border-white/8 text-[11px] text-slate-300">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] text-[11px] text-[var(--ink)]">
+            <Radio className="w-3.5 h-3.5 text-[var(--success)] animate-pulse" />
             <span className="font-mono">~/.agentpet/agentpet.sock</span>
           </div>
           {careState.streak_days > 0 && (
             <BadgeComponent variant="emerald" className="text-[11px] px-2 py-0.5 font-semibold">
-              <Flame className="w-3 h-3 text-amber-400 inline mr-1" />
+              <Flame className="w-3 h-3 text-[var(--warning)] inline mr-1" />
               {careState.streak_days} Day Streak
             </BadgeComponent>
           )}
@@ -650,9 +650,9 @@ export const AgentPetView: FC = () => {
             variant="outline"
             size="sm"
             onClick={handleToggleDesktopOverlay}
-            leftIcon={<Laptop className="w-3.5 h-3.5 text-rose-400" />}
+            leftIcon={<Laptop className="w-3.5 h-3.5 text-[var(--accent-text)]" />}
             title="Toggle Desktop Floating Pet Window"
-            className="h-7 text-xs border-rose-500/30 text-rose-300 hover:bg-rose-500/10"
+            className="h-7 text-xs border-rose-500/30 text-[var(--accent-text)] hover:bg-rose-500/10"
           >
             {showDesktopOverlay ? "Desktop Pet Active" : "Launch Desktop Pet"}
           </ButtonComponent>
@@ -664,9 +664,9 @@ export const AgentPetView: FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => setIsResetModalOpen(true)}
-            leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-400" />}
+            leftIcon={<RotateCcw className="w-3.5 h-3.5 text-[var(--muted)]" />}
             title="Reset companion stats"
-            className="h-7 text-xs text-slate-400 hover:text-slate-200"
+            className="h-7 text-xs text-[var(--muted)] hover:text-[var(--ink)]"
           >
             Reset
           </ButtonComponent>
@@ -678,7 +678,7 @@ export const AgentPetView: FC = () => {
         {/* Left Column (lg:col-span-7): Hologram Stage & Vitals Cockpit */}
         <div className="lg:col-span-7 flex flex-col gap-4.5">
           {/* Main Companion Hologram Stage */}
-          <div className="flex flex-col items-center p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-[#201925] via-[#18131c] to-[#0e0a11] border border-white/10 shadow-[0_12px_36px_rgba(0,0,0,0.45)] relative overflow-hidden gap-3">
+          <div className="flex flex-col items-center p-5 sm:p-6 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-sm relative overflow-hidden gap-3">
             {/* Ambient Background Aura */}
             <div
               className={cn(
@@ -714,8 +714,8 @@ export const AgentPetView: FC = () => {
                 />
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-semibold shadow-sm">
-                <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[var(--warning)] text-xs font-semibold shadow-sm">
+                <Flame className="w-3.5 h-3.5 text-[var(--warning)] shrink-0" />
                 <span>{careState.streak_days > 0 ? `${careState.streak_days}-Day Streak` : "7-Day Streak"}</span>
               </div>
             </div>
@@ -724,17 +724,17 @@ export const AgentPetView: FC = () => {
             <div className="relative max-w-lg w-full my-2 z-10 shrink-0">
               <div
                 onClick={() => setCurrentQuoteIndex((prev) => (prev + 1) % activeQuotes.length)}
-                className="relative bg-[#1c1622] border border-rose-500/30 rounded-2xl p-3 px-4 shadow-[0_4px_24px_rgba(251,113,133,0.15)] backdrop-blur-md cursor-pointer hover:border-rose-400/50 transition-all text-center group"
+                className="relative bg-[var(--paper)] border border-[var(--input-line)] rounded-2xl p-3 px-4 shadow-[0_4px_24px_rgba(251,113,133,0.15)] backdrop-blur-md cursor-pointer hover:border-rose-400/50 transition-all text-center group"
                 title="Click to hear companion's next thought"
               >
                 <div className="flex items-center justify-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-spin" style={{ animationDuration: "8s" }} />
-                  <p className="text-xs font-medium text-stone-100 m-0 group-hover:text-rose-200 transition-colors">
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0 animate-spin" style={{ animationDuration: "8s" }} />
+                  <p className="text-xs font-medium text-[var(--ink)] m-0 group-hover:text-[var(--accent-text)] transition-colors">
                     "{liveBubbleMessage}"
                   </p>
                 </div>
                 {/* Speech arrow tail */}
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#1c1622] border-r border-b border-rose-500/30 transform rotate-45" />
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[var(--paper)] border-r border-b border-[var(--input-line)] transform rotate-45" />
               </div>
             </div>
 
@@ -783,12 +783,12 @@ export const AgentPetView: FC = () => {
             </div>
 
             {/* Tactical Pet Care Action Dock */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-3.5 mt-2 border-t border-white/8 w-full relative z-10">
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-3.5 mt-2 border-t border-[var(--line)] w-full relative z-10">
               <ButtonComponent
                 variant="primary"
                 size="sm"
                 onClick={handlePet}
-                leftIcon={<Sparkles className="w-3.5 h-3.5 text-slate-950" />}
+                leftIcon={<Sparkles className="w-3.5 h-3.5 text-[var(--accent-ink)]" />}
                 className="h-8.5 px-3.5 text-xs font-semibold shadow-md"
               >
                 Pet Companion
@@ -798,7 +798,7 @@ export const AgentPetView: FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleCoffee}
-                leftIcon={<Coffee className="w-3.5 h-3.5 text-amber-400" />}
+                leftIcon={<Coffee className="w-3.5 h-3.5 text-[var(--warning)]" />}
                 className="h-8.5 px-3.5 text-xs font-semibold"
               >
                 Brew Espresso (+12%)
@@ -808,7 +808,7 @@ export const AgentPetView: FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleTuna}
-                leftIcon={<Fish className="w-3.5 h-3.5 text-emerald-400" />}
+                leftIcon={<Fish className="w-3.5 h-3.5 text-[var(--success)]" />}
                 className="h-8.5 px-3.5 text-xs font-semibold"
               >
                 Feed Tuna (+15%)
@@ -818,8 +818,8 @@ export const AgentPetView: FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleRest}
-                leftIcon={<Moon className="w-3.5 h-3.5 text-purple-400" />}
-                className="h-8.5 px-3.5 text-xs font-semibold text-slate-400 hover:text-slate-200"
+                leftIcon={<Moon className="w-3.5 h-3.5 text-[var(--accent-text)]" />}
+                className="h-8.5 px-3.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--ink)]"
               >
                 Power Nap
               </ButtonComponent>
@@ -828,14 +828,14 @@ export const AgentPetView: FC = () => {
 
           {/* 7-Companion Visual Showcase Gallery */}
           <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3 shrink-0">
-            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--line)]">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-rose-400" />
+                <Sparkles className="w-4 h-4 text-[var(--accent-text)]" />
                 <div>
-                  <h4 className="text-xs font-bold text-slate-100 tracking-tight m-0">
+                  <h4 className="text-xs font-bold text-[var(--ink)] tracking-tight m-0">
                     Companion Showcase Gallery
                   </h4>
-                  <p className="text-[10px] text-slate-400 m-0">
+                  <p className="text-[10px] text-[var(--muted)] m-0">
                     7 Authentic Pixel-Art Archetypes · 1-Click Equip
                   </p>
                 </div>
@@ -885,7 +885,7 @@ export const AgentPetView: FC = () => {
                       <span className="text-[11px] font-bold block truncate leading-tight">
                         {pet.name}
                       </span>
-                      <span className="text-[9px] text-slate-500 block truncate mt-0.5 font-mono">
+                      <span className="text-[9px] text-[var(--muted)] block truncate mt-0.5 font-mono">
                         {pet.tag}
                       </span>
                     </div>
@@ -911,7 +911,7 @@ export const AgentPetView: FC = () => {
                     <StageIcon className={cn("w-3.5 h-3.5", stageConfig.text)} />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-100 text-xs">
+                    <span className="font-bold text-[var(--ink)] text-xs">
                       Lv {careState.display_level}
                     </span>
                     <span
@@ -928,25 +928,25 @@ export const AgentPetView: FC = () => {
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[11px] font-semibold text-rose-300 tabular-nums">
+                  <span className="text-[11px] font-semibold text-[var(--accent-text)] tabular-nums">
                     {inLevelXP.toLocaleString()} / {spanXP.toLocaleString()} XP
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono ml-1.5">
+                  <span className="text-[10px] text-[var(--muted)] font-mono ml-1.5">
                     ({progressPercent}%)
                   </span>
                 </div>
               </div>
 
-              <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden mt-1.5">
+              <div className="w-full h-2 bg-[var(--paper)] rounded-full overflow-hidden mt-1.5">
                 <div
                   className="h-full bg-gradient-to-r from-rose-500 to-pink-400 rounded-full transition-all duration-300"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
 
-              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/5 text-[10px] text-slate-400">
-                <span className="flex items-center gap-1 text-slate-300">
-                  <Sparkles className="w-3 h-3 text-rose-400" />
+              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[var(--line)] text-[10px] text-[var(--muted)]">
+                <span className="flex items-center gap-1 text-[var(--ink)]">
+                  <Sparkles className="w-3 h-3 text-[var(--accent-text)]" />
                   Lifetime XP: {careState.xp.toLocaleString()}
                 </span>
                 <span className={cn("font-medium", stageConfig.text)}>
@@ -960,13 +960,13 @@ export const AgentPetView: FC = () => {
               {/* Energy */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
-                  <span className="text-slate-400 flex items-center gap-1 font-medium">
-                    <Zap className="w-3 h-3 text-amber-400" />
+                  <span className="text-[var(--muted)] flex items-center gap-1 font-medium">
+                    <Zap className="w-3 h-3 text-[var(--warning)]" />
                     Energy
                   </span>
-                  <span className="font-semibold text-slate-200 tabular-nums">{petEnergy}%</span>
+                  <span className="font-semibold text-[var(--ink)] tabular-nums">{petEnergy}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--paper)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-300"
                     style={{ width: `${petEnergy}%` }}
@@ -977,13 +977,13 @@ export const AgentPetView: FC = () => {
               {/* Mood */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
-                  <span className="text-slate-400 flex items-center gap-1 font-medium">
-                    <Heart className="w-3 h-3 text-rose-400" />
+                  <span className="text-[var(--muted)] flex items-center gap-1 font-medium">
+                    <Heart className="w-3 h-3 text-[var(--accent-text)]" />
                     Mood
                   </span>
-                  <span className="font-semibold text-slate-200 tabular-nums">{petMood}%</span>
+                  <span className="font-semibold text-[var(--ink)] tabular-nums">{petMood}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--paper)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-rose-500 to-rose-300 rounded-full transition-all duration-300"
                     style={{ width: `${petMood}%` }}
@@ -994,13 +994,13 @@ export const AgentPetView: FC = () => {
               {/* Focus */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
-                  <span className="text-slate-400 flex items-center gap-1 font-medium">
-                    <Activity className="w-3 h-3 text-rose-400" />
+                  <span className="text-[var(--muted)] flex items-center gap-1 font-medium">
+                    <Activity className="w-3 h-3 text-[var(--accent-text)]" />
                     Focus
                   </span>
-                  <span className="font-semibold text-slate-200 tabular-nums">{petFocus}%</span>
+                  <span className="font-semibold text-[var(--ink)] tabular-nums">{petFocus}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--paper)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-rose-500 to-rose-300 rounded-full transition-all duration-300"
                     style={{ width: `${petFocus}%` }}
@@ -1011,15 +1011,15 @@ export const AgentPetView: FC = () => {
               {/* Hunger */}
               <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col justify-between">
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
-                  <span className="text-slate-400 flex items-center gap-1 font-medium">
-                    <Fish className="w-3 h-3 text-emerald-400" />
+                  <span className="text-[var(--muted)] flex items-center gap-1 font-medium">
+                    <Fish className="w-3 h-3 text-[var(--success)]" />
                     Hunger
                   </span>
-                  <span className="font-semibold text-emerald-400 capitalize text-[10px]">
+                  <span className="font-semibold text-[var(--success)] capitalize text-[10px]">
                     {careState.hunger}
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-[var(--paper)] rounded-full overflow-hidden">
                   <div
                     className={cn(
                       "h-full rounded-full transition-all duration-300",
@@ -1038,37 +1038,37 @@ export const AgentPetView: FC = () => {
 
             {/* Tamagotchi Daily Feeding & Lifetime Ledger */}
             <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2 text-xs">
-              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
-                <span className="text-slate-400 flex items-center gap-1.5 font-medium">
-                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-[var(--line)]">
+                <span className="text-[var(--muted)] flex items-center gap-1.5 font-medium">
+                  <Flame className="w-3.5 h-3.5 text-[var(--warning)]" />
                   Daily Feeding & Work Activity
                 </span>
-                <span className="font-mono text-emerald-400 font-semibold text-[10px]">
+                <span className="font-mono text-[var(--success)] font-semibold text-[10px]">
                   {careState.streak_days} Day Streak
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
                 <div>
-                  <span className="text-slate-500 block">Tokens Today</span>
-                  <span className="font-mono font-semibold text-slate-200">
+                  <span className="text-[var(--muted)] block">Tokens Today</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
                     {careState.tokens_today.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Meals Today</span>
-                  <span className="font-mono font-semibold text-slate-200">
+                  <span className="text-[var(--muted)] block">Meals Today</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
                     {careState.meals_today} sessions
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Lifetime Tokens</span>
-                  <span className="font-mono font-semibold text-slate-300">
+                  <span className="text-[var(--muted)] block">Lifetime Tokens</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
                     {careState.total_tokens.toLocaleString()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Lifetime Meals</span>
-                  <span className="font-mono font-semibold text-slate-300">
+                  <span className="text-[var(--muted)] block">Lifetime Meals</span>
+                  <span className="font-mono font-semibold text-[var(--ink)]">
                     {careState.total_meals} sessions
                   </span>
                 </div>
@@ -1077,12 +1077,12 @@ export const AgentPetView: FC = () => {
 
             {/* Achievements Showcase (AgentPet Trophy Shelf) */}
             <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2 text-xs">
-              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-white/5">
-                <span className="text-slate-400 flex items-center gap-1.5 font-medium">
-                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <div className="flex items-center justify-between text-[11px] pb-1.5 border-b border-[var(--line)]">
+                <span className="text-[var(--muted)] flex items-center gap-1.5 font-medium">
+                  <Trophy className="w-3.5 h-3.5 text-[var(--warning)]" />
                   Achievements Showcase
                 </span>
-                <span className="text-slate-500 font-mono text-[10px]">
+                <span className="text-[var(--muted)] font-mono text-[10px]">
                   {careState.unlocked_achievements.length} / {ACHIEVEMENTS_METADATA.length} Unlocked
                 </span>
               </div>
@@ -1096,13 +1096,13 @@ export const AgentPetView: FC = () => {
                       className={cn(
                         "p-2 rounded-lg border text-center transition-all flex flex-col items-center gap-1",
                         isUnlocked
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-200 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
-                          : "bg-slate-900/40 border-white/5 text-slate-500 opacity-40"
+                          ? "bg-amber-500/10 border-amber-500/30 text-[var(--warning)] shadow-sm"
+                          : "bg-[var(--paper)] border-[var(--line)] text-[var(--muted)] opacity-40"
                       )}
                       title={`${ach.name}: ${ach.description} (${isUnlocked ? "Unlocked" : "Locked"})`}
                     >
                       <Icon
-                        className={cn("w-3.5 h-3.5", isUnlocked ? "text-amber-400" : "text-slate-500")}
+                        className={cn("w-3.5 h-3.5", isUnlocked ? "text-[var(--warning)]" : "text-[var(--muted)]")}
                       />
                       <span className="text-[9px] font-semibold truncate w-full block">
                         {ach.name}
@@ -1119,37 +1119,37 @@ export const AgentPetView: FC = () => {
         <div className="lg:col-span-5 flex flex-col gap-4.5">
           {/* Socket & Desktop Bridge Card */}
           <div className="rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
-            <div className="flex items-center justify-between pb-2.5 border-b border-white/5">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[var(--line)]">
               <div>
-                <span className="text-xs font-semibold text-slate-200 tracking-tight block">
+                <span className="text-xs font-semibold text-[var(--ink)] tracking-tight block">
                   IPC Socket & Desktop Bridge
                 </span>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-[var(--muted)]">
                   Unix Domain Socket ~/.agentpet/agentpet.sock
                 </span>
               </div>
-              <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+              <Radio className="w-4 h-4 text-[var(--success)] animate-pulse" />
             </div>
 
             {/* Diagnostic Grid */}
             <div className="grid grid-cols-2 gap-2 text-xs p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
               <div>
-                <span className="text-[10px] text-slate-400 block mb-0.5">Connection State</span>
-                <span className="text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
+                <span className="text-[10px] text-[var(--muted)] block mb-0.5">Connection State</span>
+                <span className="text-[var(--success)] font-semibold text-[11px] flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" />
                   Connected (1.2 ms)
                 </span>
               </div>
               <div>
-                <span className="text-[10px] text-slate-400 block mb-0.5">Target Agent</span>
-                <span className="text-slate-200 font-semibold text-[11px]">pi:coding-agent</span>
+                <span className="text-[10px] text-[var(--muted)] block mb-0.5">Target Agent</span>
+                <span className="text-[var(--ink)] font-semibold text-[11px]">pi:coding-agent</span>
               </div>
-              <div className="col-span-2 pt-1 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
+              <div className="col-span-2 pt-1 border-t border-[var(--line)] flex items-center justify-between text-[10px] text-[var(--muted)]">
                 <span className="flex items-center gap-1">
-                  <FolderGit2 className="w-3 h-3 text-rose-400" />
+                  <FolderGit2 className="w-3 h-3 text-[var(--accent-text)]" />
                   Workspace Context:
                 </span>
-                <span className="font-mono text-slate-300 truncate max-w-[200px]">
+                <span className="font-mono text-[var(--ink)] truncate max-w-[200px]">
                   /Users/mac/Documents/rust-sound
                 </span>
               </div>
@@ -1160,17 +1160,17 @@ export const AgentPetView: FC = () => {
               {/* Desktop Floating Overlay Toggle */}
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
-                  <Laptop className="w-4 h-4 text-rose-400 shrink-0" />
+                  <Laptop className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Desktop Floating Overlay</span>
-                    <span className="text-[10px] text-slate-400 block">Render animated cat sticker on desktop</span>
+                    <span className="text-xs font-semibold text-[var(--ink)] block">Desktop Floating Overlay</span>
+                    <span className="text-[10px] text-[var(--muted)] block">Render animated cat sticker on desktop</span>
                   </div>
                 </div>
                 <button
                   onClick={handleToggleDesktopOverlay}
                   className={cn(
                     "w-10 h-5.5 rounded-full transition-colors relative cursor-pointer",
-                    showDesktopOverlay ? "bg-rose-500" : "bg-[#251e2b]"
+                    showDesktopOverlay ? "bg-rose-500" : "bg-[var(--input-line)]"
                   )}
                   role="switch"
                   aria-checked={showDesktopOverlay}
@@ -1187,17 +1187,17 @@ export const AgentPetView: FC = () => {
               {/* Audio-Reactive Mode Toggle */}
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
-                  <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <Volume2 className="w-4 h-4 text-[var(--success)] shrink-0" />
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Audio-Reactive Rhythm</span>
-                    <span className="text-[10px] text-slate-400 block">Pulse visuals to active music stream</span>
+                    <span className="text-xs font-semibold text-[var(--ink)] block">Audio-Reactive Rhythm</span>
+                    <span className="text-[10px] text-[var(--muted)] block">Pulse visuals to active music stream</span>
                   </div>
                 </div>
                 <button
                   onClick={handleToggleAudioReactive}
                   className={cn(
                     "w-10 h-5.5 rounded-full transition-colors relative cursor-pointer",
-                    audioReactive ? "bg-emerald-500" : "bg-slate-800"
+                    audioReactive ? "bg-emerald-500" : "bg-[var(--input-line)]"
                   )}
                   role="switch"
                   aria-checked={audioReactive}
@@ -1214,10 +1214,10 @@ export const AgentPetView: FC = () => {
               {/* Focus Timer Sync Toggle */}
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
                 <div className="flex items-center gap-2.5">
-                  <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+                  <Eye className="w-4 h-4 text-[var(--warning)] shrink-0" />
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Break Timer Sync</span>
-                    <span className="text-[10px] text-slate-400 block">Duck audio and rest during breaks</span>
+                    <span className="text-xs font-semibold text-[var(--ink)] block">Break Timer Sync</span>
+                    <span className="text-[10px] text-[var(--muted)] block">Duck audio and rest during breaks</span>
                   </div>
                 </div>
                 <button
@@ -1228,7 +1228,7 @@ export const AgentPetView: FC = () => {
                   }}
                   className={cn(
                     "w-10 h-5.5 rounded-full transition-colors relative cursor-pointer",
-                    focusTimerSync ? "bg-amber-500" : "bg-slate-800"
+                    focusTimerSync ? "bg-amber-500" : "bg-[var(--input-line)]"
                   )}
                   role="switch"
                   aria-checked={focusTimerSync}
@@ -1273,10 +1273,10 @@ export const AgentPetView: FC = () => {
                       : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                 >
-                  <Bot className="w-3.5 h-3.5 text-emerald-500" />
+                  <Bot className="w-3.5 h-3.5 text-[var(--success)]" />
                   Active Sessions
                   {agentSessions.length > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-500 text-[9px] flex items-center justify-center font-bold">
+                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-[var(--success)] text-[9px] flex items-center justify-center font-bold">
                       {agentSessions.length}
                     </span>
                   )}
@@ -1301,9 +1301,9 @@ export const AgentPetView: FC = () => {
                 <ButtonComponent
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-[11px] px-2.5 text-rose-300 hover:text-white hover:bg-rose-500/10"
+                  className="h-7 text-[11px] px-2.5 text-[var(--accent-text)] hover:text-[var(--ink)] hover:bg-rose-500/10"
                   onClick={handleSimulatePing}
-                  leftIcon={<Send className="w-3 h-3 text-rose-400" />}
+                  leftIcon={<Send className="w-3 h-3 text-[var(--accent-text)]" />}
                 >
                   Test Ping
                 </ButtonComponent>
@@ -1314,7 +1314,7 @@ export const AgentPetView: FC = () => {
             {rightColumnTab === "stream" && (
               <>
                 {/* Filter Pills */}
-                <div className="flex items-center gap-1 mb-3 p-1 rounded-xl bg-slate-950/60 border border-white/6 shrink-0">
+                <div className="flex items-center gap-1 mb-3 p-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] shrink-0">
                   {(["all", "coding", "audio", "vitals"] as const).map((cat) => (
                     <button
                       key={cat}
@@ -1322,8 +1322,8 @@ export const AgentPetView: FC = () => {
                       className={cn(
                         "flex-1 py-1 text-[10px] font-semibold rounded-lg transition-all capitalize cursor-pointer",
                         feedFilter === cat
-                          ? "bg-[#2b2231] text-rose-300 shadow-sm border border-white/5"
-                          : "text-slate-400 hover:text-slate-200"
+                          ? "bg-[var(--surface)] text-[var(--ink)] shadow-sm border border-[var(--line)]"
+                          : "text-[var(--muted)] hover:text-[var(--ink)]"
                       )}
                     >
                       {cat === "all" ? "All" : cat}
@@ -1339,10 +1339,10 @@ export const AgentPetView: FC = () => {
                       className="p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-[var(--focus)]"
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)] shrink-0 mt-0.5" />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="font-semibold text-slate-200 text-[11px] truncate">
+                            <span className="font-semibold text-[var(--ink)] text-[11px] truncate">
                               {evt.source}
                             </span>
                             <BadgeComponent
@@ -1358,12 +1358,12 @@ export const AgentPetView: FC = () => {
                               {evt.event}
                             </BadgeComponent>
                           </div>
-                          <p className="text-slate-400 text-[11px] m-0 line-clamp-2 leading-relaxed">
+                          <p className="text-[var(--muted)] text-[11px] m-0 line-clamp-2 leading-relaxed">
                             {evt.message}
                           </p>
                         </div>
                       </div>
-                      <span className="text-[10px] text-slate-500 whitespace-nowrap tabular-nums">
+                      <span className="text-[10px] text-[var(--muted)] whitespace-nowrap tabular-nums">
                         {evt.time}
                       </span>
                     </div>
@@ -1376,10 +1376,10 @@ export const AgentPetView: FC = () => {
             {rightColumnTab === "sessions" && (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
                 {agentSessions.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center text-slate-500">
-                    <Bot className="w-8 h-8 mb-2 opacity-30 text-rose-400" />
-                    <span className="text-xs font-semibold text-slate-300">No active coding sessions</span>
-                    <span className="text-[11px] text-slate-400 mt-1 max-w-xs">
+                  <div className="h-full flex flex-col items-center justify-center p-6 text-center text-[var(--muted)]">
+                    <Bot className="w-8 h-8 mb-2 opacity-30 text-[var(--accent-text)]" />
+                    <span className="text-xs font-semibold text-[var(--ink)]">No active coding sessions</span>
+                    <span className="text-[11px] text-[var(--muted)] mt-1 max-w-xs">
                       Run Claude Code, Codex, or Cursor in your terminal. Live work will automatically stream here via ~/.agentpet/agentpet.sock
                     </span>
                   </div>
@@ -1392,19 +1392,19 @@ export const AgentPetView: FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           {sess.agent_kind.toLowerCase() === "pi" ? (
-                            <Terminal className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <Terminal className="w-3.5 h-3.5 text-[var(--success)] shrink-0" />
                           ) : sess.agent_kind.toLowerCase() === "claude" ? (
-                            <Bot className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <Bot className="w-3.5 h-3.5 text-[var(--warning)] shrink-0" />
                           ) : sess.agent_kind.toLowerCase() === "codex" ? (
-                            <Code2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <Code2 className="w-3.5 h-3.5 text-[var(--success)] shrink-0" />
                           ) : sess.agent_kind.toLowerCase() === "cursor" ? (
-                            <MousePointer2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <MousePointer2 className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
                           ) : sess.agent_kind.toLowerCase() === "gemini" ? (
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
                           ) : (
-                            <Cpu className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            <Cpu className="w-3.5 h-3.5 text-[var(--accent-text)] shrink-0" />
                           )}
-                          <span className="font-bold text-slate-200 text-xs capitalize">
+                          <span className="font-bold text-[var(--ink)] text-xs capitalize">
                             {sess.agent_kind}
                           </span>
                           <BadgeComponent
@@ -1420,20 +1420,20 @@ export const AgentPetView: FC = () => {
                             {sess.state}
                           </BadgeComponent>
                           {sess.model && (
-                            <span className="text-[10px] text-slate-400 font-mono truncate">
+                            <span className="text-[10px] text-[var(--muted)] font-mono truncate">
                               {sess.model}
                             </span>
                           )}
                         </div>
                         {sess.project && (
-                          <div className="text-[11px] text-rose-300 font-mono truncate flex items-center gap-1">
+                          <div className="text-[11px] text-[var(--accent-text)] font-mono truncate flex items-center gap-1">
                             <FolderGit2 className="w-3 h-3 shrink-0" />
                             {sess.project}
                           </div>
                         )}
                         {(sess.tool_name || sess.tool_summary || sess.message) && (
-                          <div className="text-[11px] text-slate-300 font-mono bg-slate-900/80 px-2 py-1 rounded mt-1.5 truncate border border-white/5 flex items-center gap-1.5">
-                            <span className="text-[10px] uppercase font-bold text-rose-400">TOOL:</span>
+                          <div className="text-[11px] text-[var(--ink)] font-mono bg-[var(--paper)] px-2 py-1 rounded mt-1.5 truncate border border-[var(--line)] flex items-center gap-1.5">
+                            <span className="text-[10px] uppercase font-bold text-[var(--accent-text)]">TOOL:</span>
                             <span>{sess.tool_name ? `${sess.tool_name}: ` : ""}{sess.tool_summary || sess.message || "Working"}</span>
                           </div>
                         )}
@@ -1441,7 +1441,7 @@ export const AgentPetView: FC = () => {
                       <button
                         type="button"
                         onClick={() => handleDismissSession(sess.id)}
-                        className="text-slate-500 hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                        className="text-[var(--muted)] hover:text-[var(--accent-text)] p-1 rounded transition-colors cursor-pointer"
                         title="Dismiss session"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1455,49 +1455,49 @@ export const AgentPetView: FC = () => {
             {/* TAB 3: AGENT HOOK INTEGRATIONS */}
             {rightColumnTab === "integrations" && (
               <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[140px]">
-                <div className="p-2.5 rounded-xl bg-slate-950/40 border border-white/5 text-[11px] text-slate-400 mb-2">
+                <div className="p-2.5 rounded-xl bg-[var(--paper)] border border-[var(--line)] text-[11px] text-[var(--muted)] mb-2">
                   1-Click configure hooks into your local developer tools. Lifecycle events will automatically stream into this AgentPet companion.
                 </div>
 
                 {agentIntegrations.map((agent: AgentIntegrationDto) => (
                   <div
                     key={agent.kind}
-                    className="p-3 rounded-xl bg-slate-950/70 border border-white/6 flex items-center justify-between gap-3 text-xs transition-colors hover:border-white/12"
+                    className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-center justify-between gap-3 text-xs transition-colors hover:border-[var(--line)]"
                   >
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-lg bg-white/5 border border-[var(--line)] flex items-center justify-center shrink-0 mt-0.5">
                         {agent.kind === "pi" ? (
-                          <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+                          <Terminal className="w-3.5 h-3.5 text-[var(--success)]" />
                         ) : agent.kind === "claude" ? (
-                          <Bot className="w-3.5 h-3.5 text-amber-400" />
+                          <Bot className="w-3.5 h-3.5 text-[var(--warning)]" />
                         ) : agent.kind === "codex" ? (
-                          <Code2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <Code2 className="w-3.5 h-3.5 text-[var(--success)]" />
                         ) : agent.kind === "cursor" ? (
-                          <MousePointer2 className="w-3.5 h-3.5 text-rose-400" />
+                          <MousePointer2 className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                         ) : agent.kind === "gemini" ? (
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                          <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                         ) : (
-                          <Cpu className="w-3.5 h-3.5 text-purple-400" />
+                          <Cpu className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                         )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-200 text-xs">
+                          <span className="font-semibold text-[var(--ink)] text-xs">
                             {agent.display_name}
                           </span>
                         {agent.is_installed ? (
-                          <span className="text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-1">
+                          <span className="text-[10px] font-medium text-[var(--success)] bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" />
                             Hooked
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500 bg-slate-800/40 px-1.5 py-0.2 rounded border border-white/5">
+                          <span className="text-[10px] text-[var(--muted)] bg-[var(--paper)] px-1.5 py-0.2 rounded border border-[var(--line)]">
                             Inactive
                           </span>
                         )}
                       </div>
                       {agent.note && (
-                        <p className="text-[10px] text-slate-400 m-0 mt-0.5">{agent.note}</p>
+                        <p className="text-[10px] text-[var(--muted)] m-0 mt-0.5">{agent.note}</p>
                       )}
                     </div>
                   </div>
@@ -1509,7 +1509,7 @@ export const AgentPetView: FC = () => {
                       onClick={() => handleToggleHook(agent.kind, agent.is_installed)}
                       className={cn(
                         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                        agent.is_installed ? "bg-emerald-500" : "bg-slate-700"
+                        agent.is_installed ? "bg-emerald-500" : "bg-[var(--input-line)]"
                       )}
                     >
                       <span

@@ -65,7 +65,7 @@ export const ModalComponent: FC<ModalComponentProps> = ({
       {/* Dialog Box */}
       <div
         className={cn(
-          "relative w-full max-w-sm rounded-2xl bg-[#151b23] border border-white/12 shadow-[0_20px_50px_rgba(0,0,0,0.6)] p-5 z-10 transition-all transform animate-in fade-in zoom-in-95 duration-150",
+          "relative w-full max-w-sm rounded-2xl bg-[var(--surface)] text-[var(--ink)] border border-[var(--line)] shadow-2xl p-5 z-10 transition-all transform animate-in fade-in zoom-in-95 duration-150",
           className
         )}
       >
@@ -75,8 +75,8 @@ export const ModalComponent: FC<ModalComponentProps> = ({
             className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border",
               confirmVariant === "destructive"
-                ? "bg-rose-500/15 border-rose-500/30 text-rose-400"
-                : "bg-sky-500/15 border-sky-400/30 text-sky-400"
+                ? "bg-rose-500/15 border-rose-500/30 text-[var(--error)]"
+                : "bg-sky-500/15 border-sky-400/30 text-[var(--accent-text)]"
             )}
           >
             {icon || <AlertTriangle className="w-5 h-5" />}
@@ -85,12 +85,12 @@ export const ModalComponent: FC<ModalComponentProps> = ({
           <div className="flex-1 min-w-0 pr-6">
             <h3
               id="modal-title"
-              className="text-sm font-semibold text-slate-100 m-0 tracking-tight"
+              className="text-sm font-semibold text-[var(--ink)] m-0 tracking-tight"
             >
               {title}
             </h3>
             {description && (
-              <p className="text-xs text-slate-400 mt-1 m-0 leading-relaxed">
+              <p className="text-xs text-[var(--muted)] mt-1 m-0 leading-relaxed">
                 {description}
               </p>
             )}
@@ -98,7 +98,7 @@ export const ModalComponent: FC<ModalComponentProps> = ({
 
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/5"
+            className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ink)] transition-colors cursor-pointer p-1 rounded-lg hover:bg-[var(--paper)]"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" />
@@ -109,7 +109,7 @@ export const ModalComponent: FC<ModalComponentProps> = ({
         {children && <div className="mt-4">{children}</div>}
 
         {/* Action Footer */}
-        <div className="flex items-center justify-end gap-2.5 mt-5 pt-3 border-t border-white/8">
+        <div className="flex items-center justify-end gap-2.5 mt-5 pt-3 border-t border-[var(--line)]">
           <ButtonComponent
             variant="outline"
             size="sm"

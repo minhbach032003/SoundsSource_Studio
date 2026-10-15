@@ -1,6 +1,7 @@
 pub use sound_core::device;
 pub mod auth;
 pub mod eq;
+pub mod filter;
 pub mod pet;
 pub mod preset;
 pub mod router;
@@ -15,6 +16,10 @@ pub use auth::{
 };
 pub use device::AudioDevice;
 pub use eq::{EQBandConfig, ParametricEQ, DEFAULT_EQ_FREQUENCIES};
+pub use filter::{
+    AudioFilterEngine, AudioFilterSettings, FilterProcessingStats, MicFilterConfig,
+    OutputFilterConfig,
+};
 pub use pet::{
     AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer, AgentSession, AgentState,
     HookManager, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, SessionStore,

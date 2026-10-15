@@ -227,8 +227,8 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               </span>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2.5 px-3 py-1 rounded-xl bg-slate-900/80 border border-white/8 text-xs text-slate-300">
-              <span className="text-[11px] text-slate-400">
+            <div className="inline-flex items-center gap-2.5 px-3 py-1 rounded-xl bg-[var(--paper)] border border-[var(--line)] text-xs text-[var(--ink)]">
+              <span className="text-[11px] text-[var(--muted)]">
                 Local Preview Mode · Connect Google for Gemini Live AI
               </span>
               <ButtonComponent
@@ -236,7 +236,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 size="sm"
                 onClick={onSignInGoogle}
                 leftIcon={<GoogleIcon className="w-3.5 h-3.5" />}
-                className="h-6 text-[10px] px-2.5 bg-white/5 hover:bg-white/10 border-white/15 text-white"
+                className="h-6 text-[10px] px-2.5 bg-[var(--surface)] hover:bg-[var(--paper)] border-[var(--line)] text-[var(--ink)]"
               >
                 Sign in with Google
               </ButtonComponent>
@@ -274,11 +274,11 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
           {/* Top Stage Header: Google Persona Selector */}
           <div className="w-full space-y-2 shrink-0">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[11px] font-semibold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-[11px] font-semibold text-[var(--ink)] uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[var(--accent-text)]" />
                 <span>Voice Persona</span>
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">
+              <span className="text-[10px] text-[var(--muted)] font-mono">
                 {user ? "Gemini Native Multimodal" : "Offline Preview"}
               </span>
             </div>
@@ -287,7 +287,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               value={selectedPersona}
               onChange={handlePersonaChange}
               options={GEMINI_PERSONAS}
-              className="h-8.5 bg-slate-950/80 text-xs"
+              className="h-8.5 text-xs"
             />
           </div>
 
@@ -373,12 +373,12 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               </ButtonComponent>
             </div>
 
-            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-white/5 text-[11px] text-slate-400">
+            <div className="flex items-center justify-between p-2 rounded-xl bg-[var(--paper)] border border-[var(--line)] text-[11px] text-[var(--muted)]">
               <div className="flex items-center gap-2">
-                <Volume2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>Output Stream</span>
+                <Volume2 className="w-3.5 h-3.5 text-[var(--accent-text)]" />
+                <span className="text-[var(--ink)]">Output Stream</span>
               </div>
-              <span className="text-slate-300 font-mono text-[10px]">
+              <span className="text-[var(--muted)] font-mono text-[10px]">
                 CoreAudio 48.0 kHz
               </span>
             </div>
@@ -388,10 +388,10 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
         {/* Right Column (lg:col-span-7): Full Dialogue Stream & Quick Actions Console */}
         <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm h-full min-h-[460px]">
           {/* Header & Quick Action Prompt Chips */}
-          <div className="space-y-2.5 pb-3 border-b border-white/5 shrink-0">
+          <div className="space-y-2.5 pb-3 border-b border-[var(--line)] shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-200 tracking-tight">
+                <span className="text-xs font-semibold text-[var(--ink)] tracking-tight">
                   Dialogue Console
                 </span>
                 <BadgeComponent variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -402,7 +402,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               <button
                 onClick={() => setIsClearModalOpen(true)}
                 disabled={messages.length === 0}
-                className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 text-[11px] text-[var(--muted)] hover:text-[var(--accent-text)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Clear conversation history"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -428,12 +428,12 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
           {/* Scrollable Conversation Stream */}
           <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 min-h-[200px]">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">
-                <Bot className="w-10 h-10 text-slate-600 mb-2 stroke-[1.5]" />
-                <p className="text-xs font-medium text-slate-400 m-0">
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 text-[var(--muted)]">
+                <Bot className="w-10 h-10 opacity-30 text-[var(--accent-text)] mb-2 stroke-[1.5]" />
+                <p className="text-xs font-medium text-[var(--ink)] m-0">
                   No conversation messages yet
                 </p>
-                <p className="text-[11px] text-slate-500 mt-1 max-w-xs">
+                <p className="text-[11px] text-[var(--muted)] mt-1 max-w-xs">
                   Speak to the microphone or tap one of the quick audio action chips above to start controlling your sound.
                 </p>
               </div>
@@ -444,29 +444,29 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                   className={cn(
                     "flex gap-3 p-3.5 rounded-xl border text-xs leading-relaxed transition-all",
                     m.sender === "user"
-                      ? "bg-slate-900/60 border-white/8 ml-6"
-                      : "bg-rose-950/20 border-rose-400/20 mr-6 shadow-sm"
+                      ? "bg-[var(--paper)] border-[var(--line)] ml-6"
+                      : "bg-[var(--surface)] border-[var(--line)] mr-6 shadow-sm ring-1 ring-[var(--accent)]/20"
                   )}
                 >
                   <div
                     className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
                       m.sender === "user"
-                        ? "bg-[#251e2b] text-stone-300"
-                        : "bg-gradient-to-tr from-rose-500/25 to-indigo-500/25 text-rose-300 border border-rose-400/30"
+                        ? "bg-[var(--surface)] text-[var(--ink)] border border-[var(--line)]"
+                        : "bg-[var(--accent)]/15 text-[var(--accent-text)] border border-[var(--accent)]/25"
                     )}
                   >
                     {m.sender === "user" ? (
                       <User className="w-4 h-4" />
                     ) : (
-                      <Sparkles className="w-4 h-4 text-rose-400" />
+                      <Sparkles className="w-4 h-4 text-[var(--accent-text)]" />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-200 text-xs">
+                        <span className="font-semibold text-[var(--ink)] text-xs">
                           {m.sender === "user" ? "You" : "Google Gemini 2.5"}
                         </span>
                         {m.sender === "ai" && (
@@ -475,23 +475,23 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                           </BadgeComponent>
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500">{m.time}</span>
+                      <span className="text-[10px] text-[var(--muted)]">{m.time}</span>
                     </div>
 
-                    <p className="text-slate-300 text-xs m-0 leading-normal">{m.text}</p>
+                    <p className="text-[var(--ink)] text-xs m-0 leading-normal">{m.text}</p>
 
                     {m.actionTaken && (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-medium">
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-[var(--success)] font-medium">
                         <CheckCircle2 className="w-3 h-3" />
                         <span>Action: {m.actionTaken}</span>
                       </div>
                     )}
 
                     {m.sender === "ai" && (
-                      <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-white/5">
+                      <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-[var(--line)]">
                         <button
                           onClick={() => showToast("info", "Playing Gemini audio synthesis…")}
-                          className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-sky-300 transition-colors cursor-pointer"
+                          className="flex items-center gap-1 text-[10px] text-[var(--muted)] hover:text-[var(--accent-text)] transition-colors cursor-pointer"
                         >
                           <Volume1 className="w-3 h-3" />
                           <span>Replay Audio</span>
@@ -508,7 +508,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
           {/* Bottom Dual Input Bar (Text + Voice Trigger) */}
           <form
             onSubmit={handleFormSubmit}
-            className="flex items-center gap-2 pt-2.5 border-t border-white/5 shrink-0"
+            className="flex items-center gap-2 pt-2.5 border-t border-[var(--line)] shrink-0"
           >
             <div className="relative flex-1">
               <InputComponent
@@ -516,14 +516,14 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 fullWidth
-                className="h-9 bg-[var(--paper)] text-[var(--ink)] border-[var(--input-line)] pr-10 text-xs"
+                className="h-9 pr-10 text-xs"
               />
               <button
                 type="button"
                 onClick={toggleListen}
                 className={cn(
                   "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors cursor-pointer",
-                  isListening ? "text-rose-400 bg-rose-500/20 animate-pulse" : "text-stone-400 hover:text-white"
+                  isListening ? "text-[var(--accent-text)] bg-rose-500/20 animate-pulse" : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
                 title="Tap to speak"
               >
@@ -536,7 +536,7 @@ export const VoiceAiView: FC<VoiceAiViewProps> = ({
               variant="primary"
               size="sm"
               disabled={!inputText.trim()}
-              leftIcon={<Send className="w-3.5 h-3.5 text-slate-950" />}
+              leftIcon={<Send className="w-3.5 h-3.5 text-[var(--accent-ink)]" />}
               className="h-9 px-4 shrink-0"
             >
               Send

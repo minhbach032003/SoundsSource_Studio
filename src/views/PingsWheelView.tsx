@@ -386,7 +386,7 @@ export const PingsWheelView: FC = () => {
               "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center border backdrop-blur-md transition-all duration-100",
               lolGesture.activeSlice !== null
                 ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-xl scale-105"
-                : "bg-slate-950/90 text-white border-white/20 shadow-md"
+                : "bg-[var(--surface)] text-[var(--ink)] border-[var(--line)] shadow-md"
             )}
           >
             {lolGesture.activeSlice !== null ? (
@@ -425,7 +425,7 @@ export const PingsWheelView: FC = () => {
                   "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center transition-transform p-0.5 shadow-md",
                   isSelected
                     ? "scale-120 ring-2 ring-[var(--accent)] bg-[var(--paper)] text-[var(--ink)] shadow-xl"
-                    : "bg-slate-900/90 text-slate-300 border border-white/15"
+                    : "bg-[var(--surface)] text-[var(--ink)] border border-[var(--line)]"
                 )}
               >
                 <span

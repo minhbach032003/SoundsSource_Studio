@@ -1,4 +1,5 @@
 use crate::eq::ParametricEQ;
+use crate::filter::{AudioFilterEngine, AudioFilterSettings, FilterProcessingStats};
 use crate::preset::AppAudioSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -65,6 +66,7 @@ pub struct AudioRouter {
     channels: HashMap<String, AppAudioChannel>,
     sample_rate: f32,
     pub master_eq: ParametricEQ,
+    pub filter_engine: AudioFilterEngine,
 }
 
 impl AudioRouter {
@@ -73,7 +75,28 @@ impl AudioRouter {
             channels: HashMap::new(),
             sample_rate,
             master_eq: ParametricEQ::new(sample_rate),
+            filter_engine: AudioFilterEngine::new(sample_rate),
         }
+    }
+
+    pub fn filter_engine(&self) -> &AudioFilterEngine {
+        &self.filter_engine
+    }
+
+    pub fn filter_engine_mut(&mut self) -> &mut AudioFilterEngine {
+        &mut self.filter_engine
+    }
+
+    pub fn get_filter_settings(&self) -> AudioFilterSettings {
+        self.filter_engine.settings
+    }
+
+    pub fn set_filter_settings(&mut self, settings: AudioFilterSettings) {
+        self.filter_engine.update_settings(settings);
+    }
+
+    pub fn process_mic_buffer(&mut self, samples: &mut [f32]) -> FilterProcessingStats {
+        self.filter_engine.process_mic(samples)
     }
 
     pub fn master_eq(&self) -> &ParametricEQ {
@@ -102,6 +125,7 @@ impl AudioRouter {
 
     pub fn process_master(&mut self, samples: &mut [f32]) {
         self.master_eq.process_interleaved_stereo(samples);
+        self.filter_engine.process_output_interleaved_stereo(samples);
     }
 
     pub fn get_or_create_channel(&mut self, bundle_id: &str) -> &mut AppAudioChannel {

@@ -63,30 +63,30 @@ export const ToastProvider: FC<{ children: ReactNode }> = ({ children }) => {
             <div
               key={toast.id}
               className={cn(
-                "pointer-events-auto flex items-center justify-between gap-3 p-3 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-3 duration-200",
+                "pointer-events-auto flex items-center justify-between gap-3 p-3 rounded-xl border shadow-xl backdrop-blur-md transition-all animate-in slide-in-from-bottom-3 duration-200 bg-[var(--surface)] text-[var(--ink)]",
                 isSuccess
-                  ? "bg-slate-900/95 border-emerald-500/40 text-slate-100 shadow-[0_4px_16px_rgba(16,185,129,0.15)]"
+                  ? "border-emerald-500/40 shadow-[0_4px_16px_rgba(16,185,129,0.15)]"
                   : isError
-                  ? "bg-slate-900/95 border-rose-500/40 text-slate-100 shadow-[0_4px_16px_rgba(244,63,94,0.15)]"
-                  : "bg-slate-900/95 border-sky-400/40 text-slate-100 shadow-[0_4px_16px_rgba(56,189,248,0.15)]"
+                  ? "border-rose-500/40 shadow-[0_4px_16px_rgba(244,63,94,0.15)]"
+                  : "border-sky-400/40 shadow-[0_4px_16px_rgba(56,189,248,0.15)]"
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 {isSuccess ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0" />
                 ) : isError ? (
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-[var(--error)] shrink-0" />
                 ) : (
-                  <Info className="w-4 h-4 text-sky-400 shrink-0" />
+                  <Info className="w-4 h-4 text-[var(--accent-text)] shrink-0" />
                 )}
-                <span className="text-xs font-medium tracking-tight text-slate-200 truncate">
+                <span className="text-xs font-medium tracking-tight text-[var(--ink)] truncate">
                   {toast.message}
                 </span>
               </div>
 
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-400 hover:text-white p-0.5 rounded transition-colors cursor-pointer shrink-0"
+                className="text-[var(--muted)] hover:text-[var(--ink)] p-0.5 rounded transition-colors cursor-pointer shrink-0"
                 aria-label="Dismiss toast"
               >
                 <X className="w-3.5 h-3.5" />

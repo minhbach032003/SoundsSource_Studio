@@ -14,10 +14,11 @@ pub use core::{
 };
 pub use engine::{
     AgentIntegrationInfo, AgentSession, AppAudioChannel, AppAudioSettings, AudioDevice,
-    AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager, CatalogEntry, ChannelStateDto,
-    EQBandConfig, GestureResult, ParametricEQ, PetCareState, PetManager, PingloomSettings, Pkce,
-    PkceChallenge, Preset, PresetStore, TimerPhase, TimerStatus, TodoItem, User,
-    DEFAULT_EQ_FREQUENCIES,
+    AudioFilterSettings, AudioRouter, AuthService, AuthenticatedUser, BreakTimerManager,
+    CatalogEntry, ChannelStateDto, EQBandConfig, FilterProcessingStats, GestureResult,
+    MicFilterConfig, OutputFilterConfig, ParametricEQ, PetCareState, PetManager,
+    PingloomSettings, Pkce, PkceChallenge, Preset, PresetStore, TimerPhase, TimerStatus,
+    TodoItem, User, DEFAULT_EQ_FREQUENCIES,
 };
 
 pub struct AppState {
@@ -608,6 +609,133 @@ fn set_master_eq_bypass(bypass: bool, state: State<'_, AppState>) -> bool {
     router.master_eq().is_bypassed()
 }
 
+// MARK: - Audio Filter & Voice Isolation Commands
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct FilterTestResult {
+    pub stats: FilterProcessingStats,
+    pub processed_samples: Vec<f32>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct VirtualAudioStatus {
+    pub is_virtual_device_installed: bool,
+    pub detected_virtual_devices: Vec<String>,
+    pub recommended_input_device: Option<String>,
+    pub os_name: String,
+    pub setup_guide: String,
+}
+
+#[tauri::command]
+fn get_audio_filter_settings(state: State<'_, AppState>) -> AudioFilterSettings {
+    let router = state.router.lock().unwrap();
+    router.get_filter_settings()
+}
+
+#[tauri::command]
+fn set_audio_filter_settings(
+    settings: AudioFilterSettings,
+    state: State<'_, AppState>,
+) -> AudioFilterSettings {
+    let mut router = state.router.lock().unwrap();
+    router.set_filter_settings(settings);
+    router.get_filter_settings()
+}
+
+#[tauri::command]
+fn test_filter_audio_buffer(
+    samples: Vec<f32>,
+    is_mic: bool,
+    state: State<'_, AppState>,
+) -> FilterTestResult {
+    let mut router = state.router.lock().unwrap();
+    let mut buffer = samples;
+    if is_mic {
+        let stats = router.process_mic_buffer(&mut buffer);
+        FilterTestResult {
+            stats,
+            processed_samples: buffer,
+        }
+    } else {
+        router.process_master(&mut buffer);
+        let max_val = buffer.iter().fold(0.0f32, |acc, &s| acc.max(s.abs()));
+        let peak_db = if max_val > 1e-5 { 20.0 * max_val.log10() } else { -90.0 };
+        FilterTestResult {
+            stats: FilterProcessingStats {
+                gate_open: true,
+                input_peak_db: peak_db,
+                output_peak_db: peak_db,
+                attenuation_db: 0.0,
+            },
+            processed_samples: buffer,
+        }
+    }
+}
+
+#[tauri::command]
+fn get_virtual_audio_status() -> VirtualAudioStatus {
+    let outs = AudioDevice::enumerate_system_devices();
+    let ins = AudioDevice::enumerate_system_input_devices();
+    let mut detected = Vec::new();
+
+    let keywords = [
+        "blackhole",
+        "soundflower",
+        "loopback",
+        "vb-cable",
+        "cable input",
+        "cable output",
+        "voicemeeter",
+        "virtual",
+        "null-sink",
+        "remap-source",
+    ];
+
+    for d in outs.iter().chain(ins.iter()) {
+        let name_lower = d.name.to_lowercase();
+        for kw in keywords {
+            if name_lower.contains(kw) && !detected.contains(&d.name) {
+                detected.push(d.name.clone());
+            }
+        }
+    }
+
+    let is_installed = !detected.is_empty();
+    let recommended = detected.first().cloned();
+
+    #[cfg(target_os = "macos")]
+    let os_name = "macOS".to_string();
+    #[cfg(target_os = "windows")]
+    let os_name = "Windows".to_string();
+    #[cfg(target_os = "linux")]
+    let os_name = "Linux".to_string();
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    let os_name = "Desktop".to_string();
+
+    let setup_guide = if is_installed {
+        format!(
+            "Phát hiện driver âm thanh ảo: '{}'. Trong cài đặt Discord, Zoom hoặc Google Meet, chọn 'Thiết bị đầu vào (Microphone)' là '{}' để sử dụng luồng âm thanh đã lọc tạp âm.",
+            recommended.as_deref().unwrap_or("Virtual Device"),
+            recommended.as_deref().unwrap_or("Virtual Device")
+        )
+    } else {
+        match os_name.as_str() {
+            "macOS" => "Để chuyển luồng âm thanh đã lọc vào Discord / Zoom / Google Meet trên macOS, bạn có thể cài driver ảo BlackHole miễn phí bằng lệnh: 'brew install blackhole-2ch', sau đó chọn BlackHole làm microphone trong Discord/Zoom.".to_string(),
+            "Windows" => "Để chuyển luồng âm thanh đã lọc trên Windows, cài đặt driver miễn phí VB-Audio Virtual Cable (vb-audio.com/Cable), sau đó chọn CABLE Output làm microphone trong Discord/Zoom.".to_string(),
+            "Linux" => "Để chuyển luồng âm thanh trên Linux, tạo virtual sink bằng lệnh: pactl load-module module-null-sink sink_name=Virtual_Sink.".to_string(),
+            _ => "Cài đặt virtual audio cable driver trên hệ điều hành để kết nối âm thanh với các ứng dụng khác.".to_string(),
+        }
+    };
+
+    VirtualAudioStatus {
+        is_virtual_device_installed: is_installed,
+        detected_virtual_devices: detected,
+        recommended_input_device: recommended,
+        os_name,
+        setup_guide,
+    }
+}
+
 #[tauri::command]
 fn save_preset(preset: Preset, state: State<'_, AppState>) -> Result<(), String> {
     let mut store = state.preset_store.lock().unwrap();
@@ -789,7 +917,11 @@ pub fn run() {
             get_ping_settings,
             save_ping_settings,
             get_ping_catalog,
-            simulate_ping_gesture
+            simulate_ping_gesture,
+            get_audio_filter_settings,
+            set_audio_filter_settings,
+            test_filter_audio_buffer,
+            get_virtual_audio_status
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

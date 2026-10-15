@@ -49,7 +49,7 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
         {label && (
           <label
             htmlFor={selectId}
-            className="text-xs font-medium text-slate-300 select-none"
+            className="text-xs font-medium text-[var(--ink)] select-none"
           >
             {label}
           </label>
@@ -57,7 +57,7 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
 
         <div className="relative flex items-center">
           {leftIcon && (
-            <span className="absolute left-2.5 text-slate-400 pointer-events-none flex items-center z-10">
+            <span className="absolute left-2.5 text-[var(--muted)] pointer-events-none flex items-center z-10">
               {leftIcon}
             </span>
           )}
@@ -94,7 +94,7 @@ export const SelectComponent = forwardRef<HTMLSelectElement, SelectComponentProp
           <ChevronDown className="absolute right-2 w-3.5 h-3.5 text-[var(--muted)] pointer-events-none" />
         </div>
 
-        {error && <p className="text-[11px] text-rose-400 font-medium">{error}</p>}
+        {error && <p className="text-[11px] text-[var(--error)] font-medium">{error}</p>}
       </div>
     );
   }
