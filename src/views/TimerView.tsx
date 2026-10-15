@@ -612,9 +612,9 @@ export const TimerView: FC<TimerViewProps> = ({
           {/* 3. Focus Tasks & Google Calendar Card */}
           <div className="flex-1 flex flex-col rounded-2xl bg-[var(--surface)] border border-[var(--line)] p-4 sm:p-5 shadow-sm min-h-[260px]">
             {/* Task Header with Google Calendar Sync & Filter Tabs */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/5 shrink-0">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--line)] shrink-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-stone-200 tracking-tight">
+                <span className="text-xs font-semibold text-[var(--ink)] tracking-tight">
                   Focus Schedule
                 </span>
                 <BadgeComponent variant="secondary" className="px-2 py-0 text-[10px]">
@@ -629,12 +629,12 @@ export const TimerView: FC<TimerViewProps> = ({
                     type="button"
                     onClick={onSyncCalendar}
                     disabled={isLoadingCalendar}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/30 text-rose-300 text-[11px] font-semibold cursor-pointer transition-colors"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 border border-[var(--accent)]/30 text-[var(--accent-text)] text-[11px] font-semibold cursor-pointer transition-colors"
                     title="Sync events from Google Calendar"
                   >
                     <GoogleIcon className="w-3 h-3" />
                     <RefreshCw
-                      className={cn("w-3 h-3", isLoadingCalendar && "animate-spin text-rose-400")}
+                      className={cn("w-3 h-3", isLoadingCalendar && "animate-spin text-[var(--accent)]")}
                     />
                     <span>{isLoadingCalendar ? "Syncing…" : "Sync Calendar"}</span>
                   </button>
@@ -642,7 +642,7 @@ export const TimerView: FC<TimerViewProps> = ({
                   <button
                     type="button"
                     onClick={onSignInGoogle}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-stone-300 text-[11px] border border-white/8 cursor-pointer transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--surface)] hover:bg-[var(--paper)] text-[var(--ink)] text-[11px] border border-[var(--line)] cursor-pointer transition-colors"
                     title="Sign in with Google to sync calendar"
                   >
                     <GoogleIcon className="w-3 h-3" />
@@ -656,12 +656,12 @@ export const TimerView: FC<TimerViewProps> = ({
                   className={cn(
                     "text-[11px] flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded-md",
                     showTimeboxOptions
-                      ? "text-rose-300 bg-rose-500/20"
-                      : "text-stone-400 hover:text-stone-200"
+                      ? "text-[var(--accent-text)] bg-[var(--accent)]/15 border border-[var(--accent)]/30"
+                      : "text-[var(--muted)] hover:text-[var(--ink)]"
                   )}
                   title="Toggle manual time schedule"
                 >
-                  <Calendar className="w-3 h-3 text-rose-400" />
+                  <Calendar className="w-3 h-3 text-[var(--accent)]" />
                   <span>{showTimeboxOptions ? "Hide" : "+ Timebox"}</span>
                 </button>
               </div>
@@ -675,8 +675,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer",
                   activeFilter === "all"
-                    ? "bg-[#2b2231] text-rose-300 font-semibold"
-                    : "text-stone-400 hover:text-white"
+                    ? "bg-[var(--paper)] text-[var(--ink)] font-semibold border border-[var(--line)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
               >
                 All ({calendarEvents.length + todos.length})
@@ -688,8 +688,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1",
                   activeFilter === "calendar"
-                    ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-400/30"
-                    : "text-stone-400 hover:text-white"
+                    ? "bg-[var(--paper)] text-[var(--ink)] font-semibold border border-[var(--line)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
               >
                 <GoogleIcon className="w-2.5 h-2.5" />
@@ -702,8 +702,8 @@ export const TimerView: FC<TimerViewProps> = ({
                 className={cn(
                   "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer",
                   activeFilter === "tasks"
-                    ? "bg-[#2b2231] text-rose-300 font-semibold"
-                    : "text-stone-400 hover:text-white"
+                    ? "bg-[var(--paper)] text-[var(--ink)] font-semibold border border-[var(--line)] shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--ink)]"
                 )}
               >
                 Manual Goals ({todos.length})
@@ -712,16 +712,16 @@ export const TimerView: FC<TimerViewProps> = ({
 
             {/* Guest Connection Prompt Banner if not logged in */}
             {!user && (
-              <div className="p-3 rounded-xl bg-gradient-to-r from-rose-500/10 via-[#221c27] to-[#1a141f] border border-rose-400/20 flex items-center justify-between gap-3 mb-3 shrink-0">
+              <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex items-center justify-between gap-3 mb-3 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-400/30 flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-[var(--accent)]/15 border border-[var(--accent)]/30 flex items-center justify-center shrink-0">
                     <GoogleIcon className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-stone-100 m-0 truncate">
+                    <p className="text-xs font-semibold text-[var(--ink)] m-0 truncate">
                       Google Calendar Sync
                     </p>
-                    <p className="text-[10px] text-stone-400 m-0 truncate">
+                    <p className="text-[10px] text-[var(--muted)] m-0 truncate">
                       Connect to view today's meetings and activities automatically
                     </p>
                   </div>
@@ -1097,9 +1097,9 @@ export const TimerView: FC<TimerViewProps> = ({
       >
         <div className="space-y-4 pt-1">
           {/* Real Wall-Clock Timeline Visual Strip */}
-          <div className="p-3 rounded-xl bg-[#18131c] border border-white/8 space-y-2">
-            <span className="text-[11px] font-semibold text-stone-300 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-rose-400" />
+          <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] space-y-2">
+            <span className="text-[11px] font-semibold text-[var(--ink)] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[var(--accent-text)]" />
               <span>Real-Time Timeline Preview</span>
             </span>
 
