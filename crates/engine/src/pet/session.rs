@@ -22,6 +22,21 @@ pub struct SessionStore {
     sessions: HashMap<String, AgentSession>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct HistorySessionEntry {
+    #[serde(alias = "sessionId", alias = "session_id")]
+    session_id: String,
+    #[serde(alias = "agentKind", alias = "agent_kind")]
+    agent_kind: String,
+    project: Option<String>,
+    message: Option<String>,
+    #[serde(alias = "startedAt", alias = "started_at")]
+    started_at: Option<String>,
+    #[serde(alias = "endedAt", alias = "ended_at")]
+    ended_at: Option<String>,
+    duration: Option<f64>,
+}
+
 impl SessionStore {
     pub fn new() -> Self {
         Self {
@@ -43,6 +58,71 @@ impl SessionStore {
 
     pub fn clear(&mut self) {
         self.sessions.clear();
+    }
+
+    pub fn load_history_sessions(history_file: &std::path::Path, now_ts: i64) -> Vec<AgentSession> {
+        let Ok(content) = std::fs::read_to_string(history_file) else {
+            return Vec::new();
+        };
+        let Ok(entries) = serde_json::from_str::<Vec<HistorySessionEntry>>(&content) else {
+            return Vec::new();
+        };
+
+        let mut list = Vec::new();
+        for entry in entries.into_iter().rev().take(12) {
+            let is_ended = entry.ended_at.is_some();
+            let state = if is_ended {
+                AgentState::Done
+            } else if entry
+                .message
+                .as_ref()
+                .map(|m| m.to_ascii_lowercase().contains("waiting"))
+                .unwrap_or(false)
+            {
+                AgentState::Waiting
+            } else {
+                AgentState::Working
+            };
+
+            let started_ts = entry
+                .started_at
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.timestamp())
+                .unwrap_or(now_ts);
+
+            let ended_ts = entry
+                .ended_at
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.timestamp())
+                .unwrap_or(started_ts + entry.duration.unwrap_or(0.0) as i64);
+
+            list.push(AgentSession {
+                id: entry.session_id,
+                agent_kind: entry.agent_kind,
+                state,
+                project: entry.project,
+                message: entry.message,
+                model: None,
+                tool_name: None,
+                tool_summary: None,
+                started_at: started_ts,
+                last_event_at: ended_ts,
+            });
+        }
+        list
+    }
+
+    fn get_active_history_sessions(&self, now_ts: i64) -> Vec<AgentSession> {
+        if let Ok(home) = std::env::var("HOME") {
+            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let file = std::path::Path::new(&home)
+                .join(".agentpet")
+                .join("history")
+                .join(format!("{today}.json"));
+            Self::load_history_sessions(&file, now_ts)
+        } else {
+            Vec::new()
+        }
     }
 
     /// Ingests an incoming AgentEvent.
@@ -117,11 +197,21 @@ impl SessionStore {
 
     pub fn aggregate_mood(&self) -> PetMood {
         if self.sessions.values().any(|s| s.state == AgentState::Working) {
+            return PetMood::Working;
+        }
+        if self.sessions.values().any(|s| s.state == AgentState::Waiting) {
+            return PetMood::Waiting;
+        }
+        if self.sessions.values().any(|s| s.state == AgentState::Done) {
+            return PetMood::Done;
+        }
+
+        let now_ts = chrono::Utc::now().timestamp();
+        let history = self.get_active_history_sessions(now_ts);
+        if history.iter().any(|s| s.state == AgentState::Working) {
             PetMood::Working
-        } else if self.sessions.values().any(|s| s.state == AgentState::Waiting) {
+        } else if history.iter().any(|s| s.state == AgentState::Waiting) {
             PetMood::Waiting
-        } else if self.sessions.values().any(|s| s.state == AgentState::Done) {
-            PetMood::Done
         } else {
             PetMood::Idle
         }
@@ -129,6 +219,34 @@ impl SessionStore {
 
     pub fn to_display_list(&self) -> Vec<AgentSession> {
         let mut list: Vec<AgentSession> = self.sessions.values().cloned().collect();
+        list.sort_by(|a, b| {
+            let priority_a = match a.state {
+                AgentState::Working => 0,
+                AgentState::Waiting => 1,
+                AgentState::Done => 2,
+                AgentState::Registered => 3,
+                AgentState::Idle => 4,
+            };
+            let priority_b = match b.state {
+                AgentState::Working => 0,
+                AgentState::Waiting => 1,
+                AgentState::Done => 2,
+                AgentState::Registered => 3,
+                AgentState::Idle => 4,
+            };
+            priority_a.cmp(&priority_b).then_with(|| b.last_event_at.cmp(&a.last_event_at))
+        });
+        list
+    }
+
+    pub fn to_display_list_with_history(&self, now_ts: i64) -> Vec<AgentSession> {
+        let mut map = self.sessions.clone();
+
+        for hist in self.get_active_history_sessions(now_ts) {
+            map.entry(hist.id.clone()).or_insert(hist);
+        }
+
+        let mut list: Vec<AgentSession> = map.into_values().collect();
         list.sort_by(|a, b| {
             let priority_a = match a.state {
                 AgentState::Working => 0,
@@ -208,5 +326,33 @@ mod tests {
         assert_eq!(state3, Some(AgentState::Done));
         assert!(meal3);
         assert_eq!(store.aggregate_mood(), PetMood::Done);
+    }
+
+    #[test]
+    fn test_history_session_merging_and_mood() {
+        let temp_dir = std::env::temp_dir().join(format!("pet_hist_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let file = temp_dir.join("2026-10-15.json");
+
+        let json = r#"[
+            {
+                "sessionId": "claude-hist-1",
+                "agentKind": "claude",
+                "project": "/Users/mac/Documents/rust-sound",
+                "message": "Claude is waiting for input",
+                "startedAt": "2026-10-15T02:00:00Z",
+                "endedAt": null,
+                "duration": 120.0
+            }
+        ]"#;
+        std::fs::write(&file, json).unwrap();
+
+        let loaded = SessionStore::load_history_sessions(&file, 1792033800);
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].id, "claude-hist-1");
+        assert_eq!(loaded[0].state, AgentState::Waiting);
+        assert_eq!(loaded[0].project.as_deref(), Some("/Users/mac/Documents/rust-sound"));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }

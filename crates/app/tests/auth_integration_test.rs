@@ -107,3 +107,34 @@ fn test_dual_auth_supports_both_keycloak_and_jwt() {
     assert_eq!(auth_kc.user_id, "user-keycloak-oidc");
     assert_eq!(auth_kc.email, "keycloak@neon.tech");
 }
+
+#[test]
+fn test_google_login_custom_token_and_db_flow() {
+    use sound_engine::GoogleAuthVerifier;
+
+    let service = AuthService::new("test-jwt-secret-12345", "mock-neon-conn-str");
+
+    // 1. Generate valid custom Google ID token
+    let email = "engineer.pro@gmail.com";
+    let name = "Audio Engineer";
+    let avatar = Some("https://lh3.googleusercontent.com/a/custom-avatar.jpg".to_string());
+
+    let id_token = GoogleAuthVerifier::generate_id_token(email, name, avatar.clone()).unwrap();
+    assert!(id_token.contains('.'));
+
+    // 2. Perform handle_google_login: verification + Neon DB upsert + JWT signing
+    let (user, jwt_token) = service.handle_google_login(&id_token).unwrap();
+    assert_eq!(user.email, email);
+    assert_eq!(user.name, name);
+    assert_eq!(user.avatar_url, avatar);
+    assert!(!jwt_token.is_empty());
+
+    // 3. Verify issued JWT token
+    let verified = service.jwt.verify(&jwt_token).unwrap();
+    assert_eq!(verified.email, email);
+    assert_eq!(verified.name, name);
+    assert_eq!(verified.sub, user.id);
+
+    // 4. Invalid email should fail token generation
+    assert!(GoogleAuthVerifier::generate_id_token("invalid-email-no-at", "User", None).is_err());
+}

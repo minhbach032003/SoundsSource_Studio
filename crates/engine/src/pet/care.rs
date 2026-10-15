@@ -266,40 +266,118 @@ impl PetCareState {
 
 pub struct PetCareStore {
     path: PathBuf,
+    secondary_path: Option<PathBuf>,
 }
 
 impl PetCareStore {
     pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self { path: path.into() }
+        Self {
+            path: path.into(),
+            secondary_path: None,
+        }
+    }
+
+    pub fn with_secondary(path: impl Into<PathBuf>, secondary: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            secondary_path: Some(secondary.into()),
+        }
     }
 
     pub fn default_path() -> PathBuf {
         if let Ok(home) = std::env::var("HOME") {
-            Path::new(&home).join(".rust-sound").join("petcare.json")
+            let agentpet_path = Path::new(&home).join(".agentpet").join("petcare.json");
+            if agentpet_path.exists() {
+                agentpet_path
+            } else {
+                Path::new(&home).join(".rust-sound").join("petcare.json")
+            }
         } else {
             PathBuf::from("petcare.json")
         }
     }
 
+    pub fn default_secondary_path() -> Option<PathBuf> {
+        if let Ok(home) = std::env::var("HOME") {
+            Some(Path::new(&home).join(".rust-sound").join("petcare.json"))
+        } else {
+            None
+        }
+    }
+
     pub fn load(&self) -> PetCareState {
+        let mut primary_state: Option<PetCareState> = None;
         if let Ok(data) = fs::read_to_string(&self.path) {
             if let Ok(mut state) = serde_json::from_str::<PetCareState>(&data) {
                 let today = PetCareState::current_day_key();
                 state.rollover_day_if_needed(&today);
-                return state;
+                primary_state = Some(state);
             }
         }
-        PetCareState::default()
+
+        let mut secondary_state: Option<PetCareState> = None;
+        if let Some(ref sec_path) = self.secondary_path {
+            if let Ok(data) = fs::read_to_string(sec_path) {
+                if let Ok(mut state) = serde_json::from_str::<PetCareState>(&data) {
+                    let today = PetCareState::current_day_key();
+                    state.rollover_day_if_needed(&today);
+                    secondary_state = Some(state);
+                }
+            }
+        }
+
+        match (primary_state, secondary_state) {
+            (Some(s1), Some(s2)) => Self::merge_states(s1, s2),
+            (Some(s), None) => s,
+            (None, Some(s)) => s,
+            (None, None) => PetCareState::default(),
+        }
+    }
+
+    pub fn merge_states(mut s1: PetCareState, s2: PetCareState) -> PetCareState {
+        s1.xp = s1.xp.max(s2.xp);
+        s1.total_tokens = s1.total_tokens.max(s2.total_tokens);
+        s1.total_meals = s1.total_meals.max(s2.total_meals);
+        s1.streak_days = s1.streak_days.max(s2.streak_days);
+        s1.tokens_today = s1.tokens_today.max(s2.tokens_today);
+        s1.meals_today = s1.meals_today.max(s2.meals_today);
+        s1.token_carry = s1.token_carry.max(s2.token_carry);
+
+        s1.last_fed_at = match (s1.last_fed_at, s2.last_fed_at) {
+            (Some(t1), Some(t2)) => Some(t1.max(t2)),
+            (a, b) => a.or(b),
+        };
+
+        for (k, v) in s2.days {
+            let entry = s1.days.entry(k).or_insert(0);
+            *entry = (*entry).max(v);
+        }
+
+        for ach in s2.unlocked_achievements {
+            s1.unlocked_achievements.insert(ach);
+        }
+
+        s1
     }
 
     pub fn save(&self, state: &PetCareState) -> Result<(), std::io::Error> {
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
         let json = serde_json::to_string_pretty(state).map_err(|e| {
             std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
         })?;
-        fs::write(&self.path, json)
+
+        if let Some(parent) = self.path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&self.path, &json);
+
+        if let Some(ref sec_path) = self.secondary_path {
+            if let Some(parent) = sec_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(sec_path, &json);
+        }
+
+        Ok(())
     }
 }
 
@@ -360,5 +438,44 @@ mod tests {
         assert_eq!(state.hunger(1000 + 15 * 3600), PetHunger::Peckish); // 15 hours
         assert_eq!(state.hunger(1000 + 30 * 3600), PetHunger::Hungry); // 30 hours
         assert_eq!(state.hunger(1000 + 50 * 3600), PetHunger::Starving); // 50 hours
+    }
+
+    #[test]
+    fn test_pet_care_dual_store_synchronization() {
+        let temp_dir = std::env::temp_dir().join(format!("petcare_sync_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let path1 = temp_dir.join("store1.json");
+        let path2 = temp_dir.join("store2.json");
+
+        let mut s1 = PetCareState::default();
+        s1.xp = 1141;
+        s1.total_tokens = 7500;
+        let json1 = serde_json::to_string_pretty(&s1).unwrap();
+        std::fs::write(&path1, json1).unwrap();
+
+        let mut s2 = PetCareState::default();
+        s2.xp = 740;
+        s2.total_meals = 3;
+        let json2 = serde_json::to_string_pretty(&s2).unwrap();
+        std::fs::write(&path2, json2).unwrap();
+
+        let store = PetCareStore::with_secondary(&path1, &path2);
+        let loaded = store.load();
+
+        assert_eq!(loaded.xp, 1141, "Must pick highest XP between stores");
+        assert_eq!(loaded.total_tokens, 7500);
+        assert_eq!(loaded.total_meals, 3);
+
+        let mut updated = loaded.clone();
+        updated.xp += 25;
+        store.save(&updated).unwrap();
+
+        let reloaded1: PetCareState = serde_json::from_str(&std::fs::read_to_string(&path1).unwrap()).unwrap();
+        let reloaded2: PetCareState = serde_json::from_str(&std::fs::read_to_string(&path2).unwrap()).unwrap();
+        assert_eq!(reloaded1.xp, 1166);
+        assert_eq!(reloaded2.xp, 1166);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }

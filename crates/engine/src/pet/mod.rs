@@ -22,10 +22,21 @@ pub struct PetManager {
 
 impl PetManager {
     pub fn new() -> Self {
-        Self::with_paths(
-            AgentPetServer::default_socket_path(),
-            PetCareStore::default_path(),
-        )
+        let care_path = PetCareStore::default_path();
+        let secondary = PetCareStore::default_secondary_path();
+        let store = match secondary {
+            Some(sec) => PetCareStore::with_secondary(care_path, sec),
+            None => PetCareStore::new(care_path),
+        };
+        let care_store = Arc::new(Mutex::new(store));
+        let sessions = Arc::new(Mutex::new(SessionStore::new()));
+        let server = Arc::new(AgentPetServer::new(AgentPetServer::default_socket_path()));
+
+        Self {
+            care_store,
+            sessions,
+            server,
+        }
     }
 
     pub fn with_paths(socket_path: std::path::PathBuf, care_path: std::path::PathBuf) -> Self {
@@ -75,7 +86,7 @@ impl PetManager {
         let mut sess = self.sessions.lock().unwrap();
         let now_ts = Utc::now().timestamp();
         sess.prune(now_ts);
-        sess.to_display_list()
+        sess.to_display_list_with_history(now_ts)
     }
 
     pub fn dismiss_session(&self, id: &str) {

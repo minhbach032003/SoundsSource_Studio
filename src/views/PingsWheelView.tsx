@@ -13,8 +13,6 @@ import {
   type CatalogEntry,
 } from "@/lib/pingloom";
 import { playSectorTick, playPingChime } from "@/lib/pingAudio";
-import { useLolPingGesture } from "@/shared/lib/useLolPingGesture";
-import { PingBurstMarker, type PingBurstItem } from "@/components/radial/PingBurstMarker";
 import { PingVectorIcon } from "@/components/radial/PingVectorIcon";
 import { ButtonComponent, BadgeComponent, CardComponent, SliderComponent, useToast } from "@/shared/ui";
 import { ModalComponent } from "@/shared/ui/ModalComponent";
@@ -73,6 +71,7 @@ export const PingsWheelView: FC = () => {
   const [focusedSlice, setFocusedSlice] = useState<number>(0);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDesktopOverlayActive, setIsDesktopOverlayActive] = useState(false);
 
   // Drag-and-Drop State
   const [draggedAssetId, setDraggedAssetId] = useState<string | null>(null);
@@ -81,9 +80,6 @@ export const PingsWheelView: FC = () => {
   // Catalog Category & Search Filter
   const [catalogCategory, setCatalogCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-
-  // Active Ping Bursts dropping on screen
-  const [bursts, setBursts] = useState<PingBurstItem[]>([]);
 
   // Wheel container reference
   const wheelContainerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +102,10 @@ export const PingsWheelView: FC = () => {
       .then((cat) => {
         if (cat && cat.length > 0) setCatalog(cat);
       })
+      .catch(() => {});
+
+    invoke<boolean>("is_ping_overlay_open")
+      .then((isOpen) => setIsDesktopOverlayActive(isOpen))
       .catch(() => {});
   }, [isDesktop]);
 
@@ -143,78 +143,22 @@ export const PingsWheelView: FC = () => {
     return matchesCategory && matchesSearch;
   });
 
-  // Expire ping bursts
-  const handleExpireBurst = useCallback((id: string) => {
-    setBursts((prev) => prev.filter((b) => b.id !== id));
-  }, []);
-
-  // Dispatch ping callback when LoL hotkey is released
-  const handleDispatchLoLPing = useCallback(
-    ({ sliceIndex, x, y }: { sliceIndex: number; x: number; y: number }) => {
-      const pingId = activeWheel[sliceIndex] ?? "danger";
+  // Test-fire a slice directly from workspace editor
+  const handleTestFire = useCallback(
+    (sliceIndex: number) => {
+      const isEmote = activeSubTab === "emotes";
+      const targetWheel = isEmote ? settings.emote_wheel : settings.wheel;
+      const pingId = targetWheel[sliceIndex] ?? (isEmote ? "gg_heart" : "danger");
       const entry = catalog.find((c) => c.id === pingId);
       const name = entry?.name ?? formatAssetName(pingId);
-      const color = entry?.color ?? "#ff3b55";
 
       if (!settings.muted) {
         playPingChime(pingId, settings.volume);
       }
-
-      const newBurst: PingBurstItem = {
-        id: `${Date.now()}-${Math.random()}`,
-        x,
-        y,
-        pingId,
-        name,
-        color,
-        durationMs: Math.round(settings.ping_duration_s * 1000),
-      };
-
-      setBursts((prev) => [...prev.slice(-9), newBurst]);
-      showToast("success", `[${DIRECTIONS[sliceIndex]}] ${name} ping dropped!`);
+      showToast("success", `[${DIRECTIONS[sliceIndex]}] ${name} ${isEmote ? "emote" : "ping"} test-fired!`);
     },
-    [activeWheel, catalog, settings.muted, settings.volume, settings.ping_duration_s, showToast]
+    [activeSubTab, settings.emote_wheel, settings.wheel, catalog, settings.muted, settings.volume, showToast]
   );
-
-  // Quick alert ping when hotkey is tapped without dragging
-  const handleDispatchLoLQuickPing = useCallback(
-    ({ x, y }: { x: number; y: number }) => {
-      const pingId = settings.click_ping_id || "danger";
-      const entry = catalog.find((c) => c.id === pingId);
-      const name = entry?.name ?? formatAssetName(pingId);
-      const color = entry?.color ?? "#ff3b55";
-
-      if (!settings.muted) {
-        playPingChime(pingId, settings.volume);
-      }
-
-      const newBurst: PingBurstItem = {
-        id: `${Date.now()}-${Math.random()}`,
-        x,
-        y,
-        pingId,
-        name: `Quick: ${name}`,
-        color,
-        durationMs: Math.round(settings.ping_duration_s * 1000),
-      };
-
-      setBursts((prev) => [...prev.slice(-9), newBurst]);
-      showToast("info", `Quick Alert Ping dropped!`);
-    },
-    [settings.click_ping_id, settings.muted, settings.volume, settings.ping_duration_s, catalog, showToast]
-  );
-
-  // League of Legends Hold-Hotkey Gesture Hook
-  const lolGesture = useLolPingGesture({
-    triggerKey: settings.trigger,
-    dragThreshold: settings.drag_threshold_px,
-    clickPing: settings.click_ping,
-    tickSound: settings.tick_sound,
-    volume: settings.volume,
-    enabled: true,
-    onDispatch: handleDispatchLoLPing,
-    onQuickPing: handleDispatchLoLQuickPing,
-  });
 
   // Assign asset to a specific slice (used by Drag & Drop and Click-to-assign)
   const handleAssignAssetToSlice = (sliceIndex: number, assetId: string) => {
@@ -236,6 +180,22 @@ export const PingsWheelView: FC = () => {
       "success",
       `Gán ${asset?.name ?? assetId} vào hướng ${DIRECTION_LABELS[DIRECTIONS[sliceIndex]]} (${DIRECTIONS[sliceIndex]})`
     );
+  };
+
+  // Toggle Desktop Transparent Ping Overlay
+  const handleTogglePingOverlay = async () => {
+    if (!isDesktop) return;
+    try {
+      const next = !isDesktopOverlayActive;
+      const res = await invoke<boolean>("toggle_ping_overlay", { enable: next });
+      setIsDesktopOverlayActive(res);
+      showToast(
+        "success",
+        res ? "Đã kích hoạt Desktop Ping Overlay ngoài màn hình!" : "Đã đóng Desktop Ping Overlay"
+      );
+    } catch (err) {
+      showToast("error", `Lỗi overlay: ${String(err)}`);
+    }
   };
 
   // Assign asset to currently focused slice
@@ -321,126 +281,6 @@ export const PingsWheelView: FC = () => {
 
   return (
     <div className="w-full h-full flex flex-col space-y-4 select-none min-h-0 flex-1 relative">
-      {/* Dynamic Active Ping Burst Particles Container */}
-      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-        {bursts.map((burst) => (
-          <PingBurstMarker key={burst.id} burst={burst} onExpire={handleExpireBurst} />
-        ))}
-      </div>
-
-      {/* Floating LoL Cursor-Centered Radial Wheel HUD */}
-      {lolGesture.isHolding && lolGesture.origin && (
-        <div
-          style={{
-            left: `${lolGesture.origin.x}px`,
-            top: `${lolGesture.origin.y}px`,
-          }}
-          className="fixed -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] z-[999] pointer-events-none select-none animate-in zoom-in-75 fade-in duration-100"
-        >
-          <svg className="w-full h-full" viewBox="0 0 280 280">
-            {/* Slices 0 to 7 */}
-            {DIRECTIONS.map((dir, idx) => {
-              const aStart = ((idx * 45 - 22.5) * Math.PI) / 180;
-              const aEnd = (((idx + 1) * 45 - 22.5) * Math.PI) / 180;
-              const pathD = sectorPath(140, 140, 52, 136, aStart, aEnd);
-              const isSelected = lolGesture.activeSlice === idx;
-
-              return (
-                <path
-                  key={dir}
-                  d={pathD}
-                  fill={
-                    isSelected
-                      ? "color-mix(in srgb, var(--accent) 45%, rgba(20, 16, 25, 0.9))"
-                      : "rgba(25, 20, 30, 0.88)"
-                  }
-                  stroke={isSelected ? "var(--accent)" : "rgba(255, 255, 255, 0.15)"}
-                  strokeWidth={isSelected ? "3" : "1"}
-                  className="transition-colors duration-75"
-                />
-              );
-            })}
-
-            {/* Boundary Rings */}
-            <circle cx="140" cy="140" r="136" fill="none" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-            <circle cx="140" cy="140" r="52" fill="none" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
-
-            {/* Aiming Vector Needle Line */}
-            {lolGesture.currentPos && (
-              <line
-                x1="140"
-                y1="140"
-                x2={140 + (lolGesture.currentPos.x - lolGesture.origin.x)}
-                y2={140 + (lolGesture.currentPos.y - lolGesture.origin.y)}
-                stroke="var(--accent)"
-                strokeWidth="2.5"
-                strokeDasharray="4 3"
-                className="animate-pulse"
-              />
-            )}
-          </svg>
-
-          {/* Center Hub Indicator */}
-          <div
-            className={cn(
-              "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center border backdrop-blur-md transition-all duration-100",
-              lolGesture.activeSlice !== null
-                ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-xl scale-105"
-                : "bg-[var(--surface)] text-[var(--ink)] border-[var(--line)] shadow-md"
-            )}
-          >
-            {lolGesture.activeSlice !== null ? (
-              <>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider">
-                  {DIRECTIONS[lolGesture.activeSlice]}
-                </span>
-                <span className="text-[11px] font-black leading-tight truncate max-w-[80px]">
-                  {catalog.find((c) => c.id === activeWheel[lolGesture.activeSlice!])?.name ?? "Ping"}
-                </span>
-              </>
-            ) : (
-              <>
-                <Target className="w-4 h-4 text-[var(--accent)] mb-0.5 animate-pulse" />
-                <span className="text-[10px] font-black tracking-wider">DRAG AIM</span>
-                <span className="text-[8px] opacity-75">{settings.drag_threshold_px}px deadzone</span>
-              </>
-            )}
-          </div>
-
-          {/* Directional Perimeter Labels */}
-          {DIRECTIONS.map((dir, idx) => {
-            const angle = (idx * 45 * Math.PI) / 180;
-            const r = 94;
-            const x = 140 + r * Math.sin(angle);
-            const y = 140 - r * Math.cos(angle);
-            const isSelected = lolGesture.activeSlice === idx;
-            const assignedId = activeWheel[idx];
-            const asset = catalog.find((c) => c.id === assignedId);
-
-            return (
-              <div
-                key={dir}
-                style={{ left: `${x}px`, top: `${y}px` }}
-                className={cn(
-                  "absolute -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full flex flex-col items-center justify-center transition-transform p-0.5 shadow-md",
-                  isSelected
-                    ? "scale-120 ring-2 ring-[var(--accent)] bg-[var(--paper)] text-[var(--ink)] shadow-xl"
-                    : "bg-[var(--surface)] text-[var(--ink)] border border-[var(--line)]"
-                )}
-              >
-                <span
-                  className="text-[9px] font-black leading-none"
-                  style={{ color: asset?.color ?? "var(--accent)" }}
-                >
-                  {dir}
-                </span>
-                <PingVectorIcon pingId={assignedId} iconKey={asset?.vectorIcon} className="w-3 h-3 mt-0.5" style={{ color: asset?.color }} />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {/* 1. Header Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3 pb-1 border-b border-[var(--line)]">
         <div className="flex items-center gap-2 flex-wrap">
@@ -506,7 +346,7 @@ export const PingsWheelView: FC = () => {
           </ButtonComponent>
 
           <BadgeComponent variant="default" className="text-[11px] font-mono px-2 py-0.5">
-            Hold [{settings.trigger.toUpperCase()}] anywhere to Ping
+            Hold [{settings.trigger.toUpperCase()}] for Tactical Pings, [{settings.emote_trigger?.toUpperCase() ?? "CTRL"}] for Emotes
           </BadgeComponent>
         </div>
 
@@ -602,11 +442,7 @@ export const PingsWheelView: FC = () => {
                         if (settings.tick_sound) playSectorTick(settings.volume);
                       }}
                       onDoubleClick={() => {
-                        handleDispatchLoLPing({
-                          sliceIndex: idx,
-                          x: window.innerWidth / 2,
-                          y: window.innerHeight / 2,
-                        });
+                        handleTestFire(idx);
                       }}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -637,11 +473,7 @@ export const PingsWheelView: FC = () => {
               {/* Center Hub Badge (Click to fire currently focused ping) */}
               <div
                 onClick={() => {
-                  handleDispatchLoLPing({
-                    sliceIndex: focusedSlice,
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2,
-                  });
+                  handleTestFire(focusedSlice);
                 }}
                 className={cn(
                   "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full flex flex-col items-center justify-center p-2 text-center border bg-[var(--paper)] text-[var(--ink)] border-[var(--line)] shadow-sm transition-all duration-120 cursor-pointer hover:scale-105 active:scale-95 group z-20",
@@ -736,11 +568,7 @@ export const PingsWheelView: FC = () => {
                 variant="primary"
                 size="sm"
                 onClick={() => {
-                  handleDispatchLoLPing({
-                    sliceIndex: focusedSlice,
-                    x: window.innerWidth / 2,
-                    y: window.innerHeight / 2,
-                  });
+                  handleTestFire(focusedSlice);
                 }}
                 leftIcon={<Radio className="w-3.5 h-3.5 animate-pulse text-[var(--accent-ink)]" />}
                 className="h-7.5 px-3 text-xs font-bold shrink-0"
@@ -1052,6 +880,34 @@ export const PingsWheelView: FC = () => {
                 <p className="text-[11px] text-[var(--muted)] mt-1">
                   Single tap trigger key without dragging immediately drops the default alert ping at cursor.
                 </p>
+              </div>
+
+              <div className="pt-2 border-t border-[var(--line)]">
+                <div className="flex items-center justify-between text-xs gap-3">
+                  <div>
+                    <span className="font-semibold text-[var(--ink)] block">Desktop Transparent Ping Overlay</span>
+                    <span className="text-[11px] text-[var(--muted)] block mt-0.5">
+                      Bật cửa sổ trong suốt để nhấn giữ Alt / Ctrl ping ở ngoài desktop và các ứng dụng khác.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isDesktopOverlayActive}
+                    onClick={handleTogglePingOverlay}
+                    className={cn(
+                      "w-10 h-5.5 rounded-full transition-colors relative cursor-pointer shrink-0 border border-transparent",
+                      isDesktopOverlayActive ? "bg-[var(--accent)]" : "bg-[var(--input-line)]"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform shadow-sm",
+                        isDesktopOverlayActive ? "left-5" : "left-0.5"
+                      )}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </CardComponent>

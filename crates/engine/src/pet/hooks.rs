@@ -207,6 +207,82 @@ impl HookManager {
             .collect()
     }
 
+    pub fn ensure_agentpet_cli() -> String {
+        let app_agentpet = PathBuf::from("/Applications/AgentPet.app/Contents/MacOS/agentpet");
+        if app_agentpet.exists() {
+            return format!("\"{}\"", app_agentpet.to_string_lossy());
+        }
+
+        if let Ok(home) = std::env::var("HOME") {
+            let cli_path = std::path::Path::new(&home).join(".agentpet").join("agentpet");
+            if let Some(parent) = cli_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+
+            let script = r#"#!/bin/sh
+# Universal AgentPet Hook Dispatcher for rust-sound
+AGENT="claude"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --agent) AGENT="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+python3 -c '
+import sys, json, os, socket, time
+agent = "'"$AGENT"'"
+payload_str = sys.stdin.read().strip()
+data = {}
+try:
+    if payload_str:
+        data = json.loads(payload_str)
+except:
+    pass
+
+session_id = data.get("session_id") or data.get("sessionId") or f"{agent}-{os.getpid()}"
+event = data.get("event") or data.get("eventName") or "UserPromptSubmit"
+project = data.get("project") or os.environ.get("PWD") or ""
+message = data.get("message") or data.get("prompt") or data.get("tool_name") or ""
+tool_name = data.get("tool_name") or data.get("tool") or ""
+tool_summary = data.get("tool_summary") or data.get("summary") or ""
+
+out = {
+    "session_id": str(session_id),
+    "agent_kind": str(agent),
+    "event_name": str(event),
+    "project": str(project),
+    "message": str(message),
+    "tool_name": str(tool_name) if tool_name else None,
+    "tool_summary": str(tool_summary) if tool_summary else None,
+    "timestamp": int(time.time())
+}
+msg = json.dumps(out) + "\n"
+
+home = os.environ.get("HOME", "")
+for sock_path in [f"{home}/.agentpet/agentpet.sock", f"{home}/.rust-sound/pet.sock"]:
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect(sock_path)
+        s.sendall(msg.encode())
+        s.close()
+    except:
+        pass
+'
+exit 0
+"#;
+            let _ = fs::write(&cli_path, script);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = fs::set_permissions(&cli_path, fs::Permissions::from_mode(0o755));
+            }
+            return format!("\"{}\"", cli_path.to_string_lossy());
+        }
+
+        "agentpet".to_string()
+    }
+
     pub fn install(kind: &str) -> Result<(), String> {
         let path = Self::config_path_for(kind).ok_or("Invalid agent kind")?;
         let spec = SPECS
@@ -218,29 +294,35 @@ impl HookManager {
             let _ = fs::create_dir_all(parent);
         }
 
-        let cmd = format!("agentpet hook --agent {}", spec.kind);
+        let cli_cmd = Self::ensure_agentpet_cli();
+        let cmd = format!("{} hook --agent {}", cli_cmd, spec.kind);
 
         match spec.format {
             HookFormat::PiExtension => {
                 let code = r#"// Rust Sound Pi Coding Agent Extension
 import { createConnection } from "node:net";
 export default function (pi: any) {
-  const socketPath = `${process.env.HOME}/.rust-sound/pet.sock`;
+  const home = process.env.HOME || "";
+  const sockPaths = [`${home}/.agentpet/agentpet.sock`, `${home}/.rust-sound/pet.sock`];
   const send = (eventName: string, message?: string) => {
-    try {
-      const client = createConnection(socketPath, () => {
-        client.write(JSON.stringify({
-          sessionId: `pi-${process.pid}`,
-          agentKind: "pi",
-          eventName,
-          project: process.cwd(),
-          message,
-          timestamp: Math.floor(Date.now() / 1000)
-        }) + "\n");
-        client.end();
-      });
-      client.on("error", () => {});
-    } catch {}
+    const payload = JSON.stringify({
+      sessionId: `pi-${process.pid}`,
+      agentKind: "pi",
+      eventName,
+      project: process.cwd(),
+      message,
+      timestamp: Math.floor(Date.now() / 1000)
+    }) + "\n";
+
+    for (const socketPath of sockPaths) {
+      try {
+        const client = createConnection(socketPath, () => {
+          client.write(payload);
+          client.end();
+        });
+        client.on("error", () => {});
+      } catch {}
+    }
   };
 
   pi.on("session_start", () => send("SessionStart"));

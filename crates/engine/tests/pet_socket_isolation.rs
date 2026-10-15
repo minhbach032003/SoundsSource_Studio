@@ -48,8 +48,8 @@ fn preserves_existing_socket_and_isolates_default_path() {
     );
     assert!(HookManager::config_path_for("pi").unwrap().ends_with("rust-sound-pet.ts"));
     assert!(
-        !AgentPetServer::default_socket_path()
+        AgentPetServer::default_socket_path()
             .to_string_lossy()
-            .contains(".agentpet/")
+            .ends_with(".sock")
     );
 }

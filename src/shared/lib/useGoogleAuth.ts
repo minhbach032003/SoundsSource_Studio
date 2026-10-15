@@ -23,6 +23,13 @@ export interface PkceChallengeDto {
   state: string;
 }
 
+export interface GoogleLoginParams {
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
+  idToken?: string;
+}
+
 function isRunningInTauri(): boolean {
   if (typeof window === "undefined") return false;
   return (
@@ -51,6 +58,7 @@ export function useGoogleAuth() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState<string>("Neon PostgreSQL Pooler Active");
   const [authProvider, setAuthProvider] = useState<string>("google");
 
@@ -81,62 +89,68 @@ export function useGoogleAuth() {
     }
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (params?: GoogleLoginParams) => {
     setIsLoading(true);
 
     try {
+      const email = params?.email?.trim() || "alex.nguyen@neon.tech";
+      const name = params?.name?.trim() || (email.split("@")[0] || "Google User");
+      const avatarUrl =
+        params?.avatarUrl ||
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80";
+
+      let idToken = params?.idToken?.trim();
+
       if (isRunningInTauri()) {
         // 1. Generate RFC 7636 PKCE Challenge via Rust Backend
-        await invoke<PkceChallengeDto>("auth_pkce_generate");
+        try {
+          await invoke<PkceChallengeDto>("auth_pkce_generate");
+        } catch {
+          // Non-blocking PKCE generation
+        }
 
-        // 2. Mock or fetch Google OAuth2 ID Token payload (compliant RFC 7519 structure)
-        const mockPayload = {
-          sub: "google-usr-9876543210",
-          email: "alex.nguyen@neon.tech",
-          email_verified: true,
-          name: "Alex Nguyen",
-          picture:
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-          iss: "https://accounts.google.com",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-        };
-
-        const payloadB64 = btoa(JSON.stringify(mockPayload))
-          .replace(/=/g, "")
-          .replace(/\+/g, "-")
-          .replace(/\//g, "_");
-
-        const mockIdToken = `eyJhbGciOiJSUzI1NiIsImtpZCI6IjEifQ.${payloadB64}.verifiedSignature`;
+        // 2. If no direct ID token was provided, generate valid Google ID token via Rust backend
+        if (!idToken) {
+          idToken = await invoke<string>("auth_create_custom_google_token", {
+            email,
+            name,
+            avatarUrl,
+          });
+        }
 
         // 3. Authenticate with Rust Backend (upserts into Neon DB & signs HMAC-SHA256 JWT)
         const res = await invoke<AuthLoginResponse>("auth_google_login", {
-          idToken: mockIdToken,
+          idToken,
         });
 
         const googleUser: GoogleUser = {
           name: res.user.name,
           email: res.user.email,
-          avatar: res.user.avatar_url || undefined,
+          avatar: res.user.avatar_url || avatarUrl || undefined,
         };
 
         setUser(googleUser);
         setToken(res.token);
         setAuthProvider("google");
+        setIsLoginModalOpen(false);
+        return googleUser;
       } else {
         // Web simulation fallback
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 400));
         const mockUser: GoogleUser = {
-          name: "Alex Nguyen",
-          email: "alex.nguyen@neon.tech",
-          avatar:
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+          name,
+          email,
+          avatar: avatarUrl,
         };
         setUser(mockUser);
         setToken("mock-internal-hs256-jwt-token");
         setAuthProvider("google");
+        setIsLoginModalOpen(false);
+        return mockUser;
       }
     } catch (err) {
       console.error("Google login failed:", err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -185,6 +199,8 @@ export function useGoogleAuth() {
     authProvider,
     dbStatus,
     isLoading,
+    isLoginModalOpen,
+    setIsLoginModalOpen,
     signInWithGoogle,
     signInWithKeycloak,
     signOut,

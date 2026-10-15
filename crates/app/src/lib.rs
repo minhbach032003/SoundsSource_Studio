@@ -204,6 +204,79 @@ fn is_pet_overlay_open(app: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
+fn open_ping_overlay(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    if let Some(win) = app.get_webview_window("ping-overlay") {
+        let _ = win.show();
+        return Ok(true);
+    }
+
+    let (screen_w, screen_h) = if let Ok(Some(mon)) = app.primary_monitor() {
+        let sz = mon.size();
+        let scale = mon.scale_factor();
+        (sz.width as f64 / scale, sz.height as f64 / scale)
+    } else {
+        (1920.0, 1080.0)
+    };
+
+    let win = WebviewWindowBuilder::new(
+        &app,
+        "ping-overlay",
+        WebviewUrl::App("index.html?ping_overlay=1".into()),
+    )
+    .title("Ping Overlay")
+    .inner_size(screen_w, screen_h)
+    .position(0.0, 0.0)
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .shadow(false)
+    .resizable(false)
+    .build()
+    .map_err(|e| format!("Failed to create ping overlay window: {e}"))?;
+
+    let _ = win.show();
+    Ok(true)
+}
+
+#[tauri::command]
+fn close_ping_overlay(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("ping-overlay") {
+        let _ = win.hide();
+        Ok(false)
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+fn toggle_ping_overlay(app: tauri::AppHandle, enable: Option<bool>) -> Result<bool, String> {
+    use tauri::Manager;
+    let is_open = app
+        .get_webview_window("ping-overlay")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
+
+    let target = enable.unwrap_or(!is_open);
+    if target {
+        open_ping_overlay(app)
+    } else {
+        close_ping_overlay(app)
+    }
+}
+
+#[tauri::command]
+fn is_ping_overlay_open(app: tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.get_webview_window("ping-overlay")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
 fn get_ping_settings(state: State<'_, AppState>) -> PingloomSettings {
     state.wheel_settings.lock().unwrap().clone()
 }
@@ -271,6 +344,16 @@ fn auth_google_login(id_token: String, state: State<'_, AppState>) -> Result<Aut
             token,
             auth_provider: "google".to_string(),
         })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn auth_create_custom_google_token(
+    email: String,
+    name: String,
+    avatar_url: Option<String>,
+) -> Result<String, String> {
+    sound_engine::GoogleAuthVerifier::generate_id_token(&email, &name, avatar_url)
         .map_err(|e| e.to_string())
 }
 
@@ -937,6 +1020,7 @@ pub fn run() {
             trim_memory,
             set_background_mode,
             auth_google_login,
+            auth_create_custom_google_token,
             auth_keycloak_login,
             auth_pkce_generate,
             auth_pkce_verify,
@@ -954,6 +1038,10 @@ pub fn run() {
             close_pet_overlay,
             toggle_pet_overlay,
             is_pet_overlay_open,
+            open_ping_overlay,
+            close_ping_overlay,
+            toggle_ping_overlay,
+            is_ping_overlay_open,
             get_ping_settings,
             save_ping_settings,
             get_ping_catalog,
@@ -988,6 +1076,43 @@ pub fn run() {
                         }
                     }
                 }
+
+                // Global modifier monitor for Alt / Option and Ctrl pings outside the app
+                {
+                    use std::ptr::NonNull;
+                    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags};
+                    use block2::RcBlock;
+                    use tauri::Emitter;
+
+                    let app_handle_clone = app.handle().clone();
+                    let mask = NSEventMask::FlagsChanged;
+                    let block = RcBlock::new(move |event_ptr: NonNull<NSEvent>| {
+                        let event = unsafe { event_ptr.as_ref() };
+                        let flags = event.modifierFlags();
+                        let is_alt = flags.contains(NSEventModifierFlags::Option);
+                        let is_ctrl = flags.contains(NSEventModifierFlags::Control);
+
+                        let loc = NSEvent::mouseLocation();
+                        if is_alt || is_ctrl {
+                            let payload = serde_json::json!({
+                                "is_holding": true,
+                                "mode": if is_alt { "tactical" } else { "emote" },
+                                "screen_x": loc.x,
+                                "screen_y": loc.y,
+                            });
+                            let _ = app_handle_clone.emit("global-modifier-changed", payload);
+                        } else {
+                            let payload = serde_json::json!({
+                                "is_holding": false,
+                                "screen_x": loc.x,
+                                "screen_y": loc.y,
+                            });
+                            let _ = app_handle_clone.emit("global-modifier-released", payload);
+                        }
+                    });
+
+                    let _ = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &block);
+                }
             }
 
             Ok(())
@@ -1004,4 +1129,6 @@ pub fn run() {
         }
     });
 }
+
+
 

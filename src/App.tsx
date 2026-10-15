@@ -12,9 +12,11 @@ import { useWallpaper } from "@/shared/lib/useWallpaper";
 import { useGoogleCalendar } from "@/shared/lib/useGoogleCalendar";
 import { ButtonComponent, ToastProvider, useToast } from "@/shared/ui";
 import { ModalComponent } from "@/shared/ui/ModalComponent";
+import { GlobalPingHost } from "@/components/radial/GlobalPingHost";
 import { useTheme } from "@/shared/lib/useTheme";
 import { ThemeControls } from "@/components/ThemeControls";
 import { GoogleIcon } from "@/components/icons/GoogleIcon";
+import { GoogleLoginModal } from "@/components/GoogleLoginModal";
 import { RefreshCw } from "lucide-react";
 import { groupProcesses, processKey, displayName } from "@/audio";
 import type { AudioProcess } from "@/audio";
@@ -122,6 +124,8 @@ const AppContent: FC = () => {
   const {
     user,
     isLoading: isLoadingAuth,
+    isLoginModalOpen,
+    setIsLoginModalOpen,
     signInWithGoogle,
     signOut,
     authProvider,
@@ -878,9 +882,8 @@ const AppContent: FC = () => {
     showToast("info", "Task removed");
   };
 
-  const handleSignInGoogle = async () => {
-    await signInWithGoogle();
-    showToast("success", "Signed in with Google successfully!");
+  const handleSignInGoogle = () => {
+    setIsLoginModalOpen(true);
   };
 
   const handleSignOutGoogle = () => {
@@ -894,6 +897,9 @@ const AppContent: FC = () => {
 
   return (
     <div className="flex h-screen bg-[var(--paper)] text-[var(--ink)] font-sans overflow-hidden relative">
+      {/* Global In-App Ping Gesture Engine & Overlay Bursts */}
+      <GlobalPingHost />
+
       {/* 0. Ambient Background Wallpaper Layer */}
       <div
         className="fixed inset-0 pointer-events-none z-0 transition-all duration-700 ease-out origin-center"
@@ -999,10 +1005,18 @@ const AppContent: FC = () => {
             {user ? (
               <button
                 onClick={() => setActiveTab("settings")}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--ink)] hover:border-[var(--focus)] transition-colors cursor-pointer shadow-sm max-w-[90px] sm:max-w-[130px] truncate"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[var(--surface)] border border-[var(--line)] text-[11px] text-[var(--ink)] hover:border-[var(--focus)] transition-colors cursor-pointer shadow-sm max-w-[120px] sm:max-w-[160px] truncate"
                 title="Account Settings"
               >
-                <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-4 h-4 rounded-full object-cover border border-[var(--line)] shrink-0"
+                  />
+                ) : (
+                  <GoogleIcon className="w-3.5 h-3.5 shrink-0" />
+                )}
                 <span className="font-semibold truncate">{user.name}</span>
               </button>
             ) : (
@@ -1012,7 +1026,7 @@ const AppContent: FC = () => {
                 onClick={handleSignInGoogle}
                 loading={isLoadingAuth}
                 leftIcon={<GoogleIcon className="w-3.5 h-3.5" />}
-                className="text-[11px] h-8 px-2 sm:px-3"
+                className="text-[11px] h-8 px-2 sm:px-3 font-semibold"
                 title="Sign in with Google"
               >
                 <span className="hidden sm:inline">Sign In</span>
@@ -1200,6 +1214,14 @@ const AppContent: FC = () => {
             setMasterVolume(100);
             showToast("info", "Audio routing and levels reset to default");
           }}
+        />
+
+        {/* Google Authentication Modal */}
+        <GoogleLoginModal
+          open={isLoginModalOpen}
+          onClose={() => setIsLoginModalOpen(false)}
+          onLogin={signInWithGoogle}
+          isLoading={isLoadingAuth}
         />
       </div>
     </div>

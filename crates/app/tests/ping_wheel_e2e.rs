@@ -25,8 +25,10 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         background_mode: AtomicBool::new(false),
     };
 
-    // 1. Verify initial settings
+    // 1. Verify initial settings and dual triggers
     let initial = state.wheel_settings.lock().unwrap().clone();
+    assert_eq!(initial.trigger, "alt");
+    assert_eq!(initial.emote_trigger.as_deref(), Some("ctrl"));
     assert_eq!(initial.wheel.len(), 8);
     assert_eq!(initial.emote_wheel.len(), 8);
     assert!(initial.validate().is_ok());
@@ -68,4 +70,10 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
     *state.wheel_settings.lock().unwrap() = updated.clone();
     assert_eq!(state.wheel_settings.lock().unwrap().volume, 90);
     assert_eq!(state.wheel_settings.lock().unwrap().drag_threshold_px, 64);
+
+    // 5. Verify dual-mode wheel slots distinction
+    let current = state.wheel_settings.lock().unwrap();
+    assert_eq!(current.wheel[0], "danger"); // Tactical LoL ping
+    assert_eq!(current.emote_wheel[0], "come_at_me"); // Emote icon
+    assert_ne!(current.wheel[0], current.emote_wheel[0]);
 }
