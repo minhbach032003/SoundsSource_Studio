@@ -3,6 +3,7 @@ import { Mic, MicOff, Bell, BellOff, Sparkles } from "lucide-react";
 import { SliderComponent, ButtonComponent, BadgeComponent, SelectComponent } from "@/shared/ui";
 import type { AudioDevice } from "@/components/DeviceQuickBar";
 import { useLiveAudioMeters } from "@/shared/lib/useLiveAudioMeters";
+import { audioDspChain } from "@/shared/lib/audioDspChain";
 import { cn } from "@/lib/utils";
 
 interface AudioBusesProps {
@@ -81,10 +82,9 @@ export const AudioBuses: FC<AudioBusesProps> = ({
 
   const handleTestChime = () => {
     setIsPlayingChime(true);
-    // Play pleasant system chime via Web Audio API
+    // Play pleasant system chime routed through DSP chain
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
+      const ctx = audioDspChain.getContext();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -92,11 +92,17 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
       osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.15); // A6 note
 
-      gain.gain.setValueAtTime((sysVolume / 100) * 0.15, ctx.currentTime);
+      gain.gain.setValueAtTime((sysVolume / 100) * 0.20, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      // Connect to DSP input so EQ and Bass Warmth process the chime
+      const input = audioDspChain.getInputNode();
+      if (input) {
+        gain.connect(input);
+      } else {
+        gain.connect(ctx.destination);
+      }
 
       osc.start();
       osc.stop(ctx.currentTime + 0.36);
@@ -104,7 +110,7 @@ export const AudioBuses: FC<AudioBusesProps> = ({
       // AudioContext fallback
     }
 
-    onToast?.("Playing macOS alert chime test");
+    onToast?.("Playing macOS alert chime test (routed through DSP)");
     setTimeout(() => setIsPlayingChime(false), 500);
   };
 

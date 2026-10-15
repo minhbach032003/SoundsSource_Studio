@@ -28,13 +28,8 @@ import {
   SlidersHorizontal,
   Trash2,
   AlertTriangle,
-  Cpu,
-  Activity,
-  Zap,
-  HardDrive,
-  RefreshCw,
 } from "lucide-react";
-import { usePerformanceDiagnostics } from "@/shared/lib/usePerformanceDiagnostics";
+import { PerformanceDiagnosticsCard } from "@/components/diagnostics/PerformanceDiagnosticsCard";
 import { cn } from "@/lib/utils";
 
 interface SettingsViewProps {
@@ -84,44 +79,8 @@ export const SettingsView: FC<SettingsViewProps> = ({
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isResetWallpaperModalOpen, setIsResetWallpaperModalOpen] = useState(false);
   const [isRemoveCustomWallpaperModalOpen, setIsRemoveCustomWallpaperModalOpen] = useState(false);
-  const [isPurgeModalOpen, setIsPurgeModalOpen] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
-
-  // Performance Diagnostics
-  const {
-    metrics,
-    fps,
-    latencyMs,
-    backgroundRamSaver,
-    isBenchmarking,
-    isTrimming,
-    toggleBackgroundRamSaver,
-    runBenchmark,
-    trimMemory,
-  } = usePerformanceDiagnostics();
-
-  const handleBenchmark = async () => {
-    try {
-      const res = await runBenchmark();
-      showToast?.("info", `Benchmark complete: ${res.avgLatencyMs}ms avg latency, ${res.fps} FPS`);
-    } catch {
-      showToast?.("error", "Benchmark failed");
-    }
-  };
-
-  const handleConfirmPurgeMemory = async () => {
-    setIsPurgeModalOpen(false);
-    try {
-      const res = await trimMemory();
-      showToast?.(
-        "success",
-        `Memory purged! Reclaimed ~${(res.bytes_reclaimed / (1024 * 1024)).toFixed(1)} MB (Current RSS: ${res.resident_size_mb.toFixed(1)} MB)`
-      );
-    } catch {
-      showToast?.("error", "Failed to purge memory");
-    }
-  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleConfirmSignOut = () => {
@@ -665,147 +624,7 @@ export const SettingsView: FC<SettingsViewProps> = ({
         </div>
 
         {/* 6. Performance & Memory Diagnostics */}
-        <div className="lg:col-span-2">
-          <CardComponent
-            title="Performance & Memory Diagnostics"
-            subtitle="Native macOS Mach task info & low-overhead background resource management"
-            extra={<Cpu className="w-4 h-4 text-[var(--accent-text)]" />}
-          >
-            <div className="space-y-4">
-              {/* Telemetry Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-                    <span className="flex items-center gap-1.5">
-                      <HardDrive className="w-3.5 h-3.5 text-[var(--accent-text)]" />
-                      RAM (RSS)
-                    </span>
-                    <BadgeComponent
-                      variant={
-                        metrics.resident_size_mb < 90
-                          ? "emerald"
-                          : metrics.resident_size_mb < 200
-                          ? "default"
-                          : "coral"
-                      }
-                      className="text-[9px] px-1 py-0"
-                    >
-                      {metrics.resident_size_mb < 90 ? "OPTIMAL" : "ELEVATED"}
-                    </BadgeComponent>
-                  </div>
-                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
-                    {metrics.resident_size_mb.toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-[var(--muted)]">MB</span>
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-                    <span className="flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-[var(--accent-text)]" />
-                      Virtual RAM
-                    </span>
-                    <span className="text-[10px] font-mono text-[var(--muted)]">64-bit Mach</span>
-                  </div>
-                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
-                    {(metrics.virtual_size_mb / 1024).toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-[var(--muted)]">GB</span>
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-                    <span className="flex items-center gap-1.5">
-                      <Activity className="w-3.5 h-3.5 text-[var(--success)]" />
-                      Render Rate
-                    </span>
-                    <BadgeComponent variant="emerald" className="text-[9px] px-1 py-0">
-                      VSYNC
-                    </BadgeComponent>
-                  </div>
-                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
-                    {fps} <span className="text-xs font-normal text-[var(--muted)]">FPS</span>
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)] flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[11px] text-[var(--muted)]">
-                    <span className="flex items-center gap-1.5">
-                      <RefreshCw className="w-3.5 h-3.5 text-[var(--warning)]" />
-                      IPC Latency
-                    </span>
-                    <span className="text-[10px] font-mono text-[var(--muted)]">RTT</span>
-                  </div>
-                  <span className="text-lg font-bold font-mono text-[var(--ink)] tracking-tight">
-                    {latencyMs.toFixed(1)}{" "}
-                    <span className="text-xs font-normal text-[var(--muted)]">ms</span>
-                  </span>
-                </div>
-              </div>
-
-              {/* Resource Controls */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-[var(--paper)] border border-[var(--line)]">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={backgroundRamSaver}
-                    onClick={() => {
-                      toggleBackgroundRamSaver(!backgroundRamSaver);
-                      showToast?.(
-                        "info",
-                        `Background RAM Saver ${!backgroundRamSaver ? "enabled" : "disabled"}`
-                      );
-                    }}
-                    className={cn(
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                      backgroundRamSaver ? "bg-emerald-500" : "bg-[var(--input-line)]"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
-                        backgroundRamSaver ? "translate-x-4" : "translate-x-0"
-                      )}
-                    />
-                  </button>
-                  <div>
-                    <span className="text-xs font-medium text-[var(--ink)] block">
-                      Background Eco & RAM Saver
-                    </span>
-                    <span className="text-[11px] text-[var(--muted)] block">
-                      Auto-throttles 60FPS visualizers and trims inactive memory heap when minimized
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <ButtonComponent
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBenchmark}
-                    disabled={isBenchmarking}
-                    leftIcon={<RefreshCw className={cn("w-3.5 h-3.5", isBenchmarking && "animate-spin")} />}
-                    className="text-xs"
-                  >
-                    {isBenchmarking ? "Testing…" : "Benchmark IPC"}
-                  </ButtonComponent>
-
-                  <ButtonComponent
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setIsPurgeModalOpen(true)}
-                    disabled={isTrimming}
-                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
-                    className="text-xs"
-                  >
-                    Purge RAM
-                  </ButtonComponent>
-                </div>
-              </div>
-            </div>
-          </CardComponent>
-        </div>
+        <PerformanceDiagnosticsCard showToast={showToast} className="lg:col-span-2" />
 
         {/* 7. Brand Identity & Engine Info */}
         <div className="lg:col-span-2">
@@ -864,19 +683,6 @@ export const SettingsView: FC<SettingsViewProps> = ({
         confirmVariant="destructive"
         icon={<AlertTriangle className="w-5 h-5 text-[var(--accent-text)]" />}
         onConfirm={handleConfirmSignOut}
-      />
-
-      {/* Confirmation Modal for Purging Memory Cache */}
-      <ModalComponent
-        open={isPurgeModalOpen}
-        onClose={() => setIsPurgeModalOpen(false)}
-        title="Purge Inactive Memory Cache?"
-        description="This will trigger native macOS memory pressure relief (malloc_zone_pressure_relief) to release idle heap blocks and audio ringbuffers. Audio processing will remain active."
-        confirmText="Purge Memory"
-        cancelText="Cancel"
-        confirmVariant="destructive"
-        icon={<Trash2 className="w-5 h-5 text-[var(--warning)]" />}
-        onConfirm={handleConfirmPurgeMemory}
       />
     </div>
   );

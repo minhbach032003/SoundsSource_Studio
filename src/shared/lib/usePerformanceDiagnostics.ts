@@ -6,6 +6,10 @@ export interface PerformanceMetrics {
   resident_size_mb: number;
   virtual_size_bytes: number;
   virtual_size_mb: number;
+  phys_footprint_bytes?: number;
+  phys_footprint_mb?: number;
+  peak_phys_footprint_bytes?: number;
+  peak_phys_footprint_mb?: number;
   uptime_seconds: number;
   background_mode_active: boolean;
 }
@@ -28,10 +32,14 @@ function isRunningInTauri(): boolean {
 }
 
 const DEFAULT_METRICS: PerformanceMetrics = {
-  resident_size_bytes: 42 * 1024 * 1024,
-  resident_size_mb: 42.5,
+  resident_size_bytes: 52 * 1024 * 1024,
+  resident_size_mb: 52.4,
   virtual_size_bytes: 512 * 1024 * 1024,
   virtual_size_mb: 512.0,
+  phys_footprint_bytes: 48 * 1024 * 1024,
+  phys_footprint_mb: 48.2,
+  peak_phys_footprint_bytes: 64 * 1024 * 1024,
+  peak_phys_footprint_mb: 64.0,
   uptime_seconds: 120,
   background_mode_active: false,
 };
@@ -103,8 +111,9 @@ export function usePerformanceDiagnostics() {
     };
   }, []);
 
-  // Poll metrics periodically
+  // Poll metrics periodically with adaptive throttling
   const fetchMetrics = useCallback(async () => {
+    if (typeof document !== "undefined" && document.hidden) return;
     if (isDesktop) {
       try {
         const res = await invoke<PerformanceMetrics>("get_performance_metrics");
@@ -114,11 +123,21 @@ export function usePerformanceDiagnostics() {
       }
     } else {
       // Browser preview simulated telemetry
-      setMetrics((prev) => ({
-        ...prev,
-        uptime_seconds: prev.uptime_seconds + 3,
-        resident_size_mb: Number((42.0 + Math.sin(Date.now() / 10000) * 2.5).toFixed(1)),
-      }));
+      setMetrics((prev) => {
+        const simFootprint = Number((48.0 + Math.sin(Date.now() / 8000) * 2.0).toFixed(1));
+        const simRss = Number((simFootprint + 8.5).toFixed(1));
+        const simPeak = Math.max(prev.peak_phys_footprint_mb ?? 60.0, simFootprint + 4.0);
+        return {
+          ...prev,
+          uptime_seconds: prev.uptime_seconds + 3,
+          resident_size_mb: simRss,
+          resident_size_bytes: Math.round(simRss * 1024 * 1024),
+          phys_footprint_mb: simFootprint,
+          phys_footprint_bytes: Math.round(simFootprint * 1024 * 1024),
+          peak_phys_footprint_mb: simPeak,
+          peak_phys_footprint_bytes: Math.round(simPeak * 1024 * 1024),
+        };
+      });
     }
   }, [isDesktop]);
 
@@ -202,7 +221,11 @@ export function usePerformanceDiagnostics() {
   }, [isDesktop, fps, fetchMetrics]);
 
   // Trim Memory
-  const trimMemory = useCallback(async (): Promise<{ resident_size_mb: number; bytes_reclaimed: number }> => {
+  const trimMemory = useCallback(async (): Promise<{
+    resident_size_mb: number;
+    phys_footprint_mb: number;
+    bytes_reclaimed: number;
+  }> => {
     setIsTrimming(true);
     try {
       if (isDesktop) {
@@ -213,18 +236,23 @@ export function usePerformanceDiagnostics() {
         setMetrics(res.metrics_after);
         return {
           resident_size_mb: res.metrics_after.resident_size_mb,
+          phys_footprint_mb: res.metrics_after.phys_footprint_mb ?? res.metrics_after.resident_size_mb,
           bytes_reclaimed: res.bytes_reclaimed_hint,
         };
       } else {
         await new Promise((r) => setTimeout(r, 400));
+        const currentRss = metrics.resident_size_mb;
+        const currentFootprint = metrics.phys_footprint_mb ?? 48.0;
         const updated = {
           ...metrics,
-          resident_size_mb: Number((metrics.resident_size_mb * 0.92).toFixed(1)),
+          resident_size_mb: Number((currentRss * 0.92).toFixed(1)),
+          phys_footprint_mb: Number((currentFootprint * 0.90).toFixed(1)),
         };
         setMetrics(updated);
         return {
           resident_size_mb: updated.resident_size_mb,
-          bytes_reclaimed: 1024 * 1024 * 3,
+          phys_footprint_mb: updated.phys_footprint_mb,
+          bytes_reclaimed: 1024 * 1024 * 4,
         };
       }
     } finally {

@@ -16,6 +16,8 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         assert!(mem.resident_size_bytes > 0, "Resident size should be positive");
         assert!(mem.resident_size_mb > 0.0, "Resident size MB should be positive");
         assert!(mem.virtual_size_bytes >= mem.resident_size_bytes);
+        assert!(mem.phys_footprint_bytes > 0, "Physical footprint should be positive");
+        assert!(mem.phys_footprint_mb > 0.0, "Physical footprint MB should be positive");
     }
 
     // 2. Verify memory pressure relief executes safely
@@ -50,6 +52,10 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         resident_size_mb: mem.resident_size_mb,
         virtual_size_bytes: mem.virtual_size_bytes,
         virtual_size_mb: mem.virtual_size_mb,
+        phys_footprint_bytes: mem.phys_footprint_bytes,
+        phys_footprint_mb: mem.phys_footprint_mb,
+        peak_phys_footprint_bytes: mem.peak_phys_footprint_bytes,
+        peak_phys_footprint_mb: mem.peak_phys_footprint_mb,
         uptime_seconds: state.start_time.elapsed().as_secs(),
         background_mode_active: state.background_mode.load(Ordering::Relaxed),
     };

@@ -19,8 +19,13 @@ import {
   RotateCcw,
   Radio,
   CheckCircle2,
+  Headphones,
+  Music,
+  Square,
+  Flame,
 } from "lucide-react";
 import { VirtualCableModal } from "@/components/VirtualCableModal";
+import { audioDspChain } from "@/shared/lib/audioDspChain";
 import { cn } from "@/lib/utils";
 
 export interface MicFilterConfigDto {
@@ -200,7 +205,19 @@ export const AudioFilterPanel: FC = () => {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isCableModalOpen, setIsCableModalOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isPlayingBassSample, setIsPlayingBassSample] = useState(false);
+  const [isMicMonitoring, setIsMicMonitoring] = useState(false);
   const [testStats, setTestStats] = useState<FilterTestResultDto["stats"] | null>(null);
+
+  // Sync settings to Web Audio DSP chain
+  useEffect(() => {
+    const isOutEnabled = settings.output.enabled;
+    audioDspChain.setBassWarmth(isOutEnabled && settings.output.bass_warmth, 6.0);
+    audioDspChain.setDialogueBoost(isOutEnabled && settings.output.dialogue_boost, 3.5);
+    audioDspChain.setNightMode(isOutEnabled && settings.output.night_mode_compression);
+    audioDspChain.setDeHiss(isOutEnabled && settings.output.de_hiss, -4.0);
+    audioDspChain.setHighPass(settings.mic.enabled && settings.mic.high_pass_enabled, settings.mic.high_pass_cutoff_hz);
+  }, [settings]);
 
   // Load filter settings from backend
   useEffect(() => {
@@ -254,6 +271,46 @@ export const AudioFilterPanel: FC = () => {
       "info",
       next.output.enabled ? "Đã bật xử lý âm thanh đầu ra" : "Đã tắt xử lý âm thanh đầu ra"
     );
+  };
+
+  const handlePlayBassSample = () => {
+    if (isPlayingBassSample) {
+      audioDspChain.stopGrooveSample();
+      setIsPlayingBassSample(false);
+      return;
+    }
+
+    setIsPlayingBassSample(true);
+    // Play 808 sub-bass groove through the active DSP chain
+    audioDspChain.playBassAndGrooveSample(4.5, (progress) => {
+      if (progress >= 1.0) {
+        setIsPlayingBassSample(false);
+      }
+    });
+
+    const isBassOn = settings.output.enabled && settings.output.bass_warmth;
+    showToast(
+      "info",
+      isBassOn
+        ? "Đang phát mẫu 808 Sub-Bass: [Ấm Dải Trầm ĐANG BẬT +6dB]"
+        : "Đang phát mẫu 808 Sub-Bass: Bấm nút 'Ấm Dải Trầm (Bass)' để so sánh âm trầm!"
+    );
+  };
+
+  const handleToggleMicMonitor = async () => {
+    if (isMicMonitoring) {
+      audioDspChain.stopMicMonitor();
+      setIsMicMonitoring(false);
+      showToast("info", "Đã tắt nghe thử mic trực tiếp");
+    } else {
+      const ok = await audioDspChain.startMicMonitor();
+      if (ok) {
+        setIsMicMonitoring(true);
+        showToast("success", "Đã bật nghe thử mic trực tiếp (Khuyên dùng tai nghe để tránh vọng)");
+      } else {
+        showToast("error", "Không thể truy cập microphone. Vui lòng cấp quyền âm thanh.");
+      }
+    }
   };
 
   const handleRunTestBuffer = async () => {
@@ -561,21 +618,36 @@ export const AudioFilterPanel: FC = () => {
 
               <button
                 type="button"
-                onClick={() =>
-                  commitSettings({
+                onClick={() => {
+                  const nextBass = !settings.output.bass_warmth;
+                  const next = {
                     ...settings,
-                    output: { ...settings.output, bass_warmth: !settings.output.bass_warmth },
-                  })
-                }
+                    output: { ...settings.output, bass_warmth: nextBass },
+                  };
+                  commitSettings(next);
+                  showToast(
+                    "success",
+                    nextBass
+                      ? "Đã kích hoạt Ấm Dải Trầm (+6dB 90Hz Sub-Bass)"
+                      : "Đã tắt Ấm Dải Trầm (Trở về cân bằng)"
+                  );
+                }}
                 className={cn(
                   "p-2 rounded-lg border text-left cursor-pointer transition-colors flex flex-col justify-between min-h-[56px]",
                   settings.output.bass_warmth
-                    ? "bg-[var(--surface)] border-[var(--accent)] text-[var(--ink)] font-semibold"
+                    ? "bg-[var(--surface)] border-[var(--accent)] text-[var(--ink)] font-semibold ring-1 ring-[var(--accent)]/40"
                     : "border-[var(--line)] text-[var(--muted)] hover:border-[var(--focus)]"
                 )}
               >
-                <span className="text-[11px] block">Ấm Dải Trầm (Bass)</span>
-                <span className="text-[9px] text-[var(--muted)] block mt-0.5">90Hz Sub ấm áp</span>
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-[11px] block font-bold">Ấm Dải Trầm (Bass)</span>
+                  {settings.output.bass_warmth && (
+                    <Flame className="w-3 h-3 text-amber-500 fill-amber-500 animate-pulse" />
+                  )}
+                </div>
+                <span className="text-[9px] text-[var(--muted)] block mt-0.5">
+                  {settings.output.bass_warmth ? "+6dB Sub-Bass (Active)" : "90Hz Sub ấm áp"}
+                </span>
               </button>
 
               <button
@@ -600,31 +672,81 @@ export const AudioFilterPanel: FC = () => {
           )}
         </div>
 
-        {/* Real-Time Test Trigger */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface)] gap-2">
-          <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-[var(--accent)] animate-pulse shrink-0" />
-            <div className="min-w-0">
-              <span className="text-[11px] text-[var(--ink)] font-medium block">
-                Kiểm tra khả năng lọc tạp âm của DSP Engine
-              </span>
-              {testStats && (
-                <span className="text-[10px] text-emerald-400 font-mono block mt-0.5">
-                  Gate: {testStats.gate_open ? "Mở" : "Chặn tạp âm"} · Suy hao: -{testStats.attenuation_db.toFixed(1)} dB
+        {/* Real-Time Audible Test & Live Mic Monitor Section */}
+        <div className="p-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] space-y-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Music className={cn("w-4 h-4 text-[var(--accent)]", isPlayingBassSample && "animate-bounce")} />
+              <div>
+                <span className="text-xs font-bold text-[var(--ink)] block">
+                  Nghe Thử Âm Trầm & Bộ Lọc (808 Bass Sample)
                 </span>
-              )}
+                <span className="text-[10px] text-[var(--muted)] block">
+                  Phát nhịp trống 808 Sub-Bass trực tiếp qua bộ lọc để cảm nhận ngay sự khác biệt.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <ButtonComponent
+                variant={isPlayingBassSample ? "primary" : "outline"}
+                size="sm"
+                onClick={handlePlayBassSample}
+                leftIcon={
+                  isPlayingBassSample ? (
+                    <Square className="w-3 h-3 fill-current" />
+                  ) : (
+                    <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  )
+                }
+                className="h-7 text-xs font-bold"
+              >
+                {isPlayingBassSample ? "Dừng Phát" : "Nghe Thử Bass"}
+              </ButtonComponent>
+
+              <ButtonComponent
+                variant={isMicMonitoring ? "destructive" : "outline"}
+                size="sm"
+                onClick={handleToggleMicMonitor}
+                leftIcon={<Headphones className="w-3.5 h-3.5 text-[var(--accent)]" />}
+                className="h-7 text-xs font-semibold"
+                title="Nghe lại trực tiếp tiếng mic của bạn qua bộ lọc Noise Gate"
+              >
+                {isMicMonitoring ? "Tắt Nghe Mic" : "Nghe Thử Mic"}
+              </ButtonComponent>
             </div>
           </div>
 
-          <ButtonComponent
-            variant="outline"
-            size="sm"
-            onClick={handleRunTestBuffer}
-            loading={isTesting}
-            className="h-7 text-xs font-semibold shrink-0"
-          >
-            Bắn Thử & Kiểm Tra Mức Lọc
-          </ButtonComponent>
+          {/* Real-Time DSP Gate & Attenuation Telemetry */}
+          <div className="flex items-center justify-between pt-2 border-t border-[var(--line)] text-[11px] text-[var(--muted)]">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Radio className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span>DSP Trạng thái:</span>
+              <span className="font-semibold text-[var(--ink)]">
+                {settings.output.enabled && settings.output.bass_warmth
+                  ? "Bass Warmth +6dB ON"
+                  : "Bass Balanced"}
+              </span>
+            </span>
+
+            <ButtonComponent
+              variant="ghost"
+              size="sm"
+              onClick={handleRunTestBuffer}
+              loading={isTesting}
+              className="h-6 text-[10px] px-2 text-[var(--muted)] hover:text-[var(--ink)]"
+            >
+              Kiểm Tra Mức Suy Hao (dB)
+            </ButtonComponent>
+          </div>
+
+          {testStats && (
+            <div className="p-2 rounded-lg bg-[var(--paper)] border border-[var(--line)] font-mono text-[10px] flex items-center justify-between text-[var(--muted)]">
+              <span>Độ mở Gate: {testStats.gate_open ? "Mở" : "Chặn tạp âm"}</span>
+              <span className="text-emerald-500 font-bold">Mức suy hao: -{testStats.attenuation_db.toFixed(1)} dB</span>
+              <span>Đỉnh đầu ra: {testStats.output_peak_db.toFixed(1)} dB</span>
+            </div>
+          )}
         </div>
       </div>
 

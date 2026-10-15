@@ -324,6 +324,10 @@ pub struct AppPerformanceMetrics {
     pub resident_size_mb: f64,
     pub virtual_size_bytes: u64,
     pub virtual_size_mb: f64,
+    pub phys_footprint_bytes: u64,
+    pub phys_footprint_mb: f64,
+    pub peak_phys_footprint_bytes: u64,
+    pub peak_phys_footprint_mb: f64,
     pub uptime_seconds: u64,
     pub background_mode_active: bool,
 }
@@ -344,6 +348,10 @@ fn get_performance_metrics(state: State<'_, AppState>) -> AppPerformanceMetrics 
         resident_size_mb: mem.resident_size_mb,
         virtual_size_bytes: mem.virtual_size_bytes,
         virtual_size_mb: mem.virtual_size_mb,
+        phys_footprint_bytes: mem.phys_footprint_bytes,
+        phys_footprint_mb: mem.phys_footprint_mb,
+        peak_phys_footprint_bytes: mem.peak_phys_footprint_bytes,
+        peak_phys_footprint_mb: mem.peak_phys_footprint_mb,
         uptime_seconds: uptime,
         background_mode_active: bg,
     }

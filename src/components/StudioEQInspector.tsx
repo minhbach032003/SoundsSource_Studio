@@ -10,9 +10,12 @@ import {
   Mic,
   Moon,
   Music,
+  Play,
+  Square,
 } from "lucide-react";
 import { BadgeComponent } from "@/shared/ui";
 import { useLiveAudioMeters } from "@/shared/lib/useLiveAudioMeters";
+import { audioDspChain } from "@/shared/lib/audioDspChain";
 import { cn } from "@/lib/utils";
 
 export interface EQBandState {
@@ -108,12 +111,22 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
   const [bands, setBands] = useState<EQBandState[]>(DEFAULT_BANDS);
   const [internalBypassed, setInternalBypassed] = useState(externalBypassed);
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
+  const [isPlayingTestTone, setIsPlayingTestTone] = useState(false);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const activeDragNode = useRef<number | null>(null);
 
   const isBypassed = externalBypassed || internalBypassed;
-  const liveMeters = useLiveAudioMeters(isAudioActive && !isBypassed);
+  const liveMeters = useLiveAudioMeters((isAudioActive || isPlayingTestTone) && !isBypassed);
+
+  // Sync bands with Web Audio DSP chain
+  useEffect(() => {
+    if (isBypassed) {
+      audioDspChain.setEQBands(DEFAULT_BANDS.map(() => 0));
+    } else {
+      audioDspChain.setEQBands(bands.map((b) => b.gain));
+    }
+  }, [bands, isBypassed]);
 
   useEffect(() => {
     setInternalBypassed(externalBypassed);
@@ -239,6 +252,33 @@ export const StudioEQInspector: FC<StudioEQInspectorProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (isPlayingTestTone) {
+                audioDspChain.stopGrooveSample();
+                setIsPlayingTestTone(false);
+              } else {
+                setIsPlayingTestTone(true);
+                audioDspChain.playBassAndGrooveSample(3.5, (progress) => {
+                  if (progress >= 1.0) {
+                    setIsPlayingTestTone(false);
+                  }
+                });
+              }
+            }}
+            className={cn(
+              "px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-all cursor-pointer flex items-center gap-1",
+              isPlayingTestTone
+                ? "bg-[var(--accent)] text-[var(--accent-ink)] border-[var(--accent)] shadow-sm animate-pulse"
+                : "bg-[var(--paper)] border-[var(--line)] text-[var(--ink)] hover:border-[var(--focus)]"
+            )}
+            title="Nghe thử âm thanh với đường cong EQ và âm trầm hiện tại"
+          >
+            {isPlayingTestTone ? <Square className="w-2.5 h-2.5 fill-current" /> : <Play className="w-2.5 h-2.5 fill-current" />}
+            <span>{isPlayingTestTone ? "Dừng" : "Nghe Thử EQ"}</span>
+          </button>
+
           <button
             onClick={handleToggleBypass}
             className={cn(
