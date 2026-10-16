@@ -114,22 +114,54 @@ mod native {
     use std::ffi::c_void;
     pub type Processor = unsafe extern "C" fn(*mut c_void, *mut f32, u32, f64);
     unsafe extern "C" {
-        pub fn rs_spotify_tap_start(ids: *const u32, count: u32, process: Processor, context: *mut c_void, error: *mut i32) -> *mut c_void;
+        pub fn rs_spotify_tap_start(ids: *const u32, count: u32, process: Processor, context: *mut c_void, error: *mut i32, stage: *mut i32) -> *mut c_void;
+        pub fn rs_spotify_tap_output_format(session: *mut c_void, rate: *mut f64, channels: *mut u32);
         pub fn rs_spotify_tap_stop(session: *mut c_void);
         pub fn rs_spotify_tap_frames(session: *mut c_void) -> u64;
         pub fn rs_default_output() -> u32;
         pub fn rs_spotify_processes(ids: *mut u32, capacity: u32) -> u32;
+    }
+
+    /// Stage says which step failed, so the same OSStatus never means two things.
+    fn start_error(error: i32, stage: i32) -> String {
+        const PERMISSION: i32 = 560947818; // '!per'
+        if error == PERMISSION {
+            return "Không nối được tiếng Spotify (CoreAudio !per). Cần cấp quyền Screen & System Audio Recording trong System Settings > Privacy & Security.".into();
+        }
+        let detail = match stage {
+            1 => return "Cần macOS 14.2 trở lên để tách riêng tiếng Spotify.".into(),
+            2 => return "Đợi Spotify tạo luồng âm thanh. Bấm Play để bắt đầu.".into(),
+            3 => return "Không cấp phát được bộ nhớ cho phiên âm thanh.".into(),
+            4 => "không tạo được process tap",
+            5 => "không đọc được định dạng tap",
+            6 => "tap không trả về Float32 stereo",
+            7 => "không đọc được UID thiết bị phát",
+            8 => "không đọc được định dạng thiết bị phát",
+            9 => "không tạo được aggregate device",
+            10 => "không đọc được định dạng aggregate device",
+            11 => "aggregate device không phải Float32",
+            12 => "không tạo được IOProc",
+            13 => "không khởi động được IOProc",
+            _ => "lỗi không xác định",
+        };
+        format!("Không nối được tiếng Spotify: {detail} (CoreAudio {error}, bước {stage}). Kiểm tra thiết bị âm thanh và quyền ghi âm hệ thống rồi thử lại.")
     }
     pub struct SpotifyTap(*mut c_void);
     impl SpotifyTap {
         /// Context must outlive this tap and be exclusively accessed by its serial IOProc.
         pub unsafe fn start(ids: &[u32], process: Processor, context: *mut c_void) -> Result<Self, String> {
             if ids.is_empty() { return Err("Đợi Spotify tạo luồng âm thanh. Bấm Play để bắt đầu.".into()); }
-            let mut error = 0;
-            let ptr = unsafe { rs_spotify_tap_start(ids.as_ptr(), ids.len() as u32, process, context, &mut error) };
-            if ptr.is_null() { Err(format!("Không nối được tiếng Spotify (CoreAudio {error}). Kiểm tra quyền Screen & System Audio Recording rồi thử lại.")) } else { Ok(Self(ptr)) }
+            let (mut error, mut stage) = (0, 0);
+            let ptr = unsafe { rs_spotify_tap_start(ids.as_ptr(), ids.len() as u32, process, context, &mut error, &mut stage) };
+            if ptr.is_null() { Err(start_error(error, stage)) } else { Ok(Self(ptr)) }
         }
         pub fn frames(&self) -> u64 { unsafe { rs_spotify_tap_frames(self.0) } }
+        /// Rate and channel count the IOProc is resampling the 48 kHz tap down to.
+        pub fn output_format(&self) -> (f64, u32) {
+            let (mut rate, mut channels) = (0.0, 0);
+            unsafe { rs_spotify_tap_output_format(self.0, &mut rate, &mut channels) };
+            (rate, channels)
+        }
     }
     impl Drop for SpotifyTap { fn drop(&mut self) { unsafe { rs_spotify_tap_stop(self.0) } } }
     pub fn default_output() -> u32 { unsafe { rs_default_output() } }

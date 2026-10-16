@@ -182,7 +182,8 @@
     spectrum.has_signal ? "SPOTIFY LIVE" : "SILENT"
   );
   const spectrumMessage = $derived(
-    spectrumError || spectrum?.error || (!desktop ? "Open the desktop app to analyze Spotify audio." :
+    // The capture error itself is shown once, in the Spotify panel header.
+    spectrumError ? spectrumError : spectrum?.error ? "Xem chi tiết lỗi ở bảng Spotify." : (!desktop ? "Open the desktop app to analyze Spotify audio." :
     !spectrum ? "Checking Spotify audio capture…" : !spectrum.enabled ? "Connect Spotify DSP in the Spotify panel to analyze its audio." :
     !spectrum.connected ? "Waiting for the Spotify audio connection." : !spectrum.receiving ? "No recent Spotify audio. Check playback and the selected output device." :
     "Spotify only · measured after EQ")

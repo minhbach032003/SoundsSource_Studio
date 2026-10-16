@@ -55,6 +55,7 @@
       </button>
     </div>
     {#if status?.error}<p class="error" role="alert">{status.error}</p>{/if}
+    {#if status?.warning && !status?.error}<p class="warning" role="status">{status.warning}</p>{/if}
     <StudioEQInspector embedded compact activePresetName={preset} isAudioActive={status?.processing ?? false}
       onPresetSelect={(name) => { preset = name; toastState.info(`Đã chọn EQ: ${name}`); }}
       onBandChange={setBand} onToggleBypass={bypass} />
@@ -180,6 +181,7 @@
   .icon-button { width: 36px; height: 36px; padding: 0; flex-shrink: 0; }
   .note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
   .error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--error); overflow-wrap: anywhere; }
+  .warning { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
   .device-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
   .device-row select { flex: 1; min-width: 0; max-width: 100%; }
   .spotify-search { display: flex; gap: 8px; }

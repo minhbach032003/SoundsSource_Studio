@@ -37,7 +37,9 @@ pub struct BiquadCoefficients {
 impl BiquadCoefficients {
     /// Compute peaking EQ filter coefficients for a given sample rate
     pub fn peaking_eq(frequency: f32, gain_db: f32, q: f32, sample_rate: f32) -> Self {
-        if gain_db.abs() < 1e-4 {
+        // At or above Nyquist the peaking form degenerates to (1,2,1)/(1,2,1):
+        // near-identity only by float pole-zero cancellation. Make it exact.
+        if !(sample_rate > 0.0) || !(frequency > 0.0) || frequency >= sample_rate * 0.5 || gain_db.abs() < 1e-4 {
             return Self {
                 b0: 1.0,
                 b1: 0.0,
@@ -215,6 +217,25 @@ impl ParametricEQ {
             samples[right_idx] = r;
         }
     }
+}
+
+#[cfg(test)]
+mod nyquist_tests {
+    use super::*;
+
+    #[test]
+    fn bands_at_or_above_nyquist_pass_through_instead_of_diverging() {
+        // A Bluetooth headset in hands-free mode runs the whole rack at 16 kHz.
+        for &frequency in &[8000.0, 16000.0] {
+            let c = BiquadCoefficients::peaking_eq(frequency, 12.0, 1.0, 16000.0);
+            assert_eq!((c.b0, c.b1, c.b2, c.a1, c.a2), (1.0, 0.0, 0.0, 0.0, 0.0),
+                "{frequency} Hz at 16 kHz must be an exact pass-through");
+        }
+        // Below Nyquist the band still works.
+        let c = BiquadCoefficients::peaking_eq(1000.0, 12.0, 1.0, 16000.0);
+        assert!(c.b0 != 1.0 || c.b1 != 0.0, "1 kHz at 16 kHz must still filter");
+    }
+
 }
 
 #[cfg(test)]

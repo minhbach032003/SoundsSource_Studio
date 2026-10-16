@@ -306,6 +306,8 @@ impl SpotifyWeb {
             if bytes.len() > 2_000_000 {
                 return Err("Phản hồi Spotify quá lớn.".into());
             }
+            // Playback controls answer 200/202 with an empty body and no Content-Length.
+            if bytes.is_empty() { return Ok(Value::Null); }
             return serde_json::from_slice(&bytes)
                 .map_err(|_| "Dữ liệu Spotify không hợp lệ.".into());
         }

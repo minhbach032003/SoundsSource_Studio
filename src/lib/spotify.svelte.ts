@@ -16,6 +16,7 @@ export interface SpotifyStatus {
   frames: number;
   sample_rate: number;
   error: string | null;
+  warning: string | null;
   playback_error: string | null;
 }
 

@@ -16,6 +16,8 @@ pub struct SpotifyStatus {
     pub frames: u64,
     pub sample_rate: f64,
     pub error: Option<String>,
+    /// Degraded but working: the output device forces a lossy rate or mono.
+    pub warning: Option<String>,
     pub playback_error: Option<String>,
 }
 
@@ -86,7 +88,8 @@ impl SpotifyIntegration {
                     }
                 } else { stalled = 0; }
                 if error.is_some() { route_error = error.clone(); }
-                let mut next = SpotifyStatus { enabled: enabled.load(Ordering::Acquire), connected: tap.is_some(), processing: processing && tap.is_some(), frames, sample_rate: 0.0, error, ..Default::default() };
+                let warning = tap.as_ref().and_then(|t| output_warning(t.output_format()));
+                let mut next = SpotifyStatus { enabled: enabled.load(Ordering::Acquire), connected: tap.is_some(), processing: processing && tap.is_some(), frames, sample_rate: 0.0, error, warning, ..Default::default() };
                 // rate is only written by IOProc: read the router's EQ rate under its lock.
                 next.sample_rate = context.router.lock().unwrap().master_eq().sample_rate as f64;
                 match playback {
@@ -107,6 +110,15 @@ impl SpotifyIntegration {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.lock().unwrap().take() { let _ = worker.join(); }
     }
+}
+
+/// The tap is fixed at 48 kHz stereo; say so when the device cannot carry that.
+fn output_warning((rate, channels): (f64, u32)) -> Option<String> {
+    let mut limits = Vec::new();
+    if rate > 0.0 && rate < 44100.0 { limits.push(format!("{} kHz", (rate / 100.0).round() / 10.0)); }
+    if channels == 1 { limits.push("mono".into()); }
+    if limits.is_empty() { return None; }
+    Some(format!("Thiết bị phát đang chạy {} nên tiếng bị giảm chất lượng. Thường là do app khác đang dùng mic đẩy tai nghe Bluetooth sang chế độ hands-free — thoát mic hoặc đổi thiết bị phát để nghe đầy đủ.", limits.join(" · ")))
 }
 
 struct Processor {
@@ -142,7 +154,7 @@ pub fn get_spotify_spectrum(state: State<'_, AppState>) -> SpotifySpectrum {
 }
 
 unsafe extern "C" fn process_audio(context: *mut std::ffi::c_void, samples: *mut f32, count: u32, rate: f64) {
-    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() || !(32000.0..=192000.0).contains(&rate) { return; }
+    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() || !(8000.0..=192000.0).contains(&rate) { return; }
     let processor = unsafe { &*context.cast::<Processor>() };
     let samples = unsafe { std::slice::from_raw_parts_mut(samples, count as usize) };
     // Never block the audio thread on UI commands. A contended buffer passes through.
