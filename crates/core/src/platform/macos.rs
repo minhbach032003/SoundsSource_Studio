@@ -35,7 +35,6 @@ unsafe extern "C" {
 unsafe extern "C" {
     fn objc_getClass(name: *const std::ffi::c_char) -> *mut c_void;
     fn sel_registerName(name: *const std::ffi::c_char) -> *mut c_void;
-    static objc_msgSend: c_void;
 }
 
 mod macos_app {
@@ -50,7 +49,9 @@ mod macos_app {
     type MsgSendRetI32 = unsafe extern "C" fn(*mut c_void, *mut c_void) -> i32;
 
     unsafe fn get_msg_send<T>() -> T {
-        unsafe { std::mem::transmute_copy(&(&raw const objc_msgSend)) }
+        // Use the runtime's function declaration, not an extern static: mixed data/function
+        // declarations for objc_msgSend get renamed to an undefined objc_msgSend.1 under LTO.
+        unsafe { std::mem::transmute_copy(&(objc2::ffi::objc_msgSend as *const ())) }
     }
 
     #[derive(Debug, Clone)]
