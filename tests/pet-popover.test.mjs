@@ -16,6 +16,8 @@ test("PetPopover Svelte 5 component integrity", () => {
   assert.ok(src.includes("COMPANION"), "includes COMPANION section");
   assert.ok(src.includes("AGENTS"), "includes AGENTS section");
   assert.ok(src.includes("Clear all"), "includes Clear all action");
+  assert.ok(src.includes('id="display-heading">Display'), "groups display preferences");
+  assert.ok(src.includes('id="animation-heading">Animation'), "groups animation preferences");
   assert.ok(src.includes("Show pet"), "includes Show pet toggle");
   assert.ok(src.includes("Show count on menu bar"), "includes Show count on menu bar toggle");
   assert.ok(src.includes("Show chat on menu bar"), "includes Show chat on menu bar toggle");
@@ -45,6 +47,12 @@ test("PetPopover Svelte 5 component integrity", () => {
   assert.ok(src.includes("Maximize2"), "imports Maximize2 icon");
   assert.ok(src.includes("Settings"), "imports Settings icon");
   assert.ok(src.includes("Power"), "imports Power icon");
+
+  // Popover owns its transparent canvas; text follows the shared theme palette.
+  assert.ok(src.includes(":global(body.pet-popover-window)"), "scopes transparent canvas to this window");
+  assert.equal(/text-white|bg-white|bg-black/.test(src), false, "no dark-only Tailwind overrides");
+  assert.ok(src.includes('event.key !== THEME_STORAGE_KEY'), "syncs theme changes from other windows");
+  assert.equal((src.match(/role="switch"/g) || []).length, 6, "all six toggles use switch semantics");
 
   // Zero emojis
   const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;

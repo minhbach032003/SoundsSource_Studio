@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { applyTheme, readThemePreference, themeState, THEME_STORAGE_KEY } from "@/lib/theme.svelte";
   import { setDesktopPetVisible } from "@/lib/petVisibility";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
@@ -38,7 +39,21 @@
   let animatePets = $state<boolean>(true);
   let animationFPS = $state<number>(12);
   let petSize = $state<number>(180);
-  let hoveredSessionId = $state<string | null>(null);
+
+  // This is a separate, reusable webview: keep its canvas clear and theme current.
+  $effect(() => {
+    document.body.classList.add("pet-popover-window");
+    const syncTheme = (event: StorageEvent) => {
+      if (event.key !== null && event.key !== THEME_STORAGE_KEY) return;
+      themeState.themePreference = readThemePreference();
+      applyTheme(themeState.themePreference, themeState.osDark);
+    };
+    window.addEventListener("storage", syncTheme);
+    return () => {
+      document.body.classList.remove("pet-popover-window");
+      window.removeEventListener("storage", syncTheme);
+    };
+  });
 
   // Poll sessions and care state every 1.5s
   $effect(() => {
@@ -180,297 +195,216 @@
 
 </script>
 
-<div class="w-[300px] min-h-[480px] bg-(--surface)/95 text-(--ink) border border-(--line) rounded-2xl shadow-2xl backdrop-blur-xl flex flex-col select-none overflow-hidden font-sans">
-  <!-- 1. Header -->
-  <div class="p-3.5 flex items-center justify-between gap-2.5">
-    <div class="flex items-center gap-2.5">
-      <div class="w-7 h-7 rounded-lg bg-linear-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white shadow-sm shrink-0">
-        <PawPrint class="w-4 h-4" />
+<div class="pet-popover" aria-label="AgentPet">
+  <header class="popover-header">
+    <span class="pet-emblem"><PawPrint size={18} /></span>
+    <div class="min-w-0">
+      <h1>AgentPet</h1>
+      <p class="subtitle">{subtitle}</p>
+    </div>
+  </header>
+
+  <main class="popover-content" aria-label="Companion and preferences">
+    <section class="companion" aria-labelledby="companion-heading">
+      <h2 id="companion-heading">COMPANION</h2>
+      <div class="companion-summary">
+        <Sparkles size={14} class="text-(--accent-text) shrink-0" />
+        <span class="pet-name" title={petSlug.replace(/-/g, " ")}>{petSlug.replace(/-/g, " ")}</span>
+        <span class="level">Lv {care?.display_level ?? 1}</span>
+        <span class="hunger">{care?.hunger ?? "Full"}</span>
       </div>
-      <div>
-        <h3 class="text-sm font-bold text-white tracking-tight leading-none m-0">
-          AgentPet
-        </h3>
-        <span class="text-[11px] text-white/50 block mt-0.5 font-medium">
-          {subtitle}
-        </span>
+      <div class="xp-track" role="progressbar" aria-label="Level progress" aria-valuenow={progressPercent} aria-valuemin="0" aria-valuemax="100">
+        <div style:width="{progressPercent}%"></div>
       </div>
-    </div>
-  </div>
-
-  <div class="h-px bg-white/10 w-full"></div>
-
-  <!-- 2. Companion Card -->
-  <div class="px-3.5 py-3 space-y-2">
-    <span class="text-[10px] font-bold tracking-wider text-white/40 uppercase block">
-      COMPANION
-    </span>
-    <div class="flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2 min-w-0">
-        <div class="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300 shrink-0">
-          <Sparkles class="w-3.5 h-3.5" />
-        </div>
-        <span class="font-semibold text-white truncate text-xs">
-          {petSlug.replace(/-/g, " ")}
-        </span>
-        <span class="text-blue-400 font-bold text-xs">
-          Lv {care?.display_level ?? 1}
-        </span>
+      <div class="companion-stats">
+        <span>{inLevelXP} / {spanXP} XP</span>
+        <span>Today {todayTokensLabel} tokens · {care?.meals_today ?? 0} meals</span>
       </div>
-      <span class="text-[11px] text-white/60 capitalize font-medium">
-        {care?.hunger ?? "Full"}
-      </span>
-    </div>
+    </section>
 
-    <!-- XP Progress Bar -->
-    <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-      <div
-        class="h-full bg-linear-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300"
-        style="width: {progressPercent}%;"
-      ></div>
-    </div>
-
-    <div class="flex items-center justify-between text-[10px] text-white/45 font-mono">
-      <span>{inLevelXP} / {spanXP} XP</span>
-      <span>Today {todayTokensLabel} tokens · {care?.meals_today ?? 0} meals</span>
-    </div>
-  </div>
-
-  <div class="h-px bg-white/10 w-full"></div>
-
-  <!-- 3. Active Agents -->
-  <div class="px-3.5 py-2.5 flex-1 flex flex-col min-h-0">
-    <div class="flex items-center justify-between mb-1.5">
-      <span class="text-[10px] font-bold tracking-wider text-white/40 uppercase">
-        AGENTS
-      </span>
-      {#if activeAgents.length > 0}
-        <button
-          type="button"
-          onclick={handleClearAll}
-          class="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
-        >
-          Clear all
-        </button>
-      {/if}
-    </div>
-
-    {#if activeAgents.length === 0}
-      <div class="py-3 text-center text-xs text-white/40">
-        Nothing running right now.
+    <section class="agents" aria-labelledby="agents-heading">
+      <div class="section-heading">
+        <h2 id="agents-heading">AGENTS</h2>
+        {#if activeAgents.length > 0}
+          <button type="button" onclick={handleClearAll} class="text-action">Clear all</button>
+        {/if}
       </div>
-    {:else}
-      <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-        {#each activeAgents as agent (agent.id)}
-          {@const isHovered = hoveredSessionId === agent.id}
-          <div
-            role="row"
-            tabindex="0"
-            onmouseenter={() => (hoveredSessionId = agent.id)}
-            onmouseleave={() => (hoveredSessionId = null)}
-            class="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-white/5 transition-colors text-xs group"
-          >
-            <div class="flex items-center gap-2 min-w-0">
-              <span
-                class="w-2 h-2 rounded-full shrink-0 {agent.state === 'working'
-                  ? 'bg-blue-400 animate-pulse shadow-xs shadow-blue-400/50'
-                  : agent.state === 'waiting'
-                  ? 'bg-amber-400'
-                  : 'bg-emerald-400'}"
-              ></span>
-              <div class="min-w-0 leading-tight">
-                <span class="font-bold text-white block truncate text-[11px]">
+      {#if activeAgents.length === 0}
+        <p class="empty-agents">Nothing running right now.</p>
+      {:else}
+        <ul class="session-list" aria-label="Active agent sessions">
+          {#each activeAgents as agent (agent.id)}
+            <li class="session">
+              <span class="session-dot" class:working={agent.state === "working"} class:waiting={agent.state === "waiting"}></span>
+              <div class="session-details">
+                <span class="session-project" title={agent.project || agent.agent_kind}>
                   {agent.project ? agent.project.split('/').filter(Boolean).pop() : agent.agent_kind}
                 </span>
-                <span class="text-[10px] text-white/50 block capitalize truncate">
-                  {agent.state}
-                </span>
+                <span class="session-state">{agent.state}</span>
               </div>
-            </div>
+              <span class="elapsed">{formatElapsed(agent.started_at, agent.last_event_at)}</span>
+              <button type="button" onclick={() => handleDismiss(agent.id)} class="dismiss-session" aria-label="Dismiss {agent.project ? agent.project.split('/').filter(Boolean).pop() : agent.agent_kind} session" title="Dismiss session">
+                <X size={12} />
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
 
-            <div class="flex items-center gap-1.5 shrink-0">
-              {#if isHovered}
-                <button
-                  type="button"
-                  onclick={() => handleDismiss(agent.id)}
-                  class="w-4 h-4 rounded hover:bg-white/15 flex items-center justify-center text-white/70 hover:text-white cursor-pointer"
-                  title="Dismiss session"
-                >
-                  <X class="w-3 h-3" />
-                </button>
-              {:else}
-                <span class="font-mono text-[10px] text-white/50">
-                  {formatElapsed(agent.started_at, agent.last_event_at)}
-                </span>
-              {/if}
+    <section class="preferences" aria-labelledby="display-heading">
+      <h2 id="display-heading">Display</h2>
+      <div class="settings-group">
+        <label class="setting-row" for="show-pet">
+          <span class="setting-label"><PawPrint size={14} />Show pet</span>
+          <input id="show-pet" class="pet-switch" type="checkbox" role="switch" checked={showPet}
+            onclick={(event) => {
+              // Keep the DOM controlled until the native operation succeeds.
+              event.preventDefault();
+              togglePetVisibility();
+            }} />
+        </label>
+        <label class="setting-row" for="show-count">
+          <span class="setting-label"><Hash size={14} />Show count on menu bar</span>
+          <input id="show-count" class="pet-switch" type="checkbox" role="switch" bind:checked={showCountOnMenuBar}
+            onchange={() => localStorage.setItem("ap_show_count", showCountOnMenuBar ? "1" : "0")} />
+        </label>
+        <label class="setting-row" for="show-chat">
+          <span class="setting-label"><MessageSquare size={14} />Show chat on menu bar</span>
+          <input id="show-chat" class="pet-switch" type="checkbox" role="switch" bind:checked={showChatOnMenuBar}
+            onchange={() => localStorage.setItem("ap_show_chat", showChatOnMenuBar ? "1" : "0")} />
+        </label>
+        <label class="setting-row" for="show-bubble">
+          <span class="setting-label"><List size={14} />Show bubble on menu bar</span>
+          <input id="show-bubble" class="pet-switch" type="checkbox" role="switch" bind:checked={showBubbleOnMenuBar}
+            onchange={() => localStorage.setItem("ap_show_bubble", showBubbleOnMenuBar ? "1" : "0")} />
+        </label>
+        <label class="setting-row" for="split-pet">
+          <span class="setting-label"><Columns2 size={14} />Split pet</span>
+          <input id="split-pet" class="pet-switch" type="checkbox" role="switch" bind:checked={splitPet}
+            onchange={() => localStorage.setItem("ap_split_pet", splitPet ? "1" : "0")} />
+        </label>
+        <div class="setting-row slider-row">
+          <label class="setting-label" for="pet-size"><Maximize2 size={14} />Pet size</label>
+          <div class="slider-control">
+            <input id="pet-size" type="range" min="70" max="240" bind:value={petSize}
+              onchange={() => {
+                localStorage.setItem("rust_sound_pet_size", String(petSize));
+                window.dispatchEvent(new Event("storage"));
+              }} />
+            <output for="pet-size">{petSize}<span class="sr-only"> pixels</span></output>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="preferences" aria-labelledby="animation-heading">
+      <h2 id="animation-heading">Animation</h2>
+      <div class="settings-group">
+        <label class="setting-row" for="animate-pets">
+          <span class="setting-label"><Play size={14} />Animate pets</span>
+          <input id="animate-pets" class="pet-switch" type="checkbox" role="switch" bind:checked={animatePets}
+            onchange={() => localStorage.setItem("ap_animate_pets", animatePets ? "1" : "0")} />
+        </label>
+        {#if animatePets}
+          <div class="setting-row slider-row">
+            <label for="animation-fps" class="setting-label slider-label">Frame rate</label>
+            <div class="slider-control">
+              <input id="animation-fps" type="range" min="1" max="12" bind:value={animationFPS}
+                onchange={() => localStorage.setItem("ap_animation_fps", String(animationFPS))} />
+              <output for="animation-fps">{animationFPS}<span class="sr-only"> frames per second</span></output>
             </div>
           </div>
-        {/each}
-      </div>
-    {/if}
-  </div>
-
-  <div class="h-px bg-white/10 w-full"></div>
-
-  <!-- 4. Controls -->
-  <div class="px-3.5 py-2 space-y-1 text-xs text-white/90">
-    <!-- Show pet -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <PawPrint class="w-3.5 h-3.5 text-white/70" />
-        <span>Show pet</span>
-      </div>
-      <input
-        type="checkbox"
-        checked={showPet}
-        onclick={(event) => {
-          // Keep the DOM controlled until the native operation succeeds.
-          event.preventDefault();
-          togglePetVisibility();
-        }}
-        class="toggle toggle-sm cursor-pointer accent-blue-500"
-      />
-    </div>
-
-    <!-- Show count on menu bar -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <Hash class="w-3.5 h-3.5 text-white/70" />
-        <span>Show count on menu bar</span>
-      </div>
-      <input
-        type="checkbox"
-        bind:checked={showCountOnMenuBar}
-        onchange={() => localStorage.setItem("ap_show_count", showCountOnMenuBar ? "1" : "0")}
-        class="toggle toggle-sm cursor-pointer accent-blue-500"
-      />
-    </div>
-
-    <!-- Show chat on menu bar -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <MessageSquare class="w-3.5 h-3.5 text-white/70" />
-        <span>Show chat on menu bar</span>
-      </div>
-      <input
-        type="checkbox"
-        bind:checked={showChatOnMenuBar}
-        onchange={() => localStorage.setItem("ap_show_chat", showChatOnMenuBar ? "1" : "0")}
-        class="toggle toggle-sm cursor-pointer accent-blue-500"
-      />
-    </div>
-
-    <!-- Show bubble on menu bar -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <List class="w-3.5 h-3.5 text-white/70" />
-        <span>Show bubble on menu bar</span>
-      </div>
-      <input
-        type="checkbox"
-        bind:checked={showBubbleOnMenuBar}
-        onchange={() => localStorage.setItem("ap_show_bubble", showBubbleOnMenuBar ? "1" : "0")}
-        class="toggle toggle-sm cursor-pointer accent-blue-500"
-      />
-    </div>
-
-    <!-- Split pet -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <Columns2 class="w-3.5 h-3.5 text-white/70" />
-        <span>Split pet</span>
-      </div>
-      <input
-        type="checkbox"
-        bind:checked={splitPet}
-        onchange={() => localStorage.setItem("ap_split_pet", splitPet ? "1" : "0")}
-        class="toggle toggle-sm cursor-pointer accent-blue-500"
-      />
-    </div>
-
-    <!-- Animate pets + FPS slider -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <Play class="w-3.5 h-3.5 text-white/70" />
-        <span>Animate pets</span>
-      </div>
-      <div class="flex items-center gap-1.5">
-        {#if animatePets}
-          <input
-            type="range"
-            min="1"
-            max="12"
-            bind:value={animationFPS}
-            onchange={() => localStorage.setItem("ap_animation_fps", String(animationFPS))}
-            class="w-16 h-1 accent-blue-500 cursor-pointer"
-          />
-          <span class="font-mono text-[10px] text-white/50 w-4 text-right">
-            {animationFPS}
-          </span>
         {/if}
-        <input
-          type="checkbox"
-          bind:checked={animatePets}
-          onchange={() => localStorage.setItem("ap_animate_pets", animatePets ? "1" : "0")}
-          class="toggle toggle-sm cursor-pointer accent-blue-500"
-        />
       </div>
-    </div>
+    </section>
+  </main>
 
-    <!-- Pet size -->
-    <div class="flex items-center justify-between py-1">
-      <div class="flex items-center gap-2">
-        <Maximize2 class="w-3.5 h-3.5 text-white/70" />
-        <span>Pet size</span>
-      </div>
-      <input
-        type="range"
-        min="70"
-        max="240"
-        bind:value={petSize}
-        onchange={() => {
-          localStorage.setItem("rust_sound_pet_size", String(petSize));
-          window.dispatchEvent(new Event("storage"));
-        }}
-        class="w-24 h-1 accent-blue-500 cursor-pointer"
-      />
-    </div>
-  </div>
-
-  <div class="h-px bg-white/10 w-full"></div>
-
-  <!-- 5. Footer -->
-  <div class="p-2.5 px-3.5 flex items-center justify-between text-xs text-white/75 bg-black/20">
-    <div class="flex items-center gap-3">
-      <button
-        type="button"
-        onclick={handleOpenSettings}
-        class="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
-      >
-        <Settings class="w-3.5 h-3.5" />
-        <span>Settings</span>
-      </button>
-
-      <button
-        type="button"
-        disabled
-        title="Update checking is not available"
-        class="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
-      >
-        <RefreshCw class="w-3.5 h-3.5" />
-        <span>Updates</span>
-      </button>
-    </div>
-
-    <button
-      type="button"
-      onclick={handleQuit}
-      class="flex items-center gap-1.5 hover:text-rose-400 transition-colors cursor-pointer"
-    >
-      <Power class="w-3.5 h-3.5" />
-      <span>Quit</span>
-    </button>
-  </div>
+  <footer class="popover-footer">
+    <button type="button" onclick={handleOpenSettings}><Settings size={14} />Settings</button>
+    <button type="button" disabled title="Update checking is not available"><RefreshCw size={14} />Updates</button>
+    <button type="button" onclick={handleQuit} class="quit-action"><Power size={14} />Quit</button>
+  </footer>
 </div>
 
 <ToastHost />
+
+<style>
+  :global(body.pet-popover-window) {
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .pet-popover {
+    display: flex;
+    flex-direction: column;
+    width: calc(100vw - 12px);
+    height: calc(100dvh - 12px);
+    margin: 6px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 2px 6px var(--shadow), inset 0 1px 0 var(--hi);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    user-select: none;
+  }
+  .popover-header { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .pet-emblem { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--soft); color: var(--accent-text); }
+  h1 { margin: 0; font-family: inherit; font-size: 14px; font-weight: 650; line-height: 1.25; }
+  .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+  .popover-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 8px; }
+  h2 { margin: 0; color: var(--muted); font-family: inherit; font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
+  .companion { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .companion-summary { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .pet-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; text-transform: capitalize; }
+  .level { flex-shrink: 0; color: var(--accent-text); font-size: 11px; font-weight: 600; }
+  .hunger { margin-left: auto; flex-shrink: 0; color: var(--muted); font-size: 11px; text-transform: capitalize; }
+  .xp-track { height: 4px; overflow: hidden; border-radius: 4px; margin-top: 6px; background: var(--track); }
+  .xp-track > div { height: 100%; border-radius: inherit; background: var(--strong); }
+  .companion-stats { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .agents { padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .section-heading { display: flex; align-items: center; justify-content: space-between; min-height: 18px; }
+  .text-action { color: var(--accent-text); font-size: 11px; }
+  .empty-agents { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+  .session-list { list-style: none; padding: 0 3px; margin: 4px -3px 0; max-height: 126px; overflow-y: auto; }
+  .session { display: flex; align-items: center; gap: 7px; min-height: 38px; padding: 2px 3px; border-radius: 6px; }
+  .session:hover, .session:focus-within { background: var(--soft); }
+  .session-dot { width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--success); }
+  .session-dot.working { background: var(--accent-text); }
+  .session-dot.waiting { background: var(--warning); }
+  .session-details { min-width: 0; flex: 1; }
+  .session-project { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 600; }
+  .session-state { display: block; color: var(--muted); font-size: 10px; text-transform: capitalize; }
+  .elapsed { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dismiss-session { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 5px; color: var(--muted); }
+  .dismiss-session:hover { color: var(--error); background: var(--surface); }
+  .preferences { padding-top: 8px; }
+  .preferences h2 { margin: 0 0 5px 2px; }
+  .settings-group { border: 1px solid var(--line); border-radius: 9px; background: var(--paper); padding: 0 8px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+  .setting-row + .setting-row { border-top: 1px solid var(--line); }
+  label.setting-row { cursor: pointer; }
+  .setting-label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11px; }
+  .setting-label :global(svg) { flex-shrink: 0; color: var(--muted); }
+  .pet-switch { appearance: none; position: relative; width: 30px; height: 18px; flex-shrink: 0; margin: 0; border: 1px solid var(--input-line); border-radius: 10px; background: var(--track); cursor: pointer; }
+  .pet-switch::after { content: ""; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; border-radius: 50%; background: var(--muted); transition: transform 120ms ease; }
+  .pet-switch:checked { border-color: var(--strong); background: var(--strong); }
+  .pet-switch:checked::after { transform: translateX(12px); background: var(--on-strong); }
+  .slider-label { padding-left: 21px; }
+  .slider-control { display: flex; align-items: center; gap: 7px; }
+  input[type="range"] { width: 90px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--strong); }
+  output { min-width: 23px; color: var(--muted); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+  .popover-footer { display: flex; align-items: center; gap: 16px; flex-shrink: 0; padding: 7px 12px; border-top: 1px solid var(--line); background: var(--paper); }
+  button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .popover-footer button { display: flex; align-items: center; gap: 5px; min-height: 24px; color: var(--muted); font-size: 11px; }
+  .popover-footer button:hover:not(:disabled) { color: var(--ink); }
+  .popover-footer button:disabled { color: var(--faint); cursor: not-allowed; }
+  .popover-footer .quit-action { margin-left: auto; }
+  .popover-footer .quit-action:hover { color: var(--error); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { .pet-switch::after { transition: none; } }
+</style>
