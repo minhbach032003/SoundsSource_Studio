@@ -109,17 +109,25 @@ try {
     assert.equal(new Set(geometry.switches.map(s=>s.right)).size,1,'all switches align');
     assert.ok(geometry.switches.every(s=>s.label && s.width===30),'all switches have labels and styled tracks');
     assert.ok(geometry.ranges.every(s=>s.label),'sliders have visible labels');
-    assert.deepEqual(geometry.ranges.map(({id,min,max})=>[id,min,max]),[['pet-size','70','240'],['animation-fps','1','12']]);
+    assert.deepEqual(geometry.ranges.map(({id,min,max})=>[id,min,max]),[['pet-size','80','300'],['animation-fps','1','12']]);
     const contrasts=await checkContrast();
     for(const entry of contrasts) assert.ok(entry.ratio>=4.5,`${family}/${mode}: ${entry.text} contrast ${entry.ratio}`);
     console.log(`${family}/${mode}: minimum text contrast ${Math.min(...contrasts.map(entry=>entry.ratio)).toFixed(2)}:1; 320x520 without page/horizontal overflow`);
     await browser('screenshot',join(screenshots,`${family}-${mode}.png`));
   }
   assert.equal(await evaluate(`document.querySelector('.empty-agents').textContent`),'Nothing running right now.');
-  assert.equal(await evaluate(`document.querySelector('button[disabled]').title`),'Update checking is not available');
+  assert.equal(await evaluate(`document.querySelector('footer button[disabled]').title`),'Update checking is not available');
 
-  // Every existing preference still persists; conditional FPS and slider endpoints work.
-  for(const [id,key,expected] of [['show-count','ap_show_count','0'],['show-chat','ap_show_chat','1'],['show-bubble','ap_show_bubble','1'],['split-pet','ap_split_pet','1']]) {
+  // Unimplemented capabilities are truthful and preserve existing saved values.
+  for (const [id,key] of [['show-chat','ap_show_chat'],['show-bubble','ap_show_bubble'],['split-pet','ap_split_pet']]) {
+    await browser('eval',`localStorage.setItem('${key}','1');window.dispatchEvent(new StorageEvent('storage',{key:'${key}'}));`);
+    assert.ok(await evaluate(`document.getElementById('${id}').disabled && document.getElementById('${id}').checked`));
+    assert.ok(await evaluate(`document.getElementById(document.getElementById('${id}').getAttribute('aria-describedby')).textContent.includes('not available yet')`));
+    await browser('eval',`document.getElementById('${id}').click()`);
+    assert.equal(await evaluate(`localStorage.getItem('${key}')`),'1');
+  }
+  // Working preferences persist; conditional FPS and slider endpoints work.
+  for(const [id,key,expected] of [['show-count','ap_show_count','0']]) {
     await browser('eval',`document.getElementById('${id}').click()`);
     assert.equal(await evaluate(`localStorage.getItem('${key}')`),expected);
   }
@@ -132,13 +140,13 @@ try {
     return Math.abs(surface.getBoundingClientRect().bottom - parseFloat(getComputedStyle(surface).borderBottomWidth) - footer.getBoundingClientRect().bottom) < 1;
   })()`),'footer stays pinned with no sessions and animation disabled');
   await browser('eval',`document.getElementById('animate-pets').click();window.sizeEvents=0;window.addEventListener('storage',()=>window.sizeEvents++)`);
-  for(const [id,key,values] of [['pet-size','rust_sound_pet_size',[70,240]],['animation-fps','ap_animation_fps',[1,12]]]) {
+  for(const [id,key,values] of [['pet-size','rust_sound_pet_size',[80,300]],['animation-fps','ap_animation_fps',[1,12]]]) {
     for(const value of values) {
       await browser('eval',`(()=>{const el=document.getElementById('${id}');el.value=${value};el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       assert.equal(await evaluate(`localStorage.getItem('${key}')`),String(value));
     }
   }
-  assert.equal(await evaluate('window.sizeEvents'),2,'size changes notify the companion');
+  assert.equal(await evaluate('window.sizeEvents'),4,'size and FPS changes notify same-window consumers');
   await browser('eval',`window.sessionFixtures=Array.from({length:9},(_,i)=>({id:String(i),agent_kind:'codex',project:i===1?null:'/workspace/'+(i===0?'long-project-name-that-must-truncate-without-overflow':'project-'+i),state:['working','waiting','done','idle','registered'][i%5],started_at:1700000000,last_event_at:1700000123}));window.careFixture={xp:180,display_level:2,hunger:'Full',tokens_today:12500,meals_today:3};`);
   await browser('wait','--fn',`document.querySelectorAll('.session').length===6`);
   assert.ok((await evaluate(`document.querySelector('.companion-stats').textContent`)).includes('13k tokens · 3 meals'));
@@ -167,6 +175,7 @@ try {
   assert.ok(await evaluate(`window.commands.some(([name])=>name==='clear_agent_sessions')`));
   await browser('eval',`document.querySelector('footer button').click();document.querySelector('.quit-action').click()`);
   assert.ok(await evaluate(`['show_main_window','close_pet_popover','quit_app'].every(expected=>window.commands.some(([name])=>name===expected))`));
+  assert.equal(await evaluate(`JSON.parse(localStorage.getItem('rust_sound_navigation_request')).tab`),'pet-settings');
   console.log('PASS production styles: default light/dark + Latte/Mocha contrast >=4.5; 320x520 geometry; aligned labeled switches; persistence; slider endpoints; populated sessions; keyboard dismiss/focus; footer IPC');
   console.log('Screenshots:',screenshots);
 } finally {

@@ -63,7 +63,7 @@
       <div class="flex flex-col items-center gap-2" role="tablist">
         {#each NAV_ITEMS as item (item.id)}
           {@const Icon = item.icon}
-          {@const isActive = activeTab === item.id}
+          {@const isActive = activeTab === item.id || (item.id === "pet" && activeTab === "pet-settings")}
           <button
             type="button"
             role="tab"

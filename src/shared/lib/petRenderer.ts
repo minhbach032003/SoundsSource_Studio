@@ -2,6 +2,8 @@
 // Ported directly from AgentPet's SpriteSlicer + Canvas Renderer.
 // Slices sheets with alpha-gutter detection to cleanly isolate frames without pulsing.
 
+import { readPetPreferences, readPetBinding, subscribePetPreferences } from "../../lib/petPreferences";
+
 const COLS = 8;
 const ROWS = 9;
 const ALPHA_THRESHOLD = 16;
@@ -93,18 +95,6 @@ export const ARCHETYPE_STATE_ROW: Record<string, Record<string, number>> = {
   },
 };
 
-// Frame rate varies by mood (12 FPS for frantic working and celebrate like legacy AgentPet).
-const STATE_FPS: Record<string, number> = {
-  working: 12,
-  reading: 10,
-  celebrate: 12,
-  waiting: 5,
-  done: 4,
-  idle: 3,
-  registered: 3,
-  sleepy: 2,
-};
-
 export interface Rect {
   x: number;
   y: number;
@@ -183,7 +173,10 @@ export class PetRenderer {
   private frame = 0;
   private row = 0;
   private lastTick = 0;
-  private fps = 3;
+  private fps = 12;
+  private state = "idle";
+  private animate = true;
+  private unsubscribe: () => void;
   private clipMaxW: number[] = [];
   private isDestroyed = false;
   private animId: number | null = null;
@@ -200,12 +193,13 @@ export class PetRenderer {
     this.ctx.imageSmoothingEnabled = false;
     this.slug = slug;
     this.loop = this.loop.bind(this);
-    this.animId = requestAnimationFrame(this.loop);
+    this.unsubscribe = subscribePetPreferences(() => this.refreshPreferences());
   }
 
   setSlug(slug: string) {
     if (this.slug !== slug) {
       this.slug = slug;
+      this.setState(this.state);
     }
   }
 
@@ -243,19 +237,10 @@ export class PetRenderer {
   }
 
   setState(state: string) {
-    this.fps = STATE_FPS[state] ?? 3;
-
-    // Check user custom binding override from localStorage (Settings / Animations tab)
-    let customRow: number | null = null;
-    if (typeof localStorage !== "undefined") {
-      const bound = localStorage.getItem(`ap_bind_${this.slug}_${state}`);
-      if (bound !== null) {
-        const parsed = parseInt(bound, 10);
-        if (Number.isFinite(parsed) && parsed >= 0) {
-          customRow = parsed;
-        }
-      }
-    }
+    this.state = state;
+    const prefs = readPetPreferences();
+    this.fps = ["idle", "registered", "sleepy"].includes(state) ? Math.min(prefs.fps, 2) : prefs.fps;
+    const customRow = readPetBinding(this.slug, state);
 
     const petMap = ARCHETYPE_STATE_ROW[this.slug] || DEFAULT_STATE_ROW;
     const row = customRow ?? petMap[state] ?? DEFAULT_STATE_ROW[state] ?? 0;
@@ -266,14 +251,27 @@ export class PetRenderer {
     }
   }
 
+  private refreshPreferences() {
+    this.animate = readPetPreferences().animate;
+    this.setState(this.state);
+    this.lastTick = performance.now();
+    if (!this.animate && this.animId !== null) {
+      cancelAnimationFrame(this.animId);
+      this.animId = null;
+    } else if (this.animate && this.animId === null && !this.isDestroyed) {
+      this.animId = requestAnimationFrame(this.loop);
+    }
+  }
+
   private currentClip(): Rect[] | null {
     if (!this.clips.length) return null;
     return this.clips[Math.min(this.row, this.clips.length - 1)] ?? null;
   }
 
   private loop(t: number) {
-    if (this.isDestroyed) return;
-    if (this.loaded && t - this.lastTick > 1000 / this.fps) {
+    this.animId = null;
+    if (this.isDestroyed || !this.animate) return;
+    if (this.loaded && t - this.lastTick >= 1000 / this.fps) {
       this.lastTick = t;
       this.frame++;
       this.draw();
@@ -320,6 +318,7 @@ export class PetRenderer {
 
   destroy() {
     this.isDestroyed = true;
+    this.unsubscribe();
     if (this.animId !== null) {
       cancelAnimationFrame(this.animId);
       this.animId = null;

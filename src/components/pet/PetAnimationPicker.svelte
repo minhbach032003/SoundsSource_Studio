@@ -1,6 +1,9 @@
 <script lang="ts">
-  import { slice, type Rect } from "@/shared/lib/petRenderer";
+  import { untrack } from "svelte";
+  import { readPetPreferences, readPetBinding, subscribePetPreferences, writePetStorage } from "@/lib/petPreferences";
+  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, type Rect } from "@/shared/lib/petRenderer";
   import { Clapperboard } from "@lucide/svelte";
+  import { toastState } from "@/lib/toast.svelte";
 
   interface Props {
     slug: string;
@@ -22,35 +25,33 @@
   let selectedState = $state<string>("working");
   let hoveredClip = $state<number | null>(null);
 
-  $effect(() => {
-    // Avoid unused warning
-    void hoveredClip;
-  });
-
   let loadedImage = $state<HTMLImageElement | null>(null);
   let clips = $state<Rect[][]>([]);
   let canvases = new Map<number, HTMLCanvasElement>();
   let hoverTimer: number | null = null;
   let hoverFrame = 0;
+  let prefs = $state(readPetPreferences());
+  let bindingVersion = $state(0);
+  $effect(() => {
+    const unsubscribe = subscribePetPreferences(() => {
+      prefs = readPetPreferences();
+      bindingVersion = untrack(() => bindingVersion) + 1;
+    });
+    return () => { unsubscribe(); if (hoverTimer !== null) clearInterval(hoverTimer); };
+  });
+  $effect(() => {
+    void prefs;
+    void selectedState;
+    untrack(() => handleClipHover(hoveredClip));
+  });
 
   // Track currently bound clip for the selected state and slug
   let currentBoundClip = $derived.by(() => {
-    if (typeof localStorage === "undefined") return 0;
-    const bound = localStorage.getItem(`ap_bind_${slug}_${selectedState}`);
-    if (bound !== null) {
-      const parsed = parseInt(bound, 10);
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        return Math.min(parsed, Math.max(0, clips.length - 1));
-      }
-    }
-    // Defaults matching archetype or legacy
-    if (selectedState === "working") return Math.min(1, Math.max(0, clips.length - 1));
-    if (selectedState === "waiting") return Math.min(2, Math.max(0, clips.length - 1));
-    if (selectedState === "done") return Math.min(3, Math.max(0, clips.length - 1));
-    if (selectedState === "celebrate") return Math.min(4, Math.max(0, clips.length - 1));
-    if (selectedState === "sleepy") return Math.min(5, Math.max(0, clips.length - 1));
-    if (selectedState === "levelup") return Math.min(6, Math.max(0, clips.length - 1));
-    return 0;
+    void bindingVersion;
+    const row = readPetBinding(slug, selectedState)
+      ?? (ARCHETYPE_STATE_ROW[slug] || DEFAULT_STATE_ROW)[selectedState]
+      ?? (selectedState === "levelup" ? 6 : 0);
+    return Math.min(row, Math.max(0, clips.length - 1));
   });
 
   // Load and slice spritesheet when slug changes
@@ -137,21 +138,23 @@
 
     const cv = canvases.get(index);
     const c = clips[index];
-    if (cv && c) {
+    if (cv && c && prefs.animate) {
       hoverFrame = 0;
       hoverTimer = window.setInterval(() => {
         hoverFrame++;
         renderAnimationFrame(cv, c, hoverFrame);
-      }, 100); // 10 FPS preview
+      }, 1000 / (["idle", "sleepy"].includes(selectedState) ? Math.min(prefs.fps, 2) : prefs.fps));
     }
   }
 
   function bindClip(index: number) {
     try {
-      localStorage.setItem(`ap_bind_${slug}_${selectedState}`, String(index));
-      window.dispatchEvent(new Event("storage"));
-    } catch {}
-    onBindingChange?.(selectedState, index);
+      writePetStorage(`ap_bind_${slug}_${selectedState}`, String(index));
+      onBindingChange?.(selectedState, index);
+      if (!onBindingChange) toastState.info("Animation binding saved");
+    } catch (error) {
+      toastState.error(`Could not save animation binding: ${String(error)}`);
+    }
   }
 
   function registerCanvas(el: HTMLCanvasElement | null, index: number) {
@@ -229,6 +232,7 @@
             ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/30'
             : 'bg-(--paper) border-(--line) hover:border-(--focus)'}"
           title="Clip {i + 1}"
+          aria-pressed={isCurrent}
         >
           <div class="w-13.5 h-11 flex items-center justify-center overflow-hidden">
             <canvas

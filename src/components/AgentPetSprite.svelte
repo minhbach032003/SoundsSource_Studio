@@ -38,6 +38,12 @@
     };
   });
 
+  // Canvas dimension changes clear its pixels, including while animation is frozen.
+  $effect(() => {
+    void size;
+    renderer?.draw();
+  });
+
   // Update renderer.setSlug and renderer.setState(mood)
   $effect(() => {
     const currentSlug = slug;

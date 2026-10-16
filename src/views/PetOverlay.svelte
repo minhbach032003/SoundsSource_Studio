@@ -1,5 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
+  import { toastState } from "@/lib/toast.svelte";
+  import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
   import {
@@ -20,6 +23,7 @@
     Zap,
     Heart,
     GripHorizontal,
+    X,
   } from "@lucide/svelte";
 
   interface OverlayParticle {
@@ -52,7 +56,34 @@
       !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
 
   let petSlug = $state<string>("work-blue-cat");
-  let petSize = $state<number>(180);
+  let petSize = $state(readPetPreferences().size);
+  $effect(() => subscribePetPreferences(() => { petSize = readPetPreferences().size; }));
+  let resizeError = $state("");
+  $effect(() => {
+    const size = petSize;
+    if (!isDesktop) return;
+    let active = true;
+    (async () => {
+      try {
+        const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
+        if (!active) return;
+        const bounds = petOverlayWindowSize(size);
+        // setSize retains the saved logical top-left; no new window or routing changes.
+        await getCurrentWindow().setSize(new LogicalSize(bounds.width, bounds.height));
+        if (active) resizeError = "";
+      } catch (error) {
+        if (active) {
+          resizeError = `Could not resize desktop companion: ${String(error)}`;
+          toastState.error(resizeError);
+        }
+      }
+    })();
+    return () => { active = false; };
+  });
+  function resizePet(size: number) {
+    try { writePetPreference("size", size); toastState.info("Pet size preference saved"); }
+    catch (error) { toastState.error(`Could not save pet size: ${String(error)}`); }
+  }
   let showActionMenu = $state<boolean>(false);
   let sessions = $state<AgentSessionDto[]>([]);
   let care = $state<PetCareStateDto | null>(null);
@@ -425,6 +456,9 @@
   onpointerdown={handlePointerDown}
   class="w-full h-screen flex flex-col items-center justify-center select-none bg-transparent overflow-hidden cursor-grab active:cursor-grabbing p-2"
 >
+  {#if resizeError}
+    <p role="alert" class="absolute top-2 inset-x-2 text-xs text-(--error) bg-(--paper) border border-(--line) rounded-lg p-2 z-50">{resizeError}</p>
+  {/if}
   <!-- 1. Status Pill & Speech Bubble with Multi-Agent Carousel & Compact Modes -->
   <div class="relative z-20 mb-1 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
     {#if bubbleMode === "compact"}
@@ -642,8 +676,9 @@
             type="button"
             onclick={() => (showActionMenu = false)}
             class="hover:text-(--ink) cursor-pointer"
+            aria-label="Close care actions"
           >
-            ✕
+            <X size={12} />
           </button>
         </div>
 
@@ -701,21 +736,21 @@
           <div class="flex items-center gap-1">
             <button
               type="button"
-              onclick={() => (petSize = 140)}
+              onclick={() => resizePet(140)}
               class="px-1.5 py-0.5 rounded {petSize === 140 ? 'bg-(--accent) text-black font-bold' : 'hover:text-(--ink)'} cursor-pointer"
             >
               S
             </button>
             <button
               type="button"
-              onclick={() => (petSize = 180)}
+              onclick={() => resizePet(180)}
               class="px-1.5 py-0.5 rounded {petSize === 180 ? 'bg-(--accent) text-black font-bold' : 'hover:text-(--ink)'} cursor-pointer"
             >
               M
             </button>
             <button
               type="button"
-              onclick={() => (petSize = 240)}
+              onclick={() => resizePet(240)}
               class="px-1.5 py-0.5 rounded {petSize === 240 ? 'bg-(--accent) text-black font-bold' : 'hover:text-(--ink)'} cursor-pointer"
             >
               L
@@ -726,6 +761,8 @@
     {/if}
   </div>
 </div>
+
+<ToastHost />
 
 <style>
   @keyframes petParticleFloat {

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { applyTheme, readThemePreference, themeState, THEME_STORAGE_KEY } from "@/lib/theme.svelte";
-  import { setDesktopPetVisible } from "@/lib/petVisibility";
+  import PetDisplaySettings from "@/components/pet/PetDisplaySettings.svelte";
+  import { subscribePetPreferences } from "@/lib/petPreferences";
+  import { updatePetTrayCount } from "@/lib/petTray";
+  import { navigateTo } from "@/lib/navigation";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -8,12 +11,6 @@
   import { xpToReach, getInternalLevel } from "@/components/pet/types";
   import {
     PawPrint,
-    Hash,
-    MessageSquare,
-    List,
-    Columns2,
-    Play,
-    Maximize2,
     Settings,
     RefreshCw,
     Power,
@@ -30,15 +27,9 @@
   let care = $state<PetCareStateDto | null>(null);
   let petSlug = $state<string>("work-blue-cat");
 
-  // Controls state (synced with localStorage & Rust backend)
-  let showPet = $state<boolean>(true);
-  let showCountOnMenuBar = $state<boolean>(true);
-  let showChatOnMenuBar = $state<boolean>(false);
-  let showBubbleOnMenuBar = $state<boolean>(false);
-  let splitPet = $state<boolean>(false);
-  let animatePets = $state<boolean>(true);
-  let animationFPS = $state<number>(12);
-  let petSize = $state<number>(180);
+  $effect(() => subscribePetPreferences(() => {
+    petSlug = localStorage.getItem("rust_sound_pet_slug") || "work-blue-cat";
+  }));
 
   // This is a separate, reusable webview: keep its canvas clear and theme current.
   $effect(() => {
@@ -62,26 +53,16 @@
 
     const poll = async () => {
       try {
-        const [sessList, careState, isPetOpen] = await Promise.all([
+        const [sessList, careState] = await Promise.all([
           invoke<AgentSessionDto[]>("get_agent_sessions"),
           invoke<PetCareStateDto>("get_pet_care_state"),
-          invoke<boolean>("is_pet_overlay_open").catch(() => true),
         ]);
         if (active) {
           if (sessList) {
             sessions = sessList;
-            // Update menu bar title with running agent count
-            const runningCount = sessList.filter((s) => s.state === "working").length;
-            if (showCountOnMenuBar && runningCount > 0) {
-              invoke("update_tray_title", { title: `${runningCount}` }).catch(() => {});
-            } else if (showCountOnMenuBar) {
-              invoke("update_tray_title", { title: "0" }).catch(() => {});
-            } else {
-              invoke("update_tray_title", { title: "" }).catch(() => {});
-            }
+            updatePetTrayCount(sessList).catch(() => {});
           }
           if (careState) care = careState;
-          showPet = isPetOpen;
         }
       } catch {}
     };
@@ -92,19 +73,6 @@
       active = false;
       clearInterval(timer);
     };
-  });
-
-  // Load preferences from localStorage on mount
-  $effect(() => {
-    if (typeof localStorage === "undefined") return;
-    petSlug = localStorage.getItem("rust_sound_pet_slug") || "work-blue-cat";
-    showCountOnMenuBar = localStorage.getItem("ap_show_count") !== "0";
-    showChatOnMenuBar = localStorage.getItem("ap_show_chat") === "1";
-    showBubbleOnMenuBar = localStorage.getItem("ap_show_bubble") === "1";
-    splitPet = localStorage.getItem("ap_split_pet") === "1";
-    animatePets = localStorage.getItem("ap_animate_pets") !== "0";
-    animationFPS = parseInt(localStorage.getItem("ap_animation_fps") || "12", 10);
-    petSize = parseInt(localStorage.getItem("rust_sound_pet_size") || "180", 10);
   });
 
   // Active agents (working, waiting, done)
@@ -153,16 +121,6 @@
     return `${mins}m ${secs.toString().padStart(2, "0")}s`;
   }
 
-  async function togglePetVisibility() {
-    try {
-      if (!isDesktop) throw new Error("Desktop app required");
-      showPet = await setDesktopPetVisible(!showPet);
-      toastState.info(showPet ? "Desktop companion shown" : "Desktop companion hidden");
-    } catch (error) {
-      toastState.error(`Could not change desktop companion visibility: ${String(error)}`);
-    }
-  }
-
   function handleClearAll() {
     if (isDesktop) {
       invoke("clear_agent_sessions").catch(() => {});
@@ -179,6 +137,7 @@
 
   async function handleOpenSettings() {
     try {
+      navigateTo("pet-settings");
       await invoke("show_main_window");
       await invoke("close_pet_popover");
     } catch (error) {
@@ -252,72 +211,7 @@
       {/if}
     </section>
 
-    <section class="preferences" aria-labelledby="display-heading">
-      <h2 id="display-heading">Display</h2>
-      <div class="settings-group">
-        <label class="setting-row" for="show-pet">
-          <span class="setting-label"><PawPrint size={14} />Show pet</span>
-          <input id="show-pet" class="pet-switch" type="checkbox" role="switch" checked={showPet}
-            onclick={(event) => {
-              // Keep the DOM controlled until the native operation succeeds.
-              event.preventDefault();
-              togglePetVisibility();
-            }} />
-        </label>
-        <label class="setting-row" for="show-count">
-          <span class="setting-label"><Hash size={14} />Show count on menu bar</span>
-          <input id="show-count" class="pet-switch" type="checkbox" role="switch" bind:checked={showCountOnMenuBar}
-            onchange={() => localStorage.setItem("ap_show_count", showCountOnMenuBar ? "1" : "0")} />
-        </label>
-        <label class="setting-row" for="show-chat">
-          <span class="setting-label"><MessageSquare size={14} />Show chat on menu bar</span>
-          <input id="show-chat" class="pet-switch" type="checkbox" role="switch" bind:checked={showChatOnMenuBar}
-            onchange={() => localStorage.setItem("ap_show_chat", showChatOnMenuBar ? "1" : "0")} />
-        </label>
-        <label class="setting-row" for="show-bubble">
-          <span class="setting-label"><List size={14} />Show bubble on menu bar</span>
-          <input id="show-bubble" class="pet-switch" type="checkbox" role="switch" bind:checked={showBubbleOnMenuBar}
-            onchange={() => localStorage.setItem("ap_show_bubble", showBubbleOnMenuBar ? "1" : "0")} />
-        </label>
-        <label class="setting-row" for="split-pet">
-          <span class="setting-label"><Columns2 size={14} />Split pet</span>
-          <input id="split-pet" class="pet-switch" type="checkbox" role="switch" bind:checked={splitPet}
-            onchange={() => localStorage.setItem("ap_split_pet", splitPet ? "1" : "0")} />
-        </label>
-        <div class="setting-row slider-row">
-          <label class="setting-label" for="pet-size"><Maximize2 size={14} />Pet size</label>
-          <div class="slider-control">
-            <input id="pet-size" type="range" min="70" max="240" bind:value={petSize}
-              onchange={() => {
-                localStorage.setItem("rust_sound_pet_size", String(petSize));
-                window.dispatchEvent(new Event("storage"));
-              }} />
-            <output for="pet-size">{petSize}<span class="sr-only"> pixels</span></output>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="preferences" aria-labelledby="animation-heading">
-      <h2 id="animation-heading">Animation</h2>
-      <div class="settings-group">
-        <label class="setting-row" for="animate-pets">
-          <span class="setting-label"><Play size={14} />Animate pets</span>
-          <input id="animate-pets" class="pet-switch" type="checkbox" role="switch" bind:checked={animatePets}
-            onchange={() => localStorage.setItem("ap_animate_pets", animatePets ? "1" : "0")} />
-        </label>
-        {#if animatePets}
-          <div class="setting-row slider-row">
-            <label for="animation-fps" class="setting-label slider-label">Frame rate</label>
-            <div class="slider-control">
-              <input id="animation-fps" type="range" min="1" max="12" bind:value={animationFPS}
-                onchange={() => localStorage.setItem("ap_animation_fps", String(animationFPS))} />
-              <output for="animation-fps">{animationFPS}<span class="sr-only"> frames per second</span></output>
-            </div>
-          </div>
-        {/if}
-      </div>
-    </section>
+    <PetDisplaySettings />
   </main>
 
   <footer class="popover-footer">
@@ -382,22 +276,6 @@
   .elapsed { color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .dismiss-session { display: grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 5px; color: var(--muted); }
   .dismiss-session:hover { color: var(--error); background: var(--surface); }
-  .preferences { padding-top: 8px; }
-  .preferences h2 { margin: 0 0 5px 2px; }
-  .settings-group { border: 1px solid var(--line); border-radius: 9px; background: var(--paper); padding: 0 8px; }
-  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
-  .setting-row + .setting-row { border-top: 1px solid var(--line); }
-  label.setting-row { cursor: pointer; }
-  .setting-label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11px; }
-  .setting-label :global(svg) { flex-shrink: 0; color: var(--muted); }
-  .pet-switch { appearance: none; position: relative; width: 30px; height: 18px; flex-shrink: 0; margin: 0; border: 1px solid var(--input-line); border-radius: 10px; background: var(--track); cursor: pointer; }
-  .pet-switch::after { content: ""; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; border-radius: 50%; background: var(--muted); transition: transform 120ms ease; }
-  .pet-switch:checked { border-color: var(--strong); background: var(--strong); }
-  .pet-switch:checked::after { transform: translateX(12px); background: var(--on-strong); }
-  .slider-label { padding-left: 21px; }
-  .slider-control { display: flex; align-items: center; gap: 7px; }
-  input[type="range"] { width: 90px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--strong); }
-  output { min-width: 23px; color: var(--muted); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
   .popover-footer { display: flex; align-items: center; gap: 16px; flex-shrink: 0; padding: 7px 12px; border-top: 1px solid var(--line); background: var(--paper); }
   button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
   .popover-footer button { display: flex; align-items: center; gap: 5px; min-height: 24px; color: var(--muted); font-size: 11px; }
@@ -405,6 +283,5 @@
   .popover-footer button:disabled { color: var(--faint); cursor: not-allowed; }
   .popover-footer .quit-action { margin-left: auto; }
   .popover-footer .quit-action:hover { color: var(--error); }
-  button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-  @media (prefers-reduced-motion: reduce) { .pet-switch::after { transition: none; } }
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 </style>

@@ -7,7 +7,7 @@
       toastState.error(`Could not restore desktop companion: ${String(error)}`));
   });
   import SideNavbar from "@/components/navigation/SideNavbar.svelte";
-  import { restoreTab, rememberTab, type NavTab } from "@/lib/navigation";
+  import { restoreTab, rememberTab, takeNavigationRequest, subscribeNavigation, type NavTab } from "@/lib/navigation";
   import SpotifyView from "@/views/SpotifyView.svelte";
   import SpotifyPlayer from "@/components/audio/SpotifyPlayer.svelte";
   import ThemeControls from "@/components/ThemeControls.svelte";
@@ -19,6 +19,7 @@
   import SettingsView from "@/views/SettingsView.svelte";
   import TimerView from "@/views/TimerView.svelte";
   import AgentPetView from "@/views/AgentPetView.svelte";
+  import AgentPetSettingsView from "@/views/AgentPetSettingsView.svelte";
   import GoogleLoginModal from "@/components/GoogleLoginModal.svelte";
   import { wallpaperState } from "@/lib/wallpaper.svelte";
   import { themeState } from "@/lib/theme.svelte";
@@ -40,7 +41,8 @@
   import { spotifyState } from "@/lib/spotify.svelte";
   $effect(() => spotifyState.start());
 
-  let activeTab = $state<NavTab>(restoreTab());
+  let activeTab = $state<NavTab>(takeNavigationRequest() ?? restoreTab());
+  onMount(() => subscribeNavigation(tab => { activeTab = tab; }));
   $effect(() => rememberTab(activeTab));
   $effect(() => { if (spotifyState.loginVersion > 0) activeTab = "spotify"; });
   let isRefreshing = $state(false);
@@ -101,6 +103,11 @@
       title: "Agent Pet Companion",
       subtitle: "Virtual companion responding to coding workflows",
       icon: Bot,
+    },
+    "pet-settings": {
+      title: "AgentPet Settings",
+      subtitle: "Desktop display and sprite animation preferences",
+      icon: Settings,
     },
     settings: {
       title: "Settings & Account",
@@ -237,6 +244,8 @@
         />
       {:else if activeTab === "pet"}
         <AgentPetView />
+      {:else if activeTab === "pet-settings"}
+        <AgentPetSettingsView />
       {:else if activeTab === "settings"}
         <SettingsView
           user={googleAuthState.user}

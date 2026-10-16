@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from "node:fs";
 
 test("PetPopover Svelte 5 component integrity", () => {
   assert.ok(existsSync("src/views/PetPopover.svelte"), "src/views/PetPopover.svelte exists");
-  const src = readFileSync("src/views/PetPopover.svelte", "utf8");
+  const src = readFileSync("src/views/PetPopover.svelte", "utf8") + readFileSync("src/components/pet/PetDisplaySettings.svelte", "utf8") + readFileSync("src/lib/petTray.ts", "utf8");
 
   // Runes
   assert.ok(src.includes("$state<"), "uses Svelte 5 $state()");

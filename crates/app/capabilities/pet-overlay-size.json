@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "pet-overlay-size",
+  "description": "Resize the existing desktop companion to fit its validated display size",
+  "windows": ["pet-overlay"],
+  "permissions": ["core:window:allow-set-size"]
+}

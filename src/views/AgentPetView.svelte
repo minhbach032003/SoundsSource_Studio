@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { navigateTo } from "@/lib/navigation";
   import { setDesktopPetVisible } from "@/lib/petVisibility";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
@@ -52,6 +53,7 @@
     Fish,
     Check,
     PartyPopper,
+    Settings,
   } from "@lucide/svelte";
 
   // The 5 rank hues preserved verbatim
@@ -540,6 +542,10 @@
 
     <!-- Quick Actions in Header -->
     <div class="flex items-center gap-2">
+      <button type="button" onclick={() => navigateTo("pet-settings")}
+        class="btn btn-ghost h-7 text-xs px-2.5 border border-(--line) flex items-center gap-1.5">
+        <Settings class="w-3.5 h-3.5" />AgentPet Settings
+      </button>
       <button
         type="button"
         onclick={handleToggleDesktopOverlay}
