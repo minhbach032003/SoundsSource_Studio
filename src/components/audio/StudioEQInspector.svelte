@@ -97,6 +97,7 @@
     isBypassed?: boolean;
     embedded?: boolean;
     compact?: boolean;
+    wide?: boolean;
     onPresetSelect?: (presetName: string) => void;
     onBandChange?: (bandIndex: number, gainDb: number) => void;
     onResetFlat?: () => void;
@@ -109,6 +110,7 @@
     isBypassed: externalBypassed = false,
     embedded = false,
     compact = false,
+    wide = false,
     onPresetSelect,
     onBandChange,
     onResetFlat,
@@ -342,10 +344,11 @@
 <aside
   class="flex flex-col gap-3.5 select-none w-full {!embedded ? 'p-4 panel h-full' : ''}"
   class:compact
+  class:wide
   aria-label="Studio 10-Band Parametric Equalizer Inspector"
 >
   <!-- Inspector Header -->
-  <div class="flex items-center justify-between pb-2.5 border-b border-(--line)">
+  <div class="inspector-heading flex items-center justify-between pb-2.5 border-b border-(--line)">
     <div class="flex items-center gap-2">
       <div class="w-6 h-6 rounded-lg bg-(--soft) border border-(--line) flex items-center justify-center text-(--warning)">
         <SlidersHorizontal class="w-3.5 h-3.5" />
@@ -414,7 +417,7 @@
   </div>
 
   <!-- Interactive Frequency Response Curve Display -->
-  <div class="relative rounded-xl bg-(--paper) border border-(--line) p-3 overflow-hidden shadow-inner">
+  <div class="curve-panel relative rounded-xl bg-(--paper) border border-(--line) p-3 overflow-hidden shadow-inner">
     <!-- dB Grid Lines -->
     <div class="absolute inset-x-2 top-2 bottom-2 flex flex-col justify-between pointer-events-none opacity-30">
       <div class="border-b border-dashed border-(--input-line) text-[8px] text-(--muted) font-mono">+12 dB</div>
@@ -526,7 +529,7 @@
   </div>
 
   <!-- 10-Band Custom Vertical Faders Rack -->
-  <div class="grid grid-cols-10 gap-1 pt-1 pb-1 items-end justify-items-center">
+  <div class="faders grid grid-cols-10 gap-1 pt-1 pb-1 items-end justify-items-center">
     {#each bands as band, idx}
       {@const freqLabel = band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
       {@const normalized = (12 - band.gain) / 24}
@@ -583,7 +586,7 @@
   </div>
 
   <!-- Acoustic Profiles Library -->
-  <div class="flex flex-col gap-2 pt-2 border-t border-(--line)">
+  <div class="profiles flex flex-col gap-2 pt-2 border-t border-(--line)">
     <div class="flex items-center justify-between">
       <span class="text-[10px] font-bold text-(--ink) uppercase tracking-wider flex items-center gap-1.5">
         <Sparkles class="w-3 h-3 text-(--accent-text)" />
@@ -629,7 +632,7 @@
   </div>
 
   <!-- 28-Bar High-Resolution Live Audio Spectrum Analyzer -->
-  <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col gap-2 mt-auto">
+  <div class="spectrum-panel p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col gap-2 mt-auto">
     <div class="flex items-center justify-between text-[10px]">
       <span class="text-(--ink) font-semibold flex items-center gap-1.5">
         <Activity class="w-3 h-3 text-(--accent-text)" />
@@ -641,7 +644,7 @@
       </span>
     </div>
 
-    <p class="text-[10px] text-(--muted) m-0 break-words" role="status">{spectrumMessage}</p>
+    <p class="text-[10px] text-(--muted) m-0 wrap-break-word" role="status">{spectrumMessage}</p>
 
     <!-- Actual Spotify PCM spectrum; never generated from playback metadata. -->
     <div class="flex items-end gap-1 h-12 w-full pt-1 px-1" aria-label="Spotify spectrum bars">
@@ -672,5 +675,15 @@
   .compact .studio-fader-groove { height: 100%; }
   .compact .profile-choice { padding: 8px; gap: 6px; min-width: 0; align-items: center; border-radius: 8px; }
   .compact .profile-description, .compact .profile-icon { display: none; }
+  .wide { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1fr); grid-template-areas: "heading heading" "curve profiles" "faders spectrum"; gap: 16px 28px; }
+  .wide .inspector-heading { grid-area: heading; }
+  .wide .inspector-heading h3 { font-size: 15px; }
+  .wide .curve-panel { grid-area: curve; }
+  .wide .eq-curve { height: 120px; }
+  .wide .faders { grid-area: faders; }
+  .wide .studio-fader-track { height: 90px; }
+  .wide .profiles { grid-area: profiles; border-top: 0; padding-top: 0; min-width: 0; }
+  .wide .profile-choice { padding: 8px 12px; min-height: 36px; }
+  .wide .spectrum-panel { grid-area: spectrum; margin-top: 0; min-width: 0; }
   .studio-fader-track:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 </style>

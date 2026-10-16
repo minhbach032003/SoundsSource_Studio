@@ -29,7 +29,7 @@ The in-app controls and now-playing information for Spotify on this Mac, with Sp
 _Avoid_: Embedded Spotify, built-in Spotify player
 
 **Spotify Workspace**:
-The music-first area for browsing playlists, liked tracks and search results, with Spotify-only bass / EQ alongside the library. Opening this area does not start playback or change the DSP connection.
+The dedicated area for Spotify-only bass / EQ and browsing playlists, liked tracks and search results. Approved layout B places a full-width EQ workspace above the library: curve and faders on the left, presets and spectrum on the right, with the Now-Playing Bar always available below. Narrow windows use a collapsed EQ disclosure above the library. Opening this area does not start playback or change the DSP connection.
 _Avoid_: Mixer playlist panel, embedded Spotify
 
 **Now-Playing Bar**:

@@ -56,7 +56,7 @@
     </div>
     {#if status?.error}<p class="error" role="alert">{status.error}</p>{/if}
     {#if status?.warning && !status?.error}<p class="warning" role="status">{status.warning}</p>{/if}
-    <StudioEQInspector embedded compact activePresetName={preset} isAudioActive={status?.processing ?? false}
+    <StudioEQInspector embedded compact wide={!narrow} activePresetName={preset} isAudioActive={status?.processing ?? false}
       onPresetSelect={(name) => { preset = name; toastState.info(`Đã chọn EQ: ${name}`); }}
       onBandChange={setBand} onToggleBypass={bypass} />
   </section>
@@ -78,7 +78,13 @@
   </details>
 {/snippet}
 
-<div class="spotify-workspace" class:narrow>
+<div class="spotify-workspace">
+  {#if narrow}
+    <button class="btn eq-disclosure" type="button" aria-expanded={eqOpen} aria-controls="spotify-mobile-eq" onclick={() => eqOpen = !eqOpen}><SlidersHorizontal class="w-4 h-4" /> Bass / EQ <span class="note">{status?.processing ? "DSP đang xử lý" : status?.enabled ? "DSP đang chờ" : "DSP chưa nối"}</span><ChevronRight class={`w-4 h-4 disclosure-chevron ${eqOpen ? 'rotated' : ''}`} /></button>
+    {#if eqOpen}<div id="spotify-mobile-eq" class="mobile-rack">{@render rack()}</div>{/if}
+  {:else}
+    <aside class="studio-rack" aria-label="Điều chỉnh âm thanh Spotify">{@render rack()}</aside>
+  {/if}
   <section class="panel library" aria-labelledby="spotify-library-title">
     <div class="library-heading">
       <h2 id="spotify-library-title">Thư viện của bạn</h2>
@@ -118,10 +124,6 @@
         <button class="btn" type="button" aria-pressed={spotifyState.kind === "saved"} onclick={() => spotifyState.loadLibrary("saved")}><Heart class="w-4 h-4" /> Bài đã thích</button>
       </nav>
     {/if}
-    {#if narrow}
-      <button class="btn eq-disclosure" type="button" aria-expanded={eqOpen} aria-controls="spotify-mobile-eq" onclick={() => eqOpen = !eqOpen}><SlidersHorizontal class="w-4 h-4" /> Bass / EQ <span class="note">{status?.processing ? "DSP đang xử lý" : status?.enabled ? "DSP đang chờ" : "DSP chưa nối"}</span><ChevronRight class={`w-4 h-4 disclosure-chevron ${eqOpen ? 'rotated' : ''}`} /></button>
-      {#if eqOpen}<div id="spotify-mobile-eq" class="mobile-rack">{@render rack()}</div>{/if}
-    {/if}
     {#if signedIn}
       <div class="list-heading">
         {#if spotifyState.kind === "playlist"}
@@ -159,7 +161,6 @@
       {/if}
     {:else if spotifyState.libraryError}<p class="error" role="alert">{spotifyState.libraryError}</p>{/if}
   </section>
-  {#if !narrow}<aside class="studio-rack" aria-label="Điều chỉnh âm thanh Spotify">{@render rack()}</aside>{/if}
 </div>
 
 <Modal open={confirmConnect} title="Đưa tiếng Spotify qua bass / EQ?"
@@ -172,38 +173,39 @@
   onConfirm={() => { confirmLogout = false; void spotifyState.logout(); }} />
 
 <style>
-  .spotify-workspace { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(360px,1fr); gap: 20px; min-height: 0; flex: 1; }
-  .library { display: flex; flex-direction: column; gap: 12px; padding: 20px; min-width: 0; min-height: 0; overflow: hidden; }
+  .spotify-workspace { display: grid; grid-template-columns: minmax(0,1fr); gap: 24px; min-height: 0; flex: none; }
+  .library, .eq-panel, .diagnostics { background: var(--core); border: 1px solid var(--line); border-radius: 16px; box-shadow: none; }
+  .library { display: flex; flex-direction: column; gap: 16px; padding: 24px; min-width: 0; }
   .library-heading, .rack-heading, .list-heading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .library-heading h2 { font-size: 14px; margin: 0; flex: 1; font-weight: 700; }
-  .account-status { display: flex; align-items: center; gap: 6px; color: var(--success); font-size: 10px; }
+  .library-heading h2 { font-size: 22px; margin: 0; flex: 1; font-weight: 700; }
+  .account-status { display: flex; align-items: center; gap: 6px; color: var(--success); font-size: 12px; }
   .connection-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
   .icon-button { width: 36px; height: 36px; padding: 0; flex-shrink: 0; }
   .note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
   .error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--error); overflow-wrap: anywhere; }
   .warning { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
-  .device-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+  .device-row { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
   .device-row select { flex: 1; min-width: 0; max-width: 100%; }
   .spotify-search { display: flex; gap: 8px; }
   .spotify-search input { flex: 1; min-width: 0; }
-  .spotify-search input, select { height: 36px; border: 1px solid var(--input-line); border-radius: 8px; padding: 0 10px; color: var(--ink); background: var(--paper); font-size: 12px; }
+  .spotify-search input, select { height: 40px; border: 1px solid var(--input-line); border-radius: 8px; padding: 0 10px; color: var(--ink); background: var(--paper); font-size: 12px; }
   input:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  .library-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+  .library-nav { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
   .library-nav button[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); }
   .list-heading { border-bottom: 1px solid var(--line); padding-bottom: 10px; min-height: 30px; }
-  .list-heading h3 { font-size: 12px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .spotify-results { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .list-heading h3 { font-size: 15px; font-weight: 600; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spotify-results { min-width: 0; }
   ul { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; gap: 12px; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--line); border-radius: 8px; }
+  li { display: flex; gap: 12px; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--line); border-radius: 8px; }
   li:last-child { border-bottom: 0; }
   li:hover { background: var(--paper); }
   li.current-track { background: var(--soft); }
-  li img, .artwork-placeholder { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0; object-fit: cover; background: var(--paper); }
+  li img, .artwork-placeholder { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; object-fit: cover; background: var(--paper); }
   .artwork-placeholder { display: grid; place-items: center; color: var(--muted); }
   .item-name { display: grid; gap: 4px; min-width: 0; flex: 1; text-align: left; border: 0; padding: 0; color: var(--ink); background: transparent; }
   button.item-name { cursor: pointer; }
   button.item-name:hover strong { text-decoration: underline; text-underline-offset: 3px; }
-  .item-name strong { font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-name strong { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .item-name span { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .duration { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; }
@@ -212,9 +214,8 @@
   .signed-out h3 { margin: 0; font-size: 20px; }
   .signed-out p { max-width: 48ch; }
   .studio-rack, .mobile-rack { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
-  .studio-rack { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-  .eq-panel { padding: 16px; }
-  .rack-heading { justify-content: space-between; margin-bottom: 12px; }
+  .eq-panel { padding: 20px; }
+  .rack-heading { justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
   .rack-heading button { font-size: 11px; }
   .diagnostics { flex-shrink: 0; }
   .diagnostics summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; padding: 14px 16px; font-size: 12px; color: var(--muted); }
@@ -225,16 +226,17 @@
   dl { margin: 0; display: grid; gap: 10px; font-size: 11px; }
   dl div { display: flex; justify-content: space-between; gap: 12px; }
   dt { color: var(--muted); } dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-  .narrow { display: block; }
-  .narrow .library { min-height: 100%; overflow: visible; }
-  .narrow .spotify-results { flex: none; overflow: visible; }
+
   .eq-disclosure { justify-content: flex-start; width: 100%; border-color: transparent; }
   .eq-disclosure .note { margin-left: auto; }
   .eq-disclosure :global(.disclosure-chevron) { margin-left: 0; flex-shrink: 0; }
   @media(max-width:600px) {
     .library { padding: 16px; gap: 12px; }
-    .account-status { font-size: 9px; }
-    .library-heading h2 { font-size: 13px; }
+    .spotify-workspace { gap: 16px; }
+    .account-status { font-size: 11px; flex: 1; }
+    .library-heading h2 { font-size: 18px; flex-basis: 100%; }
+    .device-row { flex-wrap: wrap; }
+    .device-row label { flex-basis: 100%; }
     .library-nav { gap: 6px; }
     .library-nav button { font-size: 11px; padding-left: 8px; padding-right: 8px; }
     li { padding-left: 0; padding-right: 0; gap: 8px; }

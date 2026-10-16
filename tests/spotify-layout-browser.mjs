@@ -32,9 +32,16 @@ try {
   await browser("wait", "--text", "Nhạc chill buổi sáng");
   assert.equal(await evaluate('document.querySelector("details.diagnostics").open'), false);
   assert.deepEqual(await evaluate('window.ipcCalls.filter(c=>["spotify_control","spotify_play_uri","connect_spotify_audio","set_master_eq_band","set_master_eq_bypass"].includes(c.command))'), []);
-  const layout = await evaluate('(()=>{const library=document.querySelector(".library").getBoundingClientRect(),rack=document.querySelector(".studio-rack").getBoundingClientRect(),dock=document.querySelector(".spotify-player").getBoundingClientRect(); return {overflow:document.documentElement.scrollWidth>innerWidth,sideBySide:rack.left>library.left,playerVisible:dock.bottom<=innerHeight+1};})()');
-  assert.deepEqual(layout, { overflow: false, sideBySide: true, playerVisible: true });
-  await browser("screenshot", "/tmp/rust-sound-shipped-a-desktop.png");
+  const layout = await evaluate('(()=>{const rect=s=>document.querySelector(s).getBoundingClientRect(),library=rect(".library"),rack=rect(".studio-rack"),dock=rect(".spotify-player"),curve=rect(".curve-panel"),profiles=rect(".profiles"),faders=rect(".faders"),spectrum=rect(".spectrum-panel"); return {overflow:document.documentElement.scrollWidth>innerWidth,rackAboveLibrary:rack.bottom<=library.top,fullWidth:Math.abs(rack.width-library.width)<1,twoColumnEQ:profiles.left>curve.right && spectrum.left>faders.right,playerVisible:dock.bottom<=innerHeight+1};})()');
+  assert.deepEqual(layout, { overflow: false, rackAboveLibrary: true, fullWidth: true, twoColumnEQ: true, playerVisible: true });
+  assert.equal(await evaluate('Boolean(document.querySelector(".studio-rack").compareDocumentPosition(document.querySelector(".library")) & Node.DOCUMENT_POSITION_FOLLOWING)'), true, "DOM and keyboard order follow the top-to-bottom layout");
+  await browser("screenshot", "/tmp/rust-sound-shipped-b-desktop.png");
+  await browser("eval", 'document.querySelector("[role=slider]").focus()');
+  await browser("press", "ArrowUp");
+  assert.equal(await evaluate("window.eq.bands[0].gain"), 0.5, "wide EQ preserves keyboard controls");
+  await browser("set", "viewport", "1100", "800");
+  assert.equal(await evaluate("document.documentElement.scrollWidth>innerWidth"), false, "wide layout fits the smallest desktop breakpoint");
+  await browser("set", "viewport", "1280", "900");
   await browser("eval", 'document.querySelector("button.item-name").click()');
   await browser("wait", "--text", "Bài hát kiểm thử 2");
   await browser("find", "role", "button", "click", "--name", "Bass Boost", "--exact");
@@ -53,7 +60,7 @@ try {
   assert.equal(await evaluate('document.querySelector(".eq-disclosure").getAttribute("aria-expanded")'), "false");
   assert.equal(await evaluate('document.querySelectorAll(".eq-curve").length'), 0, "collapsed EQ must not poll spectrum");
   assert.equal(await evaluate("document.documentElement.scrollWidth>innerWidth"), false);
-  await browser("screenshot", "/tmp/rust-sound-shipped-a-narrow.png");
+  await browser("screenshot", "/tmp/rust-sound-shipped-b-narrow.png");
   await browser("find", "role", "button", "click", "--name", "Bass / EQ", "--exact").catch(async () => browser("click", ".eq-disclosure"));
   await browser("wait", "--text", "Live 28-Band Spectrum Analyzer");
   assert.equal(await evaluate('document.querySelector(".eq-disclosure").getAttribute("aria-expanded")'), "true");
@@ -76,7 +83,7 @@ try {
   assert.equal(await evaluate('document.querySelector("main").getAttribute("aria-label")'), "Spotify", "explicit login opens music");
   assert.deepEqual(await evaluate('window.ipcCalls.filter(c=>["spotify_control","spotify_play_uri","connect_spotify_audio"].includes(c.command))'), [], "login/navigation never start playback or change DSP");
   assert.equal((await browser("errors")).trim(), "");
-  console.log("PASS music-first production shell: layout, persistent player, navigation restore, login transition, no autoplay/EQ reset, narrow rack, loading/empty/error, no browser errors");
+  console.log("PASS Spotify layout B: full-width EQ above library, two-column inspector, keyboard controls, persistent player, navigation restore, login transition, no autoplay/EQ reset, narrow rack, loading/empty/error, no browser errors");
 } catch (error) {
   console.error(await browser("errors").catch(() => ""));
   console.error(await browser("snapshot").catch(() => ""));
