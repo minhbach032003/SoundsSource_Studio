@@ -122,29 +122,14 @@ mod native {
         pub fn rs_spotify_processes(ids: *mut u32, capacity: u32) -> u32;
     }
 
-    /// Stage says which step failed, so the same OSStatus never means two things.
+    /// Stage says which CoreAudio step failed; the enum lives in spotify_tap.m.
     fn start_error(error: i32, stage: i32) -> String {
-        const PERMISSION: i32 = 560947818; // '!per'
-        if error == PERMISSION {
-            return "Không nối được tiếng Spotify (CoreAudio !per). Cần cấp quyền Screen & System Audio Recording trong System Settings > Privacy & Security.".into();
+        match (error, stage) {
+            (560947818, _) => "Không nối được tiếng Spotify (CoreAudio !per). Cần cấp quyền Screen & System Audio Recording trong System Settings > Privacy & Security.".into(),
+            (_, 1) => "Cần macOS 14.2 trở lên để tách riêng tiếng Spotify.".into(),
+            (_, 2) => "Đợi Spotify tạo luồng âm thanh. Bấm Play để bắt đầu.".into(),
+            _ => format!("Không nối được tiếng Spotify (CoreAudio {error}, bước {stage}). Kiểm tra thiết bị âm thanh và quyền ghi âm hệ thống rồi thử lại."),
         }
-        let detail = match stage {
-            1 => return "Cần macOS 14.2 trở lên để tách riêng tiếng Spotify.".into(),
-            2 => return "Đợi Spotify tạo luồng âm thanh. Bấm Play để bắt đầu.".into(),
-            3 => return "Không cấp phát được bộ nhớ cho phiên âm thanh.".into(),
-            4 => "không tạo được process tap",
-            5 => "không đọc được định dạng tap",
-            6 => "tap không trả về Float32 stereo",
-            7 => "không đọc được UID thiết bị phát",
-            8 => "không đọc được định dạng thiết bị phát",
-            9 => "không tạo được aggregate device",
-            10 => "không đọc được định dạng aggregate device",
-            11 => "aggregate device không phải Float32",
-            12 => "không tạo được IOProc",
-            13 => "không khởi động được IOProc",
-            _ => "lỗi không xác định",
-        };
-        format!("Không nối được tiếng Spotify: {detail} (CoreAudio {error}, bước {stage}). Kiểm tra thiết bị âm thanh và quyền ghi âm hệ thống rồi thử lại.")
     }
     pub struct SpotifyTap(*mut c_void);
     impl SpotifyTap {

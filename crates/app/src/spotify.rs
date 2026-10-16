@@ -154,7 +154,7 @@ pub fn get_spotify_spectrum(state: State<'_, AppState>) -> SpotifySpectrum {
 }
 
 unsafe extern "C" fn process_audio(context: *mut std::ffi::c_void, samples: *mut f32, count: u32, rate: f64) {
-    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() || !(8000.0..=192000.0).contains(&rate) { return; }
+    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() || !sound_engine::spectrum::SUPPORTED_RATES.contains(&(rate as f32)) { return; }
     let processor = unsafe { &*context.cast::<Processor>() };
     let samples = unsafe { std::slice::from_raw_parts_mut(samples, count as usize) };
     // Never block the audio thread on UI commands. A contended buffer passes through.

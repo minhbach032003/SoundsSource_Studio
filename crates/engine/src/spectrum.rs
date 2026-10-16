@@ -2,6 +2,10 @@
 use serde::Serialize;
 use std::time::{Duration, Instant};
 
+/// Rates the DSP accepts. A Bluetooth headset in hands-free mode runs at 16 kHz,
+/// so this must stay in one place: it has now been wrong in two copies twice.
+pub const SUPPORTED_RATES: std::ops::RangeInclusive<f32> = 8000.0..=192000.0;
+
 const SIZE: usize = 4096;
 pub const BANDS: usize = 28;
 
@@ -44,7 +48,7 @@ impl SpectrumBuffer {
             || samples.len() % 2 != 0
             || samples.len() > 32768
             || !rate.is_finite()
-            || !(32000.0..=192000.0).contains(&rate)
+            || !SUPPORTED_RATES.contains(&rate)
         {
             return;
         }
@@ -149,7 +153,7 @@ mod tests {
     }
     #[test]
     fn spectrum_tracks_real_pcm_frequency_and_silence() {
-        for rate in [44100.0, 48000.0, 96000.0] {
+        for rate in [16000.0, 44100.0, 48000.0, 96000.0] {
             let mut buffer = SpectrumBuffer::default();
             assert!(!buffer.snapshot().receiving);
             tone(&mut buffer, 1000.0, rate);

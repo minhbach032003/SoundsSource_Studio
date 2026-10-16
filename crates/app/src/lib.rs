@@ -40,6 +40,7 @@ pub struct AppState {
     pub input_blocker: InputBlocker,
     #[cfg(target_os = "macos")]
     pub gesture_listener: Mutex<Option<pingloom::NativeGestureListener>>,
+    pub gemini_api_key: Mutex<Option<String>>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -955,6 +956,39 @@ async fn auth_google_discard_cancelled(state: State<'_, AppState>) -> Result<(),
         .map_err(|_| "Chưa dọn dẹp được phiên đăng nhập đã hủy.".to_string())?
 }
 
+// MARK: - Gemini Multimodal Live API Key Management
+
+fn resolve_gemini_api_key(memory_key: Option<String>) -> Option<String> {
+    if let Some(ref key) = memory_key {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    std::env::var("GEMINI_API_KEY")
+        .ok()
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+}
+
+#[tauri::command]
+fn get_gemini_api_key(state: State<'_, AppState>) -> Option<String> {
+    let memory_key = state.gemini_api_key.lock().ok().and_then(|g| g.clone());
+    resolve_gemini_api_key(memory_key)
+}
+
+#[tauri::command]
+fn set_gemini_api_key(key: String, state: State<'_, AppState>) -> Result<(), String> {
+    let mut guard = state.gemini_api_key.lock().map_err(|e| e.to_string())?;
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        *guard = None;
+    } else {
+        *guard = Some(trimmed.to_string());
+    }
+    Ok(())
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AppPerformanceMetrics {
     pub resident_size_bytes: u64,
@@ -1177,32 +1211,6 @@ fn set_system_sounds_volume(volume: f32) {
     }
 }
 
-fn apply_media_app_volume(bundle_id: &str, volume: f32) {
-    let vol_100 = (volume.clamp(0.0, 1.0) * 100.0).round() as u32;
-    #[cfg(target_os = "macos")]
-    {
-        let bundle = bundle_id.to_string();
-        std::thread::spawn(move || {
-            if bundle == "com.spotify.client" {
-                let _ = std::process::Command::new("osascript")
-                    .arg("-e")
-                    .arg(format!("tell application \"Spotify\" to set sound volume to {vol_100}"))
-                    .output();
-            } else if bundle == "com.apple.Music" {
-                let _ = std::process::Command::new("osascript")
-                    .arg("-e")
-                    .arg(format!("tell application \"Music\" to set sound volume to {vol_100}"))
-                    .output();
-            } else if bundle == "com.apple.QuickTimePlayerX" {
-                let frac = volume.clamp(0.0, 1.0);
-                let _ = std::process::Command::new("osascript")
-                    .arg("-e")
-                    .arg(format!("tell application \"QuickTime Player\" to set audio volume of front document to {frac}"))
-                    .output();
-            }
-        });
-    }
-}
 
 #[tauri::command]
 async fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppState>) -> Result<(), String> {
@@ -1216,7 +1224,6 @@ async fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppStat
         let web = state.spotify.web.clone();
         tauri::async_runtime::spawn_blocking(move || if web.connected() { web.set_volume(effective) } else { core::spotify::set_volume(effective) }).await.map_err(|e| e.to_string())??;
     } else {
-        apply_media_app_volume(&bundle_id, effective);
         AudioProcess::set_app_volume(&bundle_id, effective);
     }
     state.router.lock().unwrap().set_app_volume(&bundle_id, volume);
@@ -1230,7 +1237,6 @@ async fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>
         let web = state.spotify.web.clone();
         tauri::async_runtime::spawn_blocking(move || if web.connected() { web.set_volume(vol) } else { core::spotify::set_volume(vol) }).await.map_err(|e| e.to_string())??;
     } else {
-        apply_media_app_volume(&bundle_id, vol);
         AudioProcess::set_app_mute(&bundle_id, muted);
     }
     state.router.lock().unwrap().set_app_mute(&bundle_id, muted);
@@ -1768,6 +1774,7 @@ pub fn run() {
         input_blocker,
         #[cfg(target_os = "macos")]
         gesture_listener: Mutex::new(None),
+        gemini_api_key: Mutex::new(std::env::var("GEMINI_API_KEY").ok().filter(|k| !k.trim().is_empty())),
     };
 
     let app = tauri::Builder::default()
@@ -1836,6 +1843,8 @@ pub fn run() {
             auth_google_discard_cancelled,
             auth_session,
             auth_logout,
+            get_gemini_api_key,
+            set_gemini_api_key,
             get_pet_care_state,
             get_pet_activity_theme,
             set_pet_activity_theme,
@@ -2053,15 +2062,17 @@ pub fn run() {
 
                     let mut default_settings = pingloom::Settings::default();
                     default_settings.game_check = false;
+                    eprintln!("[Pingloom] Starting gesture monitor with default settings: trigger={:?}, emote={:?}, threshold={}", default_settings.trigger, default_settings.emote_trigger, default_settings.drag_threshold_px);
                     match pingloom::start_gesture_monitor(default_settings, callback) {
                         Ok(listener) => {
                             use tauri::Manager;
+                            eprintln!("[Pingloom] NativeGestureListener successfully attached to event tap.");
                             if let Some(state) = app.try_state::<AppState>() {
                                 *state.gesture_listener.lock().unwrap() = Some(listener);
                             }
                         }
                         Err(err) => {
-                            eprintln!("Failed to initialize pingloom NativeGestureListener: {}", err);
+                            eprintln!("[Pingloom] Failed to initialize NativeGestureListener: {}", err);
                         }
                     }
 
@@ -2112,5 +2123,31 @@ mod pet_tray_tests {
     fn retina_tray_anchor_uses_logical_offsets() {
         let anchor = super::tray_popover_anchor(tauri::PhysicalPosition::new(2000.0, 40.0), 2.0);
         assert_eq!((anchor.x, anchor.y), (840.0, 30.0));
+    }
+
+    #[test]
+    fn gemini_api_key_resolution_and_state() {
+        assert_eq!(
+            super::resolve_gemini_api_key(Some("test-gemini-key".to_string())),
+            Some("test-gemini-key".to_string())
+        );
+        assert_eq!(super::resolve_gemini_api_key(Some("   ".to_string())), None);
+
+        let memory = std::sync::Mutex::new(None);
+        {
+            let mut guard = memory.lock().unwrap();
+            let trimmed = "my-secret-key".trim();
+            *guard = Some(trimmed.to_string());
+        }
+        assert_eq!(memory.lock().unwrap().as_deref(), Some("my-secret-key"));
+
+        {
+            let mut guard = memory.lock().unwrap();
+            let trimmed = "".trim();
+            if trimmed.is_empty() {
+                *guard = None;
+            }
+        }
+        assert_eq!(memory.lock().unwrap().as_deref(), None);
     }
 }

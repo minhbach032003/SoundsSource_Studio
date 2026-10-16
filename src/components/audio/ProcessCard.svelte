@@ -52,6 +52,10 @@
   const name = $derived(displayName(process));
   const detail = $derived(process.bundle_id || `PID ${process.pid} · No identifier`);
   const isDisabled = $derived(!process.bundle_id || isCommitting);
+  // macOS has no per-process volume API; only apps that script their own volume
+  // can be driven. Grey the control out rather than letting it pretend.
+  const volumeLocked = $derived(isDisabled || process.supports_volume === false);
+  const lockReason = "macOS không cho chỉnh âm lượng riêng cho app này. Dùng âm lượng trong chính app hoặc fader tổng.";
 
   const channelLvl = $derived(
     isMuted ? 0 : Math.round(liveAudioMetersState.levelL * (internalVol / 100))
@@ -126,13 +130,14 @@
     </div>
 
     <!-- Volume Slider (with commit on release) -->
-    <div class="flex-1 min-w-0 px-1 {isMuted ? 'opacity-40' : ''}">
+    <div class="flex-1 min-w-0 px-1 {isMuted || volumeLocked ? 'opacity-40' : ''}">
       <input
         type="range"
         min="0"
         max="100"
         value={internalVol}
-        disabled={isDisabled}
+        disabled={volumeLocked}
+        title={volumeLocked && !isDisabled ? lockReason : null}
         oninput={(e) => (internalVol = Number(e.currentTarget.value))}
         onpointerup={() => handleVolumeCommit(internalVol)}
         onchange={() => handleVolumeCommit(internalVol)}
@@ -145,7 +150,7 @@
     <!-- Numerical Readout -->
     <button
       type="button"
-      ondblclick={() => !isDisabled && handleVolumeCommit(100)}
+      ondblclick={() => !volumeLocked && handleVolumeCommit(100)}
       title="Double-click to reset to 100%"
       class="font-mono text-[10px] text-(--muted) hover:text-(--ink) tabular-nums w-8 text-right hidden sm:inline-block cursor-pointer bg-transparent border-none p-0"
     >
@@ -170,10 +175,10 @@
       <button
         type="button"
         onclick={handleMuteClick}
-        disabled={isDisabled || isTogglingMute}
+        disabled={volumeLocked || isTogglingMute}
         aria-pressed={isMuted}
         aria-label="{isMuted ? 'Unmute' : 'Mute'} {name}"
-        title="{isMuted ? 'Unmute' : 'Mute'} {name}"
+        title={volumeLocked && !isDisabled ? lockReason : `${isMuted ? "Unmute" : "Mute"} ${name}`}
         class="h-7 w-7 rounded-lg border flex items-center justify-center cursor-pointer {isMuted
           ? 'bg-(--paper) border-(--error) text-(--error)'
           : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"

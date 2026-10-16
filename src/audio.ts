@@ -7,6 +7,8 @@ export interface AudioProcess {
   name: string;
   is_running_output: boolean;
   is_regular_app: boolean;
+  /// macOS can only drive volume for apps with their own scripting interface.
+  supports_volume: boolean;
 }
 
 export function processKey(process: AudioProcess): string {

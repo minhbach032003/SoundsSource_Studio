@@ -427,12 +427,19 @@ fn run_listener_loop(
     callback: ActionCallback,
 ) {
     // Poll for accessibility permissions without spamming prompt dialogs
+    let mut logged_untrusted = false;
     while !is_accessibility_trusted(false) {
+        if !logged_untrusted {
+            eprintln!("[Pingloom] Process is NOT trusted for Accessibility! Prompting user & polling...");
+            let _ = is_accessibility_trusted(true);
+            logged_untrusted = true;
+        }
         if !running.load(Ordering::Acquire) {
             return;
         }
         std::thread::sleep(Duration::from_secs(1));
     }
+    eprintln!("[Pingloom] Accessibility permission GRANTED. Attaching CGEventTap...");
 
     let events = vec![
         CGEventType::KeyDown,
@@ -609,8 +616,14 @@ fn run_listener_loop(
     );
 
     let tap = match tap_result {
-        Ok(t) => t,
-        Err(_) => return,
+        Ok(t) => {
+            eprintln!("[Pingloom] CGEventTap created successfully.");
+            t
+        }
+        Err(e) => {
+            eprintln!("[Pingloom] Failed to create CGEventTap: {:?}", e);
+            return;
+        }
     };
 
     let source = match tap.mach_port().create_runloop_source(0) {

@@ -234,9 +234,6 @@
         {/if}
         {isAudioActive ? "Stream Active" : "Standby"}
       </span>
-      <span class="text-[10px] text-(--muted) tabular-nums hidden sm:inline">
-        48.0 kHz · 24-bit Stereo
-      </span>
     </div>
   </div>
 

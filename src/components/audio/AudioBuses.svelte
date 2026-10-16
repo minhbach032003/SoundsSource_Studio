@@ -5,13 +5,7 @@
     Bell,
     BellOff,
     Sparkles,
-    Music,
-    Gamepad2,
-    Volume2,
-    VolumeX,
     SlidersHorizontal,
-    Headphones,
-    Radio,
   } from "@lucide/svelte";
   import type { AudioDevice } from "./DeviceQuickBar.svelte";
   import { liveAudioMetersState } from "@/lib/liveAudioMeters.svelte";
@@ -54,21 +48,6 @@
   let isSystemMuted = $state(false);
   let isPlayingChime = $state(false);
 
-  // Virtual Sub-Buses State (Master, Music, Voice, Game)
-  let masterBusVol = $state(100);
-  let isMasterBusMuted = $state(false);
-
-  let musicBusVol = $state(90);
-  let isMusicBusMuted = $state(false);
-
-  let voiceBusVol = $state(95);
-  let isVoiceBusMuted = $state(false);
-
-  let gameBusVol = $state(85);
-  let isGameBusMuted = $state(false);
-
-  // Active view tab for buses: 'hardware' (Microphone & System Sounds) or 'virtual' (Virtual Sub-Buses) or 'all'
-  let activeBusTab = $state<"all" | "hardware" | "sub-buses">("all");
 
   $effect(() => {
     internalMicVol = inputVolume;
@@ -97,38 +76,6 @@
   // Live input audio bouncing level meter
   const inputMeterLvl = $derived(
     isInputMuted ? 0 : Math.round(liveAudioMetersState.levelL * (internalMicVol / 100))
-  );
-
-  // Sub-bus live meter simulation levels
-  const masterMeterLvl = $derived(
-    isMasterBusMuted
-      ? 0
-      : Math.round(
-          Math.max(liveAudioMetersState.levelL, liveAudioMetersState.levelR) *
-            (masterBusVol / 100)
-        )
-  );
-
-  const musicMeterLvl = $derived(
-    isMusicBusMuted
-      ? 0
-      : Math.round(liveAudioMetersState.levelR * (musicBusVol / 100) * 0.95)
-  );
-
-  const voiceMeterLvl = $derived(
-    isVoiceBusMuted
-      ? 0
-      : Math.round(liveAudioMetersState.levelL * (voiceBusVol / 100) * 0.85)
-  );
-
-  const gameMeterLvl = $derived(
-    isGameBusMuted
-      ? 0
-      : Math.round(
-          ((liveAudioMetersState.levelL + liveAudioMetersState.levelR) / 2) *
-            (gameBusVol / 100) *
-            0.75
-        )
   );
 
   function handleTestChime() {
@@ -176,247 +123,10 @@
       </span>
     </div>
 
-    <div class="flex p-0.5 gap-0.5 bg-(--paper) border border-(--line) rounded-lg">
-      <button
-        type="button"
-        onclick={() => (activeBusTab = "all")}
-        class="px-2 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer {activeBusTab === 'all'
-          ? 'bg-(--surface) text-(--ink) font-bold border border-(--line) shadow-xs'
-          : 'text-(--muted) hover:text-(--ink)'}"
-      >
-        All Buses
-      </button>
-
-      <button
-        type="button"
-        onclick={() => (activeBusTab = "sub-buses")}
-        class="px-2 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer {activeBusTab === 'sub-buses'
-          ? 'bg-(--surface) text-(--ink) font-bold border border-(--line) shadow-xs'
-          : 'text-(--muted) hover:text-(--ink)'}"
-      >
-        Virtual Sub-Buses
-      </button>
-
-      <button
-        type="button"
-        onclick={() => (activeBusTab = "hardware")}
-        class="px-2 py-0.5 text-[10px] font-medium rounded transition-all cursor-pointer {activeBusTab === 'hardware'
-          ? 'bg-(--surface) text-(--ink) font-bold border border-(--line) shadow-xs'
-          : 'text-(--muted) hover:text-(--ink)'}"
-      >
-        Hardware & System
-      </button>
-    </div>
   </div>
 
-  <!-- 1. Virtual Sub-Buses Grid (Master, Music, Voice, Game) -->
-  {#if activeBusTab === "all" || activeBusTab === "sub-buses"}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-      <!-- Master Bus -->
-      <div class="p-3 panel flex flex-col justify-between gap-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <div class="w-5 h-5 rounded-md bg-(--soft) flex items-center justify-center text-(--accent-text) shrink-0">
-              <Headphones class="w-3 h-3" />
-            </div>
-            <span class="text-xs font-bold text-(--ink) truncate">Master Bus</span>
-          </div>
-          <span class="font-mono text-[10px] text-(--muted) tabular-nums">{masterBusVol}%</span>
-        </div>
-
-        <div class="flex items-center gap-2 pt-1 border-t border-(--line)">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={masterBusVol}
-            disabled={isMasterBusMuted}
-            oninput={(e) => (masterBusVol = Number(e.currentTarget.value))}
-            aria-label="Master Bus volume"
-            class="volume-slider flex-1 {isMasterBusMuted ? 'opacity-40' : ''}"
-            style="--level: {masterBusVol}%"
-          />
-
-          <!-- Meter -->
-          <div class="w-7 h-2 bg-(--line) rounded-xs overflow-hidden flex shrink-0">
-            <div
-              class="h-full rounded-xs transition-all duration-75 {isMasterBusMuted ? 'bg-(--muted)' : 'bg-(--accent)'}"
-              style="width: {masterMeterLvl}%"
-            ></div>
-          </div>
-
-          <button
-            type="button"
-            onclick={() => (isMasterBusMuted = !isMasterBusMuted)}
-            class="h-6 w-6 rounded-md border flex items-center justify-center shrink-0 cursor-pointer {isMasterBusMuted
-              ? 'bg-(--paper) border-(--error) text-(--error)'
-              : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
-            title={isMasterBusMuted ? "Unmute Master Bus" : "Mute Master Bus"}
-          >
-            {#if isMasterBusMuted}
-              <VolumeX class="w-3 h-3 text-(--error)" />
-            {:else}
-              <Volume2 class="w-3 h-3" />
-            {/if}
-          </button>
-        </div>
-      </div>
-
-      <!-- Music Bus -->
-      <div class="p-3 panel flex flex-col justify-between gap-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <div class="w-5 h-5 rounded-md bg-(--soft) flex items-center justify-center text-(--accent-text) shrink-0">
-              <Music class="w-3 h-3" />
-            </div>
-            <span class="text-xs font-bold text-(--ink) truncate">Music Bus</span>
-          </div>
-          <span class="font-mono text-[10px] text-(--muted) tabular-nums">{musicBusVol}%</span>
-        </div>
-
-        <div class="flex items-center gap-2 pt-1 border-t border-(--line)">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={musicBusVol}
-            disabled={isMusicBusMuted}
-            oninput={(e) => (musicBusVol = Number(e.currentTarget.value))}
-            aria-label="Music Bus volume"
-            class="volume-slider flex-1 {isMusicBusMuted ? 'opacity-40' : ''}"
-            style="--level: {musicBusVol}%"
-          />
-
-          <!-- Meter -->
-          <div class="w-7 h-2 bg-(--line) rounded-xs overflow-hidden flex shrink-0">
-            <div
-              class="h-full rounded-xs transition-all duration-75 {isMusicBusMuted ? 'bg-(--muted)' : 'bg-(--accent)'}"
-              style="width: {musicMeterLvl}%"
-            ></div>
-          </div>
-
-          <button
-            type="button"
-            onclick={() => (isMusicBusMuted = !isMusicBusMuted)}
-            class="h-6 w-6 rounded-md border flex items-center justify-center shrink-0 cursor-pointer {isMusicBusMuted
-              ? 'bg-(--paper) border-(--error) text-(--error)'
-              : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
-            title={isMusicBusMuted ? "Unmute Music Bus" : "Mute Music Bus"}
-          >
-            {#if isMusicBusMuted}
-              <VolumeX class="w-3 h-3 text-(--error)" />
-            {:else}
-              <Volume2 class="w-3 h-3" />
-            {/if}
-          </button>
-        </div>
-      </div>
-
-      <!-- Voice Bus -->
-      <div class="p-3 panel flex flex-col justify-between gap-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <div class="w-5 h-5 rounded-md bg-(--soft) flex items-center justify-center text-(--accent-text) shrink-0">
-              <Radio class="w-3 h-3" />
-            </div>
-            <span class="text-xs font-bold text-(--ink) truncate">Voice Bus</span>
-          </div>
-          <span class="font-mono text-[10px] text-(--muted) tabular-nums">{voiceBusVol}%</span>
-        </div>
-
-        <div class="flex items-center gap-2 pt-1 border-t border-(--line)">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={voiceBusVol}
-            disabled={isVoiceBusMuted}
-            oninput={(e) => (voiceBusVol = Number(e.currentTarget.value))}
-            aria-label="Voice Bus volume"
-            class="volume-slider flex-1 {isVoiceBusMuted ? 'opacity-40' : ''}"
-            style="--level: {voiceBusVol}%"
-          />
-
-          <!-- Meter -->
-          <div class="w-7 h-2 bg-(--line) rounded-xs overflow-hidden flex shrink-0">
-            <div
-              class="h-full rounded-xs transition-all duration-75 {isVoiceBusMuted ? 'bg-(--muted)' : 'bg-(--accent)'}"
-              style="width: {voiceMeterLvl}%"
-            ></div>
-          </div>
-
-          <button
-            type="button"
-            onclick={() => (isVoiceBusMuted = !isVoiceBusMuted)}
-            class="h-6 w-6 rounded-md border flex items-center justify-center shrink-0 cursor-pointer {isVoiceBusMuted
-              ? 'bg-(--paper) border-(--error) text-(--error)'
-              : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
-            title={isVoiceBusMuted ? "Unmute Voice Bus" : "Mute Voice Bus"}
-          >
-            {#if isVoiceBusMuted}
-              <VolumeX class="w-3 h-3 text-(--error)" />
-            {:else}
-              <Volume2 class="w-3 h-3" />
-            {/if}
-          </button>
-        </div>
-      </div>
-
-      <!-- Game Bus -->
-      <div class="p-3 panel flex flex-col justify-between gap-2">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <div class="w-5 h-5 rounded-md bg-(--soft) flex items-center justify-center text-(--accent-text) shrink-0">
-              <Gamepad2 class="w-3 h-3" />
-            </div>
-            <span class="text-xs font-bold text-(--ink) truncate">Game Bus</span>
-          </div>
-          <span class="font-mono text-[10px] text-(--muted) tabular-nums">{gameBusVol}%</span>
-        </div>
-
-        <div class="flex items-center gap-2 pt-1 border-t border-(--line)">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={gameBusVol}
-            disabled={isGameBusMuted}
-            oninput={(e) => (gameBusVol = Number(e.currentTarget.value))}
-            aria-label="Game Bus volume"
-            class="volume-slider flex-1 {isGameBusMuted ? 'opacity-40' : ''}"
-            style="--level: {gameBusVol}%"
-          />
-
-          <!-- Meter -->
-          <div class="w-7 h-2 bg-(--line) rounded-xs overflow-hidden flex shrink-0">
-            <div
-              class="h-full rounded-xs transition-all duration-75 {isGameBusMuted ? 'bg-(--muted)' : 'bg-(--accent)'}"
-              style="width: {gameMeterLvl}%"
-            ></div>
-          </div>
-
-          <button
-            type="button"
-            onclick={() => (isGameBusMuted = !isGameBusMuted)}
-            class="h-6 w-6 rounded-md border flex items-center justify-center shrink-0 cursor-pointer {isGameBusMuted
-              ? 'bg-(--paper) border-(--error) text-(--error)'
-              : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
-            title={isGameBusMuted ? "Unmute Game Bus" : "Mute Game Bus"}
-          >
-            {#if isGameBusMuted}
-              <VolumeX class="w-3 h-3 text-(--error)" />
-            {:else}
-              <Volume2 class="w-3 h-3" />
-            {/if}
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
-
   <!-- 2. Hardware Input & System Sounds Channels Grid -->
-  {#if activeBusTab === "all" || activeBusTab === "hardware"}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <!-- 1. Input Microphone Channel -->
       <div class="p-3.5 panel flex flex-col justify-between gap-2.5">
         <div class="flex items-center justify-between">
@@ -624,5 +334,4 @@
         </div>
       </div>
     </div>
-  {/if}
 </div>

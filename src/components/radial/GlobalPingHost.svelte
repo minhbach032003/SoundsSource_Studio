@@ -52,7 +52,15 @@
   let { enabled = true }: Props = $props();
 
   const isDesktop = isRunningInTauri();
-  const isNativeOverlay = isDesktop && new URLSearchParams(window.location.search).has("ping_overlay");
+  const isNativeOverlay =
+    isDesktop &&
+    (typeof window !== "undefined" &&
+      (new URLSearchParams(window.location.search).has("ping_overlay") ||
+        window.location.hash.includes("ping_overlay") ||
+        !!(window as unknown as { __IS_PING_OVERLAY__?: boolean }).__IS_PING_OVERLAY__ ||
+        (window as unknown as { __TAURI_WINDOW_LABEL__?: string }).__TAURI_WINDOW_LABEL__ === "ping-overlay" ||
+        (window as unknown as { __TAURI_INTERNALS__?: { metadata?: { currentWindow?: { label?: string } } } })
+          .__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "ping-overlay"));
 
   let settings = $state<PingloomSettings>(loadSavedSettings());
   let catalog = $state<CatalogEntry[]>(DEFAULT_CATALOG);

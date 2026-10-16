@@ -41,6 +41,7 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         pet,
         wheel_settings: Mutex::new(PingloomSettings::default()),
         gesture_engine: Mutex::new(GestureEngine::default()),
+        gemini_api_key: Mutex::new(None),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
         input_blocker: InputBlocker::new(),

@@ -8,7 +8,14 @@ pub struct AudioProcess {
     pub name: String,
     pub is_running_output: bool,
     pub is_regular_app: bool,
+    /// macOS exposes no per-process output volume API, so only apps with their
+    /// own scripting interface can be controlled. The UI greys out the rest.
+    pub supports_volume: bool,
 }
+
+/// The only bundles whose volume this app can actually move on macOS.
+pub const VOLUME_CONTROLLABLE: [&str; 3] =
+    ["com.spotify.client", "com.apple.Music", "com.apple.QuickTimePlayerX"];
 
 impl AudioProcess {
     pub fn new(
@@ -19,14 +26,21 @@ impl AudioProcess {
         is_running_output: bool,
         is_regular_app: bool,
     ) -> Self {
+        let bundle_id = bundle_id.into();
         Self {
             object_id,
             pid,
-            bundle_id: bundle_id.into(),
             name: name.into(),
+            supports_volume: Self::supports_volume(&bundle_id),
+            bundle_id,
             is_running_output,
             is_regular_app,
         }
+    }
+
+    /// Whether set_app_volume can do anything for this bundle.
+    pub fn supports_volume(bundle_id: &str) -> bool {
+        !cfg!(target_os = "macos") || VOLUME_CONTROLLABLE.contains(&bundle_id)
     }
 
     /// Enumerate active audio processes across the current platform.

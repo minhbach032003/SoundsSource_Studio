@@ -39,6 +39,7 @@
       object_id: 14820,
       is_running_output: true,
       is_regular_app: true,
+      supports_volume: true,
     },
     {
       pid: 2841,
@@ -47,6 +48,7 @@
       object_id: 2841,
       is_running_output: true,
       is_regular_app: true,
+      supports_volume: false,
     },
     {
       pid: 8932,
@@ -55,6 +57,7 @@
       object_id: 8932,
       is_running_output: false,
       is_regular_app: true,
+      supports_volume: false,
     },
     {
       pid: 4210,
@@ -63,6 +66,7 @@
       object_id: 4210,
       is_running_output: false,
       is_regular_app: true,
+      supports_volume: false,
     },
   ];
 

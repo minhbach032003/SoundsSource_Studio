@@ -26,6 +26,7 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         pet,
         wheel_settings: Mutex::new(PingloomSettings::default()),
         gesture_engine: Mutex::new(GestureEngine::default()),
+        gemini_api_key: Mutex::new(None),
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
         input_blocker: InputBlocker::new(),
