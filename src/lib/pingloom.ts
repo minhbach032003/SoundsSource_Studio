@@ -1,3 +1,5 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 export type TriggerKey =
   | "alt"
   | "g"
@@ -157,6 +159,46 @@ export const DEFAULT_CATALOG: CatalogEntry[] = [
   { id: "gg_heart", name: "GG Heart", icon: "gg_heart", color: "#ec4899", category: "emotes", vectorIcon: "heart" },
   { id: "bee_happy", name: "Bee Happy", icon: "bee_happy", color: "#fbbf24", category: "emotes", vectorIcon: "smile" },
   { id: "bee_mad", name: "Bee Mad", icon: "bee_mad", color: "#f97316", category: "emotes", vectorIcon: "frown" },
+  { id: "bee_sad", name: "Bee Sad", icon: "bee_sad", color: "#38bdf8", category: "emotes", vectorIcon: "frown" },
+  { id: "angry_kitty", name: "Angry Kitty", icon: "angry_kitty", color: "#f43f5e", category: "emotes", vectorIcon: "frown" },
+  { id: "call_me", name: "Call Me", icon: "call_me", color: "#06b6d4", category: "emotes", vectorIcon: "phone" },
+  { id: "cheeky_poro", name: "Cheeky Poro", icon: "cheeky_poro", color: "#a855f7", category: "emotes", vectorIcon: "smile" },
+  { id: "come_again", name: "Come Again", icon: "come_again", color: "#6366f1", category: "emotes", vectorIcon: "help-circle" },
+  { id: "despair", name: "Despair", icon: "despair", color: "#64748b", category: "emotes", vectorIcon: "frown" },
+  { id: "did_you_just", name: "Did You Just", icon: "did_you_just", color: "#f59e0b", category: "emotes", vectorIcon: "alert-circle" },
+  { id: "dont_make_me_laugh", name: "Don't Make Me Laugh", icon: "dont_make_me_laugh", color: "#ec4899", category: "emotes", vectorIcon: "smile" },
+  { id: "facepalm", name: "Facepalm", icon: "facepalm", color: "#ef4444", category: "emotes", vectorIcon: "hand" },
+  { id: "gasp", name: "Gasp", icon: "gasp", color: "#3b82f6", category: "emotes", vectorIcon: "sparkles" },
+  { id: "good_job_buddy", name: "Good Job Buddy", icon: "good_job_buddy", color: "#22c55e", category: "emotes", vectorIcon: "thumbs-up" },
+  { id: "haha_hilarious", name: "Haha Hilarious", icon: "haha_hilarious", color: "#eab308", category: "emotes", vectorIcon: "smile" },
+  { id: "hats_off", name: "Hats Off", icon: "hats_off", color: "#8b5cf6", category: "emotes", vectorIcon: "crown" },
+  { id: "how_could_you", name: "How Could You", icon: "how_could_you", color: "#f43f5e", category: "emotes", vectorIcon: "heart-crack" },
+  { id: "i_will_destroy_you", name: "Destroy You", icon: "i_will_destroy_you", color: "#ef4444", category: "emotes", vectorIcon: "flame" },
+  { id: "laughing_out_loud", name: "Laughing Out Loud", icon: "laughing_out_loud", color: "#fbbf24", category: "emotes", vectorIcon: "smile" },
+  { id: "let_s_do_this", name: "Let's Do This", icon: "let_s_do_this", color: "#3b82f6", category: "emotes", vectorIcon: "zap" },
+  { id: "long_road_ahead", name: "Long Road Ahead", icon: "long_road_ahead", color: "#64748b", category: "emotes", vectorIcon: "compass" },
+  { id: "magpie_oopsie", name: "Magpie Oopsie", icon: "magpie_oopsie", color: "#f59e0b", category: "emotes", vectorIcon: "help-circle" },
+  { id: "maybe_next_time", name: "Maybe Next Time", icon: "maybe_next_time", color: "#94a3b8", category: "emotes", vectorIcon: "rotate-ccw" },
+  { id: "nice", name: "Nice", icon: "nice", color: "#22c55e", category: "emotes", vectorIcon: "check" },
+  { id: "nice_try", name: "Nice Try", icon: "nice_try", color: "#38bdf8", category: "emotes", vectorIcon: "thumbs-up" },
+  { id: "not_today", name: "Not Today", icon: "not_today", color: "#ef4444", category: "emotes", vectorIcon: "shield-alert" },
+  { id: "oh", name: "Oh", icon: "oh", color: "#06b6d4", category: "emotes", vectorIcon: "help-circle" },
+  { id: "okay", name: "Okay", icon: "okay", color: "#10b981", category: "emotes", vectorIcon: "check-circle" },
+  { id: "omg_love_it", name: "OMG Love It", icon: "omg_love_it", color: "#ec4899", category: "emotes", vectorIcon: "heart" },
+  { id: "pain", name: "Pain", icon: "pain", color: "#f43f5e", category: "emotes", vectorIcon: "heart-crack" },
+  { id: "poro_ride", name: "Poro Ride", icon: "poro_ride", color: "#a855f7", category: "emotes", vectorIcon: "smile" },
+  { id: "poro_snax", name: "Poro Snax", icon: "poro_snax", color: "#f59e0b", category: "emotes", vectorIcon: "cookie" },
+  { id: "sad_kitten", name: "Sad Kitten", icon: "sad_kitten", color: "#64748b", category: "emotes", vectorIcon: "frown" },
+  { id: "scout_approved", name: "Scout Approved", icon: "scout_approved", color: "#22c55e", category: "emotes", vectorIcon: "check-check" },
+  { id: "snoozy_poro", name: "Snoozy Poro", icon: "snoozy_poro", color: "#38bdf8", category: "emotes", vectorIcon: "moon" },
+  { id: "such_foolishness", name: "Such Foolishness", icon: "such_foolishness", color: "#ef4444", category: "emotes", vectorIcon: "alert-triangle" },
+  { id: "super_approved", name: "Super Approved", icon: "super_approved", color: "#22c55e", category: "emotes", vectorIcon: "sparkles" },
+  { id: "teamwork", name: "Teamwork", icon: "teamwork", color: "#3b82f6", category: "emotes", vectorIcon: "users" },
+  { id: "think_about_it", name: "Think About It", icon: "think_about_it", color: "#06b6d4", category: "emotes", vectorIcon: "help-circle" },
+  { id: "unimpressed", name: "Unimpressed", icon: "unimpressed", color: "#64748b", category: "emotes", vectorIcon: "frown" },
+  { id: "unworthy", name: "Unworthy", icon: "unworthy", color: "#ef4444", category: "emotes", vectorIcon: "thumbs-down" },
+  { id: "wahaha", name: "Wahaha", icon: "wahaha", color: "#fbbf24", category: "emotes", vectorIcon: "smile" },
+  { id: "woah_dizzy", name: "Woah Dizzy", icon: "woah_dizzy", color: "#8b5cf6", category: "emotes", vectorIcon: "sparkles" },
   { id: "thumbs_up", name: "Thumbs Up", icon: "thumbs_up", color: "#22c55e", category: "emotes", vectorIcon: "thumbs-up" },
   { id: "mind_blown", name: "Mind Blown", icon: "mind_blown", color: "#ec4899", category: "emotes", vectorIcon: "sparkles" },
   { id: "thinking", name: "Thinking Face", icon: "thinking", color: "#06b6d4", category: "emotes", vectorIcon: "help-circle" },
@@ -186,6 +228,25 @@ export function duplicateSlots(values: string[]): Set<number> {
   return duplicates;
 }
 
+export function isEmoteId(id: string): boolean {
+  return (
+    DEFAULT_CATALOG.some(
+      (c) => c.id === id && (c.category === "emotes" || c.category === "emote")
+    ) || DEFAULT_EMOTE_WHEEL.includes(id)
+  );
+}
+
+export function createEmoteCatalogEntry(emoteId: string): CatalogEntry {
+  return {
+    id: emoteId,
+    name: formatAssetName(emoteId),
+    icon: emoteId,
+    color: "#ec4899",
+    category: "emotes",
+    vectorIcon: "smile",
+  };
+}
+
 export function formatAssetName(id: string): string {
   return id.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -208,3 +269,131 @@ export function sectorPath(
     aEnd
   )} L ${p(rIn, aEnd)} A ${rIn} ${rIn} 0 ${largeArc} 0 ${p(rIn, aStart)} Z`;
 }
+
+export interface PingloomManifest {
+  counts: {
+    pings: number;
+    emotes: number;
+    sounds: number;
+    textures: number;
+  };
+  pings_count: number;
+  emotes_count: number;
+  sounds_count: number;
+  textures_count: number;
+  pings: string[];
+  emotes: string[];
+  sounds: string[];
+  textures: string[];
+  pings_details?: Array<{
+    id: string;
+    name: string;
+    sound: string;
+    sound_file: string;
+    icon: string;
+    color: string;
+  }>;
+}
+
+export async function getPingloomAssetsManifest(): Promise<PingloomManifest | null> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        return await invoke<PingloomManifest>("get_pingloom_assets_manifest");
+      }
+    } catch {}
+  }
+  return null;
+}
+
+export async function playPingSound(sound: string): Promise<boolean> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        return await invoke<boolean>("play_ping_sound", { sound });
+      }
+    } catch {}
+  }
+  return false;
+}
+
+export async function checkAccessibilityPermission(): Promise<boolean> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        return await invoke<boolean>("check_accessibility_permission");
+      }
+    } catch {}
+  }
+  return false;
+}
+
+export async function requestAccessibilityPermission(): Promise<boolean> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        return await invoke<boolean>("request_accessibility_permission");
+      }
+    } catch {}
+  }
+  return false;
+}
+
+export async function getPingloomSettings(): Promise<PingloomSettings> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        try {
+          return await invoke<PingloomSettings>("get_pingloom_settings");
+        } catch {
+          return await invoke<PingloomSettings>("get_ping_settings");
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_PINGLOOM_SETTINGS;
+}
+
+export async function savePingloomSettings(settings: PingloomSettings): Promise<PingloomSettings> {
+  if (typeof window !== "undefined") {
+    try {
+      if (isTauri() || ("__TAURI_INTERNALS__" in window) || ("__TAURI__" in window)) {
+        try {
+          return await invoke<PingloomSettings>("save_pingloom_settings", { settings });
+        } catch {
+          return await invoke<PingloomSettings>("save_ping_settings", { settings });
+        }
+      }
+    } catch {}
+  }
+  return settings;
+}
+
+export type PingloomWheelKind = "ping" | "emote";
+
+export interface PingloomPoint {
+  x: number;
+  y: number;
+}
+
+export interface PingloomActionData {
+  wheel?: PingloomWheelKind;
+  origin?: PingloomPoint;
+  point?: PingloomPoint;
+  slot?: number | null;
+  enabled?: boolean;
+  sound?: string;
+}
+
+export interface PingloomAction {
+  type: "wheel_open" | "wheel_move" | "select" | "click" | "cancel" | "toggled" | "sound";
+  data?: PingloomActionData;
+}
+
+export interface PingloomActionPayload {
+  action: PingloomAction;
+  origin?: PingloomPoint | null;
+  scale?: number;
+  event_type: "wheel_open" | "wheel_slice" | "select" | "click" | "wheel_close" | "toggled" | "sound";
+}
+

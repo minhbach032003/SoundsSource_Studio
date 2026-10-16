@@ -1,7 +1,10 @@
+pub mod audio;
 pub mod geometry;
 pub mod gesture;
 pub mod model;
 pub mod settings;
+
+pub use audio::{resolve_sound_filename, PING_SOUND_MAP, SOUND_FILES};
 
 pub use geometry::{
     display_at_physical, physical_to_dip, physical_to_local, pick_slice, select_slot,

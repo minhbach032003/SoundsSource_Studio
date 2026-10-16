@@ -5,6 +5,8 @@ pub mod filter;
 pub mod pet;
 pub mod preset;
 pub mod router;
+pub mod spotify;
+pub mod spectrum;
 pub mod timer;
 pub mod wheel;
 

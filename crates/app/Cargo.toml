@@ -17,11 +17,13 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sound-core = { path = "../core" }
 sound-engine = { path = "../engine" }
+pingloom = { path = "../pingloom" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage", "NSEvent", "NSWindow", "NSColor"] }
 objc2-foundation = { version = "0.3", features = ["NSData"] }
+base64 = "0.22"
 block2 = "0.6"
 
 [dev-dependencies]

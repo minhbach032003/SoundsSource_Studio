@@ -4,6 +4,8 @@ pub mod google;
 pub mod jwt;
 pub mod keycloak;
 pub mod pkce;
+pub mod remote;
+mod loopback;
 
 pub use db::{AuthRepository, AuthSession, DbError, User, UserIdentity, NEON_MIGRATIONS_DDL};
 pub use dual_auth::{AuthenticatedUser, DualAuthError, DualAuthValidator};

@@ -203,3 +203,6 @@ export function playPingChime(pingId: string, volume: number = 75) {
     }
   }
 }
+
+export { playPetDoneChime, playPetWaitingChime } from "./petAudio";
+

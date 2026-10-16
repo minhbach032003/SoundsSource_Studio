@@ -16,3 +16,8 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 thiserror = "2.0"
 tempfile = "3"
+reqwest = { version = "0.13", features = ["blocking", "json", "form", "query"] }
+url = "2.5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

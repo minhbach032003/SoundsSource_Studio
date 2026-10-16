@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local};
+use chrono::{Datelike, Local, Timelike};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -184,7 +184,7 @@ impl PetCareState {
         self.xp += gained_xp;
 
         self.mark_fed(now_ts, &today);
-        self.check_achievements();
+        self.check_achievements(now_ts);
         gained_xp
     }
 
@@ -197,7 +197,7 @@ impl PetCareState {
         self.xp += MEAL_XP;
 
         self.mark_fed(now_ts, &today);
-        self.check_achievements();
+        self.check_achievements(now_ts);
         MEAL_XP
     }
 
@@ -212,7 +212,7 @@ impl PetCareState {
         self.xp += gained;
         let today = Self::current_day_key();
         self.mark_fed(now_ts, &today);
-        self.check_achievements();
+        self.check_achievements(now_ts);
         gained
     }
 
@@ -230,7 +230,7 @@ impl PetCareState {
         }
     }
 
-    fn check_achievements(&mut self) {
+    pub fn check_achievements(&mut self, now_ts: i64) {
         if self.total_meals >= 1 {
             self.unlocked_achievements.insert("firstMeal".into());
         }
@@ -246,6 +246,9 @@ impl PetCareState {
         if self.total_tokens >= 10_000_000 {
             self.unlocked_achievements.insert("tokens10M".into());
         }
+        if self.total_tokens >= 50_000_000 {
+            self.unlocked_achievements.insert("tokens50M".into());
+        }
         if self.level() >= 5 {
             self.unlocked_achievements.insert("level5".into());
         }
@@ -255,11 +258,23 @@ impl PetCareState {
         if self.level() >= 20 {
             self.unlocked_achievements.insert("level20".into());
         }
+        if self.level() >= 35 {
+            self.unlocked_achievements.insert("level35".into());
+        }
         if self.streak_days >= 7 {
             self.unlocked_achievements.insert("streak7".into());
         }
+        if self.streak_days >= 14 {
+            self.unlocked_achievements.insert("streak14".into());
+        }
         if self.streak_days >= 30 {
             self.unlocked_achievements.insert("streak30".into());
+        }
+        if let Some(dt) = chrono::DateTime::from_timestamp(now_ts, 0) {
+            let local_hour = dt.with_timezone(&Local).hour();
+            if local_hour < 6 {
+                self.unlocked_achievements.insert("nightOwl".into());
+            }
         }
     }
 }
@@ -477,5 +492,83 @@ mod tests {
         assert_eq!(reloaded2.xp, 1166);
 
         let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_all_14_achievements_unlock_conditions() {
+        let mut state = PetCareState::default();
+
+        // 1. firstMeal
+        let midday_ts = Local::now().date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(Local).unwrap().timestamp();
+        let night_ts = Local::now().date_naive().and_hms_opt(3, 0, 0).unwrap().and_local_timezone(Local).unwrap().timestamp();
+        state.record_meal(midday_ts);
+        assert!(state.unlocked_achievements.contains("firstMeal"));
+
+        // 2. sessions100
+        state.total_meals = 100;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("sessions100"));
+
+        // 3. sessions500
+        state.total_meals = 500;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("sessions500"));
+
+        // 4. tokens1M
+        state.total_tokens = 1_000_000;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("tokens1M"));
+
+        // 5. tokens10M
+        state.total_tokens = 10_000_000;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("tokens10M"));
+
+        // 6. tokens50M
+        state.total_tokens = 50_000_000;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("tokens50M"));
+
+        // 7. level5
+        state.xp = PetCareState::xp_to_reach(5);
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("level5"));
+
+        // 8. level10
+        state.xp = PetCareState::xp_to_reach(10);
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("level10"));
+
+        // 9. level20
+        state.xp = PetCareState::xp_to_reach(20);
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("level20"));
+
+        // 10. level35
+        state.xp = PetCareState::xp_to_reach(35);
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("level35"));
+
+        // 11. streak7
+        state.streak_days = 7;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("streak7"));
+
+        // 12. streak14
+        state.streak_days = 14;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("streak14"));
+
+        // 13. streak30
+        state.streak_days = 30;
+        state.check_achievements(12 * 3600);
+        assert!(state.unlocked_achievements.contains("streak30"));
+
+        // 14. nightOwl (between midnight and 6 AM)
+        assert!(!state.unlocked_achievements.contains("nightOwl"));
+        state.apply_care_action("pet", night_ts);
+        assert!(state.unlocked_achievements.contains("nightOwl"));
+
+        assert_eq!(state.unlocked_achievements.len(), 14);
     }
 }

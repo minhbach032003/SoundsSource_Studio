@@ -63,9 +63,10 @@ pub fn map_event_to_state(agent_kind: &str, event_name: &str) -> Option<AgentSta
             _ => None,
         },
         "pi" => match event_name {
-            "agent_start" | "tool_call" | "working" => Some(AgentState::Working),
-            "agent_stop" | "done" => Some(AgentState::Done),
-            "needs_input" | "waiting" => Some(AgentState::Waiting),
+            "SessionStart" | "session_start" => Some(AgentState::Registered),
+            "agent_start" | "tool_call" | "working" | "UserPromptSubmit" | "PreToolUse" | "PostToolUse" => Some(AgentState::Working),
+            "agent_stop" | "done" | "Stop" => Some(AgentState::Done),
+            "needs_input" | "waiting" | "Notification" | "PermissionRequest" => Some(AgentState::Waiting),
             _ => None,
         },
         "grok" => match event_name {
@@ -82,7 +83,7 @@ pub fn map_event_to_state(agent_kind: &str, event_name: &str) -> Option<AgentSta
 pub fn is_session_end(agent_kind: &str, event_name: &str) -> bool {
     let k = agent_kind.to_ascii_lowercase();
     match k.as_str() {
-        "claude" | "claudecode" | "gemini" | "droid" => event_name == "SessionEnd",
+        "claude" | "claudecode" | "gemini" | "droid" | "pi" => event_name == "SessionEnd" || event_name == "session_shutdown",
         "cursor" => event_name == "sessionEnd",
         "grok" => event_name == "session_end",
         _ => false,

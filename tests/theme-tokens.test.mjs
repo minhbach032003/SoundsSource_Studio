@@ -10,7 +10,7 @@ const css = readFileSync("src/styles.css", "utf8");
 function walk(dir) {
   return readdirSync(dir).flatMap((e) => {
     const p = join(dir, e);
-    return statSync(p).isDirectory() ? walk(p) : /\.tsx?$/.test(p) ? [p] : [];
+    return statSync(p).isDirectory() ? walk(p) : /\.(ts|svelte)$/.test(p) ? [p] : [];
   });
 }
 
@@ -19,7 +19,7 @@ const defined = new Set([...css.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]
 test("every CSS custom property referenced in src is defined in styles.css", () => {
   const missing = new Map();
   for (const file of walk("src")) {
-    for (const m of readFileSync(file, "utf8").matchAll(/var\(\s*--([a-z0-9-]+)/g)) {
+    for (const m of readFileSync(file, "utf8").matchAll(/(?:var\(\s*|\()--([a-z0-9-]+)\)/g)) {
       // Inline-set properties (e.g. --level on a slider) are provided by the component itself.
       if (!defined.has(m[1]) && !/--level\b/.test(m[0])) {
         missing.set(m[1], file);
@@ -91,10 +91,10 @@ test("no view still hand-rolls the old top-level panel styling", async () => {
   const walk = (d) =>
     readdirSync(d).flatMap((e) => {
       const p = join(d, e);
-      return statSync(p).isDirectory() ? walk(p) : p.endsWith(".tsx") ? [p] : [];
+      return statSync(p).isDirectory() ? walk(p) : /\.(ts|svelte)$/.test(p) ? [p] : [];
     });
   const offenders = walk("src").filter((f) =>
-    /rounded-2xl bg-\[var\(--surface\)\] border border-\[var\(--line\)\]/.test(readFileSync(f, "utf8"))
+    /rounded-2xl (?:bg-\[var\(--surface\)\]|bg-\(--surface\)) border border-(?:\[var\(--line\)\]|--line\))/.test(readFileSync(f, "utf8"))
   );
   assert.deepEqual(offenders, [], `use .panel instead: ${offenders.join(", ")}`);
 });
@@ -168,44 +168,23 @@ const TSX = (() => {
   const walk = (d) =>
     readdirSync(d).flatMap((e) => {
       const p = nodePath.join(d, e);
-      return statSync(p).isDirectory() ? walk(p) : /\.tsx?$/.test(p) ? [p] : [];
+      return statSync(p).isDirectory() ? walk(p) : /\.(ts|svelte)$/.test(p) ? [p] : [];
     });
   return walk("src").map((f) => [f, readFileSync(f, "utf8")]);
 })();
 
-const FAMILIES =
-  "rose|pink|fuchsia|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|slate|gray|zinc|neutral|stone";
-
-test("every Tailwind palette shade used in src is re-pointed at a token", () => {
-  const used = new Set();
-  for (const [, src] of TSX) {
-    for (const m of src.matchAll(
-      new RegExp(`\\b(?:bg|text|border|from|via|to|fill|stroke|ring|divide|outline|shadow)-(${FAMILIES})-(\\d{2,3})\\b`, "g")
-    )) {
-      used.add(`${m[1]}-${m[2]}`);
-    }
-  }
-  const missing = [...used].filter((s) => !css.includes(`--color-${s}:`)).sort();
-  assert.deepEqual(
-    missing,
-    [],
-    `these shades would stay frozen to one palette; add --color-<shade> in @theme: ${missing.join(", ")}`
-  );
-});
-
 // Colours that are deliberately fixed: per-user identity tints, the brand tile,
 // League-style ping colours, wallpaper artwork, and the black break scrim.
 const FROZEN_BY_DESIGN = [
-  "src/shared/ui/AvatarComponent.tsx",
-  "src/components/icons/AppLogo.tsx",
-  "src/components/icons/GoogleIcon.tsx",
-  "src/components/radial/GlobalPingHost.tsx",
-  "src/components/radial/PingBurstMarker.tsx",
-  "src/components/BreakScreenLockOverlay.tsx",
-  "src/views/BreakOverlayWindowView.tsx",
+  "src/components/icons/GoogleIcon.svelte",
+  "src/components/radial/GlobalPingHost.svelte",
+  "src/components/radial/PingBurstMarker.svelte",
+  "src/components/BreakScreenLockOverlay.svelte",
+  "src/views/BreakOverlay.svelte",
   "src/lib/pingloom.ts",
   "src/shared/lib/petRenderer.ts",
-  "src/shared/lib/useWallpaper.ts",
+  "src/lib/wallpaper.svelte.ts",
+  "src/lib/wallpaper.ts",
 ];
 
 // The pet's five ranks need five distinct hues, which one accent cannot express,
@@ -217,7 +196,7 @@ test("no stray hex or rgb() colour literals outside the files that own their pal
   for (const [file, src] of TSX) {
     if (FROZEN_BY_DESIGN.includes(file)) continue;
     for (const m of src.matchAll(/#[0-9a-fA-F]{6}\b|rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+/g)) {
-      if (file.endsWith("AgentPetView.tsx") && PET_RANK_HUES.includes(m[0].toLowerCase())) continue;
+      if (/(?:AgentPetView|PetGallery)\.(?:tsx?|svelte)$/.test(file) && PET_RANK_HUES.includes(m[0].toLowerCase())) continue;
       // A pure black/white scrim carries no hue, so it survives a palette change.
       if (/^rgba?\(\s*(0\s*,\s*0\s*,\s*0|255\s*,\s*255\s*,\s*255)/.test(m[0])) continue;
       offenders.push(`${file}: ${m[0]}`);

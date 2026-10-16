@@ -22,6 +22,8 @@ pub struct AgentSession {
 #[derive(Debug, Default, Clone)]
 pub struct SessionStore {
     sessions: HashMap<String, AgentSession>,
+    // Retain shutdown watermarks so late handlers cannot resurrect a session.
+    watermarks: HashMap<String, (u64, bool)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,6 +45,7 @@ impl SessionStore {
     pub fn new() -> Self {
         Self {
             sessions: HashMap::new(),
+            watermarks: HashMap::new(),
         }
     }
 
@@ -60,6 +63,7 @@ impl SessionStore {
 
     pub fn clear(&mut self) {
         self.sessions.clear();
+        self.watermarks.clear();
     }
 
     pub fn load_history_sessions(history_file: &std::path::Path, now_ts: i64) -> Vec<AgentSession> {
@@ -131,7 +135,20 @@ impl SessionStore {
     /// Returns `(new_state, is_meal_completed)`.
     pub fn apply(&mut self, event: AgentEvent, now_ts: i64) -> (Option<AgentState>, bool) {
         let session_id = event.session_id.clone();
-        if is_session_end(&event.agent_kind, &event.event_name) {
+        let ending = is_session_end(&event.agent_kind, &event.event_name);
+        let registering = map_event_to_state(&event.agent_kind, &event.event_name) == Some(AgentState::Registered);
+        let order = event.sequence.or_else(|| event.timestamp.and_then(|ts| u64::try_from(ts).ok())
+            .and_then(|ts| ts.checked_mul(1_000_000)));
+        if let Some(&(last, ended)) = self.watermarks.get(&session_id) {
+            if order.is_some_and(|next| next < last || (event.sequence.is_some() && next == last))
+                || (ended && !registering) {
+                return (None, false);
+            }
+        }
+        if order.is_some() || ending {
+            self.watermarks.insert(session_id.clone(), (order.unwrap_or(0), ending));
+        }
+        if ending {
             self.sessions.remove(&session_id);
             return (None, false);
         }
@@ -209,12 +226,18 @@ impl SessionStore {
     }
 
     pub fn prune(&mut self, now_ts: i64) {
-        // Prune sessions older than 15 minutes of inactivity if not working
         self.sessions.retain(|_, sess| {
-            if sess.state == AgentState::Working {
-                true
-            } else {
-                now_ts.saturating_sub(sess.last_event_at) < 900
+            let quiet = now_ts.saturating_sub(sess.last_event_at);
+            match sess.state {
+                AgentState::Done if quiet >= 30 => {
+                    sess.state = AgentState::Idle;
+                    sess.last_event_at = now_ts;
+                    true
+                }
+                AgentState::Working | AgentState::Waiting => quiet < 300,
+                AgentState::Registered => quiet < 90,
+                AgentState::Idle => quiet < 600,
+                _ => true,
             }
         });
     }
@@ -230,15 +253,8 @@ impl SessionStore {
             return PetMood::Done;
         }
 
-        let now_ts = chrono::Utc::now().timestamp();
-        let history = self.get_active_history_sessions(now_ts);
-        if history.iter().any(|s| s.state == AgentState::Working) {
-            PetMood::Working
-        } else if history.iter().any(|s| s.state == AgentState::Waiting) {
-            PetMood::Waiting
-        } else {
-            PetMood::Idle
-        }
+        // Historical records are not a live event bridge.
+        PetMood::Idle
     }
 
     pub fn to_display_list(&self) -> Vec<AgentSession> {
@@ -295,6 +311,46 @@ impl SessionStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parity_pi_payloads_and_shutdown() {
+        let mut store = SessionStore::new();
+        for (name, expected) in [("SessionStart", AgentState::Registered),
+            ("UserPromptSubmit", AgentState::Working), ("PreToolUse", AgentState::Working),
+            ("Notification", AgentState::Waiting), ("Stop", AgentState::Done)] {
+            let mut event = AgentEvent::new("pi-live", "pi", name);
+            event.tool_name = Some("Read".into());
+            assert_eq!(store.apply(event, 1000).0, Some(expected), "{name}");
+            assert_eq!(store.get("pi-live").unwrap().tool_name.as_deref(), Some("Read"));
+        }
+        store.apply(AgentEvent::new("pi-live", "pi", "SessionEnd"), 1001);
+        assert!(store.get("pi-live").is_none());
+    }
+
+    #[test]
+    fn parity_legacy_fractional_timestamp() {
+        let event: AgentEvent = serde_json::from_str(r#"{"sessionId":"legacy","agentKind":"claude","eventName":"Stop","timestamp":1792100000.125}"#).unwrap();
+        assert_eq!(event.timestamp, Some(1792100000));
+    }
+
+    #[test]
+    fn parity_aging_is_deterministic() {
+        let mut store = SessionStore::new();
+        for (id, state) in [("done", "done"), ("active", "working"), ("waiting", "waiting"), ("registered", "registered")] {
+            store.apply(AgentEvent::new(id, "pi", state), 1000);
+        }
+        store.prune(1029);
+        assert_eq!(store.get("done").unwrap().state, AgentState::Done);
+        store.prune(1030);
+        assert_eq!(store.get("done").unwrap().state, AgentState::Idle);
+        store.prune(1090);
+        assert!(store.get("registered").is_none());
+        store.prune(1300);
+        assert!(store.get("active").is_none());
+        assert!(store.get("waiting").is_none());
+        store.prune(1630);
+        assert!(store.get("done").is_none());
+    }
 
     #[test]
     fn test_session_lifecycle_and_meal_completion() {
@@ -366,5 +422,33 @@ mod tests {
         assert_eq!(loaded[0].project.as_deref(), Some("/Users/mac/Documents/rust-sound"));
 
         let _ = std::fs::remove_dir_all(temp_dir);
+    }
+}
+
+#[cfg(test)]
+mod review_order_tests {
+    use super::*;
+    fn event(name: &str, sequence: u64) -> AgentEvent {
+        serde_json::from_value(serde_json::json!({"session_id":"race", "agent_kind":"pi", "event_name":name, "sequence":sequence})).unwrap()
+    }
+    #[test]
+    fn delayed_work_cannot_overwrite_completion_or_resurrect_shutdown() {
+        let store = std::sync::Arc::new(std::sync::Mutex::new(SessionStore::new()));
+        store.lock().unwrap().apply(event("SessionStart", 1), 100);
+        store.lock().unwrap().apply(event("PreToolUse", 2), 100);
+        let (release, wait) = std::sync::mpsc::channel();
+        let delayed = store.clone();
+        let work = std::thread::spawn(move || {
+            wait.recv().unwrap();
+            delayed.lock().unwrap().apply(event("PreToolUse", 3), 102);
+        });
+        store.lock().unwrap().apply(event("Stop", 4), 101);
+        release.send(()).unwrap(); work.join().unwrap();
+        assert_eq!(store.lock().unwrap().get("race").unwrap().state, AgentState::Done);
+        store.lock().unwrap().apply(event("SessionEnd", 6), 103);
+        store.lock().unwrap().apply(event("PreToolUse", 5), 104);
+        assert!(store.lock().unwrap().get("race").is_none());
+        store.lock().unwrap().apply(event("SessionStart", 7), 105);
+        assert_eq!(store.lock().unwrap().get("race").unwrap().state, AgentState::Registered);
     }
 }

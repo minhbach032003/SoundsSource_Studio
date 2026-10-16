@@ -19,9 +19,9 @@ Deps: `app → engine → core`, app also uses core directly, core never referen
 
 **One IPC boundary, three edits per feature.** All state lives in `AppState` (`crates/app/src/lib.rs`): `Mutex<AudioRouter>`, `Mutex<PresetStore>`, `Mutex<BreakTimerManager>`, `AuthService`. Every frontend capability is a `#[tauri::command]` fn in that same file, so adding one means: write the command, register it in `generate_handler!`, add the typed wrapper in `src/audio.ts`. Commands stay thin — DSP goes in `engine/router.rs` + `engine/eq.rs`, CoreAudio calls in `core/device.rs` + `core/process.rs`.
 
-`AuthService` (`crates/engine/src/auth/`) composes four verifiers behind one facade: internal HS256 JWT (`jwt.rs`), Google ID tokens (`google.rs`), Keycloak (`keycloak.rs`), either-of-the-two (`dual_auth.rs`), plus PKCE S256 (`pkce.rs`) and a Neon Postgres repo (`db.rs`). Frontend side is `src/shared/lib/useGoogleAuth.ts`.
+`AuthService` (`crates/engine/src/auth/`) composes four verifiers behind one facade: internal HS256 JWT (`jwt.rs`), Google ID tokens (`google.rs`), Keycloak (`keycloak.rs`), either-of-the-two (`dual_auth.rs`), plus PKCE S256 (`pkce.rs`) and a Neon Postgres repo (`db.rs`). Frontend side is `src/lib/googleAuth.svelte.ts`.
 
-**README is out of date on two points:** the frontend is React 19 + Tailwind v4 (`src/App.tsx`, `src/views/`, `src/components/`), not `src/main.ts`; and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.
+**README is out of date on two points:** Frontend is Svelte 5 + Tailwind v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`); and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.
 
 Its "Trạng thái thực tế" section is still accurate and important: there is no live capture → DSP → output pipeline. Volume/mute/EQ commands mutate router state; the `*_e2e` tests assert on synthetic buffers and system queries, not real audio. Don't describe audio changes as verified end-to-end.
 
@@ -52,5 +52,5 @@ Commit messages follow the conventional prefixes already in the history (`feat:`
 ## UI conventions & Vector Icon Standard
 
 **STRICT RULE — NO UNICODE EMOJIS AS ICONS:**
-Never use unicode emoji characters (e.g. 💖, 🐝, 😡, 👍, 💯, 💪, 💀, 🎙️, ⚠️, 🎯, etc.) as UI icons, labels, badges, data tables, commit messages, or console output. Always use `lucide-react` (bundled in dependencies) or clean inline SVG components with theme-aware styling. All previous emoji violations in `src/lib/pingloom.ts`, `src/components/AudioBuses.tsx`, and `src/views/AgentPetView.tsx` have been eliminated and must never be reintroduced.
+Never use unicode emoji characters (e.g. 💖, 🐝, 😡, 👍, 💯, 💪, 💀, 🎙️, ⚠️, 🎯, etc.) as UI icons, labels, badges, data tables, commit messages, or console output. Always use `@lucide/svelte` (bundled in dependencies) or clean inline SVG components with theme-aware styling. All previous emoji violations in `src/lib/pingloom.ts`, `src/components/AudioBuses.tsx`, and `src/views/AgentPetView.tsx` have been eliminated and must never be reintroduced.
 

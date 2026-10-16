@@ -314,7 +314,7 @@ pub enum InputEvent {
     },
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum Action {
     WheelOpen {
@@ -338,6 +338,9 @@ pub enum Action {
     Cancel,
     Toggled {
         enabled: bool,
+    },
+    Sound {
+        sound: String,
     },
 }
 

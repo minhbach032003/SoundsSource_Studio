@@ -1,10 +1,12 @@
+pub mod spotify;
+use spotify::{get_spotify_spectrum, get_spotify_status, connect_spotify_audio, spotify_control, spotify_account, spotify_login, spotify_logout, spotify_browse, spotify_devices, spotify_select_device, spotify_play_uri, spotify_open_automation_settings};
 pub use sound_core as core;
 pub use sound_engine as engine;
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::State;
 
@@ -25,16 +27,19 @@ pub use engine::{
 };
 
 pub struct AppState {
-    pub router: Mutex<AudioRouter>,
+    pub router: Arc<Mutex<AudioRouter>>,
+    pub spotify: spotify::SpotifyIntegration,
     pub preset_store: Mutex<PresetStore>,
     pub timer: Mutex<BreakTimerManager>,
-    pub auth: AuthService,
+    pub auth: Arc<engine::auth::remote::RemoteAuth>,
     pub pet: PetManager,
     pub wheel_settings: Mutex<PingloomSettings>,
     pub gesture_engine: Mutex<GestureEngine>,
     pub start_time: Instant,
     pub background_mode: AtomicBool,
     pub input_blocker: InputBlocker,
+    #[cfg(target_os = "macos")]
+    pub gesture_listener: Mutex<Option<pingloom::NativeGestureListener>>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -157,8 +162,58 @@ fn toggle_agent_hook(kind: String, enabled: bool, state: State<'_, AppState>) ->
 }
 
 #[tauri::command]
+fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Manager;
+    let main = app.get_webview_window("main").ok_or("Main window unavailable")?;
+    main.show().map_err(|e| e.to_string())?;
+    main.unminimize().map_err(|e| e.to_string())?;
+    main.set_focus().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
+// Tauri/tao show() calls makeKeyAndOrderFront on macOS, even for focused(false).
+// Use native non-key ordering on the UI thread for automatic companion display.
+fn show_pet_without_focus(win: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let window = win.clone();
+        win.run_on_main_thread(move || {
+            use objc2_app_kit::{NSColor, NSWindow, NSWindowCollectionBehavior};
+            let result = window.ns_window().map_err(|e| e.to_string()).map(|ptr| unsafe {
+                let ns_win = &*(ptr as *const NSWindow);
+                ns_win.setOpaque(false);
+                ns_win.setHasShadow(false);
+                ns_win.setBackgroundColor(Some(&NSColor::clearColor()));
+                ns_win.setMovableByWindowBackground(true);
+                ns_win.setCollectionBehavior(NSWindowCollectionBehavior::CanJoinAllSpaces
+                    | NSWindowCollectionBehavior::FullScreenAuxiliary);
+                ns_win.orderFrontRegardless();
+            });
+            let _ = tx.send(result);
+        }).map_err(|e| e.to_string())?;
+        rx.recv().map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    win.show().map_err(|e| e.to_string())
+}
+
+fn tray_popover_anchor(position: tauri::PhysicalPosition<f64>, scale: f64) -> tauri::LogicalPosition<f64> {
+    let logical = position.to_logical::<f64>(scale);
+    tauri::LogicalPosition::new(logical.x - 160.0, logical.y + 10.0)
+}
+
+#[tauri::command]
 fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    if x.is_some_and(|n| !n.is_finite()) || y.is_some_and(|n| !n.is_finite()) {
+        return Err("Pet position must be finite".into());
+    }
 
     let (screen_w, screen_h) = if let Ok(Some(mon)) = app.primary_monitor() {
         let sz = mon.size();
@@ -179,9 +234,10 @@ fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Re
     };
 
     if let Some(win) = app.get_webview_window("pet-overlay") {
-        let _ = win.set_position(tauri::LogicalPosition::new(clamped_x, clamped_y));
-        let _ = win.show();
-        let _ = win.set_focus();
+        if x.is_some() && y.is_some() {
+            win.set_position(tauri::LogicalPosition::new(clamped_x, clamped_y)).map_err(|e| e.to_string())?;
+        }
+        show_pet_without_focus(win)?;
         return Ok(true);
     }
 
@@ -199,30 +255,13 @@ fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Re
     .skip_taskbar(true)
     .shadow(false)
     .resizable(false)
+    .focused(false)
+    .visible(false)
     .initialization_script("window.__IS_PET_OVERLAY__ = true; window.__TAURI_WINDOW_LABEL__ = 'pet-overlay';")
     .build()
     .map_err(|e| format!("Failed to create pet overlay window: {e}"))?;
 
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_app_kit::{NSColor, NSWindow, NSWindowCollectionBehavior};
-        if let Ok(ns_win_ptr) = win.ns_window() {
-            unsafe {
-                let ns_win: &NSWindow = &*(ns_win_ptr as *const NSWindow);
-                ns_win.setOpaque(false);
-                ns_win.setHasShadow(false);
-                ns_win.setBackgroundColor(Some(&NSColor::clearColor()));
-                ns_win.setMovableByWindowBackground(true);
-                ns_win.setCollectionBehavior(
-                    NSWindowCollectionBehavior::CanJoinAllSpaces
-                        | NSWindowCollectionBehavior::FullScreenAuxiliary,
-                );
-            }
-        }
-    }
-
-    let _ = win.show();
-    let _ = win.set_focus();
+    show_pet_without_focus(win)?;
     Ok(true)
 }
 
@@ -230,7 +269,7 @@ fn open_pet_overlay(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Re
 fn close_pet_overlay(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri::Manager;
     if let Some(win) = app.get_webview_window("pet-overlay") {
-        let _ = win.hide();
+        win.hide().map_err(|e| e.to_string())?;
         Ok(false)
     } else {
         Ok(false)
@@ -262,10 +301,128 @@ fn is_pet_overlay_open(app: tauri::AppHandle) -> bool {
 }
 
 #[tauri::command]
+fn open_pet_popover(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    let (screen_w, _screen_h) = if let Ok(Some(mon)) = app.primary_monitor() {
+        let sz = mon.size();
+        let scale = mon.scale_factor();
+        (sz.width as f64 / scale, sz.height as f64 / scale)
+    } else {
+        (1920.0, 1080.0)
+    };
+
+    let target_x = x.unwrap_or(screen_w - 340.0).clamp(20.0, screen_w - 340.0);
+    let target_y = y.unwrap_or(32.0).clamp(30.0, 800.0);
+
+    if let Some(win) = app.get_webview_window("pet-popover") {
+        let _ = win.set_position(tauri::LogicalPosition::new(target_x, target_y));
+        let _ = win.show();
+        let _ = win.set_focus();
+        return Ok(true);
+    }
+
+    let win = WebviewWindowBuilder::new(
+        &app,
+        "pet-popover",
+        WebviewUrl::App("index.html?popover=1".into()),
+    )
+    .title("AgentPet Popover")
+    .inner_size(320.0, 520.0)
+    .position(target_x, target_y)
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .shadow(true)
+    .resizable(false)
+    .initialization_script("window.__IS_PET_POPOVER__ = true; window.__TAURI_WINDOW_LABEL__ = 'pet-popover';")
+    .build()
+    .map_err(|e| format!("Failed to create pet popover window: {e}"))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSColor, NSWindow, NSWindowCollectionBehavior};
+        if let Ok(ns_win_ptr) = win.ns_window() {
+            unsafe {
+                let ns_win: &NSWindow = &*(ns_win_ptr as *const NSWindow);
+                ns_win.setOpaque(false);
+                ns_win.setHasShadow(true);
+                ns_win.setBackgroundColor(Some(&NSColor::clearColor()));
+                ns_win.setMovableByWindowBackground(false);
+                ns_win.setCollectionBehavior(
+                    NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary,
+                );
+            }
+        }
+    }
+
+    // Auto-dismiss popover when losing focus
+    let win_clone = win.clone();
+    win.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(false) = event {
+            let _ = win_clone.hide();
+        }
+    });
+
+    let _ = win.show();
+    let _ = win.set_focus();
+    Ok(true)
+}
+
+#[tauri::command]
+fn close_pet_popover(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    if let Some(win) = app.get_webview_window("pet-popover") {
+        let _ = win.hide();
+    }
+    Ok(false)
+}
+
+#[tauri::command]
+fn toggle_pet_popover(app: tauri::AppHandle, x: Option<f64>, y: Option<f64>) -> Result<bool, String> {
+    use tauri::Manager;
+    let is_open = app
+        .get_webview_window("pet-popover")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
+
+    if is_open {
+        close_pet_popover(app)
+    } else {
+        open_pet_popover(app, x, y)
+    }
+}
+
+#[tauri::command]
+fn is_pet_popover_open(app: tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.get_webview_window("pet-popover")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn clear_agent_sessions(state: State<'_, AppState>) -> Result<bool, String> {
+    state.pet.clear_sessions();
+    Ok(true)
+}
+
+#[tauri::command]
+fn update_tray_title(app: tauri::AppHandle, title: String) -> Result<bool, String> {
+    if let Some(tray) = app.tray_by_id("agentpet-tray") {
+        let _ = tray.set_title(if title.is_empty() { None } else { Some(&title) });
+    }
+    Ok(true)
+}
+
+#[tauri::command]
 fn open_ping_overlay(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
     if let Some(win) = app.get_webview_window("ping-overlay") {
+        let _ = win.set_ignore_cursor_events(true);
         let _ = win.show();
         return Ok(true);
     }
@@ -292,9 +449,37 @@ fn open_ping_overlay(app: tauri::AppHandle) -> Result<bool, String> {
     .skip_taskbar(true)
     .shadow(false)
     .resizable(false)
+    .initialization_script("\
+        window.__IS_PING_OVERLAY__ = true;\
+        window.__TAURI_WINDOW_LABEL__ = 'ping-overlay';\
+        (function() {\
+          var s = document.createElement('style');\
+          s.textContent = 'html, body { background: transparent !important; }';\
+          (document.head || document.documentElement).appendChild(s);\
+        })();\
+    ")
     .build()
     .map_err(|e| format!("Failed to create ping overlay window: {e}"))?;
 
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSColor, NSWindow, NSWindowCollectionBehavior};
+        if let Ok(ns_win_ptr) = win.ns_window() {
+            unsafe {
+                let ns_win: &NSWindow = &*(ns_win_ptr as *const NSWindow);
+                ns_win.setOpaque(false);
+                ns_win.setHasShadow(false);
+                ns_win.setBackgroundColor(Some(&NSColor::clearColor()));
+                ns_win.setIgnoresMouseEvents(true);
+                ns_win.setCollectionBehavior(
+                    NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary,
+                );
+            }
+        }
+    }
+
+    let _ = win.set_ignore_cursor_events(true);
     let _ = win.show();
     Ok(true)
 }
@@ -345,6 +530,280 @@ fn save_ping_settings(settings: PingloomSettings, state: State<'_, AppState>) ->
     let mut current = state.wheel_settings.lock().unwrap();
     *current = settings.clone();
     Ok(settings)
+}
+
+#[tauri::command]
+fn get_pingloom_settings(state: State<'_, AppState>) -> PingloomSettings {
+    get_ping_settings(state)
+}
+
+#[tauri::command]
+fn save_pingloom_settings(settings: PingloomSettings, state: State<'_, AppState>) -> Result<PingloomSettings, String> {
+    save_ping_settings(settings, state)
+}
+
+/// Locates the root pingloom assets directory (`public/pingloom` or `assets/pingloom`).
+pub fn resolve_pingloom_assets_dir() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("PINGLOOM_ASSETS_DIR") {
+        let p = PathBuf::from(dir);
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+
+    let candidates = [
+        PathBuf::from("public/pingloom"),
+        PathBuf::from("assets/pingloom"),
+        PathBuf::from("../public/pingloom"),
+        PathBuf::from("../assets/pingloom"),
+        PathBuf::from("../../public/pingloom"),
+        PathBuf::from("../../assets/pingloom"),
+    ];
+    for cand in &candidates {
+        if cand.is_dir() && cand.join("sounds").is_dir() {
+            return Some(cand.clone());
+        }
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let exe_candidates = [
+                parent.join("../Resources/pingloom"),
+                parent.join("../Resources/public/pingloom"),
+                parent.join("../Resources/assets/pingloom"),
+                parent.join("public/pingloom"),
+                parent.join("assets/pingloom"),
+            ];
+            for cand in &exe_candidates {
+                if cand.is_dir() && cand.join("sounds").is_dir() {
+                    return Some(cand.clone());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Resolves a subpath such as "sounds/Danger.ogg" to an existing file path.
+pub fn resolve_pingloom_asset_path(subpath: &str) -> Option<PathBuf> {
+    let sub = Path::new(subpath);
+    if let Some(base) = resolve_pingloom_assets_dir() {
+        let full = base.join(sub);
+        if full.is_file() {
+            return Some(full);
+        }
+    }
+
+    // Direct check from current dir
+    let cwd_candidates = [
+        PathBuf::from("public/pingloom").join(sub),
+        PathBuf::from("assets/pingloom").join(sub),
+        PathBuf::from("../public/pingloom").join(sub),
+        PathBuf::from("../assets/pingloom").join(sub),
+        PathBuf::from("../../public/pingloom").join(sub),
+        PathBuf::from("../../assets/pingloom").join(sub),
+    ];
+    for cand in &cwd_candidates {
+        if cand.is_file() {
+            return Some(cand.clone());
+        }
+    }
+
+    None
+}
+
+/// Plays an audio sound file on macOS via `afplay` in a dedicated background worker thread.
+pub fn play_sound_file(path: &Path, volume: Option<f32>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut cmd = std::process::Command::new("afplay");
+        if let Some(vol) = volume {
+            let clamped = vol.clamp(0.0, 1.0);
+            cmd.arg("-v").arg(format!("{:.2}", clamped));
+        }
+        cmd.arg(path);
+
+        std::thread::spawn(move || {
+            if let Ok(mut child) = cmd.spawn() {
+                let _ = child.wait();
+            }
+        });
+
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (path, volume);
+        Ok(())
+    }
+}
+
+/// Triggers audio playback for a ping sound, emote, or sound filename.
+/// Returns the resolved PathBuf if successful.
+pub fn trigger_ping_sound(sound: &str, volume: Option<f32>) -> Result<PathBuf, String> {
+    let subpath = sound_engine::wheel::resolve_sound_filename(sound)
+        .ok_or_else(|| format!("Ping sound '{}' not found in assets", sound))?;
+
+    let full_path = resolve_pingloom_asset_path(&subpath)
+        .ok_or_else(|| format!("Sound file '{}' could not be located on disk", subpath))?;
+
+    play_sound_file(&full_path, volume)?;
+    Ok(full_path)
+}
+
+#[tauri::command]
+fn play_ping_sound(sound: String, app_handle: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    let (volume, muted) = if let Some(state) = app_handle.try_state::<AppState>() {
+        let settings = state.wheel_settings.lock().unwrap();
+        (Some(settings.volume as f32 / 100.0), settings.muted)
+    } else {
+        (Some(0.75), false)
+    };
+
+    if muted {
+        return Ok(false);
+    }
+
+    let full_path = trigger_ping_sound(&sound, volume)?;
+
+    use tauri::Emitter;
+    let _ = app_handle.emit("pingloom:sound", serde_json::json!({
+        "sound": sound,
+        "path": full_path.to_string_lossy(),
+        "volume": volume.unwrap_or(0.75),
+    }));
+
+    Ok(true)
+}
+
+#[tauri::command]
+fn get_pingloom_assets_manifest() -> Result<serde_json::Value, String> {
+    let assets_dir = resolve_pingloom_assets_dir();
+
+    // 1. Sounds
+    let mut sounds = Vec::new();
+    if let Some(ref base) = assets_dir {
+        let sounds_dir = base.join("sounds");
+        if let Ok(entries) = std::fs::read_dir(sounds_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with(".ogg") && !name.starts_with('.') {
+                    sounds.push(name);
+                }
+            }
+        }
+    }
+    if sounds.is_empty() {
+        sounds = sound_engine::wheel::SOUND_FILES.iter().map(|s| s.to_string()).collect();
+    }
+    sounds.sort();
+
+    // 2. Emotes
+    let mut emotes_set = std::collections::BTreeSet::new();
+    if let Some(ref base) = assets_dir {
+        let emotes_dir = base.join("emotes");
+        if let Ok(entries) = std::fs::read_dir(emotes_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(stem) = path.file_stem() {
+                    let stem_str = stem.to_string_lossy().to_string();
+                    if !stem_str.starts_with('.') {
+                        emotes_set.insert(stem_str);
+                    }
+                }
+            }
+        }
+    }
+    let emotes: Vec<String> = if emotes_set.is_empty() {
+        sound_engine::wheel::EMOTE_ASSETS.iter().map(|s| s.to_string()).collect()
+    } else {
+        emotes_set.into_iter().collect()
+    };
+
+    // 3. Textures
+    let mut textures = Vec::new();
+    if let Some(ref base) = assets_dir {
+        let textures_dir = base.join("textures");
+        if let Ok(entries) = std::fs::read_dir(textures_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if !name.starts_with('.') {
+                    textures.push(name);
+                }
+            }
+        }
+    }
+    textures.sort();
+
+    // 4. Pings
+    let pings: Vec<String> = sound_engine::wheel::PING_ASSETS
+        .iter()
+        .map(|asset| match asset.id {
+            sound_engine::wheel::PingId::Danger => "danger",
+            sound_engine::wheel::PingId::Push => "push",
+            sound_engine::wheel::PingId::OnMyWay => "omw",
+            sound_engine::wheel::PingId::AllIn => "allin",
+            sound_engine::wheel::PingId::Assist => "assist",
+            sound_engine::wheel::PingId::NeedVision => "needvision",
+            sound_engine::wheel::PingId::Missing => "missing",
+            sound_engine::wheel::PingId::EnemyVision => "enemyvision",
+            sound_engine::wheel::PingId::Generic => "generic",
+            sound_engine::wheel::PingId::Bait => "bait",
+            sound_engine::wheel::PingId::VisionCleared => "visioncleared",
+        }.to_string())
+        .collect();
+
+    let pings_details: Vec<serde_json::Value> = sound_engine::wheel::PING_ASSETS
+        .iter()
+        .map(|asset| {
+            let id_str = match asset.id {
+                sound_engine::wheel::PingId::Danger => "danger",
+                sound_engine::wheel::PingId::Push => "push",
+                sound_engine::wheel::PingId::OnMyWay => "omw",
+                sound_engine::wheel::PingId::AllIn => "allin",
+                sound_engine::wheel::PingId::Assist => "assist",
+                sound_engine::wheel::PingId::NeedVision => "needvision",
+                sound_engine::wheel::PingId::Missing => "missing",
+                sound_engine::wheel::PingId::EnemyVision => "enemyvision",
+                sound_engine::wheel::PingId::Generic => "generic",
+                sound_engine::wheel::PingId::Bait => "bait",
+                sound_engine::wheel::PingId::VisionCleared => "visioncleared",
+            };
+            let sound_file = sound_engine::wheel::resolve_sound_filename(id_str)
+                .unwrap_or_else(|| format!("{}.ogg", asset.sound));
+            serde_json::json!({
+                "id": id_str,
+                "name": asset.name,
+                "sound": asset.sound,
+                "sound_file": sound_file,
+                "icon": asset.icon,
+                "color": asset.color,
+            })
+        })
+        .collect();
+
+    let manifest = serde_json::json!({
+        "counts": {
+            "pings": pings.len(),
+            "emotes": emotes.len(),
+            "sounds": sounds.len(),
+            "textures": textures.len(),
+        },
+        "pings_count": pings.len(),
+        "emotes_count": emotes.len(),
+        "sounds_count": sounds.len(),
+        "textures_count": textures.len(),
+        "pings": pings,
+        "emotes": emotes,
+        "sounds": sounds,
+        "textures": textures,
+        "pings_details": pings_details,
+    });
+
+    Ok(manifest)
 }
 
 #[tauri::command]
@@ -462,90 +921,38 @@ fn process_input_event(
     serde_json::to_value(&decision).unwrap_or(serde_json::json!({ "swallow": false, "actions": [], "replay": [] }))
 }
 
-fn env_secret(key: &str) -> String {
-    std::env::var(key).unwrap_or_else(|_| match key {
-        "RUST_SOUND_JWT_SECRET" => "rust-sound-neon-auth-secret-key-2026".to_string(),
-        "RUST_SOUND_NEON_URL" => {
-            "postgresql://neondb_owner:npg_dnSqB1Lp7gfk@ep-odd-butterfly-b40tuch4-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require".to_string()
-        }
-        _ => panic!("missing env var {key}"),
-    })
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct AuthLoginResponse {
-    pub user: User,
-    pub token: String,
-    pub auth_provider: String,
-}
-
-// MARK: - Authentication & Neon DB Commands
+// MARK: - Remote Authentication (profile-only IPC, secrets stay on the backend)
 
 #[tauri::command]
-fn auth_google_login(id_token: String, state: State<'_, AppState>) -> Result<AuthLoginResponse, String> {
-    state
-        .auth
-        .handle_google_login(&id_token)
-        .map(|(user, token)| AuthLoginResponse {
-            user,
-            token,
-            auth_provider: "google".to_string(),
-        })
-        .map_err(|e| e.to_string())
+async fn auth_google_login(state: State<'_, AppState>) -> Result<engine::auth::remote::RemoteUser, String> {
+    let auth = state.auth.clone();
+    let pending = auth.begin_login()?;
+    tauri::async_runtime::spawn_blocking(move || auth.login(pending)).await
+        .map_err(|_| "Không hoàn tất được đăng nhập Google.".to_string())?
 }
 
 #[tauri::command]
-fn auth_create_custom_google_token(
-    email: String,
-    name: String,
-    avatar_url: Option<String>,
-) -> Result<String, String> {
-    sound_engine::GoogleAuthVerifier::generate_id_token(&email, &name, avatar_url)
-        .map_err(|e| e.to_string())
+fn auth_google_cancel(state: State<'_, AppState>) { state.auth.cancel(); }
+
+#[tauri::command]
+async fn auth_session(state: State<'_, AppState>) -> Result<Option<engine::auth::remote::RemoteUser>, String> {
+    let auth = state.auth.clone();
+    tauri::async_runtime::spawn_blocking(move || auth.restore()).await
+        .map_err(|_| "Không khôi phục được phiên đăng nhập.".to_string())?
 }
 
 #[tauri::command]
-fn auth_keycloak_login(token: String, state: State<'_, AppState>) -> Result<AuthenticatedUser, String> {
-    state
-        .auth
-        .dual_auth
-        .authenticate_token(&token)
-        .map_err(|e| e.to_string())
+async fn auth_logout(state: State<'_, AppState>) -> Result<(), String> {
+    let auth = state.auth.clone();
+    tauri::async_runtime::spawn_blocking(move || auth.logout(false)).await
+        .map_err(|_| "Không hoàn tất được đăng xuất.".to_string())?
 }
 
 #[tauri::command]
-fn auth_pkce_generate() -> PkceChallenge {
-    Pkce::generate_challenge()
-}
-
-#[tauri::command]
-fn auth_pkce_verify(verifier: String, challenge: String) -> Result<bool, String> {
-    Pkce::verify(&verifier, &challenge, "S256").map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn auth_validate_token(token: String, state: State<'_, AppState>) -> Result<AuthenticatedUser, String> {
-    state
-        .auth
-        .dual_auth
-        .authenticate_token(&token)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-fn auth_logout(session_id: Option<String>, state: State<'_, AppState>) -> bool {
-    if let Some(sid) = session_id {
-        let _ = state.auth.repo.delete_session(&sid);
-    }
-    true
-}
-
-#[tauri::command]
-fn auth_get_db_connection_status(state: State<'_, AppState>) -> String {
-    format!(
-        "Neon PostgreSQL Pooler Active ({})",
-        state.auth.repo.connection_string.split('@').last().unwrap_or("connected")
-    )
+async fn auth_google_discard_cancelled(state: State<'_, AppState>) -> Result<(), String> {
+    let auth = state.auth.clone();
+    tauri::async_runtime::spawn_blocking(move || auth.logout(true)).await
+        .map_err(|_| "Chưa dọn dẹp được phiên đăng nhập đã hủy.".to_string())?
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -798,24 +1205,36 @@ fn apply_media_app_volume(bundle_id: &str, volume: f32) {
 }
 
 #[tauri::command]
-fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppState>) {
-    let mut router = state.router.lock().unwrap();
-    router.set_app_volume(&bundle_id, volume);
-    apply_media_app_volume(&bundle_id, volume);
-    AudioProcess::set_app_volume(&bundle_id, volume);
+async fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppState>) -> Result<(), String> {
+    if !volume.is_finite() || !(0.0..=1.0).contains(&volume) { return Err("Volume must be between 0 and 1".into()); }
+    let effective = {
+        let mut router = state.router.lock().unwrap();
+        let muted = router.get_or_create_channel(&bundle_id).muted;
+        if muted { 0.0 } else { volume }
+    };
+    if bundle_id == "com.spotify.client" {
+        let web = state.spotify.web.clone();
+        tauri::async_runtime::spawn_blocking(move || if web.connected() { web.set_volume(effective) } else { core::spotify::set_volume(effective) }).await.map_err(|e| e.to_string())??;
+    } else {
+        apply_media_app_volume(&bundle_id, effective);
+        AudioProcess::set_app_volume(&bundle_id, effective);
+    }
+    state.router.lock().unwrap().set_app_volume(&bundle_id, volume);
+    Ok(())
 }
 
 #[tauri::command]
-fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>) {
-    let mut router = state.router.lock().unwrap();
-    router.set_app_mute(&bundle_id, muted);
-    let vol = if muted {
-        0.0
+async fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let vol = if muted { 0.0 } else { state.router.lock().unwrap().get_or_create_channel(&bundle_id).volume };
+    if bundle_id == "com.spotify.client" {
+        let web = state.spotify.web.clone();
+        tauri::async_runtime::spawn_blocking(move || if web.connected() { web.set_volume(vol) } else { core::spotify::set_volume(vol) }).await.map_err(|e| e.to_string())??;
     } else {
-        router.get_or_create_channel(&bundle_id).volume
-    };
-    apply_media_app_volume(&bundle_id, vol);
-    AudioProcess::set_app_mute(&bundle_id, muted);
+        apply_media_app_volume(&bundle_id, vol);
+        AudioProcess::set_app_mute(&bundle_id, muted);
+    }
+    state.router.lock().unwrap().set_app_mute(&bundle_id, muted);
+    Ok(())
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -830,10 +1249,12 @@ fn set_app_eq_band(
     band_index: usize,
     gain_db: f32,
     state: State<'_, AppState>,
-) {
+) -> Result<(), String> {
+    if band_index >= 10 || !gain_db.is_finite() || !(-24.0..=24.0).contains(&gain_db) { return Err("Invalid EQ band or gain".into()); }
     let mut router = state.router.lock().unwrap();
     let ch = router.get_or_create_channel(&bundle_id);
     ch.eq.set_band_gain(band_index, gain_db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -851,8 +1272,8 @@ fn set_master_eq_band(
     gain_db: f32,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    if band_index >= 10 {
-        return Err(format!("Invalid band index: {band_index}"));
+    if band_index >= 10 || !gain_db.is_finite() || !(-24.0..=24.0).contains(&gain_db) {
+        return Err("Invalid EQ band or gain".into());
     }
     let mut router = state.router.lock().unwrap();
     router.set_master_eq_band(band_index, gain_db);
@@ -1193,12 +1614,28 @@ fn get_break_screen_lock_status(state: State<'_, AppState>) -> bool {
 
 #[tauri::command]
 fn check_accessibility_permission(state: State<'_, AppState>) -> bool {
-    state.input_blocker.is_accessibility_trusted(false)
+    #[cfg(target_os = "macos")]
+    {
+        let _ = &state;
+        pingloom::is_accessibility_trusted(false)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        state.input_blocker.is_accessibility_trusted(false)
+    }
 }
 
 #[tauri::command]
 fn request_accessibility_permission(state: State<'_, AppState>) -> bool {
-    state.input_blocker.is_accessibility_trusted(true)
+    #[cfg(target_os = "macos")]
+    {
+        let _ = &state;
+        pingloom::is_accessibility_trusted(true)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        state.input_blocker.is_accessibility_trusted(true)
+    }
 }
 
 #[tauri::command]
@@ -1241,6 +1678,61 @@ fn get_todo_items(state: State<'_, AppState>) -> Vec<TodoItem> {
     timer.get_todos().to_vec()
 }
 
+#[tauri::command]
+fn update_dock_icon(app_handle: tauri::AppHandle, icon_png_base64: String) -> Result<bool, String> {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+
+    // Strip data URL prefix if present
+    let raw_b64 = if let Some(idx) = icon_png_base64.find(',') {
+        &icon_png_base64[idx + 1..]
+    } else {
+        &icon_png_base64
+    };
+
+    let png_bytes = STANDARD
+        .decode(raw_b64.trim())
+        .map_err(|e| format!("Invalid base64 icon data: {}", e))?;
+
+    if png_bytes.is_empty() {
+        return Err("Empty icon byte stream".into());
+    }
+
+    // Update Tauri window icon if accessible
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        if let Some(window) = app_handle.get_webview_window("main") {
+            if let Ok(img) = tauri::image::Image::from_bytes(&png_bytes) {
+                let _ = window.set_icon(img);
+            }
+        }
+
+        // Dynamically update macOS application Dock icon in real time
+        unsafe {
+            use objc2::AnyThread;
+            use objc2_app_kit::{NSApplication, NSImage};
+            use objc2_foundation::{MainThreadMarker, NSData};
+
+            if let Some(mtm) = MainThreadMarker::new() {
+                let ns_data = NSData::with_bytes(&png_bytes);
+                let ns_image = NSImage::initWithData(NSImage::alloc(), &ns_data);
+                if let Some(image) = ns_image {
+                    NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image));
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app_handle;
+    }
+
+    Ok(true)
+}
+
 fn get_config_preset_path() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
         PathBuf::from(home).join(".config/rust-sound/presets.json")
@@ -1257,13 +1749,14 @@ pub fn run() {
     let preset_store = PresetStore::new(preset_file);
     let router = AudioRouter::new(48000.0);
     let timer = BreakTimerManager::default();
-    let auth = AuthService::new(env_secret("RUST_SOUND_JWT_SECRET"), env_secret("RUST_SOUND_NEON_URL"));
+    let auth = Arc::new(engine::auth::remote::RemoteAuth::new(option_env!("RUST_SOUND_AUTH_URL").unwrap_or("")));
     let pet = PetManager::new();
     pet.start_daemon();
     let input_blocker = InputBlocker::new();
 
     let state = AppState {
-        router: Mutex::new(router),
+        router: Arc::new(Mutex::new(router)),
+        spotify: spotify::SpotifyIntegration::default(),
         preset_store: Mutex::new(preset_store),
         timer: Mutex::new(timer),
         auth,
@@ -1273,11 +1766,25 @@ pub fn run() {
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
         input_blocker,
+        #[cfg(target_os = "macos")]
+        gesture_listener: Mutex::new(None),
     };
 
     let app = tauri::Builder::default()
         .manage(state)
         .invoke_handler(tauri::generate_handler![
+            get_spotify_status,
+            get_spotify_spectrum,
+            connect_spotify_audio,
+            spotify_control,
+            spotify_account,
+            spotify_login,
+            spotify_logout,
+            spotify_browse,
+            spotify_devices,
+            spotify_select_device,
+            spotify_play_uri,
+            spotify_open_automation_settings,
             get_audio_processes,
             get_audio_devices,
             get_presets,
@@ -1325,13 +1832,10 @@ pub fn run() {
             trim_memory,
             set_background_mode,
             auth_google_login,
-            auth_create_custom_google_token,
-            auth_keycloak_login,
-            auth_pkce_generate,
-            auth_pkce_verify,
-            auth_validate_token,
+            auth_google_cancel,
+            auth_google_discard_cancelled,
+            auth_session,
             auth_logout,
-            auth_get_db_connection_status,
             get_pet_care_state,
             get_pet_activity_theme,
             set_pet_activity_theme,
@@ -1339,6 +1843,8 @@ pub fn run() {
             feed_pet_action,
             reset_pet_care_state,
             get_agent_sessions,
+            show_main_window,
+            quit_app,
             dismiss_agent_session,
             get_agent_integrations,
             toggle_agent_hook,
@@ -1346,12 +1852,20 @@ pub fn run() {
             close_pet_overlay,
             toggle_pet_overlay,
             is_pet_overlay_open,
+            open_pet_popover,
+            close_pet_popover,
+            toggle_pet_popover,
+            is_pet_popover_open,
+            clear_agent_sessions,
+            update_tray_title,
             open_ping_overlay,
             close_ping_overlay,
             toggle_ping_overlay,
             is_ping_overlay_open,
             get_ping_settings,
             save_ping_settings,
+            get_pingloom_settings,
+            save_pingloom_settings,
             get_ping_catalog,
             simulate_ping_gesture,
             get_gesture_state,
@@ -1361,15 +1875,54 @@ pub fn run() {
             get_audio_filter_settings,
             set_audio_filter_settings,
             test_filter_audio_buffer,
-            get_virtual_audio_status
+            get_virtual_audio_status,
+            update_dock_icon,
+            play_ping_sound,
+            get_pingloom_assets_manifest
         ])
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    if let Err(error) = window.hide() {
+                        eprintln!("Could not hide main window: {error}");
+                    }
+                }
+            }
+        })
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
                 use tauri::Manager;
+                let state = app.state::<AppState>();
+                state.spotify.start(state.router.clone());
                 if let Some(window) = app.get_webview_window("main") {
                     if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png")) {
                         let _ = window.set_icon(icon);
+                    }
+                }
+
+                // macOS Status Bar Menu Item (AgentPet Tray Icon)
+                {
+                    use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+                    let app_handle_for_tray = app.handle().clone();
+                    if let Ok(tray_img) = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png")) {
+                        let _ = TrayIconBuilder::with_id("agentpet-tray")
+                            .icon(tray_img)
+                            .icon_as_template(true)
+                            .title("AgentPet")
+                            .tooltip("AgentPet Companion & Monitor")
+                            .on_tray_icon_event(move |_tray, event| {
+                                if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, position, .. }
+                                    | TrayIconEvent::Click { button: MouseButton::Right, button_state: MouseButtonState::Up, position, .. } = event
+                                {
+                                    let scale = app_handle_for_tray.monitor_from_point(position.x, position.y)
+                                        .ok().flatten().map(|m| m.scale_factor()).unwrap_or(1.0);
+                                    let anchor = tray_popover_anchor(position, scale);
+                                    let _ = toggle_pet_popover(app_handle_for_tray.clone(), Some(anchor.x), Some(anchor.y));
+                                }
+                            })
+                            .build(app);
                     }
                 }
 
@@ -1389,41 +1942,134 @@ pub fn run() {
                     }
                 }
 
-                // Global modifier monitor for Alt / Option and Ctrl pings outside the app
+                // Native Pingloom EventTap gesture monitor
                 {
-                    use std::ptr::NonNull;
-                    use objc2_app_kit::{NSEvent, NSEventMask, NSEventModifierFlags};
-                    use block2::RcBlock;
                     use tauri::Emitter;
 
-                    let app_handle_clone = app.handle().clone();
-                    let mask = NSEventMask::FlagsChanged;
-                    let block = RcBlock::new(move |event_ptr: NonNull<NSEvent>| {
-                        let event = unsafe { event_ptr.as_ref() };
-                        let flags = event.modifierFlags();
-                        let is_alt = flags.contains(NSEventModifierFlags::Option);
-                        let is_ctrl = flags.contains(NSEventModifierFlags::Control);
+                    let app_handle_for_pingloom = app.handle().clone();
+                    let callback: pingloom::ActionCallback = Arc::new(move |action, origin, scale| {
+                        let action_type = match &action {
+                            pingloom::Action::WheelOpen { .. } => "wheel_open",
+                            pingloom::Action::WheelMove { .. } => "wheel_slice",
+                            pingloom::Action::Select { .. } => "select",
+                            pingloom::Action::Click { .. } => "click",
+                            pingloom::Action::Cancel => "wheel_close",
+                            pingloom::Action::Toggled { .. } => "toggled",
+                            pingloom::Action::Sound { .. } => "sound",
+                        };
+                        let action_payload = serde_json::json!({
+                            "action": action,
+                            "origin": origin,
+                            "scale": scale,
+                            "event_type": action_type,
+                        });
+                        let _ = app_handle_for_pingloom.emit("pingloom:action", &action_payload);
 
-                        let loc = NSEvent::mouseLocation();
-                        if is_alt || is_ctrl {
-                            let payload = serde_json::json!({
-                                "is_holding": true,
-                                "mode": if is_alt { "tactical" } else { "emote" },
-                                "screen_x": loc.x,
-                                "screen_y": loc.y,
-                            });
-                            let _ = app_handle_clone.emit("global-modifier-changed", payload);
-                        } else {
-                            let payload = serde_json::json!({
-                                "is_holding": false,
-                                "screen_x": loc.x,
-                                "screen_y": loc.y,
-                            });
-                            let _ = app_handle_clone.emit("global-modifier-released", payload);
+                        // Trigger audio sound playback for Select, Sound, and Click actions
+                        match &action {
+                            pingloom::Action::Select { wheel, slot, .. } => {
+                                use tauri::Manager;
+                                if let Some(state) = app_handle_for_pingloom.try_state::<AppState>() {
+                                    let settings = state.wheel_settings.lock().unwrap().clone();
+                                    if !settings.muted {
+                                        let sound_opt = match wheel {
+                                            pingloom::WheelKind::Ping => {
+                                                settings.wheel.get(*slot).cloned()
+                                            }
+                                            pingloom::WheelKind::Emote => {
+                                                if settings.emote_sound {
+                                                    settings.emote_wheel.get(*slot).cloned()
+                                                } else {
+                                                    None
+                                                }
+                                            }
+                                        };
+                                        if let Some(sound_name) = sound_opt {
+                                            let vol = Some(settings.volume as f32 / 100.0);
+                                            if let Ok(path) = trigger_ping_sound(&sound_name, vol) {
+                                                let _ = app_handle_for_pingloom.emit("pingloom:sound", serde_json::json!({
+                                                    "sound": sound_name,
+                                                    "path": path.to_string_lossy(),
+                                                    "volume": vol.unwrap_or(0.75),
+                                                }));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            pingloom::Action::Sound { sound } => {
+                                use tauri::Manager;
+                                if let Some(state) = app_handle_for_pingloom.try_state::<AppState>() {
+                                    let settings = state.wheel_settings.lock().unwrap().clone();
+                                    if !settings.muted {
+                                        let vol = Some(settings.volume as f32 / 100.0);
+                                        if let Ok(path) = trigger_ping_sound(sound, vol) {
+                                            let _ = app_handle_for_pingloom.emit("pingloom:sound", serde_json::json!({
+                                                "sound": sound,
+                                                "path": path.to_string_lossy(),
+                                                "volume": vol.unwrap_or(0.75),
+                                            }));
+                                        }
+                                    }
+                                }
+                            }
+                            pingloom::Action::Click { wheel, .. } => {
+                                use tauri::Manager;
+                                if let Some(state) = app_handle_for_pingloom.try_state::<AppState>() {
+                                    let settings = state.wheel_settings.lock().unwrap().clone();
+                                    if !settings.muted {
+                                        let sound_opt = match wheel {
+                                            pingloom::WheelKind::Ping => {
+                                                if settings.click_ping {
+                                                    Some(settings.click_ping_id.clone())
+                                                } else {
+                                                    None
+                                                }
+                                            }
+                                            pingloom::WheelKind::Emote => {
+                                                if settings.emote_click && settings.emote_sound {
+                                                    Some(settings.click_emote_id.clone())
+                                                } else {
+                                                    None
+                                                }
+                                            }
+                                        };
+                                        if let Some(sound_name) = sound_opt {
+                                            let vol = Some(settings.volume as f32 / 100.0);
+                                            if let Ok(path) = trigger_ping_sound(&sound_name, vol) {
+                                                let _ = app_handle_for_pingloom.emit("pingloom:sound", serde_json::json!({
+                                                    "sound": sound_name,
+                                                    "path": path.to_string_lossy(),
+                                                    "volume": vol.unwrap_or(0.75),
+                                                }));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     });
 
-                    let _ = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(mask, &block);
+                    let mut default_settings = pingloom::Settings::default();
+                    default_settings.game_check = false;
+                    match pingloom::start_gesture_monitor(default_settings, callback) {
+                        Ok(listener) => {
+                            use tauri::Manager;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                *state.gesture_listener.lock().unwrap() = Some(listener);
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Failed to initialize pingloom NativeGestureListener: {}", err);
+                        }
+                    }
+
+                    // Automatically initialize click-through transparent desktop overlay
+                    let app_handle_overlay = app.handle().clone();
+                    if let Err(e) = open_ping_overlay(app_handle_overlay) {
+                        eprintln!("Failed to auto-open ping overlay: {}", e);
+                    }
                 }
             }
 
@@ -1433,11 +2079,24 @@ pub fn run() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { .. } = event {
+            if let Err(error) = show_main_window(app_handle.clone()) {
+                eprintln!("Could not reopen main window: {error}");
+            }
+        }
         if let tauri::RunEvent::Exit = event {
             use tauri::Manager;
             if let Some(state) = app_handle.try_state::<AppState>() {
+                state.spotify.stop();
                 state.pet.stop_daemon();
                 state.input_blocker.uninstall();
+                #[cfg(target_os = "macos")]
+                if let Ok(mut guard) = state.gesture_listener.lock() {
+                    if let Some(mut listener) = guard.take() {
+                        listener.stop();
+                    }
+                }
             }
             close_break_overlays(app_handle);
         }
@@ -1446,3 +2105,12 @@ pub fn run() {
 
 
 
+
+#[cfg(test)]
+mod pet_tray_tests {
+    #[test]
+    fn retina_tray_anchor_uses_logical_offsets() {
+        let anchor = super::tray_popover_anchor(tauri::PhysicalPosition::new(2000.0, 40.0), 2.0);
+        assert_eq!((anchor.x, anchor.y), (840.0, 30.0));
+    }
+}

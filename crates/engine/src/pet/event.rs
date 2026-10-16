@@ -126,7 +126,10 @@ pub struct AgentEvent {
     pub tokens: Option<u64>,
     #[serde(alias = "costUSD", alias = "cost_usd")]
     pub cost_usd: Option<f64>,
+    #[serde(default, deserialize_with = "decode_timestamp")]
     pub timestamp: Option<i64>,
+    /// Monotonic sender time in microseconds; optional for legacy clients.
+    pub sequence: Option<u64>,
 }
 
 impl AgentEvent {
@@ -138,4 +141,17 @@ impl AgentEvent {
             ..Default::default()
         }
     }
+}
+
+// Swift Date encodes fractional epoch seconds. Reject nonnumeric/out-of-range input.
+fn decode_timestamp<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<i64>, D::Error> {
+    let value = Option::<serde_json::Number>::deserialize(deserializer)?;
+    value.map(|n| {
+        if let Some(integer) = n.as_i64() { return Ok(integer); }
+        let seconds = n.as_f64().ok_or_else(|| serde::de::Error::custom("Invalid timestamp"))?;
+        if !seconds.is_finite() || seconds < i64::MIN as f64 || seconds >= i64::MAX as f64 {
+            return Err(serde::de::Error::custom("Timestamp out of range"));
+        }
+        Ok(seconds.trunc() as i64)
+    }).transpose()
 }

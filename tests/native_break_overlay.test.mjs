@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
 
 test("break overlay window routing and query param detection", () => {
   // Test primary monitor query detection
@@ -60,3 +61,24 @@ test("simulate-break-phase development gate check", () => {
   assert.equal(isSimAllowed(false), false);
   assert.equal(isSimAllowed(undefined), false);
 });
+
+test("break overlay svelte 5 migration integrity", () => {
+  const svelteSrc = readFileSync("src/views/BreakOverlay.svelte", "utf8");
+  const mainFile = existsSync("src/main.ts") ? "src/main.ts" : "src/main.tsx";
+  const mainSrc = readFileSync(mainFile, "utf8");
+
+  // State & Runes checks
+  assert.ok(svelteSrc.includes("$state<TimerStatus>"), "uses $state for timer status");
+  assert.ok(svelteSrc.includes("$derived"), "uses $derived for countdown/primary");
+  assert.ok(svelteSrc.includes("$effect"), "uses $effect for polling & escape key");
+
+  // Logic & Invokes
+  assert.ok(svelteSrc.includes("get_break_timer_status"), "polls get_break_timer_status");
+  assert.ok(svelteSrc.includes("skip_break_timer"), "calls skip_break_timer");
+  assert.ok(svelteSrc.includes("Escape"), "handles Escape key");
+
+  // Svelte mount check in main.tsx
+  assert.ok(mainSrc.includes("mount(BreakOverlay,"), "mounts BreakOverlay via Svelte 5 mount");
+  assert.ok(!mainSrc.includes("<BreakOverlayWindowView"), "replaces React BreakOverlayWindowView in main");
+});
+

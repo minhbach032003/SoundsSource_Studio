@@ -3,6 +3,7 @@ pub mod input_blocker;
 pub mod metrics;
 pub mod platform;
 pub mod process;
+pub mod spotify;
 
 pub use device::AudioDevice;
 pub use input_blocker::{

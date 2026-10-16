@@ -62,9 +62,9 @@ impl PetManager {
     }
 
     pub fn start_daemon(&self) {
-        let _ = self
-            .server
-            .start(self.sessions.clone(), self.care_store.clone());
+        if let Err(error) = self.server.start(self.sessions.clone(), self.care_store.clone()) {
+            eprintln!("AgentPet activity listener failed to start: {error}");
+        }
     }
 
     pub fn stop_daemon(&self) {
@@ -96,12 +96,17 @@ impl PetManager {
         let mut sess = self.sessions.lock().unwrap();
         let now_ts = Utc::now().timestamp();
         sess.prune(now_ts);
-        sess.to_display_list_with_history(now_ts)
+        sess.to_display_list()
     }
 
     pub fn dismiss_session(&self, id: &str) {
         let mut sess = self.sessions.lock().unwrap();
         sess.remove(id);
+    }
+
+    pub fn clear_sessions(&self) {
+        let mut sess = self.sessions.lock().unwrap();
+        sess.clear();
     }
 
     pub fn get_integrations(&self) -> Vec<AgentIntegrationInfo> {
@@ -120,5 +125,53 @@ impl PetManager {
 impl Default for PetManager {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn socket_activity_drives_live_sessions_once_without_history() {
+        if std::env::var_os("RUST_SOUND_SOCKET_TEST_CHILD").is_none() {
+            let home = tempfile::tempdir().unwrap();
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "pet::tests::socket_activity_drives_live_sessions_once_without_history", "--nocapture"])
+                .env("HOME", home.path()).env("RUST_SOUND_SOCKET_TEST_CHILD", "1")
+                .output().unwrap();
+            assert!(output.status.success(), "{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+            return;
+        }
+        let home = std::path::PathBuf::from(std::env::var("HOME").unwrap());
+        let history = home.join(".agentpet/history");
+        std::fs::create_dir_all(&history).unwrap();
+        std::fs::write(history.join(format!("{}.json", chrono::Local::now().format("%Y-%m-%d"))),
+            r#"[{"sessionId":"archive","agentKind":"claude","message":"working"}]"#).unwrap();
+        let pet = PetManager::with_paths(home.join(".agentpet/agentpet.sock"), home.join("care.json"));
+        pet.start_daemon();
+        assert!(pet.get_sessions().is_empty(), "archives must not create live activity");
+        assert_eq!(std::fs::canonicalize(home.join(".agentpet/agentpet.sock")).unwrap(),
+            std::fs::canonicalize(home.join(".rust-sound/pet.sock")).unwrap());
+        let cli = HookManager::ensure_agentpet_cli().unwrap();
+        let mut dispatcher = Command::new("/bin/sh").args(["-c", &format!("{cli} hook --agent pi")])
+            .stdin(Stdio::piped()).spawn().unwrap();
+        dispatcher.stdin.take().unwrap().write_all(br#"{"session_id":"socket-fixture","hook_event_name":"PreToolUse","tool_name":"Read","cwd":"/fixture","timestamp":1792100000.125}"#).unwrap();
+        assert!(dispatcher.wait().unwrap().success());
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while pet.get_care_state().total_tokens == 0 && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        // Let an erroneous second aliased delivery arrive before checking care.
+        std::thread::sleep(Duration::from_millis(200));
+        let sessions = pet.get_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].state, AgentState::Working);
+        assert_eq!(sessions[0].tool_name.as_deref(), Some("Read"));
+        assert_eq!(pet.get_care_state().total_tokens, 500);
+        pet.stop_daemon();
     }
 }

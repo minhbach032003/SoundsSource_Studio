@@ -1,0 +1,11 @@
+{
+  "name": "rust-sound-auth-backend",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node start.mjs",
+    "test": "node --test *.test.mjs"
+  },
+  "dependencies": { "pg": "^8.16.3" }
+}

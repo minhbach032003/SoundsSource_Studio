@@ -6,21 +6,100 @@ const COLS = 8;
 const ROWS = 9;
 const ALPHA_THRESHOLD = 16;
 
-const STATE_ROW: Record<string, number> = {
+// Row index mappings per archetype, matching the legacy AgentPet PetBindings & SpriteSlicer.
+// 0 Idle, 1 RunRight/Walk, 2 RunLeft, 3 Waving (Done), 4 Jumping (Celebrate), 5 Sleepy/Failed, 6 Waiting, 7 Frantic Coding, 8 Reading/Review
+export const DEFAULT_STATE_ROW: Record<string, number> = {
   idle: 0,
   registered: 0,
   working: 7, // Frantically typing / running
+  reading: 8, // Reading docs / review
   waiting: 6, // Looking around, waiting for input
   done: 3, // Waving goodbye to completed task
   celebrate: 4, // Jumping with joy
-  sleepy: 0,
+  sleepy: 5,
 };
 
+// Archetype-specific row mappings for pets that arrange animations differently
+export const ARCHETYPE_STATE_ROW: Record<string, Record<string, number>> = {
+  "work-blue-cat": {
+    idle: 0,
+    registered: 0,
+    working: 7, // Coding on green keyboard
+    reading: 8, // Reading documentation / inspecting
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+  "code-frenzy-cat": {
+    idle: 0,
+    registered: 0,
+    working: 7, // Frantic laptop typing
+    reading: 8, // Inspecting terminal
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+  "wode-daodun-3d": {
+    idle: 0,
+    registered: 0,
+    working: 1, // Sword & Shield guard run
+    reading: 1,
+    waiting: 2, // Shield defense
+    done: 3,
+    celebrate: 4, // Victory jump
+    sleepy: 5,
+  },
+  boba: {
+    idle: 0,
+    registered: 0,
+    working: 7,
+    reading: 8,
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+  eddy: {
+    idle: 0,
+    registered: 0,
+    working: 7,
+    reading: 8,
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+  "shinchan-3": {
+    idle: 0,
+    registered: 0,
+    working: 7,
+    reading: 8,
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+  "super-saiyan-goku": {
+    idle: 0,
+    registered: 0,
+    working: 7,
+    reading: 8,
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
+};
+
+// Frame rate varies by mood (12 FPS for frantic working and celebrate like legacy AgentPet).
 const STATE_FPS: Record<string, number> = {
-  working: 8,
-  celebrate: 8,
-  waiting: 4,
-  done: 3,
+  working: 12,
+  reading: 10,
+  celebrate: 12,
+  waiting: 5,
+  done: 4,
   idle: 3,
   registered: 3,
   sleepy: 2,
@@ -112,13 +191,22 @@ export class PetRenderer {
   public headroom = 0;
   public spriteRect: Rect | null = null;
 
-  constructor(private canvas: HTMLCanvasElement) {
+  private slug: string = "code-frenzy-cat";
+
+  constructor(private canvas: HTMLCanvasElement, slug: string = "code-frenzy-cat") {
     const c = canvas.getContext("2d");
     if (!c) throw new Error("no 2d canvas context");
     this.ctx = c;
     this.ctx.imageSmoothingEnabled = false;
+    this.slug = slug;
     this.loop = this.loop.bind(this);
     this.animId = requestAnimationFrame(this.loop);
+  }
+
+  setSlug(slug: string) {
+    if (this.slug !== slug) {
+      this.slug = slug;
+    }
   }
 
   load(spritesheetUrl: string) {
@@ -156,7 +244,21 @@ export class PetRenderer {
 
   setState(state: string) {
     this.fps = STATE_FPS[state] ?? 3;
-    const row = STATE_ROW[state] ?? 0;
+
+    // Check user custom binding override from localStorage (Settings / Animations tab)
+    let customRow: number | null = null;
+    if (typeof localStorage !== "undefined") {
+      const bound = localStorage.getItem(`ap_bind_${this.slug}_${state}`);
+      if (bound !== null) {
+        const parsed = parseInt(bound, 10);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+          customRow = parsed;
+        }
+      }
+    }
+
+    const petMap = ARCHETYPE_STATE_ROW[this.slug] || DEFAULT_STATE_ROW;
+    const row = customRow ?? petMap[state] ?? DEFAULT_STATE_ROW[state] ?? 0;
     if (row !== this.row) {
       this.row = row;
       this.frame = 0;

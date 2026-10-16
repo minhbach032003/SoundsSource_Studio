@@ -1,6 +1,6 @@
 use rust_sound_lib::core::{get_memory_info, trim_memory_cache};
 use rust_sound_lib::{
-    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, InputBlocker, PresetStore, AuthService, GestureEngine, PetManager, PingloomSettings,
+    AppPerformanceMetrics, AppState, AudioRouter, BreakTimerManager, InputBlocker, PresetStore, GestureEngine, PetManager, PingloomSettings,
 };
 use std::env;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,11 +29,12 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
     let store = PresetStore::new(&temp_file);
     let router = AudioRouter::new(48000.0);
     let timer = BreakTimerManager::default();
-    let auth = AuthService::new("secret", "mock_conn");
+    let auth = std::sync::Arc::new(rust_sound_lib::engine::auth::remote::RemoteAuth::new(""));
     let pet = PetManager::new();
 
     let state = AppState {
-        router: Mutex::new(router),
+        router: std::sync::Arc::new(Mutex::new(router)),
+        spotify: Default::default(),
         preset_store: Mutex::new(store),
         timer: Mutex::new(timer),
         auth,
@@ -43,6 +44,8 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         start_time: Instant::now(),
         background_mode: AtomicBool::new(false),
         input_blocker: InputBlocker::new(),
+        #[cfg(target_os = "macos")]
+        gesture_listener: Mutex::new(None),
     };
 
     assert!(!state.background_mode.load(Ordering::Relaxed));

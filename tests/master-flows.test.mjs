@@ -5,7 +5,7 @@ import {
   validateWallpaperFile,
   computeBackgroundStyle,
   MAX_FILE_SIZE,
-} from "../src/shared/lib/useWallpaper.ts";
+} from "../src/lib/wallpaper.ts";
 import {
   DEFAULT_PING_WHEEL,
   DEFAULT_EMOTE_WHEEL,

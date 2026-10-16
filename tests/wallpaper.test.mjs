@@ -5,7 +5,7 @@ import {
   validateWallpaperFile,
   computeBackgroundStyle,
   MAX_FILE_SIZE,
-} from "../src/shared/lib/useWallpaper.ts";
+} from "../src/lib/wallpaper.ts";
 
 test("wallpaper presets contain obsidian, aurora, cyber, and nebula with gradients", () => {
   assert.equal(WALLPAPER_PRESETS.length, 4);
