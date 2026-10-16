@@ -29,10 +29,25 @@ export interface GeminiLiveConnectOptions {
 }
 
 const GEMINI_LIVE_WS_BASE =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+
+/**
+ * Live-capable models verified against `bidiGenerateContent` on v1beta.
+ * `gemini-2.0-flash-exp` is gone: the server closes the socket with 1008.
+ */
+export const GEMINI_LIVE_MODELS = [
+  { value: "models/gemini-3.1-flash-live-preview", label: "Gemini 3.1 Flash Live" },
+  { value: "models/gemini-2.5-flash-native-audio-latest", label: "Gemini 2.5 Flash Native Audio" },
+] as const;
+
+export const DEFAULT_GEMINI_LIVE_MODEL: string = GEMINI_LIVE_MODELS[0].value;
 
 /** Gemini Live accepts video at low frame rates; 1 fps is the documented uplink budget. */
 export const GEMINI_VIDEO_UPLINK_FPS = 1;
+
+/** Longest edge of an uplinked frame: camera stays small, screen keeps text legible. */
+const CAMERA_FRAME_MAX_WIDTH = 640;
+const SCREEN_FRAME_MAX_WIDTH = 1280;
 
 /** Mic uplink rate required by the Live API, and the rate it speaks back at. */
 export const GEMINI_INPUT_SAMPLE_RATE = 16000;
@@ -140,6 +155,20 @@ function downsampleBuffer(
   return result;
 }
 
+/** Turn a Live API close frame into something the user can act on. */
+function describeCloseReason(code: number, reason: string, model: string): string {
+  if (/api key not valid|api_key_invalid/i.test(reason)) {
+    return "Gemini API Key không hợp lệ. Mở cấu hình API Key và nhập lại khóa từ Google AI Studio.";
+  }
+  if (/not found|not supported for bidiGenerateContent/i.test(reason)) {
+    return `Model ${model.replace(/^models\//, "")} không hỗ trợ Live API với khóa này. Chọn model khác rồi gọi lại.`;
+  }
+  if (/quota|resource_exhausted|rate limit/i.test(reason) || code === 1011) {
+    return `Gemini Live từ chối phiên (${code}): ${reason || "hết quota hoặc lỗi máy chủ"}.`;
+  }
+  return `Gemini Live đã ngắt kết nối (${code}${reason ? `: ${reason}` : ""})`;
+}
+
 export class GeminiLiveService {
   status = $state<GeminiLiveStatus>("idle");
   isMuted = $state<boolean>(false);
@@ -164,6 +193,11 @@ export class GeminiLiveService {
   notice = $state<string | null>(null);
   /** Voice persona the live session was actually opened with. */
   activeVoice = $state<string>("Aoede");
+  /** Model the live session was actually opened with. */
+  activeModel = $state<string>(DEFAULT_GEMINI_LIVE_MODEL);
+  /** Screen/window capture currently uplinked to Gemini instead of the camera. */
+  isScreenSharing = $state<boolean>(false);
+  screenStream = $state<MediaStream | null>(null);
 
   private ws: WebSocket | null = null;
   private micStream: MediaStream | null = null;
@@ -179,6 +213,7 @@ export class GeminiLiveService {
   private nextPlayTime = 0;
 
   private videoElement: HTMLVideoElement | null = null;
+  private screenVideoElement: HTMLVideoElement | null = null;
   private canvasElement: HTMLCanvasElement | null = null;
   private videoCaptureInterval: number | null = null;
 
@@ -192,6 +227,12 @@ export class GeminiLiveService {
    */
   private setupDowngradeLevel = 0;
   private reconnectAttempts = 0;
+  /** Latest resumable handle; re-opening with it keeps the conversation context. */
+  private resumeHandle: string | null = null;
+  /** The current notice only describes a re-open in progress and clears once it lands. */
+  private noticeClearsOnConnect = false;
+  /** Whether the socket in flight was opened with `resumeHandle`. */
+  private openedWithHandle = false;
 
   /** Streaming turn bookkeeping: which rows the next delta belongs to. */
   private activeAiMessageId: string | null = null;
@@ -245,13 +286,15 @@ export class GeminiLiveService {
     this.setupDowngradeLevel = 0;
     this.reconnectAttempts = 0;
     this.notice = null;
+    this.resumeHandle = null;
     await this.openSession(options ?? this.lastOptions ?? {});
   }
 
-  /** Re-open the session with the last options, keeping the transcript. */
+  /** Re-open the session with the last options; the resume handle keeps Gemini's context. */
   async reconnect(): Promise<void> {
     if (!this.lastOptions) return;
-    await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
+    const resumeScreen = this.isScreenSharing ? this.screenStream : null;
+    await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled }, resumeScreen);
   }
 
   /** Gemini locks the voice per session, so a persona change re-opens the socket. */
@@ -259,7 +302,9 @@ export class GeminiLiveService {
     this.lastOptions = { ...(this.lastOptions ?? {}), voiceName };
     if (this.status === "connected" || this.status === "connecting") {
       this.notice = `Đang áp dụng persona ${voiceName} cho phiên hiện tại...`;
-      await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
+      this.noticeClearsOnConnect = true;
+      const resumeScreen = this.isScreenSharing ? this.screenStream : null;
+      await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled }, resumeScreen);
     }
   }
 
@@ -295,13 +340,19 @@ export class GeminiLiveService {
         ...(withTools
           ? { tools: [{ functionDeclarations: GEMINI_AUDIO_TOOL_DECLARATIONS }] }
           : {}),
+        ...(this.setupDowngradeLevel < 2
+          ? { sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} }
+          : {}),
       },
     };
   }
 
-  private async openSession(options: GeminiLiveConnectOptions): Promise<void> {
+  private async openSession(
+    options: GeminiLiveConnectOptions,
+    carryScreen: MediaStream | null = null
+  ): Promise<void> {
     if (this.status === "connecting" || this.status === "connected") {
-      this.disconnect({ keepSession: true });
+      this.disconnect({ keepSession: true, keepScreen: carryScreen !== null });
     }
 
     this.status = "connecting";
@@ -320,9 +371,11 @@ export class GeminiLiveService {
     }
 
     const voiceName = options?.voiceName || "Aoede";
-    const model = options?.model || "models/gemini-2.0-flash-exp";
+    const model = options?.model || DEFAULT_GEMINI_LIVE_MODEL;
     const systemInstruction = options?.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
     this.activeVoice = voiceName;
+    this.activeModel = model;
+    this.openedWithHandle = this.resumeHandle !== null;
 
     try {
       await this.setupMicrophone();
@@ -363,24 +416,60 @@ export class GeminiLiveService {
       }
     };
 
-    this.ws.onclose = (event: CloseEvent) => {
-      if (this.status !== "idle") {
-        if (event.code !== 1000 && !event.wasClean) {
-          this.status = "error";
-          this.error = `Gemini Live đã ngắt kết nối (${event.code}${
-            event.reason ? `: ${event.reason}` : ""
-          })`;
-        } else {
-          this.status = "idle";
-        }
-      }
-      this.callStartedAt = null;
-      this.cleanupMedia();
-    };
+    this.ws.onclose = (event: CloseEvent) => this.handleClose(event);
 
     if (options?.enableVideo) {
       await this.enableVideo();
     }
+    if (carryScreen) {
+      this.syncFrameCapture();
+    }
+  }
+
+  /**
+   * The Live API rejects a setup by closing the socket (1007/1008) rather than
+   * sending an `error` frame, so recovery decisions are made here.
+   */
+  private async handleClose(event: CloseEvent): Promise<void> {
+    const reason = event.reason || "";
+    const wasConnecting = this.status === "connecting";
+
+    if (wasConnecting && event.code === 1007 && /unknown name|cannot find field/i.test(reason)) {
+      if (this.hasPendingSetupExtras()) {
+        this.setupDowngradeLevel += 1;
+        this.noticeClearsOnConnect = false;
+        this.notice =
+          this.setupDowngradeLevel === 1
+            ? "Model không nhận audio transcription, đã tắt phụ đề và kết nối lại."
+            : "Model không nhận tool-calling, đã kết nối lại ở chế độ thoại cơ bản.";
+        await this.reconnect();
+        return;
+      }
+    }
+
+    // An expired resume handle must not strand the call: start a fresh context.
+    if (wasConnecting && this.openedWithHandle && event.code !== 1000 && !/api key/i.test(reason)) {
+      this.resumeHandle = null;
+      this.notice = "Phiên cũ đã hết hạn, đã mở cuộc hội thoại mới.";
+      this.noticeClearsOnConnect = false;
+      await this.reconnect();
+      return;
+    }
+
+    // User hangups detach this handler first, so every close that lands here came
+    // from the server. Rejections arrive as *clean* 1007/1008 frames, so `wasClean`
+    // says nothing about success: any close before setup, or with a non-1000 code, failed.
+    if (this.status !== "idle") {
+      if (wasConnecting || event.code !== 1000) {
+        this.status = "error";
+        this.error = describeCloseReason(event.code, reason, this.activeModel);
+      } else {
+        this.status = "idle";
+        this.notice = "Gemini Live đã kết thúc phiên từ phía máy chủ.";
+      }
+    }
+    this.callStartedAt = null;
+    this.cleanupMedia();
   }
 
   private async handleServerMessage(event: MessageEvent): Promise<void> {
@@ -412,6 +501,7 @@ export class GeminiLiveService {
         // with one feature less, so an older model never breaks the call outright.
         if (this.status === "connecting" && this.hasPendingSetupExtras()) {
           this.setupDowngradeLevel += 1;
+          this.noticeClearsOnConnect = false;
           this.notice =
             this.setupDowngradeLevel === 1
               ? "Model không nhận audio transcription, đã tắt phụ đề và kết nối lại."
@@ -427,11 +517,19 @@ export class GeminiLiveService {
 
       if (parsed.goAway) {
         this.notice = "Phiên Gemini Live sắp hết hạn, đang tự động kết nối lại...";
+        this.noticeClearsOnConnect = true;
         if (this.reconnectAttempts < 2) {
           this.reconnectAttempts++;
           await this.reconnect();
         }
         return;
+      }
+
+      if (parsed.sessionResumptionUpdate) {
+        const update = parsed.sessionResumptionUpdate;
+        if (update.resumable && typeof update.newHandle === "string" && update.newHandle) {
+          this.resumeHandle = update.newHandle;
+        }
       }
 
       if (parsed.usageMetadata?.totalTokenCount) {
@@ -468,6 +566,11 @@ export class GeminiLiveService {
 
         if (content.modelTurn?.parts) {
           for (const part of content.modelTurn.parts) {
+            // Native-audio models stream their reasoning as `thought` parts; never show it.
+            if (part.thought) {
+              continue;
+            }
+
             if (part.text) {
               this.appendTurnText("ai", part.text, "text");
             }
@@ -502,6 +605,10 @@ export class GeminiLiveService {
     if (this.status !== "connecting" && this.status !== "connected") return;
     if (this.status !== "connected") {
       this.status = "connected";
+      if (this.noticeClearsOnConnect) {
+        this.notice = null;
+        this.noticeClearsOnConnect = false;
+      }
     }
     if (this.callStartedAt === null) {
       this.callStartedAt = Date.now();
@@ -696,14 +803,13 @@ export class GeminiLiveService {
       const pcm16Bytes = float32ToInt16PCM(pcm16Float);
       const base64Data = uint8ArrayToBase64(pcm16Bytes);
 
+      // `mediaChunks` is rejected with close 1007 on current models.
       const payload = {
         realtimeInput: {
-          mediaChunks: [
-            {
-              mimeType: `audio/pcm;rate=${GEMINI_INPUT_SAMPLE_RATE}`,
-              data: base64Data,
-            },
-          ],
+          audio: {
+            mimeType: `audio/pcm;rate=${GEMINI_INPUT_SAMPLE_RATE}`,
+            data: base64Data,
+          },
         },
       };
 
@@ -921,7 +1027,7 @@ export class GeminiLiveService {
       }
 
       this.isVideoEnabled = true;
-      this.startVideoFrameCapture();
+      this.syncFrameCapture();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("Camera access failed:", msg);
@@ -931,7 +1037,6 @@ export class GeminiLiveService {
   }
 
   disableVideo(): void {
-    this.stopVideoFrameCapture();
     if (this.cameraStream) {
       this.cameraStream.getTracks().forEach((track) => {
         try {
@@ -944,6 +1049,7 @@ export class GeminiLiveService {
       this.videoElement.srcObject = null;
     }
     this.isVideoEnabled = false;
+    this.syncFrameCapture();
   }
 
   async toggleVideo(): Promise<void> {
@@ -954,11 +1060,102 @@ export class GeminiLiveService {
     }
   }
 
-  private startVideoFrameCapture(): void {
-    this.stopVideoFrameCapture();
-    this.videoCaptureInterval = window.setInterval(() => {
-      this.captureAndSendVideoFrame();
-    }, Math.round(1000 / GEMINI_VIDEO_UPLINK_FPS));
+  /**
+   * Share a screen or window. While sharing, its frames replace the camera's in
+   * the uplink (Gemini takes one video stream); the camera keeps its PiP preview.
+   */
+  async startScreenShare(): Promise<void> {
+    if (this.isScreenSharing && this.screenStream) {
+      return;
+    }
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
+      this.error = "Môi trường này không hỗ trợ chia sẻ màn hình (getDisplayMedia).";
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 5, max: 15 } },
+        audio: false,
+      });
+
+      // Stopping from the OS/browser sharing indicator must end the share here too.
+      stream.getVideoTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          if (this.screenStream === stream) {
+            this.stopScreenShare();
+          }
+        });
+      });
+
+      this.attachScreenStream(stream);
+    } catch (err) {
+      // The user dismissing the picker is a choice, not an error. DOMException is
+      // not reliably `instanceof Error`, so match on the name.
+      if ((err as { name?: string } | null)?.name === "NotAllowedError") {
+        this.error = null;
+        return;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Screen capture failed:", msg);
+      this.error = `Không thể chia sẻ màn hình: ${msg}`;
+      this.isScreenSharing = false;
+    }
+  }
+
+  private attachScreenStream(stream: MediaStream): void {
+    this.screenStream = stream;
+    if (!this.screenVideoElement) {
+      this.screenVideoElement = document.createElement("video");
+      this.screenVideoElement.autoplay = true;
+      this.screenVideoElement.muted = true;
+      this.screenVideoElement.playsInline = true;
+    }
+    this.screenVideoElement.srcObject = stream;
+    void this.screenVideoElement.play().catch(() => {});
+
+    if (!this.canvasElement) {
+      this.canvasElement = document.createElement("canvas");
+    }
+
+    this.isScreenSharing = true;
+    this.syncFrameCapture();
+  }
+
+  stopScreenShare(): void {
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {}
+      });
+      this.screenStream = null;
+    }
+    if (this.screenVideoElement) {
+      this.screenVideoElement.srcObject = null;
+    }
+    this.isScreenSharing = false;
+    this.syncFrameCapture();
+  }
+
+  async toggleScreenShare(): Promise<void> {
+    if (this.isScreenSharing) {
+      this.stopScreenShare();
+    } else {
+      await this.startScreenShare();
+    }
+  }
+
+  /** Run the 1 fps uplink loop exactly while some video source is live. */
+  private syncFrameCapture(): void {
+    const hasSource = this.isScreenSharing || this.isVideoEnabled;
+    if (hasSource && this.videoCaptureInterval === null) {
+      this.videoCaptureInterval = window.setInterval(() => {
+        this.captureAndSendVideoFrame();
+      }, Math.round(1000 / GEMINI_VIDEO_UPLINK_FPS));
+    } else if (!hasSource) {
+      this.stopVideoFrameCapture();
+    }
   }
 
   private stopVideoFrameCapture(): void {
@@ -970,8 +1167,6 @@ export class GeminiLiveService {
 
   private captureAndSendVideoFrame(): void {
     if (
-      !this.isVideoEnabled ||
-      !this.videoElement ||
       !this.canvasElement ||
       !this.ws ||
       this.ws.readyState !== WebSocket.OPEN ||
@@ -980,10 +1175,11 @@ export class GeminiLiveService {
       return;
     }
 
-    const v = this.videoElement;
-    if (!v.videoWidth || !v.videoHeight) return;
+    const sharing = this.isScreenSharing && this.screenVideoElement !== null;
+    const v = sharing ? this.screenVideoElement : this.isVideoEnabled ? this.videoElement : null;
+    if (!v || !v.videoWidth || !v.videoHeight) return;
 
-    const maxWidth = 640;
+    const maxWidth = sharing ? SCREEN_FRAME_MAX_WIDTH : CAMERA_FRAME_MAX_WIDTH;
     const scale = Math.min(1, maxWidth / v.videoWidth);
     const width = Math.round(v.videoWidth * scale);
     const height = Math.round(v.videoHeight * scale);
@@ -996,19 +1192,18 @@ export class GeminiLiveService {
 
     ctx.drawImage(v, 0, 0, width, height);
 
-    const dataUrl = this.canvasElement.toDataURL("image/jpeg", 0.7);
+    // Screen text needs more JPEG quality than a face does.
+    const dataUrl = this.canvasElement.toDataURL("image/jpeg", sharing ? 0.8 : 0.7);
     const commaIdx = dataUrl.indexOf(",");
     if (commaIdx === -1) return;
     const base64Jpeg = dataUrl.substring(commaIdx + 1);
 
     const payload = {
       realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: "image/jpeg",
-            data: base64Jpeg,
-          },
-        ],
+        video: {
+          mimeType: "image/jpeg",
+          data: base64Jpeg,
+        },
       },
     };
 
@@ -1020,6 +1215,7 @@ export class GeminiLiveService {
   }
 
   setMuted(muted: boolean): void {
+    const wasMuted = this.isMuted;
     this.isMuted = muted;
     if (this.micStream) {
       this.micStream.getAudioTracks().forEach((track) => {
@@ -1028,6 +1224,12 @@ export class GeminiLiveService {
     }
     if (muted) {
       this.userVolume = 0;
+      // Muting mid-sentence would otherwise leave the server waiting for more audio.
+      if (!wasMuted && this.ws && this.ws.readyState === WebSocket.OPEN && this.status === "connected") {
+        try {
+          this.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+        } catch {}
+      }
     }
   }
 
@@ -1122,8 +1324,24 @@ export class GeminiLiveService {
     this.volumeAnimId = requestAnimationFrame(loop);
   }
 
-  private cleanupMedia(): void {
+  private cleanupMedia(keepScreen = false): void {
     this.stopVideoFrameCapture();
+
+    if (!keepScreen) {
+      if (this.screenStream) {
+        this.screenStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {}
+        });
+        this.screenStream = null;
+      }
+      if (this.screenVideoElement) {
+        this.screenVideoElement.srcObject = null;
+        this.screenVideoElement = null;
+      }
+      this.isScreenSharing = false;
+    }
 
     if (this.cameraStream) {
       this.cameraStream.getTracks().forEach((track) => {
@@ -1139,7 +1357,7 @@ export class GeminiLiveService {
       this.videoElement = null;
     }
 
-    if (this.canvasElement) {
+    if (this.canvasElement && !keepScreen) {
       this.canvasElement = null;
     }
     this.isVideoEnabled = false;
@@ -1219,8 +1437,8 @@ export class GeminiLiveService {
    * Tear the session down. `keepSession` is used when immediately re-opening
    * (persona switch, downgrade retry) so the mute state and notice survive.
    */
-  disconnect(options?: { keepSession?: boolean }): void {
-    this.cleanupMedia();
+  disconnect(options?: { keepSession?: boolean; keepScreen?: boolean }): void {
+    this.cleanupMedia(Boolean(options?.keepSession && options?.keepScreen));
 
     if (this.ws) {
       this.ws.onopen = null;
@@ -1238,14 +1456,16 @@ export class GeminiLiveService {
     this.userVolume = 0;
     this.aiVolume = 0;
     this.nextPlayTime = 0;
-    this.callStartedAt = null;
     this.finalizeTurn();
 
     if (!options?.keepSession) {
+      // A re-open (persona switch, resume) is still the same call for the user.
+      this.callStartedAt = null;
       this.isMuted = false;
       this.notice = null;
       this.tokensUsed = 0;
       this.reconnectAttempts = 0;
+      this.resumeHandle = null;
     }
   }
 }

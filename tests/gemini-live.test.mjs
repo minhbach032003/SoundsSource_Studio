@@ -9,9 +9,17 @@ class MockTrack {
     this.kind = kind;
     this.enabled = true;
     this.stopped = false;
+    this.listeners = {};
   }
   stop() {
     this.stopped = true;
+  }
+  addEventListener(type, fn) {
+    (this.listeners[type] ||= []).push(fn);
+  }
+  /** Simulates the user pressing "Stop sharing" in the OS/browser indicator. */
+  fire(type) {
+    for (const fn of this.listeners[type] || []) fn();
   }
 }
 
@@ -136,6 +144,8 @@ function createGeminiLiveHarness(options) {
   MockWebSocket.instances = [];
   const micTracks = [];
   const camTracks = [];
+  const screenTracks = [];
+  const drawnSources = [];
 
   const opts = typeof options === "function" ? { invoke: options } : options || {};
 
@@ -178,6 +188,17 @@ function createGeminiLiveHarness(options) {
           micTracks.push(track);
           return new MockMediaStream([track]);
         },
+        getDisplayMedia: async () => {
+          if (opts.denyScreen) {
+            const err = new Error("Permission denied");
+            err.name = "NotAllowedError";
+            throw err;
+          }
+          const track = new MockTrack("video");
+          track.label = "screen";
+          screenTracks.push(track);
+          return new MockMediaStream([track]);
+        },
       },
     },
     document: {
@@ -197,7 +218,11 @@ function createGeminiLiveHarness(options) {
           return {
             width: 0,
             height: 0,
-            getContext: () => ({ drawImage() {} }),
+            getContext: () => ({
+              drawImage(source) {
+                drawnSources.push(source);
+              },
+            }),
             toDataURL: () => "data:image/jpeg;base64,mockframedata",
           };
         }
@@ -228,6 +253,8 @@ function createGeminiLiveHarness(options) {
     instance,
     micTracks,
     camTracks,
+    screenTracks,
+    drawnSources,
     localStorageData,
     context,
   };
@@ -288,7 +315,13 @@ test("GeminiLiveService WebSocket connection lifecycle (connect, setup, and disc
   assert.equal(ws.sent.length, 1, "setup payload sent on open");
   const setupPayload = JSON.parse(ws.sent[0]);
   assert.ok(setupPayload.setup, "payload contains setup key");
-  assert.equal(setupPayload.setup.model, "models/gemini-2.0-flash-exp", "default model is gemini-2.0-flash-exp");
+  // gemini-2.0-flash-exp is closed with 1008 by the live service; 3.1 Flash Live is the verified default.
+  assert.equal(
+    setupPayload.setup.model,
+    "models/gemini-3.1-flash-live-preview",
+    "default model is a live-capable model"
+  );
+  assert.ok(ws.url.includes(".v1beta."), "connects to the v1beta Live endpoint");
   assert.deepEqual(
     setupPayload.setup.generationConfig.responseModalities,
     ["AUDIO"],
@@ -789,4 +822,243 @@ test("mixer tools refuse to act outside the desktop app", async () => {
   const result = await context.runGeminiAudioTool("set_master_volume", { volume_percent: 30 });
   assert.equal(result.ok, false);
   assert.match(result.summary, /desktop/, "explains why it cannot act");
+});
+
+function lastSent(ws) {
+  return JSON.parse(ws.sent[ws.sent.length - 1]);
+}
+
+test("mic and video uplinks use realtimeInput.audio/video, never the rejected mediaChunks", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  instance.scriptProcessor.onaudioprocess({
+    inputBuffer: { getChannelData: () => new Float32Array(2048).fill(0.2) },
+  });
+  const audioMsg = lastSent(ws);
+  assert.equal(audioMsg.realtimeInput.audio.mimeType, "audio/pcm;rate=16000");
+  assert.ok(audioMsg.realtimeInput.audio.data.length > 0, "carries PCM payload");
+  assert.equal(audioMsg.realtimeInput.mediaChunks, undefined, "no deprecated mediaChunks");
+
+  await instance.enableVideo();
+  instance.captureAndSendVideoFrame();
+  const videoMsg = lastSent(ws);
+  assert.equal(videoMsg.realtimeInput.video.mimeType, "image/jpeg");
+  assert.equal(videoMsg.realtimeInput.mediaChunks, undefined, "no deprecated mediaChunks");
+
+  for (const raw of ws.sent) {
+    assert.equal(raw.includes("mediaChunks"), false, "nothing on the wire uses mediaChunks");
+  }
+
+  instance.disconnect();
+});
+
+test("native-audio thought parts never reach the transcript", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  await ws.onmessage({
+    data: JSON.stringify({
+      serverContent: {
+        modelTurn: { parts: [{ text: "**Responding to greeting**\nI've processed...", thought: true }] },
+      },
+    }),
+  });
+  assert.equal(instance.transcript.length, 0, "reasoning is dropped");
+
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { outputTranscription: { text: "Chào bạn!" } } }),
+  });
+  assert.equal(instance.transcript.length, 1);
+  assert.equal(instance.transcript[0].text, "Chào bạn!", "only the spoken answer is shown");
+
+  instance.disconnect();
+});
+
+test("close 1007 for an unknown setup field degrades instead of failing", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaTestKey-Close1007" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+
+  // Exact close reason the live service sends for an unsupported setup field.
+  await first.onclose({
+    code: 1007,
+    reason: 'Invalid JSON payload received. Unknown name "inputAudioTranscription" at \'setup\': Cannot find field.',
+    wasClean: true,
+  });
+
+  assert.equal(MockWebSocket.instances.length, 2, "re-opened after the rejection");
+  const second = MockWebSocket.instances[1];
+  second.onopen();
+  const setup = JSON.parse(second.sent[0]).setup;
+  assert.equal(setup.inputAudioTranscription, undefined, "transcription dropped");
+  assert.ok(setup.tools, "tools kept");
+  assert.equal(instance.status, "connecting");
+
+  instance.disconnect();
+});
+
+test("an invalid key or a dead model fails with an actionable message and no retry", async () => {
+  const { instance } = createGeminiLiveHarness();
+
+  await instance.connect({ apiKey: "AIzaBAD" });
+  const ws = MockWebSocket.instances[0];
+  ws.onopen();
+  await ws.onclose({ code: 1007, reason: "API key not valid. Please pass a valid API key.", wasClean: true });
+  assert.equal(instance.status, "error");
+  assert.match(instance.error, /API Key không hợp lệ/);
+  assert.equal(MockWebSocket.instances.length, 1, "a bad key is not retried");
+
+  await instance.connect({ apiKey: "AIzaOK", model: "models/gemini-2.0-flash-exp" });
+  const ws2 = MockWebSocket.instances[1];
+  ws2.onopen();
+  await ws2.onclose({
+    code: 1008,
+    reason: "models/gemini-2.0-flash-exp is not found for API version v1alpha, or is not supported for bidiGenerateContent.",
+    wasClean: true,
+  });
+  assert.equal(instance.status, "error");
+  assert.match(instance.error, /gemini-2.0-flash-exp không hỗ trợ Live API/);
+});
+
+test("session resumption keeps Gemini's context across reconnects but not across new calls", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  assert.deepEqual(JSON.parse(ws.sent[0]).setup.sessionResumption, {}, "first call asks for resumable handles");
+
+  await ws.onmessage({
+    data: JSON.stringify({ sessionResumptionUpdate: { newHandle: "handle-1", resumable: true } }),
+  });
+  await ws.onmessage({
+    data: JSON.stringify({ sessionResumptionUpdate: { newHandle: "handle-ignored", resumable: false } }),
+  });
+
+  await instance.switchVoice("Charon");
+  const resumed = MockWebSocket.instances[1];
+  resumed.onopen();
+  assert.deepEqual(
+    JSON.parse(resumed.sent[0]).setup.sessionResumption,
+    { handle: "handle-1" },
+    "persona switch resumes the same conversation"
+  );
+
+  // An expired handle falls back to a fresh conversation instead of stranding the call.
+  await resumed.onclose({ code: 1008, reason: "Session not found", wasClean: true });
+  assert.equal(MockWebSocket.instances.length, 3, "retried without the handle");
+  const fresh = MockWebSocket.instances[2];
+  fresh.onopen();
+  assert.deepEqual(JSON.parse(fresh.sent[0]).setup.sessionResumption, {}, "fresh context after expiry");
+  assert.match(instance.notice, /hết hạn/);
+
+  instance.disconnect();
+  await instance.connect({ apiKey: "AIzaNewCall" });
+  const next = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+  next.onopen();
+  assert.deepEqual(JSON.parse(next.sent[0]).setup.sessionResumption, {}, "a new call never resumes the old one");
+  instance.disconnect();
+});
+
+test("screen share replaces the camera in the uplink and survives a persona switch", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, screenTracks, camTracks, drawnSources } = harness;
+  const ws = await openLiveSession(harness);
+
+  await instance.enableVideo();
+  await instance.startScreenShare();
+  assert.equal(instance.isScreenSharing, true);
+  assert.equal(screenTracks.length, 1);
+  assert.equal(instance.isVideoEnabled, true, "camera stays on for the PiP");
+
+  drawnSources.length = 0;
+  instance.captureAndSendVideoFrame();
+  assert.equal(drawnSources.length, 1, "exactly one frame per tick");
+  assert.equal(drawnSources[0].srcObject, instance.screenStream, "the uplinked frame is the screen, not the camera");
+  assert.ok(lastSent(ws).realtimeInput.video, "frame sent as realtimeInput.video");
+
+  await instance.switchVoice("Kore");
+  assert.equal(screenTracks[0].stopped, false, "re-opening the session does not kill the share");
+  assert.equal(instance.isScreenSharing, true);
+  const next = MockWebSocket.instances[1];
+  next.onopen();
+  await next.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  drawnSources.length = 0;
+  instance.captureAndSendVideoFrame();
+  assert.equal(drawnSources[0]?.srcObject, instance.screenStream, "new session still receives the screen");
+
+  // User clicks "Stop sharing" in the OS indicator.
+  screenTracks[0].fire("ended");
+  assert.equal(instance.isScreenSharing, false, "OS-level stop is reflected");
+  assert.equal(instance.screenStream, null);
+
+  instance.disconnect();
+  assert.equal(camTracks.every((t) => t.stopped), true, "hangup stops the camera");
+});
+
+test("hangup stops an active screen share; dismissing the picker is not an error", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, screenTracks } = harness;
+  await openLiveSession(harness);
+  await instance.startScreenShare();
+  instance.disconnect();
+  assert.equal(screenTracks[0].stopped, true, "screen capture released on hangup");
+  assert.equal(instance.isScreenSharing, false);
+
+  const denied = createGeminiLiveHarness({ denyScreen: true });
+  await denied.instance.startScreenShare();
+  assert.equal(denied.instance.isScreenSharing, false);
+  assert.equal(denied.instance.error, null, "cancelling the picker shows no error");
+});
+
+test("muting mid-call flushes the server VAD with audioStreamEnd once", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+  const before = ws.sent.length;
+
+  instance.setMuted(true);
+  instance.setMuted(true);
+  const ends = ws.sent.slice(before).filter((raw) => JSON.parse(raw).realtimeInput?.audioStreamEnd);
+  assert.equal(ends.length, 1, "exactly one audioStreamEnd per mute");
+
+  instance.disconnect();
+});
+
+test("a persona switch is one continuous call: timer kept, transient notice cleared", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  await openLiveSession(harness);
+  const startedAt = instance.callStartedAt;
+  assert.equal(typeof startedAt, "number");
+
+  await instance.switchVoice("Puck");
+  assert.match(instance.notice, /Puck/, "announces the switch while it is in flight");
+  assert.equal(instance.callStartedAt, startedAt, "timer survives the re-open");
+
+  const next = MockWebSocket.instances[1];
+  next.onopen();
+  await next.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  assert.equal(instance.notice, null, "switch notice clears once the new session is live");
+  assert.equal(instance.callStartedAt, startedAt, "still the same call");
+
+  instance.disconnect();
+  assert.equal(instance.callStartedAt, null, "hangup ends the timer");
+});
+
+test("a downgrade notice stays visible after the degraded session connects", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaPersistNotice" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  await first.onclose({ code: 1007, reason: 'Unknown name "inputAudioTranscription": Cannot find field.', wasClean: true });
+  const second = MockWebSocket.instances[1];
+  second.onopen();
+  await second.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  assert.equal(instance.status, "connected");
+  assert.match(instance.notice, /phụ đề/, "the user still learns captions were turned off");
+  instance.disconnect();
 });

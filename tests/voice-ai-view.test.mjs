@@ -189,3 +189,15 @@ test("geminiAudioTools exposes only mixer commands the app already owns", () => 
 
   assert.equal(emojiRegex.test(src), false, "geminiAudioTools.ts must contain zero emojis");
 });
+
+test("VoiceAiView offers screen sharing and a live-capable model picker", () => {
+  const src = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+  assert.ok(src.includes("toggleScreenShare"), "screen share handler");
+  assert.ok(src.includes("ScreenShare") && src.includes("ScreenShareOff"), "vector icons for screen share");
+  assert.ok(src.includes("screenVideoElement"), "stage previews exactly what Gemini receives");
+  assert.ok(src.includes("isScreenSharing"), "reflects screen share state");
+  assert.ok(src.includes("GEMINI_LIVE_MODELS"), "model picker lists verified live models");
+  assert.ok(src.includes('m.sender === "ai" && m.isFinal !== false'), "replay appears only on finished turns");
+  assert.equal(src.includes("gemini-2.0-flash-exp"), false, "no dead model hardcoded in the view");
+  assert.equal(emojiRegex.test(src), false, "zero emojis");
+});

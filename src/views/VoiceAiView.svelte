@@ -9,6 +9,8 @@
     GEMINI_VIDEO_UPLINK_FPS,
     GEMINI_INPUT_SAMPLE_RATE,
     GEMINI_OUTPUT_SAMPLE_RATE,
+    GEMINI_LIVE_MODELS,
+    DEFAULT_GEMINI_LIVE_MODEL,
     type GeminiLiveMessage,
   } from "@/lib/geminiLive.svelte";
   import {
@@ -43,6 +45,9 @@
     RefreshCw,
     Captions,
     Zap,
+    ScreenShare,
+    ScreenShareOff,
+    Cpu,
   } from "@lucide/svelte";
 
   interface Props {
@@ -84,7 +89,18 @@
     },
   ];
 
+  const MODEL_STORAGE_KEY = "gemini_live_model";
+
+  function loadStoredModel(): string {
+    try {
+      const stored = localStorage.getItem(MODEL_STORAGE_KEY);
+      if (stored && GEMINI_LIVE_MODELS.some((m) => m.value === stored)) return stored;
+    } catch {}
+    return DEFAULT_GEMINI_LIVE_MODEL;
+  }
+
   let selectedPersona = $state("Aoede");
+  let selectedModel = $state(loadStoredModel());
   let inputText = $state("");
   let isClearModalOpen = $state(false);
   let isApiKeyModalOpen = $state(false);
@@ -98,6 +114,7 @@
   let isPipExpanded = $state(false);
 
   let pipVideoElement = $state<HTMLVideoElement | null>(null);
+  let screenVideoElement = $state<HTMLVideoElement | null>(null);
   let messagesEndRef = $state<HTMLDivElement | null>(null);
   let messagesContainer = $state<HTMLDivElement | null>(null);
 
@@ -158,6 +175,20 @@
       } else {
         pipVideoElement.srcObject = null;
       }
+    }
+  });
+
+  // Bind the shared screen to the stage preview
+  $effect(() => {
+    const stream = geminiLiveState.screenStream;
+    if (!screenVideoElement) return;
+    if (geminiLiveState.isScreenSharing && stream) {
+      if (screenVideoElement.srcObject !== stream) {
+        screenVideoElement.srcObject = stream;
+        screenVideoElement.play().catch(() => {});
+      }
+    } else {
+      screenVideoElement.srcObject = null;
     }
   });
 
@@ -226,6 +257,7 @@
       toastState.info(`Đang kết nối Gemini Live với persona ${selectedPersona}...`);
       await geminiLiveState.connect({
         voiceName: selectedPersona,
+        model: selectedModel,
         apiKey: existingKey.trim(),
         enableVideo: geminiLiveState.isVideoEnabled,
       });
@@ -262,6 +294,32 @@
         toastState.error(geminiLiveState.error);
       }
     }
+  }
+
+  async function toggleScreenShare() {
+    if (geminiLiveState.isScreenSharing) {
+      geminiLiveState.stopScreenShare();
+      toastState.info("Đã dừng chia sẻ màn hình");
+      return;
+    }
+    await geminiLiveState.startScreenShare();
+    if (geminiLiveState.isScreenSharing) {
+      toastState.success(
+        callStatus === "connected"
+          ? "Gemini đang xem màn hình bạn chia sẻ"
+          : "Đã chọn màn hình, Gemini sẽ thấy khi cuộc gọi bắt đầu"
+      );
+    } else if (geminiLiveState.error) {
+      toastState.error(geminiLiveState.error);
+    }
+  }
+
+  function handleModelChange() {
+    try {
+      localStorage.setItem(MODEL_STORAGE_KEY, selectedModel);
+    } catch {}
+    const label = GEMINI_LIVE_MODELS.find((m) => m.value === selectedModel)?.label ?? selectedModel;
+    toastState.success(`Model cho cuộc gọi tiếp theo: ${label}`);
   }
 
   function toggleCameraFlip() {
@@ -545,8 +603,8 @@
       class="lg:col-span-7 flex flex-col justify-between p-4 sm:p-5 panel relative overflow-hidden h-full min-h-125 gap-3"
     >
       <!-- Top Stage Bar: Persona Indicator & Device Telemetry -->
-      <div class="flex items-center justify-between text-xs pb-1 shrink-0">
-        <div class="flex items-center gap-1.5">
+      <div class="flex items-center justify-between flex-wrap gap-x-3 gap-y-1.5 text-xs pb-1 shrink-0">
+        <div class="flex items-center gap-1.5 flex-wrap whitespace-nowrap">
           <Sparkles class="w-3.5 h-3.5 text-(--accent-text)" />
           <span class="font-semibold text-(--ink) text-[11px] uppercase tracking-wider">
             Gemini Interactive Live Stage
@@ -554,8 +612,22 @@
           <span class="badge text-[9px] px-1.5 py-0 bg-(--surface) border-(--line) text-(--muted) font-mono">
             {selectedPersona}
           </span>
+          <label class="inline-flex items-center gap-1 text-[10px] text-(--muted)" title="Model Gemini Live">
+            <Cpu class="w-3 h-3" />
+            <select
+              bind:value={selectedModel}
+              onchange={handleModelChange}
+              disabled={callStatus === "connected" || callStatus === "connecting"}
+              class="bg-transparent text-[10px] font-mono text-(--ink) cursor-pointer focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Chọn model Gemini Live"
+            >
+              {#each GEMINI_LIVE_MODELS as m}
+                <option value={m.value}>{m.label}</option>
+              {/each}
+            </select>
+          </label>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap whitespace-nowrap">
           <button
             type="button"
             onclick={toggleAgentControl}
@@ -578,10 +650,10 @@
             <Captions class="w-3 h-3" />
             <span>Phụ đề</span>
           </button>
-          {#if geminiLiveState.isVideoEnabled}
+          {#if geminiLiveState.isVideoEnabled || geminiLiveState.isScreenSharing}
             <span class="inline-flex items-center gap-1 text-[10px] text-(--success) font-mono font-medium">
               <span class="w-1.5 h-1.5 rounded-full bg-(--success) animate-pulse"></span>
-              {uplinkLabel}
+              {geminiLiveState.isScreenSharing ? `Screen - ${GEMINI_VIDEO_UPLINK_FPS} fps uplink` : uplinkLabel}
             </span>
           {/if}
           <span class="text-[10px] text-(--muted) font-mono">
@@ -603,90 +675,120 @@
             : 'bg-transparent'}"
         ></div>
 
-        <!-- Central Gemini Interactive Live Halo & Waves -->
-        <div class="relative flex items-center justify-center w-44 h-44 sm:w-56 sm:h-56 z-10">
-          <!-- Gemini Speaking Concentric Expansion Rings -->
-          {#if isAiSpeaking}
-            <span
-              class="absolute inset-0 rounded-full border border-emerald-400/40 animate-ping opacity-60 pointer-events-none"
-            ></span>
-            <span
-              class="absolute -inset-4 rounded-full border border-teal-400/30 animate-pulse opacity-50 pointer-events-none"
-              style="transform: scale({1 + geminiLiveState.aiVolume * 0.35});"
-            ></span>
-            <span
-              class="absolute -inset-8 rounded-full border border-cyan-400/20 opacity-30 pointer-events-none"
-              style="transform: scale({1 + geminiLiveState.aiVolume * 0.65});"
-            ></span>
-          {/if}
+        <!-- Màn hình đang chia sẻ: đây chính là khung hình Gemini nhận -->
+        <video
+          bind:this={screenVideoElement}
+          autoplay
+          playsinline
+          muted
+          class="absolute inset-0 w-full h-full object-contain bg-stone-950 z-5 {geminiLiveState.isScreenSharing
+            ? ''
+            : 'hidden'}"
+        ></video>
 
-          <!-- User Speaking Concentric Expansion Rings -->
-          {#if isUserSpeaking}
-            <span
-              class="absolute inset-0 rounded-full border border-rose-400/40 animate-ping opacity-60 pointer-events-none"
-            ></span>
-            <span
-              class="absolute -inset-4 rounded-full border border-pink-400/30 animate-pulse opacity-50 pointer-events-none"
-              style="transform: scale({1 + geminiLiveState.userVolume * 0.35});"
-            ></span>
-          {/if}
-
-          <!-- Standby Breathing Ring -->
-          {#if !isAiSpeaking && !isUserSpeaking}
-            <span
-              class="absolute inset-0 rounded-full border border-stone-800 animate-pulse opacity-40 pointer-events-none"
-            ></span>
-            {#if callStatus === "connected"}
+        {#if geminiLiveState.isScreenSharing}
+          <div
+            class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-900/90 border text-[11px] font-medium shadow-lg backdrop-blur-md {isAiSpeaking
+              ? 'border-emerald-400/60 text-emerald-300'
+              : isUserSpeaking
+              ? 'border-rose-400/60 text-rose-300'
+              : 'border-stone-700 text-stone-300'}"
+          >
+            <ScreenShare class="w-3.5 h-3.5" />
+            <span>
+              {callStatus === "connected"
+                ? isAiSpeaking
+                  ? "Gemini đang phản hồi về màn hình của bạn..."
+                  : "Gemini đang xem màn hình bạn chia sẻ"
+                : "Màn hình đã sẵn sàng, bắt đầu gọi để Gemini nhìn thấy"}
+            </span>
+          </div>
+        {:else}
+          <!-- Central Gemini Interactive Live Halo & Waves -->
+          <div class="relative flex items-center justify-center w-44 h-44 sm:w-56 sm:h-56 z-10">
+            <!-- Gemini Speaking Concentric Expansion Rings -->
+            {#if isAiSpeaking}
               <span
-                class="absolute -inset-3 rounded-full border border-emerald-500/20 animate-pulse opacity-30 pointer-events-none"
+                class="absolute inset-0 rounded-full border border-emerald-400/40 animate-ping opacity-60 pointer-events-none"
+              ></span>
+              <span
+                class="absolute -inset-4 rounded-full border border-teal-400/30 animate-pulse opacity-50 pointer-events-none"
+                style="transform: scale({1 + geminiLiveState.aiVolume * 0.35});"
+              ></span>
+              <span
+                class="absolute -inset-8 rounded-full border border-cyan-400/20 opacity-30 pointer-events-none"
+                style="transform: scale({1 + geminiLiveState.aiVolume * 0.65});"
               ></span>
             {/if}
-          {/if}
 
-          <!-- Central Pulsating Orb -->
-          <div
-            class="w-24 h-24 sm:w-30 sm:h-30 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl z-10 {isAiSpeaking
-              ? 'bg-linear-to-tr from-emerald-500 via-teal-400 to-cyan-400 text-slate-950 scale-105 shadow-emerald-500/50 border border-emerald-300'
-              : isUserSpeaking
-              ? 'bg-linear-to-tr from-rose-500 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-rose-500/50 border border-rose-300'
-              : callStatus === 'connected'
-              ? 'bg-stone-900 text-emerald-400 border border-emerald-500/40 shadow-lg'
-              : callStatus === 'connecting'
-              ? 'bg-stone-900 text-amber-400 border border-amber-500/40 animate-pulse'
-              : 'bg-stone-900/90 text-stone-400 border border-stone-800'}"
-          >
-            {#if callStatus === "connecting"}
-              <Loader2 class="w-9 h-9 sm:w-11 sm:h-11 animate-spin text-amber-400" />
-            {:else if isAiSpeaking}
-              <Sparkles class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-slate-950 stroke-[2.2]" />
-            {:else if isUserSpeaking}
-              <Mic class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-stone-950 stroke-[2.2]" />
-            {:else if callStatus === "connected"}
-              <Sparkles class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
-            {:else}
-              <Bot class="w-8 h-8 sm:w-10 sm:h-10 text-stone-500" />
+            <!-- User Speaking Concentric Expansion Rings -->
+            {#if isUserSpeaking}
+              <span
+                class="absolute inset-0 rounded-full border border-rose-400/40 animate-ping opacity-60 pointer-events-none"
+              ></span>
+              <span
+                class="absolute -inset-4 rounded-full border border-pink-400/30 animate-pulse opacity-50 pointer-events-none"
+                style="transform: scale({1 + geminiLiveState.userVolume * 0.35});"
+              ></span>
             {/if}
+
+            <!-- Standby Breathing Ring -->
+            {#if !isAiSpeaking && !isUserSpeaking}
+              <span
+                class="absolute inset-0 rounded-full border border-stone-800 animate-pulse opacity-40 pointer-events-none"
+              ></span>
+              {#if callStatus === "connected"}
+                <span
+                  class="absolute -inset-3 rounded-full border border-emerald-500/20 animate-pulse opacity-30 pointer-events-none"
+                ></span>
+              {/if}
+            {/if}
+
+            <!-- Central Pulsating Orb -->
+            <div
+              class="w-24 h-24 sm:w-30 sm:h-30 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl z-10 {isAiSpeaking
+                ? 'bg-linear-to-tr from-emerald-500 via-teal-400 to-cyan-400 text-slate-950 scale-105 shadow-emerald-500/50 border border-emerald-300'
+                : isUserSpeaking
+                ? 'bg-linear-to-tr from-rose-500 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-rose-500/50 border border-rose-300'
+                : callStatus === 'connected'
+                ? 'bg-stone-900 text-emerald-400 border border-emerald-500/40 shadow-lg'
+                : callStatus === 'connecting'
+                ? 'bg-stone-900 text-amber-400 border border-amber-500/40 animate-pulse'
+                : 'bg-stone-900/90 text-stone-400 border border-stone-800'}"
+            >
+              {#if callStatus === "connecting"}
+                <Loader2 class="w-9 h-9 sm:w-11 sm:h-11 animate-spin text-amber-400" />
+              {:else if isAiSpeaking}
+                <Sparkles class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-slate-950 stroke-[2.2]" />
+              {:else if isUserSpeaking}
+                <Mic class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-stone-950 stroke-[2.2]" />
+              {:else if callStatus === "connected"}
+                <Sparkles class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
+              {:else}
+                <Bot class="w-8 h-8 sm:w-10 sm:h-10 text-stone-500" />
+              {/if}
+            </div>
           </div>
-        </div>
 
-        <!-- Dynamic State Text -->
-        <p class="text-xs font-semibold text-stone-300 mt-3 text-center z-10 px-4">
-          {#if callStatus === "connecting"}
-            Đang khởi tạo phiên làm việc Gemini Live đa phương thức...
-          {:else if callStatus === "connected"}
-            {#if isAiSpeaking}
-              Gemini đang phản hồi qua luồng âm thanh thời gian thực...
-            {:else if isUserSpeaking}
-              Đang nhận diện giọng nói của bạn...
+          <!-- Dynamic State Text -->
+          <p class="text-xs font-semibold text-stone-300 mt-3 text-center z-10 px-4">
+            {#if callStatus === "connecting"}
+              Đang khởi tạo phiên làm việc Gemini Live đa phương thức...
+            {:else if callStatus === "connected"}
+              {#if isAiSpeaking}
+                Gemini đang phản hồi qua luồng âm thanh thời gian thực...
+              {:else if isUserSpeaking}
+                Đang nhận diện giọng nói của bạn...
+              {:else}
+                Sẵn sàng đàm thoại · Nói trực tiếp hoặc gửi tin nhắn
+              {/if}
+            {:else if callStatus === "error"}
+              {geminiLiveState.error || "Có lỗi xảy ra khi kết nối. Vui lòng kiểm tra lại API Key."}
             {:else}
-              Sẵn sàng đàm thoại · Nói trực tiếp hoặc gửi tin nhắn
+              Nhấn "Bắt đầu gọi" bên dưới để trò chuyện video 1-on-1 với Gemini
             {/if}
-          {:else if callStatus === "error"}
-            {geminiLiveState.error || "Có lỗi xảy ra khi kết nối. Vui lòng kiểm tra lại API Key."}
-          {:else}
-            Nhấn "Bắt đầu gọi" bên dưới để trò chuyện video 1-on-1 với Gemini
-          {/if}
-        </p>
+          </p>
+        {/if}
 
         <!-- Khung PiP Webcam Người Dùng (Góc phải dưới của Viewport) -->
         <div
@@ -793,6 +895,23 @@
               <Video class="w-4 h-4 text-emerald-300" />
             {:else}
               <VideoOff class="w-4 h-4 text-stone-400" />
+            {/if}
+          </button>
+
+          <!-- Nút Chia Sẻ Màn Hình -->
+          <button
+            type="button"
+            onclick={toggleScreenShare}
+            class="p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center {geminiLiveState.isScreenSharing
+              ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+              : 'bg-stone-800 hover:bg-stone-700 border-stone-700 text-stone-400'}"
+            title={geminiLiveState.isScreenSharing ? "Dừng chia sẻ màn hình" : "Chia sẻ màn hình cho Gemini"}
+            aria-pressed={geminiLiveState.isScreenSharing}
+          >
+            {#if geminiLiveState.isScreenSharing}
+              <ScreenShareOff class="w-4 h-4 text-sky-300" />
+            {:else}
+              <ScreenShare class="w-4 h-4 text-stone-400" />
             {/if}
           </button>
 
@@ -1123,7 +1242,7 @@
 
                   <p class="text-(--ink) text-xs m-0 leading-normal whitespace-pre-wrap">{m.text}</p>
 
-                  {#if m.sender === "ai"}
+                  {#if m.sender === "ai" && m.isFinal !== false}
                     <div
                       class="flex items-center gap-2 mt-2 pt-1.5 border-t border-(--line)"
                     >
@@ -1209,7 +1328,7 @@
     open={isApiKeyModalOpen}
     onClose={() => (isApiKeyModalOpen = false)}
     title="Cấu hình Google Gemini API Key"
-    description="Nhập API Key để kích hoạt kết nối WebSocket trực tiếp đến Google Gemini Live 2.0 Multimodal Service."
+    description="Nhập API Key để kích hoạt kết nối WebSocket trực tiếp đến Google Gemini Live API (v1beta)."
     confirmText="Lưu và Kết nối"
     cancelText="Hủy"
     onConfirm={handleSaveApiKey}
