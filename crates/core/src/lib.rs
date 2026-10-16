@@ -1,6 +1,7 @@
 pub mod device;
 pub mod input_blocker;
 pub mod metrics;
+pub mod pet_notifications;
 pub mod platform;
 pub mod process;
 pub mod spotify;

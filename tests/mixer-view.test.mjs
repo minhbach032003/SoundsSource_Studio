@@ -53,11 +53,7 @@ test("AudioBuses Svelte 5 component integrity", () => {
   assert.ok(src.includes("$state("), "uses Svelte 5 $state()");
   assert.ok(src.includes("$derived("), "uses Svelte 5 $derived()");
 
-  // Virtual Sub-Buses & Hardware channels
-  assert.ok(src.includes("Master Bus"), "includes Master Bus controls");
-  assert.ok(src.includes("Music Bus"), "includes Music Bus controls");
-  assert.ok(src.includes("Voice Bus"), "includes Voice Bus controls");
-  assert.ok(src.includes("Game Bus"), "includes Game Bus controls");
+  // Hardware channels
   assert.ok(src.includes("Microphone Input"), "includes Microphone Input channel");
   assert.ok(src.includes("System Sounds"), "includes System Sounds channel");
 

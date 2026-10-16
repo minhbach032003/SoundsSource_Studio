@@ -1,5 +1,7 @@
-// Web Audio API Synthesizer for AgentPet Chimes (Waiting / Done) & Notifications
-// Zero external audio assets required.
+// Shared alert boundary: every renderer reads persisted mute/custom settings at playback time.
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { PET_KEYS, readPetPreferences, writePetStorage } from "./petPreferences";
+import { toastState } from "./toast.svelte";
 
 let audioCtx: AudioContext | null = null;
 
@@ -13,9 +15,6 @@ function getAudioContext(): AudioContext | null {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => {});
-  }
   return audioCtx;
 }
 
@@ -23,9 +22,7 @@ function getAudioContext(): AudioContext | null {
  * Ascending pleasant harmonic chime synthesized via Web Audio API.
  * Triggered when an active agent transitions to "done".
  */
-export function playPetDoneChime(volume: number = 75) {
-  const ctx = getAudioContext();
-  if (!ctx) return;
+function synthesizeDone(ctx: AudioContext, volume: number) {
 
   const now = ctx.currentTime;
   const masterVol = Math.max(0.01, Math.min(1.0, volume / 100)) * 0.35;
@@ -56,9 +53,7 @@ export function playPetDoneChime(volume: number = 75) {
  * Gentle submarine sonar ping synthesized via Web Audio API.
  * Triggered when an active agent transitions to "waiting".
  */
-export function playPetWaitingChime(volume: number = 75) {
-  const ctx = getAudioContext();
-  if (!ctx) return;
+function synthesizeWaiting(ctx: AudioContext, volume: number) {
 
   const now = ctx.currentTime;
   const masterVol = Math.max(0.01, Math.min(1.0, volume / 100)) * 0.35;
@@ -85,28 +80,117 @@ export function playPetWaitingChime(volume: number = 75) {
   });
 }
 
-/**
- * Dispatches desktop notifications for agent state transitions (waiting / done).
- */
-export function sendDesktopNotification(title: string, body: string) {
-  if (typeof window === "undefined") return;
+export type PetSoundKind = "done" | "waiting";
+export type PetNotificationPermission = "granted" | "provisional" | "denied" | "default" | "unavailable";
+export const MAX_PET_SOUND_BYTES = 512 * 1024;
+export const MAX_PET_SOUND_SECONDS = 15;
+const uploads = { done: 0, waiting: 0 };
+const customKey = (kind: PetSoundKind) => kind === "done" ? PET_KEYS.doneCustom : PET_KEYS.waitingCustom;
+const customValue = (kind: PetSoundKind) => readPetPreferences()[kind === "done" ? "doneCustom" : "waitingCustom"];
 
-  if ("Notification" in window) {
-    if (Notification.permission === "granted") {
-      try {
-        new Notification(title, { body });
-      } catch {}
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission()
-        .then((permission) => {
-          if (permission === "granted") {
-            try {
-              new Notification(title, { body });
-            } catch {}
-          }
-        })
-        .catch(() => {});
-    }
+function customRecord(raw: string | null): { name: string; data: string } | null {
+  if (!raw) return null;
+  if (raw.length > MAX_PET_SOUND_BYTES * 1.4 + 512) throw new Error("Saved sound is too large. Restore the default and upload again.");
+  const record = JSON.parse(raw);
+  if (typeof record.name !== "string" || record.name.length > 160 || typeof record.data !== "string"
+    || !/^[A-Za-z0-9+/]+={0,2}$/.test(record.data) || record.data.length > Math.ceil(MAX_PET_SOUND_BYTES / 3) * 4) {
+    throw new Error("Saved sound is invalid. Restore the default and upload again.");
+  }
+  return record;
+}
+
+export function petSoundName(kind: PetSoundKind): string {
+  try { return customRecord(customValue(kind))?.name ?? "Synthesized default"; }
+  catch { return "Invalid saved sound — restore default"; }
+}
+
+async function decodeSound(bytes: ArrayBuffer): Promise<AudioBuffer> {
+  const ctx = getAudioContext();
+  if (!ctx) throw new Error("Audio playback is unavailable in this window");
+  let buffer: AudioBuffer;
+  try { buffer = await ctx.decodeAudioData(bytes); }
+  catch { throw new Error("This file cannot be decoded. Choose a valid WAV, MP3, M4A, OGG or FLAC sound."); }
+  if (!Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > MAX_PET_SOUND_SECONDS
+    || buffer.numberOfChannels > 2 || buffer.length * buffer.numberOfChannels > 2880000) {
+    throw new Error("Choose a mono/stereo sound up to 15 seconds (maximum 2,880,000 decoded samples).");
+  }
+  return buffer;
+}
+
+export async function uploadPetSound(kind: PetSoundKind, file: File): Promise<void> {
+  const token = ++uploads[kind], previous = customValue(kind);
+  if (!file.size || file.size > MAX_PET_SOUND_BYTES) throw new Error("Choose an audio file smaller than 512 KiB.");
+  if (!/\.(wav|mp3|m4a|aac|ogg|flac)$/i.test(file.name) || (file.type && !file.type.startsWith("audio/"))) {
+    throw new Error("Choose a WAV, MP3, M4A, AAC, OGG or FLAC audio file.");
+  }
+  const bytes = await file.arrayBuffer();
+  if (bytes.byteLength !== file.size) throw new Error("Could not read the complete audio file. Choose it again.");
+  await decodeSound(bytes.slice(0));
+  if (token !== uploads[kind] || customValue(kind) !== previous) throw new Error("Sound changed while uploading. Choose the file again.");
+  let binary = "";
+  for (const byte of new Uint8Array(bytes)) binary += String.fromCharCode(byte);
+  // At most two 512 KiB files (~1.4 MiB base64 total); storage failures propagate before UI success.
+  writePetStorage(customKey(kind), JSON.stringify({ name: file.name.slice(0, 160), data: btoa(binary) }));
+}
+
+export function resetPetSound(kind: PetSoundKind) {
+  ++uploads[kind];
+  writePetStorage(customKey(kind), "");
+}
+
+/** Explicit previews bypass per-kind mute, never notification mute. Failures propagate to UI. */
+export async function playPetSound(kind: PetSoundKind, preview = false, volume = 75): Promise<boolean> {
+  if (!preview && !readPetPreferences()[kind === "done" ? "doneSound" : "waitingSound"]) return false;
+  const ctx = getAudioContext();
+  if (!ctx) throw new Error("Audio playback is unavailable in this window");
+  if (ctx.state === "suspended") await ctx.resume();
+  if (ctx.state !== "running") throw new Error("Audio is blocked. Click Play in AgentPet Settings to enable playback.");
+  const record = customRecord(customValue(kind));
+  if (record) {
+    const bytes = Uint8Array.from(atob(record.data), c => c.charCodeAt(0));
+    const buffer = await decodeSound(bytes.buffer);
+    // Mute/custom settings may have changed during decoding, including in another webview.
+    if (!preview && !readPetPreferences()[kind === "done" ? "doneSound" : "waitingSound"]) return false;
+    if (record.data !== customRecord(customValue(kind))?.data) throw new Error("Sound changed during playback preparation. Try again.");
+    const source = ctx.createBufferSource(), gain = ctx.createGain();
+    source.buffer = buffer;
+    gain.gain.value = Math.max(0, Math.min(1, volume / 100));
+    source.connect(gain); gain.connect(ctx.destination); source.start();
+  } else {
+    (kind === "done" ? synthesizeDone : synthesizeWaiting)(ctx, volume);
+  }
+  return true;
+}
+
+export function playPetDoneChime(volume = 75) {
+  return playPetSound("done", false, volume).catch(error => { toastState.error(`AgentPet sound failed: ${String(error)}`); return false; });
+}
+export function playPetWaitingChime(volume = 75) {
+  return playPetSound("waiting", false, volume).catch(error => { toastState.error(`AgentPet sound failed: ${String(error)}`); return false; });
+}
+
+export async function petNotificationPermission(request = false): Promise<PetNotificationPermission> {
+  if (isTauri()) {
+    const state = await invoke<string>(request ? "request_pet_notification_permission" : "pet_notification_status");
+    if (!["granted", "provisional", "denied", "default", "unavailable"].includes(state)) throw new Error("Unexpected native notification permission status");
+    return state as PetNotificationPermission;
+  }
+  if (typeof Notification === "undefined") return "unavailable";
+  return request ? await Notification.requestPermission() : Notification.permission;
+}
+
+/** Background transitions never request authorization and never launch notification sound. */
+export async function sendDesktopNotification(title: string, body: string): Promise<boolean> {
+  if (!readPetPreferences().notifications) return false;
+  try {
+    const permission = await petNotificationPermission();
+    if (!["granted", "provisional"].includes(permission) || !readPetPreferences().notifications) return false;
+    if (isTauri()) await invoke("send_pet_notification", { title: title.slice(0, 200), body: body.slice(0, 1000) });
+    else new Notification(title, { body, silent: true });
+    return true;
+  } catch (error) {
+    toastState.error(`AgentPet notification failed: ${String(error)}`);
+    return false;
   }
 }
 

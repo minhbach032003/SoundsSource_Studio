@@ -2,13 +2,21 @@
   import { toastState } from "@/lib/toast.svelte";
   import { googleAuthState } from "@/lib/googleAuth.svelte";
   import GoogleIcon from "@/components/icons/GoogleIcon.svelte";
-  import Equalizer from "@/components/ui/Equalizer.svelte";
   import Modal from "@/components/ui/Modal.svelte";
   import type { GoogleUser } from "@/components/navigation/SideNavbar.svelte";
+  import { geminiLiveState, type GeminiLiveMessage } from "@/lib/geminiLive.svelte";
   import {
     Mic,
     MicOff,
-    Volume2,
+    Video,
+    VideoOff,
+    PhoneCall,
+    PhoneOff,
+    SwitchCamera,
+    Maximize2,
+    Minimize2,
+    Volume1,
+    CameraOff,
     Bot,
     User,
     Sparkles,
@@ -17,19 +25,12 @@
     Check,
     Loader2,
     Send,
-    Radio,
     Sliders,
-    Volume1,
     AlertTriangle,
+    KeyRound,
+    Eye,
+    EyeOff,
   } from "@lucide/svelte";
-
-  export interface Message {
-    id: string;
-    sender: "user" | "ai";
-    text: string;
-    time: string;
-    actionTaken?: string;
-  }
 
   interface Props {
     user?: GoogleUser | null;
@@ -43,133 +44,113 @@
     },
   }: Props = $props();
 
-  const INITIAL_MESSAGES: Message[] = [
-    {
-      id: "1",
-      sender: "user",
-      text: "Can you balance the audio between my Spotify playlist and the Brave Browser video?",
-      time: "10:48 AM",
-    },
-    {
-      id: "2",
-      sender: "ai",
-      text: "Done! I lowered Spotify to 60% and raised Brave Browser to 85% so speech remains crisp and intelligible.",
-      time: "10:48 AM",
-      actionTaken: "Adjusted Spotify to 60%, Brave to 85%",
-    },
-  ];
-
   const GEMINI_PERSONAS = [
-    { label: "Aoede (Clear & Natural - Default)", value: "aoede" },
-    { label: "Puck (Upbeat & Engaging)", value: "puck" },
-    { label: "Charon (Deep & Calming)", value: "charon" },
-    { label: "Kore (Warm & Studio)", value: "kore" },
-    { label: "Fenrir (Crisp & Authoritative)", value: "fenrir" },
+    { label: "Aoede (Tự nhiên, trong trẻo)", value: "Aoede" },
+    { label: "Puck (Sôi nổi, nhiệt tình)", value: "Puck" },
+    { label: "Charon (Trầm ấm, điềm tĩnh)", value: "Charon" },
+    { label: "Kore (Ấm áp, studio)", value: "Kore" },
+    { label: "Fenrir (Rõ ràng, uy lực)", value: "Fenrir" },
   ];
 
   const QUICK_ACTIONS = [
     {
-      label: "Balance Spotify & Brave",
-      prompt: "Balance audio between Spotify and Brave Browser for voice focus.",
-      response: "Optimized balance: Lowered background music to 55% and prioritized voice speech at 90%.",
+      label: "Cân bằng Spotify & Trình duyệt",
+      prompt: "Cân bằng âm lượng giữa Spotify và Brave Browser để ưu tiên giọng nói trong cuộc họp.",
     },
     {
-      label: "Duck background music 50%",
-      prompt: "Duck all background music apps by 50%.",
-      response: "Applied 50% ducking multiplier to all active background media streams.",
+      label: "Duck 50% nhạc nền",
+      prompt: "Tự động giảm 50% tất cả nhạc nền của các ứng dụng khi có người nói.",
     },
     {
-      label: "Boost voice clarity",
-      prompt: "Boost mid-high frequencies for vocal clarity in meeting call.",
-      response: "Configured 10-band EQ curve with +4dB boost at 2.5kHz and 5kHz for speech intelligibility.",
+      label: "Tối ưu giọng nói",
+      prompt: "Tăng cường dải tần vocal clarity ở 2.5kHz và 5kHz cho âm thanh micro.",
     },
     {
-      label: "Mute background apps",
-      prompt: "Mute all background applications except active call.",
-      response: "Muted background media streams. Live call audio remains unhindered.",
+      label: "Tắt tiếng ứng dụng nền",
+      prompt: "Tắt toàn bộ âm thanh nền từ ứng dụng khác, chỉ giữ lại cuộc gọi thoại.",
     },
   ];
 
-  let isListening = $state(false);
-  let isMuted = $state(false);
-  let inputMode = $state<"ptt" | "vad">("ptt");
-  let selectedPersona = $state("aoede");
-  let messages = $state<Message[]>(INITIAL_MESSAGES);
+  const INITIAL_TRANSCRIPT: GeminiLiveMessage[] = [
+    {
+      id: "init-1",
+      sender: "user",
+      text: "Cân bằng âm lượng giữa Spotify và Brave Browser để giọng nói trong cuộc họp rõ hơn.",
+      timestamp: new Date(Date.now() - 60000),
+      isFinal: true,
+    },
+    {
+      id: "init-2",
+      sender: "ai",
+      text: "Đã hoàn tất! Tôi đã điều chỉnh Spotify xuống 55% và ưu tiên Brave Browser ở mức 90% giúp giọng nói đàm thoại luôn rõ ràng, chi tiết.",
+      timestamp: new Date(Date.now() - 50000),
+      isFinal: true,
+    },
+  ];
+
+  let selectedPersona = $state("Aoede");
   let inputText = $state("");
-  let status = $state<"idle" | "listening" | "thinking" | "speaking">("idle");
   let isClearModalOpen = $state(false);
+  let isApiKeyModalOpen = $state(false);
+  let apiKeyInput = $state("");
+  let showKey = $state(false);
+  let hasApiKey = $state(false);
   let copiedId = $state<string | null>(null);
 
+  // PiP Controls
+  let isCameraFlipped = $state(true);
+  let isPipExpanded = $state(false);
+
+  let pipVideoElement = $state<HTMLVideoElement | null>(null);
   let messagesEndRef = $state<HTMLDivElement | null>(null);
   let messagesContainer = $state<HTMLDivElement | null>(null);
 
-  // Synthesized web audio feedback cues
-  function playAudioCue(type: "start" | "stop" | "success") {
-    if (typeof window === "undefined") return;
-    try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const now = ctx.currentTime;
-      const gain = ctx.createGain();
-      gain.connect(ctx.destination);
+  // Derived state from geminiLiveState
+  const callStatus = $derived(geminiLiveState.status);
+  const userVolPct = $derived(Math.min(100, Math.round(geminiLiveState.userVolume * 100)));
+  const aiVolPct = $derived(Math.min(100, Math.round(geminiLiveState.aiVolume * 100)));
+  const isAiSpeaking = $derived(aiVolPct > 3);
+  const isUserSpeaking = $derived(userVolPct > 3 && !geminiLiveState.isMuted);
 
-      if (type === "start") {
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.14);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        osc.connect(gain);
-        osc.start(now);
-        osc.stop(now + 0.18);
-      } else if (type === "stop") {
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(660, now);
-        osc.frequency.exponentialRampToValueAtTime(330, now + 0.14);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        osc.connect(gain);
-        osc.start(now);
-        osc.stop(now + 0.18);
-      } else if (type === "success") {
-        const osc = ctx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(587.33, now);
-        osc.frequency.setValueAtTime(880, now + 0.08);
-        gain.gain.setValueAtTime(0.09, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-        osc.connect(gain);
-        osc.start(now);
-        osc.stop(now + 0.22);
-      }
-    } catch {
-      // AudioContext fallback
-    }
-  }
-
-  // Speech synthesis trigger for conversational responses
-  function speakText(text: string) {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 1.0;
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        // Fallback
-      }
-    }
-  }
-
-  // Smooth scroll to bottom when new messages arrive
+  // Initialize transcript if empty
   $effect(() => {
-    if (messages.length) {
+    if (geminiLiveState.transcript.length === 0) {
+      geminiLiveState.transcript = [...INITIAL_TRANSCRIPT];
+    }
+  });
+
+  // Check stored API key on mount
+  $effect(() => {
+    void (async () => {
+      const key = await geminiLiveState.getApiKey();
+      if (key && key.trim()) {
+        hasApiKey = true;
+        apiKeyInput = key.trim();
+      } else {
+        hasApiKey = false;
+      }
+    })();
+  });
+
+  // Bind video stream to PiP element
+  $effect(() => {
+    const stream = geminiLiveState.cameraStream;
+    const isVideo = geminiLiveState.isVideoEnabled;
+    if (pipVideoElement) {
+      if (isVideo && stream) {
+        if (pipVideoElement.srcObject !== stream) {
+          pipVideoElement.srcObject = stream;
+          pipVideoElement.play().catch(() => {});
+        }
+      } else {
+        pipVideoElement.srcObject = null;
+      }
+    }
+  });
+
+  // Auto scroll transcript to bottom
+  $effect(() => {
+    if (geminiLiveState.transcript.length) {
       if (messagesEndRef) {
         messagesEndRef.scrollIntoView({ behavior: "smooth" });
       } else if (messagesContainer) {
@@ -181,32 +162,32 @@
     }
   });
 
-  // Push-to-Talk Spacebar Listener
+  // Spacebar Push-to-Talk listener during active calls
   $effect(() => {
     if (typeof window === "undefined") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && inputMode === "ptt") {
+      if (e.code === "Space") {
         const activeTag = document.activeElement?.tagName.toLowerCase();
         if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") {
           return;
         }
-        if (!isListening && status === "idle") {
+        if (callStatus === "connected" && geminiLiveState.isMuted) {
           e.preventDefault();
-          startListening();
+          geminiLiveState.setMuted(false);
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space" && inputMode === "ptt") {
+      if (e.code === "Space") {
         const activeTag = document.activeElement?.tagName.toLowerCase();
         if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") {
           return;
         }
-        if (isListening) {
+        if (callStatus === "connected" && !geminiLiveState.isMuted) {
           e.preventDefault();
-          stopListeningAndProcess();
+          geminiLiveState.setMuted(true);
         }
       }
     };
@@ -220,113 +201,121 @@
     };
   });
 
-  function startListening() {
-    if (isMuted) {
-      isMuted = false;
+  async function handleStartCall() {
+    const existingKey = await geminiLiveState.getApiKey();
+    if (!existingKey || !existingKey.trim()) {
+      isApiKeyModalOpen = true;
+      toastState.info("Vui lòng cấu hình Gemini API Key để bắt đầu cuộc gọi.");
+      return;
     }
-    isListening = true;
-    status = "listening";
-    playAudioCue("start");
-    toastState.success(
-      user
-        ? `Gemini 2.5 Live Voice listening with persona ${selectedPersona.toUpperCase()}`
-        : "Local speech capture active (Sign in with Google for Gemini AI)"
-    );
-  }
 
-  function stopListeningAndProcess() {
-    isListening = false;
-    status = "thinking";
-    playAudioCue("stop");
-
-    setTimeout(() => {
-      status = "speaking";
-      const currentTime = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
+    try {
+      toastState.info(`Đang kết nối Gemini Live với persona ${selectedPersona}...`);
+      await geminiLiveState.connect({
+        voiceName: selectedPersona,
+        apiKey: existingKey.trim(),
+        enableVideo: geminiLiveState.isVideoEnabled,
       });
-      const newAiMsg: Message = {
-        id: `msg-${Date.now()}`,
-        sender: "ai",
-        text: user
-          ? "Gemini 2.5 Live: I processed your audio command. CoreAudio streams are calibrated for your listening environment."
-          : "Speech recognized. Sign in with Google to enable Gemini Live multimodal responses.",
-        time: currentTime,
-        actionTaken: "CoreAudio stream verified",
-      };
-      messages = [...messages, newAiMsg];
-      speakText(newAiMsg.text);
-      playAudioCue("success");
-
-      setTimeout(() => {
-        status = "idle";
-      }, 2400);
-    }, 1200);
+      toastState.success("Đã kết nối Gemini Live Video 1-on-1!");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toastState.error(`Lỗi kết nối: ${msg}`);
+    }
   }
 
-  function toggleListen() {
-    if (isListening) {
-      isListening = false;
-      status = "idle";
-      playAudioCue("stop");
-      toastState.info("Voice microphone deactivated");
-    } else {
-      startListening();
+  function handleEndCall() {
+    geminiLiveState.disconnect();
+    toastState.info("Đã kết thúc cuộc gọi Gemini Live.");
+  }
 
-      // In click-to-talk mode, cycle automatically after 3.5s
-      setTimeout(() => {
-        if (isListening && status === "listening") {
-          stopListeningAndProcess();
-        }
-      }, 3500);
+  function toggleMic() {
+    geminiLiveState.toggleMute();
+    if (geminiLiveState.isMuted) {
+      toastState.info("Micro đã tắt tiếng (Muted)");
+    } else {
+      toastState.success("Micro đã kích hoạt");
     }
+  }
+
+  async function toggleCamera() {
+    if (geminiLiveState.isVideoEnabled) {
+      geminiLiveState.disableVideo();
+      toastState.info("Đã tắt camera");
+    } else {
+      await geminiLiveState.enableVideo();
+      if (geminiLiveState.isVideoEnabled) {
+        toastState.success("Đã bật camera");
+      } else if (geminiLiveState.error) {
+        toastState.error(geminiLiveState.error);
+      }
+    }
+  }
+
+  function toggleCameraFlip() {
+    isCameraFlipped = !isCameraFlipped;
+    toastState.info(isCameraFlipped ? "Đã bật chế độ lật gương" : "Đã tắt chế độ lật gương");
+  }
+
+  function handlePersonaChange() {
+    const p = GEMINI_PERSONAS.find((item) => item.value === selectedPersona);
+    toastState.success(`Đã chọn persona: ${p?.label.split(" ")[0] || selectedPersona}`);
+    if (callStatus === "connected") {
+      toastState.info("Persona mới sẽ áp dụng khi bắt đầu cuộc gọi tiếp theo.");
+    }
+  }
+
+  async function handleSaveApiKey() {
+    const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      toastState.error("API Key không được để trống.");
+      return;
+    }
+    await geminiLiveState.setApiKey(trimmed);
+    hasApiKey = true;
+    isApiKeyModalOpen = false;
+    toastState.success("Đã lưu Gemini API Key thành công.");
+
+    if (callStatus === "idle" || callStatus === "error") {
+      await handleStartCall();
+    }
+  }
+
+  function handleConfirmClear() {
+    geminiLiveState.clearTranscript();
+    isClearModalOpen = false;
+    toastState.info("Đã xóa lịch sử cuộc trò chuyện.");
   }
 
   function handleSendMessage(textToSend?: string) {
     const text = (textToSend || inputText).trim();
     if (!text) return;
 
-    const currentTime = new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const userMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: "user",
-      text,
-      time: currentTime,
-    };
-
-    messages = [...messages, userMsg];
-    inputText = "";
-    status = "thinking";
-
-    setTimeout(() => {
-      status = "speaking";
-      const matched = QUICK_ACTIONS.find((q) => q.prompt === text);
-      const replyText = matched
-        ? matched.response
-        : user
-        ? `Gemini 2.5 Live: Executed "${text}". Audio routing and parameters updated in real time.`
-        : `Preview: Received "${text}". Connect Google Account to unlock real-time Gemini processing.`;
-
-      const aiMsg: Message = {
-        id: `msg-${Date.now() + 1}`,
-        sender: "ai",
-        text: replyText,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        actionTaken: "Live audio routing adjusted",
-      };
-
-      messages = [...messages, aiMsg];
-      speakText(aiMsg.text);
-      playAudioCue("success");
-      toastState.success("AI audio command executed");
-
-      setTimeout(() => {
-        status = "idle";
-      }, 1800);
-    }, 800);
+    if (callStatus === "connected") {
+      try {
+        geminiLiveState.sendTextMessage(text);
+        inputText = "";
+        toastState.success("Đã gửi tin nhắn tới Gemini Live");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        toastState.error(`Lỗi gửi: ${msg}`);
+      }
+    } else {
+      // Connect and send or notify
+      if (!hasApiKey) {
+        isApiKeyModalOpen = true;
+        toastState.info("Vui lòng nhập API Key để kết nối cuộc gọi.");
+        return;
+      }
+      toastState.info("Đang bắt đầu cuộc gọi để gửi tin nhắn...");
+      void handleStartCall().then(() => {
+        setTimeout(() => {
+          if (geminiLiveState.status === "connected") {
+            geminiLiveState.sendTextMessage(text);
+            inputText = "";
+          }
+        }, 1500);
+      });
+    }
   }
 
   function handleFormSubmit(e: SubmitEvent) {
@@ -334,281 +323,492 @@
     handleSendMessage();
   }
 
-  function handlePersonaChange() {
-    const personaObj = GEMINI_PERSONAS.find((p) => p.value === selectedPersona);
-    toastState.success(
-      `Switched Gemini Voice Persona to ${personaObj?.label.split(" ")[0] || selectedPersona}`
-    );
-  }
-
-  function handleConfirmClear() {
-    messages = [];
-    isClearModalOpen = false;
-    toastState.info("Dialogue history cleared");
-  }
-
-  async function handleCopyMessage(msg: Message) {
+  async function handleCopyMessage(id: string, text: string) {
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(msg.text);
+        await navigator.clipboard.writeText(text);
       }
-      copiedId = msg.id;
-      toastState.success("Message copied to clipboard");
+      copiedId = id;
+      toastState.success("Đã sao chép nội dung tin nhắn");
       setTimeout(() => {
-        if (copiedId === msg.id) {
+        if (copiedId === id) {
           copiedId = null;
         }
       }, 1500);
     } catch {
-      toastState.error("Failed to copy message");
+      toastState.error("Không thể sao chép tin nhắn");
     }
   }
 
   function handleReplayAudio(text: string) {
-    toastState.info("Playing Gemini audio synthesis…");
-    playAudioCue("success");
-    speakText(text);
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+        toastState.info("Đang phát lại âm thanh...");
+      } catch {
+        toastState.error("Không thể phát lại âm thanh trên thiết bị này.");
+      }
+    }
+  }
+
+  function formatTime(date: Date | string | number): string {
+    try {
+      const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
   }
 </script>
 
 <div class="w-full flex-1 flex flex-col space-y-4 select-none min-h-0">
-  <!-- 1. Google Account & Model Status Banner -->
+  <!-- 1. Google Account & Live Connection Status Banner -->
   <div class="flex items-center justify-between flex-wrap gap-2.5 shrink-0">
-    <div class="flex items-center gap-2">
-      {#if user}
-        <div
-          class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-linear-to-r from-rose-500/10 via-pink-500/10 to-indigo-500/10 border border-rose-400/25 shadow-sm"
-        >
-          <GoogleIcon class="w-4 h-4" />
-          <span class="text-xs font-semibold text-(--ink)">
-            Google Gemini 2.5 Live Voice
-          </span>
+    <div class="flex items-center gap-2 flex-wrap">
+      <div
+        class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-linear-to-r from-rose-500/10 via-pink-500/10 to-indigo-500/10 border border-rose-400/25 shadow-xs"
+      >
+        <GoogleIcon class="w-4 h-4" />
+        <span class="text-xs font-semibold text-(--ink)">
+          Google Gemini Live Video 1-on-1
+        </span>
+        {#if callStatus === "connected"}
           <span
             class="w-1.5 h-1.5 rounded-full bg-(--success) shadow-[0_0_6px_var(--success)] animate-pulse"
           ></span>
           <span class="text-[10px] text-(--accent-text) font-mono font-medium">
-            ~120ms Latency
+            ~120ms Latency · Flash 2.0
           </span>
-        </div>
-      {:else}
-        <div
-          class="inline-flex items-center gap-2.5 px-3 py-1 rounded-xl bg-(--paper) border border-(--line) text-xs text-(--ink)"
+        {:else}
+          <span class="w-1.5 h-1.5 rounded-full bg-(--muted)"></span>
+          <span class="text-[10px] text-(--muted) font-mono font-medium">
+            Multimodal Stream
+          </span>
+        {/if}
+      </div>
+
+      {#if !user}
+        <button
+          type="button"
+          onclick={onSignInGoogle}
+          class="btn h-7 text-[10px] px-2.5 bg-(--surface) hover:bg-(--paper) border-(--line) text-(--ink)"
         >
-          <span class="text-[11px] text-(--muted)">
-            Local Preview Mode · Connect Google for Gemini Live AI
-          </span>
-          <button
-            type="button"
-            onclick={onSignInGoogle}
-            class="btn h-6 text-[10px] px-2.5 bg-(--surface) hover:bg-(--paper) border-(--line) text-(--ink)"
-          >
-            <GoogleIcon class="w-3.5 h-3.5" />
-            <span>Sign in with Google</span>
-          </button>
-        </div>
+          <GoogleIcon class="w-3.5 h-3.5" />
+          <span>Đăng nhập Google</span>
+        </button>
       {/if}
+
+      <button
+        type="button"
+        onclick={() => (isApiKeyModalOpen = true)}
+        class="badge {hasApiKey
+          ? 'badge-ok'
+          : 'badge-warn'} h-7 px-2.5 text-[11px] flex items-center gap-1.5 cursor-pointer hover:opacity-90 transition-opacity"
+        title="Quản lý Gemini API Key"
+      >
+        <KeyRound class="w-3.5 h-3.5" />
+        <span>{hasApiKey ? "API Key: Đã lưu" : "Chưa có API Key"}</span>
+      </button>
     </div>
 
+    <!-- Active Call State Badge -->
     <div
-      class="badge {status === 'listening' || status === 'speaking'
+      class="badge {callStatus === 'connected'
         ? 'badge-ok'
-        : status === 'thinking'
+        : callStatus === 'connecting'
         ? 'badge-warn'
+        : callStatus === 'error'
+        ? 'bg-(--error)/15 text-(--error) border-(--error)/30'
         : 'bg-(--surface) border-(--line) text-(--muted)'} h-7 px-3 text-[11px] flex items-center gap-1.5"
     >
-      {#if status === "thinking"}
+      {#if callStatus === "connecting"}
         <Loader2 class="w-3.5 h-3.5 animate-spin text-(--warning)" />
-      {:else if status === "listening" || status === "speaking"}
+      {:else if callStatus === "connected"}
         <span class="w-1.5 h-1.5 rounded-full bg-(--success) animate-pulse"></span>
+      {:else if callStatus === "error"}
+        <AlertTriangle class="w-3.5 h-3.5 text-(--error)" />
       {:else}
         <span class="w-1.5 h-1.5 rounded-full bg-(--muted)"></span>
       {/if}
       <span>
-        {status === "listening"
-          ? "Listening to your voice…"
-          : status === "thinking"
-          ? "Gemini Thinking…"
-          : status === "speaking"
-          ? "Gemini Speaking…"
-          : "Voice Engine Standby"}
+        {callStatus === "connecting"
+          ? "Đang kết nối WebSocket..."
+          : callStatus === "connected"
+          ? (isAiSpeaking ? "Gemini đang nói..." : isUserSpeaking ? "Đang lắng nghe bạn..." : "Cuộc gọi trực tiếp đang mở")
+          : callStatus === "error"
+          ? "Lỗi kết nối Gemini Live"
+          : "Sẵn sàng (Standby)"}
       </span>
     </div>
   </div>
 
-  <!-- 2. Responsive 2-Column Workspace -->
+  <!-- 2. Responsive 2-Column Workspace (Stage & Dialogue Rail) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
-    <!-- Left Column: Interactive Voice Stage & Hardware Controls -->
+    <!-- Cột trái (Stage): Interactive Live Stage, PiP Webcam, Dual Visualizer & HUD -->
     <div
-      class="lg:col-span-5 flex flex-col justify-between p-6 sm:p-7 panel relative overflow-hidden h-full min-h-115"
+      class="lg:col-span-7 flex flex-col justify-between p-4 sm:p-5 panel relative overflow-hidden h-full min-h-125 gap-3"
     >
-      <!-- Top Stage Header: Google Persona Selector -->
-      <div class="w-full space-y-2 shrink-0">
-        <div class="flex items-center justify-between text-xs">
-          <span
-            class="text-[11px] font-semibold text-(--ink) uppercase tracking-wider flex items-center gap-1.5"
-          >
-            <Sparkles class="w-3.5 h-3.5 text-(--accent-text)" />
-            <span>Voice Persona</span>
+      <!-- Top Stage Bar: Persona Indicator & Device Telemetry -->
+      <div class="flex items-center justify-between text-xs pb-1 shrink-0">
+        <div class="flex items-center gap-1.5">
+          <Sparkles class="w-3.5 h-3.5 text-(--accent-text)" />
+          <span class="font-semibold text-(--ink) text-[11px] uppercase tracking-wider">
+            Gemini Interactive Live Stage
           </span>
-          <span class="text-[10px] text-(--muted) font-mono">
-            {user ? "Gemini Native Multimodal" : "Offline Preview"}
+          <span class="badge text-[9px] px-1.5 py-0 bg-(--surface) border-(--line) text-(--muted) font-mono">
+            {selectedPersona}
           </span>
         </div>
-
-        <select
-          bind:value={selectedPersona}
-          onchange={handlePersonaChange}
-          class="field w-full text-xs h-8.5"
-        >
-          {#each GEMINI_PERSONAS as p}
-            <option value={p.value}>{p.label}</option>
-          {/each}
-        </select>
+        <div class="flex items-center gap-2">
+          {#if geminiLiveState.isVideoEnabled}
+            <span class="inline-flex items-center gap-1 text-[10px] text-(--success) font-mono font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-(--success) animate-pulse"></span>
+              640x480 · 15fps
+            </span>
+          {/if}
+          <span class="text-[10px] text-(--muted) font-mono">
+            CoreAudio 16kHz PCM
+          </span>
+        </div>
       </div>
 
-      <!-- Central Pulsating Voice Orb Canvas -->
-      <div class="relative flex flex-col items-center justify-center my-auto py-4">
-        <!-- Ambient Animated Sound Wave Glow Rings -->
-        <div class="relative flex items-center justify-center w-36 h-36 sm:w-44 sm:h-44">
-          <!-- Listening Ring Animations -->
-          {#if isListening}
+      <!-- Main Video Stage Viewport -->
+      <div
+        class="relative flex-1 w-full rounded-2xl bg-stone-950 border border-(--line) overflow-hidden flex flex-col items-center justify-center min-h-75 sm:min-h-85 shadow-inner"
+      >
+        <!-- Subtle Ambient Background Glow -->
+        <div
+          class="absolute inset-0 transition-all duration-700 pointer-events-none {isAiSpeaking
+            ? 'bg-emerald-950/20'
+            : isUserSpeaking
+            ? 'bg-rose-950/20'
+            : 'bg-transparent'}"
+        ></div>
+
+        <!-- Central Gemini Interactive Live Halo & Waves -->
+        <div class="relative flex items-center justify-center w-44 h-44 sm:w-56 sm:h-56 z-10">
+          <!-- Gemini Speaking Concentric Expansion Rings -->
+          {#if isAiSpeaking}
+            <span
+              class="absolute inset-0 rounded-full border border-emerald-400/40 animate-ping opacity-60 pointer-events-none"
+            ></span>
+            <span
+              class="absolute -inset-4 rounded-full border border-teal-400/30 animate-pulse opacity-50 pointer-events-none"
+              style="transform: scale({1 + geminiLiveState.aiVolume * 0.35});"
+            ></span>
+            <span
+              class="absolute -inset-8 rounded-full border border-cyan-400/20 opacity-30 pointer-events-none"
+              style="transform: scale({1 + geminiLiveState.aiVolume * 0.65});"
+            ></span>
+          {/if}
+
+          <!-- User Speaking Concentric Expansion Rings -->
+          {#if isUserSpeaking}
             <span
               class="absolute inset-0 rounded-full border border-rose-400/40 animate-ping opacity-60 pointer-events-none"
             ></span>
             <span
-              class="absolute -inset-4 rounded-full border border-rose-400/20 animate-pulse opacity-40 pointer-events-none"
-            ></span>
-            <span
-              class="absolute -inset-8 rounded-full border border-rose-400/10 animate-pulse opacity-20 pointer-events-none"
+              class="absolute -inset-4 rounded-full border border-pink-400/30 animate-pulse opacity-50 pointer-events-none"
+              style="transform: scale({1 + geminiLiveState.userVolume * 0.35});"
             ></span>
           {/if}
 
-          <!-- Speaking Ring Animations -->
-          {#if status === "speaking"}
+          <!-- Standby Breathing Ring -->
+          {#if !isAiSpeaking && !isUserSpeaking}
             <span
-              class="absolute -inset-3 rounded-full border border-emerald-400/35 animate-pulse opacity-50 pointer-events-none"
+              class="absolute inset-0 rounded-full border border-stone-800 animate-pulse opacity-40 pointer-events-none"
             ></span>
-            <span
-              class="absolute -inset-7 rounded-full border border-emerald-400/15 animate-pulse opacity-25 pointer-events-none"
-            ></span>
-          {/if}
-
-          <!-- Thinking Ring Animation -->
-          {#if status === "thinking"}
-            <span
-              class="absolute -inset-3 rounded-full border border-(--accent)/35 animate-pulse opacity-40 pointer-events-none"
-            ></span>
-          {/if}
-
-          <!-- Three Visual States for Mic Button (idle / listening / speaking) -->
-          <button
-            type="button"
-            onclick={toggleListen}
-            class="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl cursor-pointer z-10 active:scale-95 {isListening
-              ? 'bg-linear-to-tr from-rose-400 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-[0_0_36px_color-mix(in_srgb,var(--accent)_55%,transparent)] border border-(--accent)'
-              : status === 'speaking'
-              ? 'bg-linear-to-tr from-emerald-400 to-cyan-300 text-slate-950 shadow-[0_0_28px_color-mix(in_srgb,var(--success)_40%,transparent)] border border-emerald-400/40'
-              : status === 'thinking'
-              ? 'bg-(--surface) text-(--accent-text) border border-(--accent)/50 shadow-md'
-              : 'bg-(--surface) hover:bg-(--core2) text-(--accent-text) border border-(--shell-line) hover:border-rose-400/40'}"
-            title={isListening
-              ? "Click to stop listening"
-              : status === "speaking"
-              ? "Gemini speaking - click to interrupt"
-              : "Click to speak with AI (or hold Spacebar)"}
-          >
-            {#if isListening}
-              <Mic class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-stone-950 stroke-[2.2]" />
-            {:else if status === "speaking"}
-              <Volume2 class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-slate-950 stroke-[2.2]" />
-            {:else if status === "thinking"}
-              <Loader2 class="w-9 h-9 sm:w-11 sm:h-11 animate-spin text-(--accent-text)" />
-            {:else}
-              <Mic class="w-8 h-8 sm:w-10 sm:h-10 text-rose-300" />
+            {#if callStatus === "connected"}
+              <span
+                class="absolute -inset-3 rounded-full border border-emerald-500/20 animate-pulse opacity-30 pointer-events-none"
+              ></span>
             {/if}
-          </button>
+          {/if}
+
+          <!-- Central Pulsating Orb -->
+          <div
+            class="w-24 h-24 sm:w-30 sm:h-30 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl z-10 {isAiSpeaking
+              ? 'bg-linear-to-tr from-emerald-500 via-teal-400 to-cyan-400 text-slate-950 scale-105 shadow-emerald-500/50 border border-emerald-300'
+              : isUserSpeaking
+              ? 'bg-linear-to-tr from-rose-500 via-pink-400 to-indigo-400 text-stone-950 scale-105 shadow-rose-500/50 border border-rose-300'
+              : callStatus === 'connected'
+              ? 'bg-stone-900 text-emerald-400 border border-emerald-500/40 shadow-lg'
+              : callStatus === 'connecting'
+              ? 'bg-stone-900 text-amber-400 border border-amber-500/40 animate-pulse'
+              : 'bg-stone-900/90 text-stone-400 border border-stone-800'}"
+          >
+            {#if callStatus === "connecting"}
+              <Loader2 class="w-9 h-9 sm:w-11 sm:h-11 animate-spin text-amber-400" />
+            {:else if isAiSpeaking}
+              <Sparkles class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-slate-950 stroke-[2.2]" />
+            {:else if isUserSpeaking}
+              <Mic class="w-9 h-9 sm:w-11 sm:h-11 animate-pulse text-stone-950 stroke-[2.2]" />
+            {:else if callStatus === "connected"}
+              <Sparkles class="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
+            {:else}
+              <Bot class="w-8 h-8 sm:w-10 sm:h-10 text-stone-500" />
+            {/if}
+          </div>
         </div>
 
-        <!-- Instruction Cue -->
-        <p class="text-xs font-semibold text-(--ink) mt-3 text-center">
-          {#if isListening}
-            Listening… Speak your audio instruction
-          {:else if status === "speaking"}
-            Gemini speaking through CoreAudio output…
-          {:else if status === "thinking"}
-            Synthesizing multimodal audio command…
+        <!-- Dynamic State Text -->
+        <p class="text-xs font-semibold text-stone-300 mt-3 text-center z-10 px-4">
+          {#if callStatus === "connecting"}
+            Đang khởi tạo phiên làm việc Gemini Live đa phương thức...
+          {:else if callStatus === "connected"}
+            {#if isAiSpeaking}
+              Gemini đang phản hồi qua luồng âm thanh thời gian thực...
+            {:else if isUserSpeaking}
+              Đang nhận diện giọng nói của bạn...
+            {:else}
+              Sẵn sàng đàm thoại · Nói trực tiếp hoặc gửi tin nhắn
+            {/if}
+          {:else if callStatus === "error"}
+            {geminiLiveState.error || "Có lỗi xảy ra khi kết nối. Vui lòng kiểm tra lại API Key."}
           {:else}
-            Click microphone or hold Spacebar to talk
+            Nhấn "Bắt đầu gọi" bên dưới để trò chuyện video 1-on-1 với Gemini
           {/if}
         </p>
 
-        <!-- Live Audio Equalizer Waveform -->
+        <!-- Khung PiP Webcam Người Dùng (Góc phải dưới của Viewport) -->
         <div
-          class="flex items-center gap-1.5 mt-2 h-4 px-3 py-1 rounded-full bg-(--paper) border border-(--line)"
+          class="absolute bottom-4 right-4 z-20 rounded-2xl overflow-hidden border border-stone-700 bg-stone-900/95 backdrop-blur-md shadow-2xl transition-all duration-300 group {isPipExpanded
+            ? 'w-60 h-44 sm:w-72 sm:h-52'
+            : 'w-36 h-26 sm:w-44 sm:h-32'}"
         >
-          <span class="text-[10px] text-(--muted) font-medium">Spectrum:</span>
-          <Equalizer bars={5} active={isListening || status === "speaking"} />
-        </div>
-      </div>
+          {#if geminiLiveState.isVideoEnabled && geminiLiveState.cameraStream}
+            <video
+              bind:this={pipVideoElement}
+              autoplay
+              playsinline
+              muted
+              class="w-full h-full object-cover transition-transform duration-200 {isCameraFlipped
+                ? 'scale-x-[-1]'
+                : ''}"
+            ></video>
+          {:else}
+            <div
+              class="w-full h-full flex flex-col items-center justify-center bg-stone-900 text-stone-400 gap-1.5 p-2"
+            >
+              <div
+                class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-stone-400"
+              >
+                <User class="w-4 h-4 text-stone-400" />
+              </div>
+              <div class="flex items-center gap-1 text-[10px] font-medium text-stone-400">
+                <CameraOff class="w-3 h-3 text-stone-500" />
+                <span>Camera Tắt</span>
+              </div>
+            </div>
+          {/if}
 
-      <!-- Bottom Hardware Controls -->
-      <div class="space-y-3 shrink-0 pt-3 border-t border-(--line)">
-        <div class="grid grid-cols-2 gap-2 text-xs">
+          <!-- PiP Action Controls -->
+          <div
+            class="absolute top-2 right-2 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity"
+          >
+            <button
+              type="button"
+              onclick={toggleCameraFlip}
+              class="p-1 rounded-md bg-stone-900/80 hover:bg-stone-800 border border-stone-700 text-stone-200 transition-colors cursor-pointer shadow-xs"
+              title={isCameraFlipped ? "Tắt lật gương" : "Lật gương webcam"}
+            >
+              <SwitchCamera class="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              onclick={() => (isPipExpanded = !isPipExpanded)}
+              class="p-1 rounded-md bg-stone-900/80 hover:bg-stone-800 border border-stone-700 text-stone-200 transition-colors cursor-pointer shadow-xs"
+              title={isPipExpanded ? "Thu nhỏ PiP" : "Phóng to PiP"}
+            >
+              {#if isPipExpanded}
+                <Minimize2 class="w-3 h-3" />
+              {:else}
+                <Maximize2 class="w-3 h-3" />
+              {/if}
+            </button>
+          </div>
+
+          <!-- PiP Bottom Pill -->
+          <div
+            class="absolute bottom-1.5 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-900/85 border border-stone-700 text-[9px] text-stone-300 font-medium"
+          >
+            {#if geminiLiveState.isVideoEnabled}
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Webcam</span>
+            {:else}
+              <span class="w-1.5 h-1.5 rounded-full bg-stone-500"></span>
+              <span>Bạn</span>
+            {/if}
+          </div>
+        </div>
+
+        <!-- Cụm Điều Khiển Nổi (Floating Call HUD) Ở Góc Trái Dưới Viewport -->
+        <div
+          class="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl bg-stone-900/90 backdrop-blur-md border border-stone-700 shadow-2xl max-w-[calc(100%-12rem)] flex-wrap"
+        >
+          <!-- Nút Bật/Tắt Micro -->
           <button
             type="button"
-            onclick={() => {
-              isMuted = !isMuted;
-              toastState.info(isMuted ? "Microphone muted" : "Microphone unmuted");
-            }}
-            class="btn {isMuted ? 'btn-danger' : ''} h-8 justify-start px-3"
+            onclick={toggleMic}
+            class="p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center {geminiLiveState.isMuted
+              ? 'bg-rose-500/20 border-rose-500/40 text-rose-400'
+              : 'bg-stone-800 hover:bg-stone-700 border-stone-700 text-stone-200'}"
+            title={geminiLiveState.isMuted ? "Bật Micro (Unmute)" : "Tắt Micro (Mute)"}
           >
-            {#if isMuted}
-              <MicOff class="w-3.5 h-3.5" />
-              <span>Mic Muted</span>
+            {#if geminiLiveState.isMuted}
+              <MicOff class="w-4 h-4 text-rose-400" />
             {:else}
-              <Mic class="w-3.5 h-3.5 text-(--accent-text)" />
-              <span>Mic Active</span>
+              <Mic class="w-4 h-4 text-stone-200" />
             {/if}
           </button>
 
+          <!-- Nút Bật/Tắt Camera -->
           <button
             type="button"
-            onclick={() => {
-              inputMode = inputMode === "ptt" ? "vad" : "ptt";
-              toastState.info(
-                `Mode: ${
-                  inputMode === "ptt"
-                    ? "Push-to-Talk (Space)"
-                    : "Voice Activity Detection"
-                }`
-              );
-            }}
-            class="btn h-8 justify-start px-3"
+            onclick={toggleCamera}
+            class="p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center {geminiLiveState.isVideoEnabled
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              : 'bg-stone-800 hover:bg-stone-700 border-stone-700 text-stone-400'}"
+            title={geminiLiveState.isVideoEnabled ? "Tắt Camera" : "Bật Camera"}
           >
-            <Radio class="w-3.5 h-3.5 text-rose-400" />
-            <span>{inputMode === "ptt" ? "Push-to-Talk" : "Hands-Free (VAD)"}</span>
+            {#if geminiLiveState.isVideoEnabled}
+              <Video class="w-4 h-4 text-emerald-300" />
+            {:else}
+              <VideoOff class="w-4 h-4 text-stone-400" />
+            {/if}
+          </button>
+
+          <!-- Dropdown Chọn Voice Persona -->
+          <select
+            bind:value={selectedPersona}
+            onchange={handlePersonaChange}
+            class="h-8.5 sm:h-9 text-xs pl-2.5 pr-6 rounded-xl bg-stone-800 border border-stone-700 text-stone-200 font-medium cursor-pointer focus:outline-none focus:border-stone-500"
+            title="Chọn Voice Persona"
+          >
+            {#each GEMINI_PERSONAS as p}
+              <option value={p.value}>{p.label}</option>
+            {/each}
+          </select>
+
+          <!-- Nút Kết Nối / Kết Thúc Cuộc Gọi -->
+          {#if callStatus === "idle" || callStatus === "error"}
+            <button
+              type="button"
+              onclick={handleStartCall}
+              class="h-8.5 sm:h-9 px-3 sm:px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition-all cursor-pointer active:scale-95"
+            >
+              <PhoneCall class="w-4 h-4" />
+              <span class="hidden sm:inline">Bắt đầu gọi</span>
+            </button>
+          {:else if callStatus === "connecting"}
+            <button
+              type="button"
+              disabled
+              class="h-8.5 sm:h-9 px-3 sm:px-4 rounded-xl bg-amber-600 text-white font-medium text-xs flex items-center gap-1.5 opacity-90 cursor-wait"
+            >
+              <Loader2 class="w-4 h-4 animate-spin" />
+              <span class="hidden sm:inline">Đang kết nối...</span>
+            </button>
+          {:else if callStatus === "connected"}
+            <button
+              type="button"
+              onclick={handleEndCall}
+              class="h-8.5 sm:h-9 px-3 sm:px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs flex items-center gap-1.5 shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
+            >
+              <PhoneOff class="w-4 h-4" />
+              <span class="hidden sm:inline">Kết thúc</span>
+            </button>
+          {/if}
+
+          <!-- Nút Cấu Hình API Key -->
+          <button
+            type="button"
+            onclick={() => (isApiKeyModalOpen = true)}
+            class="p-2 sm:p-2.5 rounded-xl border border-stone-700 bg-stone-800 hover:bg-stone-700 text-stone-300 transition-colors cursor-pointer"
+            title="Cấu hình Gemini API Key"
+          >
+            <KeyRound class="w-4 h-4 {hasApiKey ? 'text-emerald-400' : 'text-amber-400'}" />
           </button>
         </div>
+      </div>
 
-        <div
-          class="flex items-center justify-between p-2 rounded-xl bg-(--paper) border border-(--line) text-[11px] text-(--muted)"
-        >
-          <div class="flex items-center gap-2">
-            <Volume2 class="w-3.5 h-3.5 text-(--accent-text)" />
-            <span class="text-(--ink)">Output Stream</span>
+      <!-- Dual Visualizer Âm Thanh 2 Chiều: Mic Người Dùng & Gemini Live -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 shrink-0 pt-1">
+        <!-- Dải Âm Lượng Mic Người Dùng (Màu hồng/accent) -->
+        <div class="p-2.5 rounded-xl bg-(--surface) border border-(--line) space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5">
+              <div
+                class="w-5 h-5 rounded-md bg-rose-500/15 flex items-center justify-center text-rose-400"
+              >
+                {#if geminiLiveState.isMuted}
+                  <MicOff class="w-3 h-3 text-(--error)" />
+                {:else}
+                  <Mic class="w-3 h-3 text-rose-400" />
+                {/if}
+              </div>
+              <span class="font-medium text-[11px] text-(--ink)">Mic Người Dùng</span>
+              {#if geminiLiveState.isMuted}
+                <span
+                  class="badge text-[9px] px-1 py-0 bg-(--error)/15 text-(--error) border-(--error)/20"
+                >
+                  Tắt tiếng
+                </span>
+              {/if}
+            </div>
+            <span class="text-[10px] font-mono text-(--muted) tabular-nums">
+              {geminiLiveState.isMuted ? "0%" : `${userVolPct}%`}
+            </span>
           </div>
-          <span class="text-(--muted) font-mono text-[10px]">
-            CoreAudio 48.0 kHz
-          </span>
+          <div class="w-full h-2 rounded-full bg-(--paper) border border-(--line) overflow-hidden p-0.5">
+            <div
+              class="h-full rounded-full bg-linear-to-r from-rose-500 via-pink-500 to-indigo-500 transition-all duration-75 shadow-xs"
+              style="width: {geminiLiveState.isMuted ? 0 : userVolPct}%"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Dải Âm Lượng Gemini (Màu xanh ngọc/success) -->
+        <div class="p-2.5 rounded-xl bg-(--surface) border border-(--line) space-y-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5">
+              <div
+                class="w-5 h-5 rounded-md bg-emerald-500/15 flex items-center justify-center text-emerald-400"
+              >
+                <Sparkles class="w-3 h-3 text-emerald-400" />
+              </div>
+              <span class="font-medium text-[11px] text-(--ink)">Gemini Live AI</span>
+              {#if isAiSpeaking}
+                <span
+                  class="badge text-[9px] px-1 py-0 bg-(--success)/15 text-(--success) border-(--success)/20 animate-pulse"
+                >
+                  Đang nói
+                </span>
+              {/if}
+            </div>
+            <span class="text-[10px] font-mono text-(--muted) tabular-nums">
+              {aiVolPct}%
+            </span>
+          </div>
+          <div class="w-full h-2 rounded-full bg-(--paper) border border-(--line) overflow-hidden p-0.5">
+            <div
+              class="h-full rounded-full bg-linear-to-r from-emerald-400 via-teal-400 to-cyan-400 transition-all duration-75 shadow-xs"
+              style="width: {aiVolPct}%"
+            ></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Right Column: Full Dialogue Stream & Quick Actions Console -->
+    <!-- Cột phải (Dialogue Console): Danh sách tin nhắn, Xóa lịch sử, Quick Actions & Chat -->
     <div
-      class="lg:col-span-7 flex flex-col justify-between panel p-4 sm:p-5 shadow-sm h-full min-h-115"
+      class="lg:col-span-5 flex flex-col justify-between panel p-4 sm:p-5 shadow-sm h-full min-h-125"
     >
-      <!-- Header & Quick Action Prompt Chips -->
+      <!-- Header & Thẻ Gợi Ý Nhanh Quick Actions -->
       <div class="space-y-2.5 pb-3 border-b border-(--line) shrink-0">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -618,23 +818,24 @@
             <span
               class="px-1.5 py-0 text-[10px] rounded-md bg-(--surface) text-(--muted) border border-(--line) font-medium"
             >
-              {messages.length} Messages
+              {geminiLiveState.transcript.length} tin nhắn
             </span>
           </div>
 
+          <!-- Nút Xóa Lịch Sử (Mở Modal Xác Nhận Theo AGENTS.md Rule 3) -->
           <button
             type="button"
             onclick={() => (isClearModalOpen = true)}
-            disabled={messages.length === 0}
+            disabled={geminiLiveState.transcript.length === 0}
             class="flex items-center gap-1 text-[11px] text-(--muted) hover:text-(--accent-text) transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Clear conversation history"
+            title="Xóa toàn bộ lịch sử cuộc trò chuyện"
           >
             <Trash2 class="w-3.5 h-3.5" />
-            <span>Clear</span>
+            <span>Xóa lịch sử</span>
           </button>
         </div>
 
-        <!-- Quick Audio Control Action Chips -->
+        <!-- Thẻ Gợi Ý Nhanh Quick Actions -->
         <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {#each QUICK_ACTIONS as action}
             <button
@@ -649,27 +850,27 @@
         </div>
       </div>
 
-      <!-- Scrollable Conversation Stream -->
+      <!-- Danh Sách Tin Nhắn Hội Thoại Thời Gian Thực (geminiLiveState.transcript) -->
       <div
         bind:this={messagesContainer}
         class="flex-1 overflow-y-auto space-y-3 py-3 pr-1 min-h-50"
       >
-        {#if messages.length === 0}
+        {#if geminiLiveState.transcript.length === 0}
           <div
             class="h-full flex flex-col items-center justify-center text-center p-8 text-(--muted)"
           >
             <Bot class="w-10 h-10 opacity-30 text-(--accent-text) mb-2 stroke-[1.5]" />
             <p class="text-xs font-medium text-(--ink) m-0">
-              No conversation messages yet
+              Chưa có tin nhắn nào
             </p>
             <p class="text-[11px] text-(--muted) mt-1 max-w-xs">
-              Speak to the microphone or tap one of the quick audio action chips above to start controlling your sound.
+              Nhấn "Bắt đầu gọi" để trò chuyện bằng giọng nói với Gemini hoặc gõ tin nhắn văn bản bên dưới.
             </p>
           </div>
         {:else}
-          {#each messages as m (m.id)}
+          {#each geminiLiveState.transcript as m (m.id)}
             <div
-              class="flex gap-3 p-3.5 rounded-xl border text-xs leading-relaxed transition-all {m.sender ===
+              class="flex gap-2.5 p-3 rounded-xl border text-xs leading-relaxed transition-all {m.sender ===
               'user'
                 ? 'bg-(--paper) border-(--line) ml-6'
                 : 'bg-(--surface) border-(--line) mr-6 shadow-sm ring-1 ring-(--accent)/20'}"
@@ -691,7 +892,7 @@
                 <div class="flex items-center justify-between mb-1">
                   <div class="flex items-center gap-1.5">
                     <span class="font-semibold text-(--ink) text-xs">
-                      {m.sender === "user" ? "You" : "Google Gemini 2.5"}
+                      {m.sender === "user" ? "Bạn" : "Gemini Live"}
                     </span>
                     {#if m.sender === "ai"}
                       <span
@@ -702,12 +903,14 @@
                     {/if}
                   </div>
                   <div class="flex items-center gap-2">
-                    <span class="text-[10px] text-(--muted)">{m.time}</span>
+                    <span class="text-[10px] text-(--muted)">
+                      {formatTime(m.timestamp)}
+                    </span>
                     <button
                       type="button"
-                      onclick={() => handleCopyMessage(m)}
+                      onclick={() => handleCopyMessage(m.id, m.text)}
                       class="text-(--muted) hover:text-(--ink) transition-colors cursor-pointer p-0.5 rounded"
-                      title="Copy message transcript"
+                      title="Sao chép nội dung tin nhắn"
                     >
                       {#if copiedId === m.id}
                         <Check class="w-3 h-3 text-(--success)" />
@@ -718,16 +921,7 @@
                   </div>
                 </div>
 
-                <p class="text-(--ink) text-xs m-0 leading-normal">{m.text}</p>
-
-                {#if m.actionTaken}
-                  <div
-                    class="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-(--success)/10 border border-(--success)/20 text-[10px] text-(--success) font-medium"
-                  >
-                    <Check class="w-3 h-3" />
-                    <span>Action: {m.actionTaken}</span>
-                  </div>
-                {/if}
+                <p class="text-(--ink) text-xs m-0 leading-normal whitespace-pre-wrap">{m.text}</p>
 
                 {#if m.sender === "ai"}
                   <div
@@ -739,7 +933,7 @@
                       class="flex items-center gap-1 text-[10px] text-(--muted) hover:text-(--accent-text) transition-colors cursor-pointer"
                     >
                       <Volume1 class="w-3 h-3" />
-                      <span>Replay Audio</span>
+                      <span>Phát lại âm thanh</span>
                     </button>
                   </div>
                 {/if}
@@ -750,7 +944,7 @@
         <div bind:this={messagesEndRef}></div>
       </div>
 
-      <!-- Bottom Dual Input Bar (Text + Voice Trigger) -->
+      <!-- Khung Nhập Tin Nhắn Văn Bản Dự Phòng -->
       <form
         onsubmit={handleFormSubmit}
         class="flex items-center gap-2 pt-2.5 border-t border-(--line) shrink-0"
@@ -759,46 +953,106 @@
           <input
             type="text"
             bind:value={inputText}
-            placeholder="Type instruction (e.g. 'Boost vocal clarity for meeting')…"
+            placeholder="Nhập lệnh điều khiển hoặc trao đổi với Gemini…"
             class="field w-full h-9 pr-10 text-xs"
           />
           <button
             type="button"
-            onclick={toggleListen}
-            class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors cursor-pointer {isListening
-              ? 'text-(--accent-text) bg-rose-500/20 animate-pulse'
-              : 'text-(--muted) hover:text-(--ink)'}"
-            title="Tap to speak"
+            onclick={toggleMic}
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors cursor-pointer {geminiLiveState.isMuted
+              ? 'text-(--muted) hover:text-(--ink)'
+              : 'text-(--accent-text) bg-rose-500/20'}"
+            title={geminiLiveState.isMuted ? "Bật Micro" : "Tắt Micro"}
           >
-            <Mic class="w-4 h-4" />
+            {#if geminiLiveState.isMuted}
+              <MicOff class="w-4 h-4" />
+            {:else}
+              <Mic class="w-4 h-4" />
+            {/if}
           </button>
         </div>
 
         <button
           type="submit"
           disabled={!inputText.trim()}
-          class="btn btn-primary h-9 px-4 shrink-0 text-xs flex items-center gap-1.5"
+          class="btn btn-primary h-9 px-4 shrink-0 text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send class="w-3.5 h-3.5 text-(--accent-ink)" />
-          <span>Send</span>
+          <span>Gửi</span>
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Confirmation Modal for Clearing Dialogue History -->
+  <!-- Modal Xác Nhận Xóa Lịch Sử Hội Thoại (Tuân thủ AGENTS.md Rule 3) -->
   <Modal
     open={isClearModalOpen}
     onClose={() => (isClearModalOpen = false)}
-    title="Clear Dialogue History?"
-    description="Are you sure you want to clear your conversation history? All recorded transcripts and audio action logs will be removed."
-    confirmText="Clear History"
-    cancelText="Cancel"
+    title="Xác nhận xóa lịch sử cuộc trò chuyện"
+    description="Bạn có chắc chắn muốn xóa toàn bộ lịch sử hội thoại hiện tại không? Mọi văn bản đã ghi nhận sẽ bị xóa vĩnh viễn."
+    confirmText="Xóa lịch sử"
+    cancelText="Hủy"
     confirmVariant="destructive"
     onConfirm={handleConfirmClear}
   >
     {#snippet icon()}
       <AlertTriangle class="w-5 h-5 text-(--warning)" />
     {/snippet}
+  </Modal>
+
+  <!-- Modal Cấu Hình Gemini API Key -->
+  <Modal
+    open={isApiKeyModalOpen}
+    onClose={() => (isApiKeyModalOpen = false)}
+    title="Cấu hình Google Gemini API Key"
+    description="Nhập API Key để kích hoạt kết nối WebSocket trực tiếp đến Google Gemini Live 2.0 Multimodal Service."
+    confirmText="Lưu và Kết nối"
+    cancelText="Hủy"
+    onConfirm={handleSaveApiKey}
+  >
+    {#snippet icon()}
+      <KeyRound class="w-5 h-5 text-(--accent-text)" />
+    {/snippet}
+
+    <div class="space-y-3 py-2">
+      <div>
+        <label for="gemini-key-input" class="block text-xs font-semibold text-(--ink) mb-1">
+          Gemini API Key
+        </label>
+        <div class="relative">
+          <input
+            id="gemini-key-input"
+            type={showKey ? "text" : "password"}
+            bind:value={apiKeyInput}
+            placeholder="AIzaSy..."
+            class="field w-full h-9 pr-10 text-xs font-mono"
+          />
+          <button
+            type="button"
+            onclick={() => (showKey = !showKey)}
+            class="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-(--muted) hover:text-(--ink) transition-colors cursor-pointer"
+            title={showKey ? "Ẩn khóa" : "Hiện khóa"}
+          >
+            {#if showKey}
+              <EyeOff class="w-3.5 h-3.5" />
+            {:else}
+              <Eye class="w-3.5 h-3.5" />
+            {/if}
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="p-2.5 rounded-xl bg-(--paper) border border-(--line) text-[11px] text-(--muted) space-y-1"
+      >
+        <p class="m-0">
+          Bạn có thể lấy Google Gemini API Key miễn phí tại
+          <span class="text-(--accent-text) font-mono">Google AI Studio</span> (aistudio.google.com).
+        </p>
+        <p class="m-0 text-[10px] text-(--muted)/80 font-mono">
+          Khóa được lưu cục bộ an toàn trên macOS và không chia sẻ cho bên thứ ba.
+        </p>
+      </div>
+    </div>
   </Modal>
 </div>

@@ -87,6 +87,32 @@ impl From<PetCareState> for PetCareStateDto {
 
 // MARK: - AgentPet Companion Commands
 
+fn pet_notification_window(window: &tauri::WebviewWindow, request: bool) -> Result<(), String> {
+    if window.label() == "main" || (!request && window.label() == "pet-overlay") { Ok(()) }
+    else { Err("AgentPet notifications are not available in this window".into()) }
+}
+
+#[tauri::command]
+async fn pet_notification_status(window: tauri::WebviewWindow) -> Result<String, String> {
+    pet_notification_window(&window, false)?;
+    core::pet_notifications::status().await
+}
+
+#[tauri::command]
+async fn request_pet_notification_permission(window: tauri::WebviewWindow) -> Result<String, String> {
+    pet_notification_window(&window, true)?;
+    core::pet_notifications::request().await
+}
+
+#[tauri::command]
+async fn send_pet_notification(window: tauri::WebviewWindow, title: String, body: String) -> Result<(), String> {
+    pet_notification_window(&window, false)?;
+    if title.trim().is_empty() || title.chars().count() > 200 || body.chars().count() > 1000 {
+        return Err("Notification title/body exceeds allowed length".into());
+    }
+    core::pet_notifications::send(title, body).await
+}
+
 static ACTIVE_PET_THEME: Mutex<Option<ActivityTheme>> = Mutex::new(None);
 
 #[tauri::command]
@@ -1780,6 +1806,9 @@ pub fn run() {
     let app = tauri::Builder::default()
         .manage(state)
         .invoke_handler(tauri::generate_handler![
+            pet_notification_status,
+            request_pet_notification_permission,
+            send_pet_notification,
             get_spotify_status,
             get_spotify_spectrum,
             connect_spotify_audio,

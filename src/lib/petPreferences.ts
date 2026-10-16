@@ -4,6 +4,11 @@ export const PET_KEYS = {
   fps: "ap_animation_fps",
   size: "rust_sound_pet_size",
   count: "ap_show_count",
+  notifications: "ap_notifications_enabled",
+  doneSound: "ap_sound_done_enabled",
+  waitingSound: "ap_sound_waiting_enabled",
+  doneCustom: "ap_sound_done_custom",
+  waitingCustom: "ap_sound_waiting_custom",
 } as const;
 
 export function boundedInteger(value: unknown, min: number, max: number, fallback: number): number {
@@ -23,6 +28,11 @@ function read(key: string): string | null {
 
 export function readPetPreferences() {
   return {
+    notifications: read(PET_KEYS.notifications) !== "0",
+    doneSound: read(PET_KEYS.doneSound) !== "0",
+    waitingSound: read(PET_KEYS.waitingSound) !== "0",
+    doneCustom: read(PET_KEYS.doneCustom),
+    waitingCustom: read(PET_KEYS.waitingCustom),
     animate: read(PET_KEYS.animate) !== "0",
     fps: boundedInteger(read(PET_KEYS.fps), 1, 12, 12),
     size: boundedInteger(read(PET_KEYS.size), 80, 300, 180),
@@ -34,7 +44,7 @@ export function readPetPreferences() {
 }
 
 /** Native storage events reach other webviews; this event also reaches this one. */
-export function writePetPreference(key: keyof typeof PET_KEYS, value: number | boolean) {
+export function writePetPreference(key: Exclude<keyof typeof PET_KEYS, "doneCustom" | "waitingCustom">, value: number | boolean) {
   const normalized = key === "fps" ? boundedInteger(value, 1, 12, 12)
     : key === "size" ? boundedInteger(value, 80, 300, 180) : value === true ? "1" : "0";
   writePetStorage(PET_KEYS[key], String(normalized));
