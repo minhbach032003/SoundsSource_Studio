@@ -37,7 +37,7 @@ Spec-driven workflow. `openspec/specs/<capability>/spec.md` are the live require
 
 ## Git workflow & Automated Rebuild Rule
 
-Whenever finishing a self-contained piece of work, feature, or bug fix:
+Whenever finishing a self-contained piece of work, feature, or bug fix (**step 1 is macOS-only — see "Cloud / Linux sessions" below**):
 1. Automatically rebuild the production macOS desktop app into `/Applications/rust-sound.app` so the user's installed application is immediately up-to-date:
    ```bash
    pnpm rebuild:app
@@ -48,6 +48,27 @@ Whenever finishing a self-contained piece of work, feature, or bug fix:
    ```
 
 Commit messages follow the conventional prefixes already in the history (`feat:`, `fix:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
+
+## Cloud / Linux sessions
+
+Claude Code cloud sessions run on **Ubuntu 24.04 x86_64**; the base image cannot be swapped. Three of the four crates cannot build there, so on any non-macOS host:
+
+- **Skip `pnpm rebuild:app` entirely.** There is no macOS SDK and no `/Applications`. Finish at the commit-and-push step.
+- **Never run `cargo test --workspace` or `cargo build` at the root.** `sound-core` is CoreAudio FFI, `rust-sound` is a macOS Tauri app, `pingloom` is CGEventTap.
+- **Do not claim an audio change works.** Verifying this project's DSP needs real CoreAudio devices, process taps and a running Spotify. None of that exists in a container. Say what you could not verify.
+
+What a Linux session can legitimately build, run and verify:
+
+```bash
+cargo test -p sound-engine          # 16 files, zero macOS cfgs: eq, filter, preset,
+                                    # router, spectrum, spotify (Web API), timer, auth/*
+pnpm install --frozen-lockfile
+pnpm build                          # tsc + vite over all of src/
+for f in tests/*.test.mjs; do node "$f"; done
+npx @fission-ai/openspec validate --specs
+```
+
+Anything touching `crates/core`, `crates/app` or `crates/pingloom` is read-only work in the cloud: review, refactor proposals, specs and docs. Hand the build and the listening test back to a macOS machine.
 
 ## UI conventions & Vector Icon Standard
 
