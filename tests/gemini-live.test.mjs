@@ -126,20 +126,29 @@ class MockAudioContext {
   }
 }
 
-function createGeminiLiveHarness(customInvoke) {
+function stripModule(path) {
+  return readFileSync(path, "utf8")
+    .replace(/^import .*;$/gm, "")
+    .replaceAll("export ", "");
+}
+
+function createGeminiLiveHarness(options) {
   MockWebSocket.instances = [];
   const micTracks = [];
   const camTracks = [];
 
-  const source = readFileSync("src/lib/geminiLive.svelte.ts", "utf8")
-    .replace(/^import .*;$/gm, "")
-    .replaceAll("export ", "");
+  const opts = typeof options === "function" ? { invoke: options } : options || {};
+
+  // geminiLive imports its function-calling layer, so both modules share one scope.
+  const source = `${stripModule("src/lib/geminiAudioTools.ts")}\n${stripModule(
+    "src/lib/geminiLive.svelte.ts"
+  )}`;
 
   const localStorageData = new Map();
 
   const context = vm.createContext({
-    isTauri: () => false,
-    invoke: customInvoke || (async () => null),
+    isTauri: () => opts.isTauri ?? false,
+    invoke: opts.invoke || (async () => null),
     $state: (v) => v,
     crypto: { randomUUID: () => `test-uuid-${Math.random().toString(36).slice(2, 8)}` },
     atob: (s) => Buffer.from(s, "base64").toString("binary"),
@@ -205,7 +214,12 @@ function createGeminiLiveHarness(customInvoke) {
   context.window = context;
 
   vm.runInContext(
-    ts.transpile(source) + "\nglobalThis.GeminiLiveService = GeminiLiveService;",
+    ts.transpile(source) +
+      "\nglobalThis.GeminiLiveService = GeminiLiveService;" +
+      "\nglobalThis.resolveEqBandIndex = resolveEqBandIndex;" +
+      "\nglobalThis.resolveAudioApp = resolveAudioApp;" +
+      "\nglobalThis.runGeminiAudioTool = runGeminiAudioTool;" +
+      "\nglobalThis.GEMINI_AUDIO_TOOL_DECLARATIONS = GEMINI_AUDIO_TOOL_DECLARATIONS;",
     context
   );
 
@@ -413,4 +427,366 @@ test("GeminiLiveService cleans up media tracks on disconnect", async () => {
   assert.equal(instance.transcript.length, 1);
   instance.clearTranscript();
   assert.equal(instance.transcript.length, 0, "clearTranscript empties transcript");
+});
+
+const MOCK_PROCESSES = [
+  {
+    object_id: 1,
+    pid: 501,
+    bundle_id: "com.spotify.client",
+    name: "Spotify",
+    is_running_output: true,
+    is_regular_app: true,
+    supports_volume: true,
+  },
+  {
+    object_id: 2,
+    pid: 502,
+    bundle_id: "com.brave.browser",
+    name: "Brave Browser",
+    is_running_output: true,
+    is_regular_app: true,
+    supports_volume: true,
+  },
+  {
+    object_id: 3,
+    pid: 503,
+    bundle_id: "com.apple.finder",
+    name: "Finder",
+    is_running_output: false,
+    is_regular_app: true,
+    supports_volume: false,
+  },
+];
+
+function createMixerInvoke(calls) {
+  return async (command, args) => {
+    calls.push({ command, args });
+    switch (command) {
+      case "get_audio_processes":
+        return MOCK_PROCESSES;
+      case "get_master_volume":
+        return 0.42;
+      case "get_master_eq_bands":
+        return {
+          bands: [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].map((frequency) => ({
+            frequency,
+            gain: 0,
+            bandwidth: 1,
+          })),
+          bypass: false,
+        };
+      case "set_master_eq_bypass":
+        return Boolean(args.bypass);
+      default:
+        return null;
+    }
+  };
+}
+
+async function openLiveSession(harness, apiKey = "AIzaTestKey-Session") {
+  await harness.instance.connect({ apiKey });
+  const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+  ws.onopen();
+  await ws.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  return ws;
+}
+
+test("setup frame negotiates transcription, tools and a system instruction", async () => {
+  const { instance } = createGeminiLiveHarness();
+
+  await instance.connect({ apiKey: "AIzaTestKey-Setup", voiceName: "Puck" });
+  const ws = MockWebSocket.instances[0];
+  ws.onopen();
+
+  const setup = JSON.parse(ws.sent[0]).setup;
+
+  assert.equal(
+    setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,
+    "Puck",
+    "requested persona reaches the setup frame"
+  );
+  assert.ok(setup.inputAudioTranscription, "asks for user speech transcription");
+  assert.ok(setup.outputAudioTranscription, "asks for model speech transcription");
+  assert.ok(setup.systemInstruction?.parts?.[0]?.text?.includes("rust-sound"), "ships a system instruction");
+
+  const declared = setup.tools[0].functionDeclarations.map((d) => d.name);
+  for (const name of [
+    "list_audio_apps",
+    "set_app_volume",
+    "set_app_mute",
+    "set_master_volume",
+    "set_master_mute",
+    "set_master_eq_band",
+    "reset_master_eq",
+  ]) {
+    assert.ok(declared.includes(name), `declares mixer tool ${name}`);
+  }
+
+  instance.disconnect();
+});
+
+test("a rejected setup is retried one feature at a time, keeping tool calling", async () => {
+  const { instance } = createGeminiLiveHarness();
+
+  await instance.connect({ apiKey: "AIzaTestKey-Downgrade" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  const firstSetup = JSON.parse(first.sent[0]).setup;
+  assert.ok(firstSetup.tools, "first attempt asks for tools");
+  assert.ok(firstSetup.inputAudioTranscription, "first attempt asks for transcription");
+
+  // Step 1: a model without transcription keeps its function calling.
+  await first.onmessage({
+    data: JSON.stringify({ error: { message: "Unknown field: inputAudioTranscription" } }),
+  });
+  assert.equal(MockWebSocket.instances.length, 2, "reconnected after the first rejection");
+  const second = MockWebSocket.instances[1];
+  second.onopen();
+  const secondSetup = JSON.parse(second.sent[0]).setup;
+  assert.equal(secondSetup.inputAudioTranscription, undefined, "retry drops transcription");
+  assert.ok(secondSetup.tools, "retry still declares the mixer tools");
+  assert.equal(instance.status, "connecting", "retry keeps the call alive instead of failing");
+  assert.match(instance.notice, /phụ đề/, "explains that captions were dropped");
+
+  // Step 2: only then is tool calling given up.
+  await second.onmessage({
+    data: JSON.stringify({ error: { message: "Unknown field: tools" } }),
+  });
+  assert.equal(MockWebSocket.instances.length, 3, "reconnected after the second rejection");
+  const third = MockWebSocket.instances[2];
+  third.onopen();
+  const thirdSetup = JSON.parse(third.sent[0]).setup;
+  assert.equal(thirdSetup.tools, undefined, "second retry drops tool declarations");
+  assert.match(instance.notice, /thoại cơ bản/, "explains the fallback to a plain session");
+
+  // Nothing left to drop: the next rejection is a real error.
+  await third.onmessage({ data: JSON.stringify({ error: { message: "Invalid API key" } }) });
+  assert.equal(instance.status, "error", "final rejection reports the error");
+  assert.equal(instance.error, "Invalid API key");
+  assert.equal(MockWebSocket.instances.length, 3, "no further retries");
+
+  instance.disconnect();
+});
+
+test("spoken turns land in the transcript through audio transcription", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { inputTranscription: { text: "Giảm Spotify " } } }),
+  });
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { inputTranscription: { text: "xuống 40%" } } }),
+  });
+
+  assert.equal(instance.transcript.length, 1, "user speech opens exactly one row");
+  assert.equal(instance.transcript[0].sender, "user");
+  assert.equal(instance.transcript[0].text, "Giảm Spotify xuống 40%", "deltas append to the open turn");
+  assert.equal(instance.transcript[0].source, "voice", "row is tagged as live voice");
+  assert.equal(instance.transcript[0].isFinal, false, "turn stays open while streaming");
+
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { outputTranscription: { text: "Đã giảm Spotify." } } }),
+  });
+  await ws.onmessage({ data: JSON.stringify({ serverContent: { turnComplete: true } }) });
+
+  assert.equal(instance.transcript.length, 2, "model speech opens its own row");
+  assert.equal(instance.transcript[1].sender, "ai");
+  assert.equal(instance.transcript[1].text, "Đã giảm Spotify.");
+  assert.equal(instance.transcript[0].isFinal, true, "user turn finalised on turnComplete");
+  assert.equal(instance.transcript[1].isFinal, true, "ai turn finalised on turnComplete");
+
+  // The next spoken turn must not append onto the finalised rows.
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { inputTranscription: { text: "Cảm ơn" } } }),
+  });
+  assert.equal(instance.transcript.length, 3, "a new turn starts a new row");
+
+  instance.disconnect();
+});
+
+test("Gemini function calls drive the real mixer and are answered with toolResponse", async () => {
+  const calls = [];
+  const harness = createGeminiLiveHarness({ isTauri: true, invoke: createMixerInvoke(calls) });
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  await ws.onmessage({
+    data: JSON.stringify({
+      toolCall: {
+        functionCalls: [
+          { id: "fc-1", name: "set_app_volume", args: { app: "spotify", volume_percent: 55 } },
+          { id: "fc-2", name: "set_master_eq_band", args: { frequency_hz: 2500, gain_db: 4 } },
+        ],
+      },
+    }),
+  });
+
+  const volumeCall = calls.find((c) => c.command === "set_app_volume");
+  assert.ok(volumeCall, "invoked the set_app_volume Tauri command");
+  assert.equal(volumeCall.args.bundleId, "com.spotify.client", "resolved 'spotify' to its bundle id");
+  assert.ok(Math.abs(volumeCall.args.volume - 0.55) < 1e-6, "percent converted to 0..1 gain");
+
+  const eqCall = calls.find((c) => c.command === "set_master_eq_band");
+  assert.ok(eqCall, "invoked the set_master_eq_band Tauri command");
+  assert.equal(eqCall.args.bandIndex, 6, "2.5kHz request snapped to the 2kHz band");
+  assert.equal(eqCall.args.gainDb, 4);
+
+  const toolRows = instance.transcript.filter((m) => m.sender === "tool");
+  assert.equal(toolRows.length, 2, "both executions are visible in the Dialogue Console");
+  assert.ok(toolRows.every((row) => row.toolOk === true), "rows report success");
+  assert.match(toolRows[0].text, /Spotify/, "row names the app that changed");
+
+  const reply = JSON.parse(ws.sent[ws.sent.length - 1]);
+  assert.equal(reply.toolResponse.functionResponses.length, 2, "answers every function call");
+  assert.equal(reply.toolResponse.functionResponses[0].id, "fc-1", "echoes the call id");
+  assert.equal(reply.toolResponse.functionResponses[0].response.ok, true);
+
+  instance.disconnect();
+});
+
+test("Agent Control off refuses function calls without touching the mixer", async () => {
+  const calls = [];
+  const harness = createGeminiLiveHarness({ isTauri: true, invoke: createMixerInvoke(calls) });
+  const { instance } = harness;
+  instance.setToolsEnabled(false);
+  const ws = await openLiveSession(harness);
+
+  assert.equal(JSON.parse(ws.sent[0]).setup.tools, undefined, "no tools declared while off");
+
+  await ws.onmessage({
+    data: JSON.stringify({
+      toolCall: { functionCalls: [{ id: "fc-9", name: "set_master_mute", args: { muted: true } }] },
+    }),
+  });
+
+  assert.equal(
+    calls.filter((c) => c.command === "set_master_mute").length,
+    0,
+    "the mixer command is never invoked"
+  );
+  const row = instance.transcript.find((m) => m.sender === "tool");
+  assert.equal(row.toolOk, false, "the refusal is recorded");
+  const reply = JSON.parse(ws.sent[ws.sent.length - 1]);
+  assert.equal(reply.toolResponse.functionResponses[0].response.ok, false);
+  assert.equal(reply.toolResponse.functionResponses[0].response.error, "agent_control_disabled");
+
+  instance.disconnect();
+});
+
+test("AI turns cache their PCM for replay and respect the speaker gain", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  const pcm = Buffer.from(new Int16Array([800, -800, 1600, -1600]).buffer).toString("base64");
+
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { outputTranscription: { text: "Xong rồi." } } }),
+  });
+  await ws.onmessage({
+    data: JSON.stringify({
+      serverContent: {
+        modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: pcm } }] },
+      },
+    }),
+  });
+
+  const pending = instance.transcript[instance.transcript.length - 1];
+  assert.equal(pending.hasAudio, undefined, "audio is only attached once the turn closes");
+
+  await ws.onmessage({ data: JSON.stringify({ serverContent: { turnComplete: true } }) });
+
+  const row = instance.transcript[instance.transcript.length - 1];
+  assert.equal(row.hasAudio, true, "finished turn exposes its replay audio");
+  assert.equal(instance.hasReplayAudio(row.id), true);
+  assert.equal(instance.replayMessage(row.id), true, "replay plays the cached PCM");
+  assert.equal(instance.replayMessage("no-such-id"), false, "unknown ids report no audio");
+
+  instance.setOutputVolume(0.5);
+  assert.equal(instance.outputVolume, 0.5, "speaker gain is stored");
+  instance.setOutputVolume(4);
+  assert.equal(instance.outputVolume, 1, "speaker gain clamps to 1");
+  instance.setOutputVolume(-2);
+  assert.equal(instance.outputVolume, 0, "speaker gain clamps to 0");
+
+  instance.clearTranscript();
+  assert.equal(instance.hasReplayAudio(row.id), false, "clearing history drops the audio cache");
+
+  instance.disconnect();
+});
+
+test("session telemetry tracks call start, tokens and expiry reconnects", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+
+  assert.equal(instance.callStartedAt, null, "no call timer before connecting");
+  const ws = await openLiveSession(harness);
+  assert.equal(typeof instance.callStartedAt, "number", "call timer starts on setupComplete");
+
+  await ws.onmessage({ data: JSON.stringify({ usageMetadata: { totalTokenCount: 1234 } }) });
+  assert.equal(instance.tokensUsed, 1234, "token usage is surfaced");
+
+  await ws.onmessage({ data: JSON.stringify({ goAway: { timeLeft: "10s" } }) });
+  assert.match(instance.notice, /kết nối lại/, "warns before the session expires");
+  assert.equal(MockWebSocket.instances.length, 2, "reconnects automatically on goAway");
+
+  instance.disconnect();
+  assert.equal(instance.callStartedAt, null, "call timer resets on hangup");
+  assert.equal(instance.tokensUsed, 0, "token counter resets on hangup");
+});
+
+test("switchVoice re-opens the session with the new persona and keeps the transcript", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  instance.sendTextMessage("Giữ lại tin nhắn này");
+  assert.equal(instance.transcript.length, 1);
+
+  await instance.switchVoice("Charon");
+
+  assert.equal(MockWebSocket.instances.length, 2, "opened a second session for the new voice");
+  const next = MockWebSocket.instances[1];
+  next.onopen();
+  assert.equal(
+    JSON.parse(next.sent[0]).setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig
+      .voiceName,
+    "Charon",
+    "new session requests the selected persona"
+  );
+  assert.equal(instance.activeVoice, "Charon");
+  assert.equal(instance.transcript.length, 1, "transcript survives the persona swap");
+  assert.equal(ws.readyState, MockWebSocket.CLOSED, "the previous socket is closed");
+
+  instance.disconnect();
+});
+
+test("mixer tool helpers resolve apps and EQ bands the way users describe them", () => {
+  const { context } = createGeminiLiveHarness();
+
+  assert.equal(context.resolveEqBandIndex(2000), 6, "exact band frequency");
+  assert.equal(context.resolveEqBandIndex(2500), 6, "2.5kHz snaps to the nearest band on a log scale");
+  assert.equal(context.resolveEqBandIndex(5000), 7, "5kHz snaps to 4kHz");
+  assert.equal(context.resolveEqBandIndex(2.5), 6, "a bare 2.5 is read as kHz");
+  assert.equal(context.resolveEqBandIndex(0), 0, "index 0 stays the 32Hz band");
+  assert.equal(context.resolveEqBandIndex("not a number"), null, "garbage is rejected");
+
+  assert.equal(context.resolveAudioApp(MOCK_PROCESSES, "Spotify").bundle_id, "com.spotify.client");
+  assert.equal(context.resolveAudioApp(MOCK_PROCESSES, "brave").bundle_id, "com.brave.browser");
+  assert.equal(
+    context.resolveAudioApp(MOCK_PROCESSES, "trình duyệt brave").bundle_id,
+    "com.brave.browser",
+    "Vietnamese alias resolves"
+  );
+  assert.equal(context.resolveAudioApp(MOCK_PROCESSES, "Zalo"), null, "unknown app resolves to null");
+});
+
+test("mixer tools refuse to act outside the desktop app", async () => {
+  const { context } = createGeminiLiveHarness({ isTauri: false });
+  const result = await context.runGeminiAudioTool("set_master_volume", { volume_percent: 30 });
+  assert.equal(result.ok, false);
+  assert.match(result.summary, /desktop/, "explains why it cannot act");
 });

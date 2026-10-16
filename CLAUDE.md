@@ -19,6 +19,8 @@ Deps: `app → engine → core`, app also uses core directly, core never referen
 
 **One IPC boundary, three edits per feature.** All state lives in `AppState` (`crates/app/src/lib.rs`): `Mutex<AudioRouter>`, `Mutex<PresetStore>`, `Mutex<BreakTimerManager>`, `AuthService`. Every frontend capability is a `#[tauri::command]` fn in that same file, so adding one means: write the command, register it in `generate_handler!`, add the typed wrapper in `src/audio.ts`. Commands stay thin — DSP goes in `engine/router.rs` + `engine/eq.rs`, CoreAudio calls in `core/device.rs` + `core/process.rs`.
 
+**Gemini Live voice call** is frontend-only: `src/lib/geminiLive.svelte.ts` holds the WebSocket session (16 kHz PCM uplink, 24 kHz downlink, 1 fps JPEG video, audio transcription for the transcript), and `src/lib/geminiAudioTools.ts` is its function-calling layer — Gemini's tool calls are executed against existing mixer commands (`set_app_volume`, `set_master_eq_band`, …), never new ones, and are gated by the Agent Control toggle in `src/views/VoiceAiView.svelte`. The Rust side only stores the API key (`get_gemini_api_key` / `set_gemini_api_key`).
+
 `AuthService` (`crates/engine/src/auth/`) composes four verifiers behind one facade: internal HS256 JWT (`jwt.rs`), Google ID tokens (`google.rs`), Keycloak (`keycloak.rs`), either-of-the-two (`dual_auth.rs`), plus PKCE S256 (`pkce.rs`) and a Neon Postgres repo (`db.rs`). Frontend side is `src/lib/googleAuth.svelte.ts`.
 
 **README is out of date on two points:** Frontend is Svelte 5 + Tailwind v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`); and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.

@@ -1,13 +1,23 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { GEMINI_AUDIO_TOOL_DECLARATIONS, runGeminiAudioTool, type GeminiToolResult } from "@/lib/geminiAudioTools";
 
 export type GeminiLiveStatus = "idle" | "connecting" | "connected" | "error";
 
+export type GeminiLiveSender = "user" | "ai" | "tool";
+
 export interface GeminiLiveMessage {
   id: string;
-  sender: "user" | "ai";
+  sender: GeminiLiveSender;
   text: string;
   timestamp: Date;
   isFinal?: boolean;
+  /** How the turn reached the transcript: live speech or the typed fallback box. */
+  source?: "voice" | "text";
+  /** Set on `sender: "tool"` rows. */
+  toolName?: string;
+  toolOk?: boolean;
+  /** True once the turn's PCM has been cached and can be replayed. */
+  hasAudio?: boolean;
 }
 
 export interface GeminiLiveConnectOptions {
@@ -20,6 +30,28 @@ export interface GeminiLiveConnectOptions {
 
 const GEMINI_LIVE_WS_BASE =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+
+/** Gemini Live accepts video at low frame rates; 1 fps is the documented uplink budget. */
+export const GEMINI_VIDEO_UPLINK_FPS = 1;
+
+/** Mic uplink rate required by the Live API, and the rate it speaks back at. */
+export const GEMINI_INPUT_SAMPLE_RATE = 16000;
+export const GEMINI_OUTPUT_SAMPLE_RATE = 24000;
+
+/** Roughly two minutes of 24 kHz mono audio kept for replay, then the oldest turns drop. */
+const AUDIO_CACHE_MAX_SAMPLES = GEMINI_OUTPUT_SAMPLE_RATE * 120;
+const AUDIO_CACHE_MAX_TURNS = 12;
+
+const DEFAULT_SYSTEM_INSTRUCTION = `Bạn là trợ lý âm thanh thời gian thực tích hợp sẵn trong rust-sound, một ứng dụng mixer âm thanh trên macOS.
+
+Bạn điều khiển được mixer thật của máy thông qua các hàm được cung cấp: liệt kê ứng dụng đang phát tiếng, đặt âm lượng và mute từng ứng dụng, đặt âm lượng và mute master, đọc và chỉnh 10 band EQ master.
+
+Nguyên tắc làm việc:
+- Khi người dùng yêu cầu thay đổi âm thanh, hãy gọi hàm tương ứng ngay thay vì chỉ mô tả cách làm.
+- Trước khi chỉnh âm lượng một ứng dụng, gọi list_audio_apps để lấy tên chính xác.
+- Sau khi gọi hàm, báo lại ngắn gọn bằng tiếng Việt kết quả thực tế (giá trị đã đặt, ứng dụng nào).
+- Nếu một hàm trả về lỗi, nói rõ lý do và đề xuất phương án khác, không bịa là đã thành công.
+- Trả lời ngắn, đi thẳng vào việc, bằng tiếng Việt, giữ nguyên thuật ngữ kỹ thuật tiếng Anh.`;
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -70,7 +102,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 function downsampleBuffer(
   buffer: Float32Array,
   inputSampleRate: number,
-  outputSampleRate = 16000
+  outputSampleRate = GEMINI_INPUT_SAMPLE_RATE
 ): Float32Array {
   if (inputSampleRate === outputSampleRate) {
     return buffer;
@@ -118,6 +150,21 @@ export class GeminiLiveService {
   transcript = $state<GeminiLiveMessage[]>([]);
   cameraStream = $state<MediaStream | null>(null);
 
+  /** Playback gain applied to Gemini's voice, 0..1. */
+  outputVolume = $state<number>(1);
+  /** When off, Gemini's function calls are refused instead of touching the mixer. */
+  toolsEnabled = $state<boolean>(true);
+  /** When off, the session runs without input/output audio transcription. */
+  captionsEnabled = $state<boolean>(true);
+  /** Epoch ms of the moment the session became usable, for the call timer. */
+  callStartedAt = $state<number | null>(null);
+  /** Cumulative token count reported by the server for this session. */
+  tokensUsed = $state<number>(0);
+  /** Non-fatal session notice (feature downgrade, imminent expiry, reconnects). */
+  notice = $state<string | null>(null);
+  /** Voice persona the live session was actually opened with. */
+  activeVoice = $state<string>("Aoede");
+
   private ws: WebSocket | null = null;
   private micStream: MediaStream | null = null;
   private inputAudioContext: AudioContext | null = null;
@@ -136,6 +183,22 @@ export class GeminiLiveService {
   private videoCaptureInterval: number | null = null;
 
   private volumeAnimId: number | null = null;
+
+  /** Options of the live session, replayed on persona switch and reconnect. */
+  private lastOptions: GeminiLiveConnectOptions | null = null;
+  /**
+   * How much of the extended setup has been given up after a rejection:
+   * 0 = transcription + tools, 1 = tools only, 2 = plain audio session.
+   */
+  private setupDowngradeLevel = 0;
+  private reconnectAttempts = 0;
+
+  /** Streaming turn bookkeeping: which rows the next delta belongs to. */
+  private activeAiMessageId: string | null = null;
+  private activeUserMessageId: string | null = null;
+  /** PCM of the AI turn in flight, moved into `audioCache` when the turn closes. */
+  private turnAudio: Float32Array[] = [];
+  private audioCache = new Map<string, Float32Array[]>();
 
   async getApiKey(): Promise<string | null> {
     if (typeof window !== "undefined" && isTauri()) {
@@ -176,8 +239,69 @@ export class GeminiLiveService {
   }
 
   async connect(options?: GeminiLiveConnectOptions): Promise<void> {
+    if (options) {
+      this.lastOptions = { ...options };
+    }
+    this.setupDowngradeLevel = 0;
+    this.reconnectAttempts = 0;
+    this.notice = null;
+    await this.openSession(options ?? this.lastOptions ?? {});
+  }
+
+  /** Re-open the session with the last options, keeping the transcript. */
+  async reconnect(): Promise<void> {
+    if (!this.lastOptions) return;
+    await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
+  }
+
+  /** Gemini locks the voice per session, so a persona change re-opens the socket. */
+  async switchVoice(voiceName: string): Promise<void> {
+    this.lastOptions = { ...(this.lastOptions ?? {}), voiceName };
+    if (this.status === "connected" || this.status === "connecting") {
+      this.notice = `Đang áp dụng persona ${voiceName} cho phiên hiện tại...`;
+      await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
+    }
+  }
+
+  private buildSetupMessage(
+    model: string,
+    voiceName: string,
+    systemInstruction: string
+  ): Record<string, unknown> {
+    const withCaptions = this.captionsEnabled && this.setupDowngradeLevel < 1;
+    const withTools = this.toolsEnabled && this.setupDowngradeLevel < 2;
+
+    return {
+      setup: {
+        model,
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName,
+              },
+            },
+          },
+        },
+        systemInstruction: {
+          parts: [{ text: systemInstruction }],
+        },
+        // Audio-only responses carry no text, so transcription is what fills the
+        // Dialogue Console for spoken turns on both sides.
+        ...(withCaptions
+          ? { inputAudioTranscription: {}, outputAudioTranscription: {} }
+          : {}),
+        ...(withTools
+          ? { tools: [{ functionDeclarations: GEMINI_AUDIO_TOOL_DECLARATIONS }] }
+          : {}),
+      },
+    };
+  }
+
+  private async openSession(options: GeminiLiveConnectOptions): Promise<void> {
     if (this.status === "connecting" || this.status === "connected") {
-      this.disconnect();
+      this.disconnect({ keepSession: true });
     }
 
     this.status = "connecting";
@@ -197,7 +321,8 @@ export class GeminiLiveService {
 
     const voiceName = options?.voiceName || "Aoede";
     const model = options?.model || "models/gemini-2.0-flash-exp";
-    const systemInstruction = options?.systemInstruction;
+    const systemInstruction = options?.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+    this.activeVoice = voiceName;
 
     try {
       await this.setupMicrophone();
@@ -222,29 +347,7 @@ export class GeminiLiveService {
     }
 
     this.ws.onopen = () => {
-      const setupMessage = {
-        setup: {
-          model,
-          generationConfig: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName,
-                },
-              },
-            },
-          },
-          ...(systemInstruction
-            ? {
-                systemInstruction: {
-                  parts: [{ text: systemInstruction }],
-                },
-              }
-            : {}),
-        },
-      };
-      this.ws?.send(JSON.stringify(setupMessage));
+      this.ws?.send(JSON.stringify(this.buildSetupMessage(model, voiceName, systemInstruction)));
       this.startVolumeMonitor();
     };
 
@@ -271,6 +374,7 @@ export class GeminiLiveService {
           this.status = "idle";
         }
       }
+      this.callStartedAt = null;
       this.cleanupMedia();
     };
 
@@ -295,7 +399,7 @@ export class GeminiLiveService {
       const parsed = JSON.parse(rawText);
 
       if (parsed.setupComplete) {
-        this.status = "connected";
+        this.markConnected();
       }
 
       if (parsed.error) {
@@ -303,43 +407,69 @@ export class GeminiLiveService {
           typeof parsed.error === "object" && parsed.error && "message" in parsed.error
             ? String(parsed.error.message)
             : "Gemini Live API báo lỗi.";
+
+        // A setup rejected while we asked for transcription or tools is retried
+        // with one feature less, so an older model never breaks the call outright.
+        if (this.status === "connecting" && this.hasPendingSetupExtras()) {
+          this.setupDowngradeLevel += 1;
+          this.notice =
+            this.setupDowngradeLevel === 1
+              ? "Model không nhận audio transcription, đã tắt phụ đề và kết nối lại."
+              : "Model không nhận tool-calling, đã kết nối lại ở chế độ thoại cơ bản.";
+          await this.reconnect();
+          return;
+        }
+
         this.status = "error";
         this.error = message;
         return;
       }
 
-      if (parsed.serverContent) {
-        if (this.status === "connecting") {
-          this.status = "connected";
+      if (parsed.goAway) {
+        this.notice = "Phiên Gemini Live sắp hết hạn, đang tự động kết nối lại...";
+        if (this.reconnectAttempts < 2) {
+          this.reconnectAttempts++;
+          await this.reconnect();
         }
+        return;
+      }
+
+      if (parsed.usageMetadata?.totalTokenCount) {
+        this.tokensUsed = Number(parsed.usageMetadata.totalTokenCount) || this.tokensUsed;
+      }
+
+      if (parsed.toolCall) {
+        this.markConnected();
+        await this.handleToolCall(parsed.toolCall);
+        return;
+      }
+
+      if (parsed.toolCallCancellation) {
+        return;
+      }
+
+      if (parsed.serverContent) {
+        this.markConnected();
 
         const content = parsed.serverContent;
 
+        if (content.inputTranscription?.text) {
+          this.appendTurnText("user", content.inputTranscription.text, "voice");
+        }
+
+        if (content.outputTranscription?.text) {
+          this.appendTurnText("ai", content.outputTranscription.text, "voice");
+        }
+
         if (content.interrupted) {
           this.stopAudioPlayback();
-          const lastMsg = this.transcript[this.transcript.length - 1];
-          if (lastMsg && lastMsg.sender === "ai") {
-            lastMsg.isFinal = true;
-          }
+          this.finalizeTurn();
         }
 
         if (content.modelTurn?.parts) {
           for (const part of content.modelTurn.parts) {
             if (part.text) {
-              const lastIndex = this.transcript.length - 1;
-              const lastMsg = lastIndex >= 0 ? this.transcript[lastIndex] : null;
-
-              if (lastMsg && lastMsg.sender === "ai" && !lastMsg.isFinal) {
-                lastMsg.text += part.text;
-              } else {
-                this.transcript.push({
-                  id: generateId(),
-                  sender: "ai",
-                  text: part.text,
-                  timestamp: new Date(),
-                  isFinal: false,
-                });
-              }
+              this.appendTurnText("ai", part.text, "text");
             }
 
             if (part.inlineData?.data) {
@@ -352,14 +482,151 @@ export class GeminiLiveService {
         }
 
         if (content.turnComplete) {
-          const lastMsg = this.transcript[this.transcript.length - 1];
-          if (lastMsg && lastMsg.sender === "ai") {
-            lastMsg.isFinal = true;
-          }
+          this.finalizeTurn();
         }
       }
     } catch (parseErr) {
       console.warn("Failed to parse Gemini Live message:", parseErr);
+    }
+  }
+
+  /** True while the setup frame still carries a feature we could drop and retry. */
+  private hasPendingSetupExtras(): boolean {
+    if (this.setupDowngradeLevel < 1 && this.captionsEnabled) return true;
+    if (this.setupDowngradeLevel < 2 && this.toolsEnabled) return true;
+    return false;
+  }
+
+  private markConnected(): void {
+    // Only an in-flight session may be promoted; never resurrect a closed or failed one.
+    if (this.status !== "connecting" && this.status !== "connected") return;
+    if (this.status !== "connected") {
+      this.status = "connected";
+    }
+    if (this.callStartedAt === null) {
+      this.callStartedAt = Date.now();
+    }
+  }
+
+  /** Append a streaming delta onto the open turn of `sender`, or start one. */
+  private appendTurnText(
+    sender: "user" | "ai",
+    text: string,
+    source: "voice" | "text"
+  ): void {
+    const activeId = sender === "ai" ? this.activeAiMessageId : this.activeUserMessageId;
+
+    let target: GeminiLiveMessage | null = null;
+    if (activeId) {
+      const found = this.transcript.find((m) => m.id === activeId);
+      if (found && !found.isFinal) {
+        target = found;
+      }
+    }
+    if (!target) {
+      const last = this.transcript[this.transcript.length - 1];
+      if (last && last.sender === sender && !last.isFinal) {
+        target = last;
+      }
+    }
+
+    if (target) {
+      target.text += text;
+    } else {
+      target = {
+        id: generateId(),
+        sender,
+        text,
+        timestamp: new Date(),
+        isFinal: false,
+        source,
+      };
+      this.transcript.push(target);
+    }
+
+    if (sender === "ai") {
+      this.activeAiMessageId = target.id;
+    } else {
+      this.activeUserMessageId = target.id;
+    }
+  }
+
+  /** Close both open turns and hand the AI turn's PCM to the replay cache. */
+  private finalizeTurn(): void {
+    if (this.activeAiMessageId) {
+      const aiMsg = this.transcript.find((m) => m.id === this.activeAiMessageId);
+      if (aiMsg) {
+        aiMsg.isFinal = true;
+        if (this.turnAudio.length > 0) {
+          this.audioCache.set(aiMsg.id, this.turnAudio);
+          aiMsg.hasAudio = true;
+          this.pruneAudioCache();
+        }
+      }
+    }
+
+    if (this.activeUserMessageId) {
+      const userMsg = this.transcript.find((m) => m.id === this.activeUserMessageId);
+      if (userMsg) {
+        userMsg.isFinal = true;
+      }
+    }
+
+    this.turnAudio = [];
+    this.activeAiMessageId = null;
+    this.activeUserMessageId = null;
+  }
+
+  private async handleToolCall(toolCall: {
+    functionCalls?: { id?: string; name: string; args?: Record<string, unknown> }[];
+  }): Promise<void> {
+    const calls = toolCall?.functionCalls ?? [];
+    if (calls.length === 0) return;
+
+    // A tool call ends the spoken turn that requested it.
+    this.finalizeTurn();
+
+    const functionResponses: Record<string, unknown>[] = [];
+
+    for (const call of calls) {
+      let result: GeminiToolResult;
+      if (!this.toolsEnabled) {
+        result = {
+          ok: false,
+          summary: `Đã chặn ${call.name}: Agent Control đang tắt`,
+          error: "agent_control_disabled",
+        };
+      } else {
+        result = await runGeminiAudioTool(call.name, call.args ?? {});
+      }
+
+      this.transcript.push({
+        id: generateId(),
+        sender: "tool",
+        text: result.summary,
+        timestamp: new Date(),
+        isFinal: true,
+        toolName: call.name,
+        toolOk: result.ok,
+      });
+
+      functionResponses.push({
+        ...(call.id ? { id: call.id } : {}),
+        name: call.name,
+        response: {
+          ok: result.ok,
+          ...(result.data ?? {}),
+          ...(result.error ? { error: result.error } : {}),
+        },
+      });
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({ toolResponse: { functionResponses } }));
+      } catch (err) {
+        console.warn("Failed to send tool response to Gemini Live:", err);
+      }
     }
   }
 
@@ -371,18 +638,24 @@ export class GeminiLiveService {
     this.micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
-        sampleRate: 16000,
+        sampleRate: GEMINI_INPUT_SAMPLE_RATE,
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       },
     });
 
+    if (this.isMuted) {
+      this.micStream.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+    }
+
     const AudioContextClass =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 
-    this.inputAudioContext = new AudioContextClass({ sampleRate: 16000 });
+    this.inputAudioContext = new AudioContextClass({ sampleRate: GEMINI_INPUT_SAMPLE_RATE });
     const actualSampleRate = this.inputAudioContext.sampleRate;
 
     const bufferSize = 2048;
@@ -419,7 +692,7 @@ export class GeminiLiveService {
         return;
       }
 
-      const pcm16Float = downsampleBuffer(inputChannel, actualSampleRate, 16000);
+      const pcm16Float = downsampleBuffer(inputChannel, actualSampleRate, GEMINI_INPUT_SAMPLE_RATE);
       const pcm16Bytes = float32ToInt16PCM(pcm16Float);
       const base64Data = uint8ArrayToBase64(pcm16Bytes);
 
@@ -427,7 +700,7 @@ export class GeminiLiveService {
         realtimeInput: {
           mediaChunks: [
             {
-              mimeType: "audio/pcm;rate=16000",
+              mimeType: `audio/pcm;rate=${GEMINI_INPUT_SAMPLE_RATE}`,
               data: base64Data,
             },
           ],
@@ -442,7 +715,7 @@ export class GeminiLiveService {
     };
   }
 
-  private playAudioChunk(float32: Float32Array): void {
+  private ensureOutputGraph(): AudioContext {
     if (!this.outputAudioContext || this.outputAudioContext.state === "closed") {
       const AudioContextClass =
         window.AudioContext ||
@@ -452,29 +725,40 @@ export class GeminiLiveService {
       this.outputAnalyser.fftSize = 256;
       this.outputAnalyser.smoothingTimeConstant = 0.3;
       this.outputGainNode = this.outputAudioContext.createGain();
-      this.outputGainNode.gain.value = 1.0;
+      this.outputGainNode.gain.value = this.outputVolume;
       this.outputGainNode.connect(this.outputAnalyser);
       this.outputAnalyser.connect(this.outputAudioContext.destination);
+      this.nextPlayTime = 0;
     }
 
     if (this.outputAudioContext.state === "suspended") {
       void this.outputAudioContext.resume();
     }
 
-    const audioBuffer = this.outputAudioContext.createBuffer(1, float32.length, 24000);
+    return this.outputAudioContext;
+  }
+
+  private playAudioChunk(float32: Float32Array, cacheForReplay = true): void {
+    const ctx = this.ensureOutputGraph();
+
+    if (cacheForReplay) {
+      this.turnAudio.push(float32);
+    }
+
+    const audioBuffer = ctx.createBuffer(1, float32.length, GEMINI_OUTPUT_SAMPLE_RATE);
     audioBuffer.getChannelData(0).set(float32);
 
-    const source = this.outputAudioContext.createBufferSource();
+    const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     if (this.outputGainNode) {
       source.connect(this.outputGainNode);
     } else if (this.outputAnalyser) {
       source.connect(this.outputAnalyser);
     } else {
-      source.connect(this.outputAudioContext.destination);
+      source.connect(ctx.destination);
     }
 
-    const currentTime = this.outputAudioContext.currentTime;
+    const currentTime = ctx.currentTime;
     if (this.nextPlayTime < currentTime) {
       this.nextPlayTime = currentTime + 0.02;
     }
@@ -488,6 +772,89 @@ export class GeminiLiveService {
         this.activeSources.splice(idx, 1);
       }
     };
+  }
+
+  /** Keep the replay cache bounded; dropped turns lose their replay button. */
+  private pruneAudioCache(): void {
+    const dropped: string[] = [];
+
+    while (this.audioCache.size > AUDIO_CACHE_MAX_TURNS) {
+      const oldest = this.audioCache.keys().next();
+      if (oldest.done) break;
+      this.audioCache.delete(oldest.value);
+      dropped.push(oldest.value);
+    }
+
+    let total = 0;
+    for (const chunks of this.audioCache.values()) {
+      for (const chunk of chunks) {
+        total += chunk.length;
+      }
+    }
+
+    while (total > AUDIO_CACHE_MAX_SAMPLES && this.audioCache.size > 1) {
+      const oldest = this.audioCache.keys().next();
+      if (oldest.done) break;
+      const chunks = this.audioCache.get(oldest.value) ?? [];
+      for (const chunk of chunks) {
+        total -= chunk.length;
+      }
+      this.audioCache.delete(oldest.value);
+      dropped.push(oldest.value);
+    }
+
+    for (const id of dropped) {
+      const msg = this.transcript.find((m) => m.id === id);
+      if (msg) {
+        msg.hasAudio = false;
+      }
+    }
+  }
+
+  /** Replay a finished AI turn from its cached PCM. Returns false when nothing is cached. */
+  replayMessage(id: string): boolean {
+    const chunks = this.audioCache.get(id);
+    if (!chunks || chunks.length === 0) {
+      return false;
+    }
+
+    this.stopAudioPlayback();
+
+    let total = 0;
+    for (const chunk of chunks) {
+      total += chunk.length;
+    }
+    const merged = new Float32Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    this.playAudioChunk(merged, false);
+    this.startVolumeMonitor();
+    return true;
+  }
+
+  hasReplayAudio(id: string): boolean {
+    const chunks = this.audioCache.get(id);
+    return Boolean(chunks && chunks.length > 0);
+  }
+
+  setOutputVolume(value: number): void {
+    const clamped = Math.min(1, Math.max(0, value));
+    this.outputVolume = clamped;
+    if (this.outputGainNode) {
+      this.outputGainNode.gain.value = clamped;
+    }
+  }
+
+  setToolsEnabled(enabled: boolean): void {
+    this.toolsEnabled = enabled;
+  }
+
+  setCaptionsEnabled(enabled: boolean): void {
+    this.captionsEnabled = enabled;
   }
 
   private stopAudioPlayback(): void {
@@ -591,7 +958,7 @@ export class GeminiLiveService {
     this.stopVideoFrameCapture();
     this.videoCaptureInterval = window.setInterval(() => {
       this.captureAndSendVideoFrame();
-    }, 1000); // 1 FPS
+    }, Math.round(1000 / GEMINI_VIDEO_UPLINK_FPS));
   }
 
   private stopVideoFrameCapture(): void {
@@ -675,12 +1042,16 @@ export class GeminiLiveService {
       throw new Error("Gemini Live chưa được kết nối.");
     }
 
+    // A typed turn closes whatever speech turn was still open.
+    this.finalizeTurn();
+
     this.transcript.push({
       id: generateId(),
       sender: "user",
       text: trimmed,
       timestamp: new Date(),
       isFinal: true,
+      source: "text",
     });
 
     const payload = {
@@ -700,6 +1071,10 @@ export class GeminiLiveService {
 
   clearTranscript(): void {
     this.transcript = [];
+    this.audioCache.clear();
+    this.turnAudio = [];
+    this.activeAiMessageId = null;
+    this.activeUserMessageId = null;
   }
 
   private startVolumeMonitor(): void {
@@ -707,7 +1082,8 @@ export class GeminiLiveService {
     const analyserData = new Uint8Array(128);
 
     const loop = () => {
-      if (this.status === "idle") {
+      // Keep running past disconnect while a replay is still sounding.
+      if (this.status === "idle" && this.activeSources.length === 0) {
         this.volumeAnimId = null;
         this.aiVolume = 0;
         this.userVolume = 0;
@@ -839,7 +1215,11 @@ export class GeminiLiveService {
     }
   }
 
-  disconnect(): void {
+  /**
+   * Tear the session down. `keepSession` is used when immediately re-opening
+   * (persona switch, downgrade retry) so the mute state and notice survive.
+   */
+  disconnect(options?: { keepSession?: boolean }): void {
     this.cleanupMedia();
 
     if (this.ws) {
@@ -857,8 +1237,16 @@ export class GeminiLiveService {
     this.error = null;
     this.userVolume = 0;
     this.aiVolume = 0;
-    this.isMuted = false;
     this.nextPlayTime = 0;
+    this.callStartedAt = null;
+    this.finalizeTurn();
+
+    if (!options?.keepSession) {
+      this.isMuted = false;
+      this.notice = null;
+      this.tokensUsed = 0;
+      this.reconnectAttempts = 0;
+    }
   }
 }
 

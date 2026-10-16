@@ -104,3 +104,88 @@ test("App.svelte integrates VoiceAiView on voice tab", () => {
   );
   assert.equal(emojiRegex.test(appSrc), false, "App.svelte must contain zero emojis");
 });
+
+test("VoiceAiView drives a real Gemini call, not a mocked one", () => {
+  const src = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+
+  // The demo transcript and the hardcoded latency badge are gone.
+  assert.equal(src.includes("INITIAL_TRANSCRIPT"), false, "no seeded mock conversation");
+  assert.equal(src.includes("~120ms"), false, "no invented latency figure");
+  assert.equal(src.includes("15fps"), false, "video telemetry matches the real 1 fps uplink");
+  assert.ok(src.includes("GEMINI_VIDEO_UPLINK_FPS"), "labels the uplink from the service constant");
+
+  // Live call telemetry
+  assert.ok(src.includes("callDuration"), "shows the live call duration");
+  assert.ok(src.includes("tokensUsed"), "shows session token usage");
+
+  // Session controls wired to the service
+  assert.ok(src.includes("switchVoice"), "persona change re-opens the session");
+  assert.ok(src.includes("handleReconnect"), "offers an explicit reconnect");
+  assert.ok(src.includes("toggleAgentControl"), "exposes the Agent Control gate");
+  assert.ok(src.includes("toggleCaptions"), "exposes the live captions toggle");
+  assert.ok(src.includes("setOutputVolume"), "controls Gemini playback gain");
+  assert.ok(src.includes("handleOutputVolume"), "binds the speaker gain slider");
+
+  // Tool-call rows and real audio replay
+  assert.ok(src.includes('m.sender === "tool"'), "renders executed mixer actions");
+  assert.ok(src.includes("m.toolName"), "names the executed function");
+  assert.ok(src.includes("Wrench"), "uses a vector icon for tool rows");
+  assert.ok(src.includes("replayMessage"), "replays the cached Gemini audio");
+  assert.ok(src.includes("m.hasAudio"), "distinguishes cached audio from text fallback");
+
+  assert.equal(emojiRegex.test(src), false, "VoiceAiView.svelte must contain zero emojis");
+});
+
+test("geminiAudioTools exposes only mixer commands the app already owns", () => {
+  assert.ok(existsSync("src/lib/geminiAudioTools.ts"), "src/lib/geminiAudioTools.ts exists");
+  const src = readFileSync("src/lib/geminiAudioTools.ts", "utf8");
+
+  for (const name of [
+    "list_audio_apps",
+    "set_app_volume",
+    "set_app_mute",
+    "get_master_volume",
+    "set_master_volume",
+    "set_master_mute",
+    "get_master_eq",
+    "set_master_eq_band",
+    "reset_master_eq",
+    "set_master_eq_bypass",
+  ]) {
+    assert.ok(src.includes(name), `declares ${name}`);
+  }
+
+  // Every backing command must exist in the Tauri handler list.
+  const rust = readFileSync("crates/app/src/lib.rs", "utf8");
+  for (const command of [
+    "get_audio_processes",
+    "set_app_volume",
+    "set_app_mute",
+    "get_master_volume",
+    "set_master_volume",
+    "set_master_mute",
+    "get_master_eq_bands",
+    "set_master_eq_band",
+    "reset_master_eq",
+    "set_master_eq_bypass",
+  ]) {
+    assert.ok(
+      new RegExp(`fn ${command}\\s*\\(`).test(rust),
+      `backend exposes #[tauri::command] ${command}`
+    );
+  }
+
+  // Band table mirrors the engine's own EQ frequencies.
+  const eq = readFileSync("crates/engine/src/eq.rs", "utf8");
+  const engineBands = eq
+    .slice(eq.indexOf("DEFAULT_EQ_FREQUENCIES"))
+    .match(/\[([^\]]+)\]/)[1]
+    .split(",")
+    .map((v) => Number.parseFloat(v.trim()))
+    .filter((v) => Number.isFinite(v));
+  for (const hz of engineBands) {
+    assert.ok(src.includes(String(hz)), `frontend band table includes ${hz} Hz`);
+  }
+
+  assert.equal(emojiRegex.test(src), false, "geminiAudioTools.ts must contain zero emojis");
+});
