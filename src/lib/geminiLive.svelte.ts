@@ -36,11 +36,16 @@ const GEMINI_LIVE_WS_BASE =
  * `gemini-2.0-flash-exp` is gone: the server closes the socket with 1008.
  */
 export const GEMINI_LIVE_MODELS = [
+  { value: "models/gemini-3.8-live", label: "Gemini 3.8 Live (nhanh nhất)" },
   { value: "models/gemini-3.1-flash-live-preview", label: "Gemini 3.1 Flash Live" },
   { value: "models/gemini-2.5-flash-native-audio-latest", label: "Gemini 2.5 Flash Native Audio" },
 ] as const;
 
 export const DEFAULT_GEMINI_LIVE_MODEL: string = GEMINI_LIVE_MODELS[0].value;
+
+/** Google xếp 3.1 vào nhóm legacy nhưng nó đã chạy thật ở đây, nên nó là chỗ lùi về
+ * khi khoá API chưa được cấp model mới. */
+const FALLBACK_GEMINI_LIVE_MODEL = "models/gemini-3.1-flash-live-preview";
 
 /** Im lặng bao lâu thì Live API coi như người dùng đã nói xong. Thấp = trả lời sớm hơn,
  * nhưng ngập ngừng giữa câu dễ bị cắt lời. Người dùng chỉnh được trong Voice AI. */
@@ -108,7 +113,9 @@ Thông tin mới: nếu có công cụ Google Search, dùng nó cho câu hỏi v
 
 Điều khiển âm thanh: bạn có thêm các hàm điều khiển mixer thật của máy (liệt kê ứng dụng đang phát tiếng, âm lượng và mute từng ứng dụng, âm lượng và mute master, 10 band EQ master). Chỉ gọi các hàm này khi người dùng yêu cầu thay đổi hoặc kiểm tra âm thanh. Trước khi chỉnh một ứng dụng, gọi list_audio_apps để lấy tên chính xác. Sau khi gọi, báo lại kết quả thực tế; nếu hàm lỗi thì nói rõ lý do, không nói là đã thành công.
 
-Cách trả lời: dùng ngôn ngữ người dùng đang nói (mặc định tiếng Việt), giữ nguyên thuật ngữ chuyên ngành tiếng Anh, đi thẳng vào nội dung. Đây là hội thoại bằng giọng nói nên ưu tiên câu ngắn, rõ ràng; chỉ trình bày dài khi người dùng hỏi chi tiết.`;
+Cách trả lời: dùng ngôn ngữ người dùng đang nói (mặc định tiếng Việt), giữ nguyên thuật ngữ chuyên ngành tiếng Anh.
+
+Độ dài: đây là hội thoại bằng giọng nói, người nghe không tua lại được. Câu đầu tiên phải là câu trả lời, không phải lời dẫn. Mặc định đáp trong một đến ba câu, rồi dừng lại để người dùng hỏi tiếp; chỉ nói dài khi họ yêu cầu chi tiết, hoặc khi câu hỏi thật sự cần các bước. Không nhắc lại câu hỏi, không mở đầu bằng "Chắc chắn rồi", "Tất nhiên", "Để tôi giải thích", không liệt kê những điều sắp nói. Hỏi được một câu làm rõ thì hỏi ngay, đừng đoán rồi trả lời dài theo hướng sai.`;
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -724,6 +731,22 @@ export class GeminiLiveService {
       this.restoreTranscript = true;
       this.notice = "Phiên cũ hết hạn; đang khôi phục từ lịch sử chữ (không gồm audio/video cũ).";
       this.noticeClearsOnConnect = false;
+      await this.reconnect();
+      return;
+    }
+
+    // Model mới có thể chưa mở cho khoá API này. Lùi về model đã chạy thật một lần,
+    // thay vì bắt người dùng tự đoán mình phải đổi gì trong danh sách.
+    // Chỉ lùi khi model bị từ chối là mặc định ta chọn thay người dùng. Model họ tự
+    // chọn mà chết thì phải nói thẳng, đổi ngầm là giấu mất lỗi của họ.
+    const modelUnavailable = /not found|not supported for bidiGenerateContent/i.test(reason);
+    if (wasConnecting && modelUnavailable && this.activeModel === DEFAULT_GEMINI_LIVE_MODEL) {
+      const refused = this.activeModel.replace(/^models\//, "");
+      this.activeModel = FALLBACK_GEMINI_LIVE_MODEL;
+      // reconnect() dựng lại phiên từ lastOptions, nên model mới phải nằm trong đó.
+      if (this.lastOptions) this.lastOptions = { ...this.lastOptions, model: FALLBACK_GEMINI_LIVE_MODEL };
+      this.noticeClearsOnConnect = false;
+      this.notice = `Khóa API chưa dùng được ${refused}, đã chuyển sang Gemini 3.1 Flash Live.`;
       await this.reconnect();
       return;
     }

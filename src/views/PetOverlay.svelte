@@ -466,7 +466,7 @@
       <button
         type="button"
         onclick={toggleBubbleMode}
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--core)/95 border border-(--shell-line) shadow-[0_6px_24px_rgba(0,0,0,0.55)] backdrop-blur-md text-xs font-sans text-slate-100 cursor-pointer hover:bg-(--shell)/90 transition-all"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-(--core) border border-(--input-line) shadow-md text-xs font-sans text-(--ink) cursor-pointer hover:bg-(--surface) transition-colors"
         title="Compact mode. Click to expand multi-agent carousel."
       >
         <!-- Status Dot / Heart on petting -->
@@ -509,7 +509,7 @@
         {/if}
 
         <!-- Elapsed Counter -->
-        <span class="font-mono font-semibold text-[10px] text-slate-200 shrink-0">
+        <span class="font-mono font-semibold text-[10px] text-(--ink) shrink-0">
           {displayedSession ? formatElapsed(displayedSession.started_at) : "0:00"}
         </span>
 
@@ -519,7 +519,7 @@
             {#each activeSessions as s, idx}
               <span
                 class="h-1.5 w-1.5 rounded-full transition-all {idx === carouselIndex % activeSessions.length
-                  ? 'ring-1 ring-slate-100 scale-125 '
+                  ? 'ring-1 ring-(--ink) scale-125 '
                   : ''}{s.state === 'working' ? 'bg-rose-400' : s.state === 'waiting' ? 'bg-amber-400' : 'bg-emerald-400'}"
               ></span>
             {/each}
@@ -528,7 +528,7 @@
       </button>
     {:else}
       <!-- Carousel Mode: Rotating every 3s through active sessions -->
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--core)/95 border border-(--shell-line) shadow-[0_6px_24px_rgba(0,0,0,0.55)] backdrop-blur-md text-xs font-sans text-slate-100 max-w-72">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--core) border border-(--input-line) shadow-md text-xs font-sans text-(--ink) max-w-72">
         <!-- Status Dot / Heart on petting -->
         {#if isInteracting}
           <Heart size={14} class="w-3.5 h-3.5 text-rose-400 fill-rose-400 animate-bounce shrink-0" />
@@ -578,13 +578,13 @@
         {/if}
 
         <!-- Dynamic Activity Line / Chatter -->
-        <span class="font-semibold text-slate-200 text-[11px] leading-tight truncate">
+        <span class="font-semibold text-(--ink) text-[11px] leading-tight truncate">
           {activityText}
         </span>
 
         <!-- Elapsed Counter for active session -->
         {#if displayedSession && (displayedSession.state === 'working' || displayedSession.state === 'waiting')}
-          <span class="font-mono text-[9px] text-slate-400 shrink-0">
+          <span class="font-mono text-[9px] text-(--muted) shrink-0">
             {formatElapsed(displayedSession.started_at)}
           </span>
         {/if}
@@ -594,7 +594,7 @@
           <button
             type="button"
             onclick={toggleBubbleMode}
-            class="px-1.5 py-0.5 rounded-full bg-(--shell) hover:bg-(--surface) text-slate-300 font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0 transition-colors cursor-pointer"
+            class="px-1.5 py-0.5 rounded-full bg-(--shell) hover:bg-(--surface) text-(--ink) font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0 transition-colors cursor-pointer"
             title="Carousel ({carouselIndex % activeSessions.length + 1}/{activeSessions.length}). Click to switch to compact mode."
           >
             <Zap size={10} class="w-2.5 h-2.5 text-amber-400 shrink-0" />
@@ -602,19 +602,19 @@
           </button>
         {:else if topSession}
           <span
-            class="px-1.5 py-0.5 rounded-full bg-(--shell) text-slate-300 font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0"
+            class="px-1.5 py-0.5 rounded-full bg-(--shell) text-(--ink) font-mono font-bold text-[9px] leading-none flex items-center gap-0.5 shrink-0"
           >
             <Zap size={10} class="w-2.5 h-2.5 text-amber-400 shrink-0" />
             <span>×{multiplier}</span>
           </span>
         {:else}
-          <GripHorizontal size={12} class="w-3 h-3 text-slate-500 shrink-0 opacity-70" />
+          <GripHorizontal size={12} class="w-3 h-3 text-(--muted) shrink-0" />
         {/if}
       </div>
     {/if}
 
     <!-- Pointer tail pointing at pet's head -->
-    <div class="w-2 h-2 bg-(--core) border-r border-b border-(--shell-line) transform rotate-45 -mt-1 shadow-sm"></div>
+    <div class="w-2 h-2 bg-(--core) border-r border-b border-(--input-line) transform rotate-45 -mt-1"></div>
   </div>
 
   <!-- 2. Authentic Animated Pixel Pet Sprite & Floating Particles FX -->
@@ -661,7 +661,7 @@
         slug={petSlug}
         {mood}
         size={petSize}
-        class="cursor-pointer drop-shadow-[0_12px_24px_rgba(0,0,0,0.65)]"
+        class="pet-silhouette cursor-pointer"
       />
     </div>
 
@@ -765,6 +765,14 @@
 <ToastHost />
 
 <style>
+  /* Follow each animated frame's alpha, not the rectangular sprite canvas.
+     A light keyline and dark shadow stay visible over arbitrary desktop colors. */
+  :global(.pet-silhouette canvas) {
+    filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
+      drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
+      drop-shadow(0 2px 3px rgb(0 0 0 / 55%));
+  }
+
   @keyframes petParticleFloat {
     0% {
       opacity: 1;

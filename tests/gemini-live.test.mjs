@@ -338,11 +338,12 @@ test("GeminiLiveService WebSocket connection lifecycle (connect, setup, and disc
   assert.equal(ws.sent.length, 1, "setup payload sent on open");
   const setupPayload = JSON.parse(ws.sent[0]);
   assert.ok(setupPayload.setup, "payload contains setup key");
-  // gemini-2.0-flash-exp is closed with 1008 by the live service; 3.1 Flash Live is the verified default.
+  // gemini-2.0-flash-exp is closed with 1008 by the live service. 3.8 Live is Google's
+  // default for low-latency voice agents; a key without it falls back to 3.1 (own test).
   assert.equal(
     setupPayload.setup.model,
-    "models/gemini-3.1-flash-live-preview",
-    "default model is a live-capable model"
+    "models/gemini-3.8-live",
+    "default model is the low-latency live model"
   );
   assert.ok(ws.url.includes(".v1beta."), "connects to the v1beta Live endpoint");
   assert.deepEqual(
@@ -1347,6 +1348,31 @@ test("Google Search grounding is declared alongside the mixer tools", async () =
   instance.disconnect();
 });
 
+test("a key that cannot use the newest model falls back instead of failing the call", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaOldKey" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  assert.match(JSON.parse(first.sent[0]).setup.model, /gemini-3\.8-live/, "mặc định là model nhanh nhất");
+
+  await first.onclose({
+    code: 1007,
+    reason: "models/gemini-3.8-live is not found for API version v1beta",
+    wasClean: true,
+  });
+
+  assert.equal(MockWebSocket.instances.length, 2, "mở lại thay vì bỏ cuộc");
+  const retry = MockWebSocket.instances[1];
+  retry.onopen();
+  assert.equal(
+    JSON.parse(retry.sent[0]).setup.model,
+    "models/gemini-3.1-flash-live-preview",
+    "phải lùi về model đã chạy thật, không mở lại đúng model vừa bị từ chối"
+  );
+  assert.match(instance.notice, /chưa dùng được gemini-3.8-live/);
+  instance.disconnect();
+});
+
 test("a key without Search quota keeps the call and drops search for that model only", async () => {
   const { instance } = createGeminiLiveHarness();
   await instance.connect({ apiKey: "AIzaNoSearchQuota" });
@@ -1541,7 +1567,7 @@ test("diagnostics count the wire and explain what happened", async () => {
   assert.match(report, /audio sent=1 received=1/);
   assert.match(report, /setupComplete/);
   assert.match(report, /mic ok/);
-  assert.match(report, /open session model=gemini-3.1-flash-live-preview/);
+  assert.match(report, /open session model=gemini-3.8-live/);
   instance.disconnect();
 });
 
