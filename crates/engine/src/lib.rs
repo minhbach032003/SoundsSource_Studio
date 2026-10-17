@@ -7,6 +7,7 @@ pub mod preset;
 pub mod router;
 pub mod spotify;
 pub mod spectrum;
+pub mod pcm_queue;
 pub mod timer;
 pub mod wheel;
 

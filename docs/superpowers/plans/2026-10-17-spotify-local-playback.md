@@ -234,7 +234,7 @@ impl PcmQueue {
 
 Dùng `sound_core::ring_buffer::RingBuffer` bên dưới (nó đã lock-free, API theo byte: `write(&[u8]) -> usize`, `read(&mut [u8]) -> usize`, `clear()`, `bytes_available_for_read()`). `PcmQueue` chỉ là lớp bọc đổi đơn vị byte ↔ f32.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```rust
 #[test]
@@ -250,13 +250,13 @@ fn queue_drops_overflow_and_pads_underrun_with_silence() {
 }
 ```
 
-- [ ] **Step 2: Chạy, phải fail.** Run: `cargo test -p sound-engine pcm_queue`
+- [x] **Step 2: Chạy, phải fail.** Run: `cargo test -p sound-engine pcm_queue`
 
-- [ ] **Step 3: Implement `PcmQueue`** bằng `f32::to_ne_bytes` / `from_ne_bytes` qua `RingBuffer`. Không cấp phát trong `pop` (dùng buffer tạm cố định trên stack theo chunk).
+- [x] **Step 3: Implement `PcmQueue`** bằng `f32::to_ne_bytes` / `from_ne_bytes` qua `RingBuffer`. Không cấp phát trong `pop` (dùng buffer tạm cố định trên stack theo chunk).
 
-- [ ] **Step 4: Chạy test** — PASS.
+- [x] **Step 4: Chạy test** — PASS.
 
-- [ ] **Step 5: Commit** — `feat: add a lock-free PCM queue between the decoder and the output`
+- [x] **Step 5: Commit** — `feat: add a lock-free PCM queue between the decoder and the output`
 
 ---
 
