@@ -412,27 +412,11 @@ pub local_error: Option<String>,
 - Modify: `openspec/specs/spotify-audio-dsp/spec.md`
 - Modify: `CLAUDE.md` (đoạn "Trạng thái thực tế … không có live capture → DSP → output pipeline")
 
-- [ ] **Step 1: Sửa glossary**
-
-`CONTEXT.md` hiện định nghĩa **Spotify Integration** là "with Spotify running in the background as the music source", **Now-Playing Bar** "controls background Spotify rather than being a separate playback engine", và ghi `_Avoid_: Embedded Spotify, built-in Spotify player`. Tất cả đều mâu thuẫn với tính năng này.
-
-Thêm term mới:
-
-```
-**Spotify Local Player**:
-rust-sound tự là nguồn nhạc Spotify: phát không cần app Spotify trên máy. Loại trừ với Spotify DSP Connection — mỗi lúc chỉ một nguồn.
-_Avoid_: tap, remote device
-```
-
-Sửa `Spotify Integration` và `Now-Playing Bar` để nói có **hai** nguồn; bỏ dòng `_Avoid_: Embedded Spotify, built-in Spotify player` đã lỗi thời. `CONTEXT.md` là glossary — **không** đưa chi tiết kỹ thuật (librespot, rodio, 44.1 kHz) vào đó.
-
-- [ ] **Step 2: Cập nhật `openspec/specs/spotify-audio-dsp/spec.md`** với requirement mới theo đúng định dạng SHALL + WHEN/THEN đang dùng: nguồn local, hai nguồn loại trừ nhau, EQ áp cho cả hai, không tự mở app Spotify.
-
-- [ ] **Step 3: Sửa `CLAUDE.md`** — câu "there is no live capture → DSP → output pipeline" nay sai với Spotify. Ghi đúng: có pipeline cho Spotify (tap và local player), phần còn lại của mixer vẫn chỉ là state.
-
-- [ ] **Step 4: Validate** — `npx @fission-ai/openspec validate --specs` → PASS.
-
-- [ ] **Step 5: Commit** — `docs: model rust-sound as a Spotify source, not only a tap`
+- [x] **Step 1: Sửa glossary**
+- [x] **Step 2: Cập nhật `openspec/specs/spotify-audio-dsp/spec.md`** với requirement mới theo đúng định dạng SHALL + WHEN/THEN đang dùng: nguồn local, hai nguồn loại trừ nhau, EQ áp cho cả hai, không tự mở app Spotify.
+- [x] **Step 3: Sửa `CLAUDE.md`** — câu "there is no live capture → DSP → output pipeline" nay sai với Spotify. Ghi đúng: có pipeline cho Spotify (tap và local player), phần còn lại của mixer vẫn chỉ là state.
+- [x] **Step 4: Validate** — `npx @fission-ai/openspec validate --specs` → PASS.
+- [x] **Step 5: Commit** — `docs: model rust-sound as a Spotify source, not only a tap`
 
 ---
 

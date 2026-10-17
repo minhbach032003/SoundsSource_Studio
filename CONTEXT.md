@@ -24,17 +24,20 @@ _Avoid_: Wallpaper background, backdrop tint
 
 ### Spotify Audio
 
+**Spotify Local Player**:
+rust-sound tự là nguồn nhạc Spotify: phát không cần app Spotify trên máy. Loại trừ với Spotify DSP Connection — mỗi lúc chỉ một nguồn.
+_Avoid_: tap, remote device
+
 **Spotify Integration**:
-The in-app controls and now-playing information for Spotify on this Mac, with Spotify running in the background as the music source.
-_Avoid_: Embedded Spotify, built-in Spotify player
+The in-app controls and now-playing information for Spotify, supporting both local playback inside rust-sound and external background Spotify on this Mac as the music source.
 
 **Spotify Workspace**:
 The dedicated area for Spotify-only bass / EQ and browsing playlists, liked tracks and search results. Approved layout B places a full-width EQ workspace above the library: curve and faders on the left, presets and spectrum on the right, with the Now-Playing Bar always available below. Narrow windows use a collapsed EQ disclosure above the library. Opening this area does not start playback or change the DSP connection.
-_Avoid_: Mixer playlist panel, embedded Spotify
+_Avoid_: Mixer playlist panel
 
 **Now-Playing Bar**:
-Persistent Spotify track information, transport, progress and volume controls available while moving between application areas. It controls background Spotify rather than being a separate playback engine.
-_Avoid_: Global system volume, second player
+Persistent Spotify track information, transport, progress and volume controls available while moving between application areas. It controls the active Spotify source (either rust-sound's local player or background Spotify).
+_Avoid_: Global system volume
 
 **Mixer**:
 The area for application channels and hardware audio controls, separate from music-library browsing.

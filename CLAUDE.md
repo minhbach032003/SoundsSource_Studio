@@ -25,7 +25,7 @@ Deps: `app → engine → core`, app also uses core directly, core never referen
 
 **README is out of date on two points:** Frontend is Svelte 5 + Tailwind v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`); and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.
 
-Its "Trạng thái thực tế" section is still accurate and important: there is no live capture → DSP → output pipeline. Volume/mute/EQ commands mutate router state; the `*_e2e` tests assert on synthetic buffers and system queries, not real audio. Don't describe audio changes as verified end-to-end.
+Its "Trạng thái thực tế" section is accurate and important: for system audio routing, there is no system-wide live capture → DSP → output pipeline; volume/mute/EQ commands mutate router state. However, Spotify features a dedicated live audio pipeline: both via CoreAudio process tap and via the embedded librespot local player with EQ and spectrum processing out to hardware. The rest of the mixer remains state-only; the `*_e2e` tests assert on synthetic buffers and system queries, not real audio. Don't describe audio changes as verified end-to-end without physical listening verification.
 
 System volume/mute/device commands bypass the router entirely and drive CoreAudio (and AppleScript for per-app media volume) directly.
 
