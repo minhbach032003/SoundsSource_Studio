@@ -212,7 +212,7 @@ test("VoiceAiView handles general questions, web search and black screen shares"
   assert.ok(src.includes("Cmd+Q"), "tells the user the app must be restarted");
   assert.ok(src.includes("retryScreenShare"), "lets the user pick the screen again");
   assert.ok(
-    /\{#if geminiLiveState\.isScreenSharing && geminiLiveState\.screenStream\}\s*<video/.test(src),
+    /(?:\{#if|\{:else if) geminiLiveState\.isScreenSharing && geminiLiveState\.screenStream\}\s*<video/.test(src),
     "stage preview element is created per share, not toggled with display:none"
   );
   assert.equal(src.includes("dark:"), false, "theme tokens only, no dark: variants");

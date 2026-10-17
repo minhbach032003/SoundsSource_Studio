@@ -149,6 +149,8 @@ function createGeminiLiveHarness(options) {
 
   const opts = typeof options === "function" ? { invoke: options } : options || {};
   const frame = { luma: 200 };
+  const timers = new Map();
+  let timerId = 0;
 
   // geminiLive imports its function-calling layer, so both modules share one scope.
   const source = `${stripModule("src/lib/geminiAudioTools.ts")}\n${stripModule(
@@ -236,7 +238,12 @@ function createGeminiLiveHarness(options) {
     requestAnimationFrame: () => 1,
     cancelAnimationFrame: () => {},
     setInterval: () => 1,
-    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    setTimeout: (fn, ms) => {
+      const id = ++timerId;
+      timers.set(id, { fn, ms });
+      return id;
+    },
+    clearTimeout: (id) => timers.delete(id),
     clearInterval: () => {},
     console,
   });
@@ -256,6 +263,14 @@ function createGeminiLiveHarness(options) {
   const instance = new context.GeminiLiveService();
   return {
     instance,
+    timers,
+    async retry() {
+      const entry = [...timers.entries()].find(([, timer]) => timer.ms >= 1000);
+      assert.ok(entry, "retry is scheduled");
+      timers.delete(entry[0]);
+      await entry[1].fn();
+      await Promise.resolve();
+    },
     micTracks,
     camTracks,
     screenTracks,
@@ -937,6 +952,109 @@ test("an invalid key or a dead model fails with an actionable message and no ret
   assert.match(instance.error, /gemini-2.0-flash-exp không hỗ trợ Live API/);
 });
 
+test("GoAway renewals continue indefinitely without releasing devices", async () => {
+  const { instance, micTracks, screenTracks } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "test-key" });
+  await instance.startScreenShare();
+
+  for (let i = 0; i < 4; i++) {
+    const ws = MockWebSocket.instances.at(-1);
+    ws.onopen();
+    await ws.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+    await ws.onmessage({
+      data: JSON.stringify({ sessionResumptionUpdate: { resumable: true, newHandle: `handle-${i}` } }),
+    });
+    const startedAt = instance.callStartedAt;
+    await ws.onmessage({ data: JSON.stringify({ goAway: { timeLeft: "60s" } }) });
+    assert.equal(MockWebSocket.instances.length, i + 2, "every expiry opens a replacement");
+    assert.equal(ws.closed.code, 1000, "old transport is closed before the deadline");
+    const next = MockWebSocket.instances.at(-1);
+    next.onopen();
+    assert.deepEqual(JSON.parse(next.sent[0]).setup.sessionResumption, { handle: `handle-${i}` });
+    assert.equal(instance.callStartedAt, startedAt);
+    assert.equal(micTracks.length, 1);
+    assert.equal(micTracks[0].stopped, false);
+    assert.equal(screenTracks[0].stopped, false);
+    assert.equal(instance.isScreenSharing, true);
+  }
+
+  instance.disconnect();
+});
+
+test("retries survive extended outages, keep context, and stop on hangup", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, timers } = harness;
+  const first = await openLiveSession(harness);
+  await first.onmessage({ data: JSON.stringify({ sessionResumptionUpdate: { resumable: true, newHandle: "keep-me" } }) });
+  await first.onclose({ code: 1000, reason: "", wasClean: true });
+  for (let i = 0; i < 8; i++) {
+    assert.equal(instance.status, "connecting");
+    assert.equal(timers.size, 1);
+    assert.equal([...timers.values()][0].ms, Math.min(30_000, 1000 * 2 ** i));
+    await harness.retry();
+    const ws = MockWebSocket.instances.at(-1);
+    ws.onopen();
+    assert.deepEqual(JSON.parse(ws.sent[0]).setup.sessionResumption, { handle: "keep-me" });
+    await ws.onclose({ code: 1006, reason: "", wasClean: false });
+  }
+  await harness.retry();
+  const recovered = MockWebSocket.instances.at(-1);
+  recovered.onopen();
+  await recovered.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  assert.equal(instance.status, "connected");
+  await recovered.onclose({ code: 1011, reason: "Internal error", wasClean: true });
+  assert.equal([...timers.values()][0].ms, 1000, "success resets backoff");
+  const staleRetry = [...timers.values()][0].fn;
+  const count = MockWebSocket.instances.length;
+  instance.disconnect();
+  await staleRetry();
+  assert.equal(timers.size, 0);
+  assert.equal(instance.status, "idle");
+  assert.equal(MockWebSocket.instances.length, count, "late timer cannot resurrect a hung-up call");
+});
+
+test("a stalled setup retries and hangup cancels a pending setup", async () => {
+  const harness = createGeminiLiveHarness();
+  await harness.instance.connect({ apiKey: "test-key" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  assert.deepEqual(JSON.parse(first.sent[0]).setup.contextWindowCompression, { slidingWindow: {} });
+  assert.equal([...harness.timers.values()][0].ms, 20_000);
+  await harness.retry(); // setup watchdog
+  assert.equal(first.closed.code, 1000);
+  await harness.retry(); // backoff
+  assert.equal(MockWebSocket.instances.length, 2);
+  harness.instance.disconnect();
+  assert.equal(harness.timers.size, 0);
+});
+
+test("expired context replays only this call's transcript and never repeats it after resumption", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  instance.transcript.push({ sender: "user", text: "previous call" });
+  const ws = await openLiveSession(harness);
+  instance.transcript.push({ sender: "user", text: "My name is An" }, { sender: "ai", text: "Hello An" });
+  await ws.onmessage({ data: JSON.stringify({ sessionResumptionUpdate: { resumable: true, newHandle: "expired" } }) });
+  await instance.reconnect();
+  await MockWebSocket.instances.at(-1).onclose({ code: 1008, reason: "Session not found", wasClean: true });
+  const fresh = MockWebSocket.instances.at(-1);
+  fresh.onopen();
+  await fresh.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  const history = JSON.parse(fresh.sent[1]).clientContent;
+  assert.deepEqual(history, { turns: [
+    { role: "user", parts: [{ text: "My name is An" }] },
+    { role: "model", parts: [{ text: "Hello An" }] },
+  ], turnComplete: false });
+  assert.match(instance.notice, /audio\/video/);
+  await fresh.onmessage({ data: JSON.stringify({ sessionResumptionUpdate: { resumable: true, newHandle: "new" } }) });
+  await instance.reconnect();
+  const resumed = MockWebSocket.instances.at(-1);
+  resumed.onopen();
+  await resumed.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  assert.equal(resumed.sent.length, 1, "native resume does not duplicate history");
+  instance.disconnect();
+});
+
 test("session resumption keeps Gemini's context across reconnects but not across new calls", async () => {
   const harness = createGeminiLiveHarness();
   const { instance } = harness;
@@ -1060,7 +1178,7 @@ test("a persona switch is one continuous call: timer kept, transient notice clea
   const next = MockWebSocket.instances[1];
   next.onopen();
   await next.onmessage({ data: JSON.stringify({ setupComplete: true }) });
-  assert.equal(instance.notice, null, "switch notice clears once the new session is live");
+  assert.match(instance.notice, /Không có lịch sử chữ/, "missing context is disclosed when no handle was received");
   assert.equal(instance.callStartedAt, startedAt, "still the same call");
 
   instance.disconnect();
@@ -1142,9 +1260,9 @@ test("a key without Search quota keeps the call and drops search for that model 
   assert.match(instance.notice, /quota Google Search/, "user learns why search is off");
   assert.equal(instance.status, "connecting");
 
-  // The same quota close without search pending is a real error, not a loop.
+  // General quota exhaustion backs off rather than hammering the server.
   await retry.onclose({ code: 1011, reason: "You exceeded your current quota", wasClean: true });
-  assert.equal(instance.status, "error");
+  assert.equal(instance.status, "connecting");
   assert.equal(MockWebSocket.instances.length, 2);
 
   // Later calls on that model skip search; another model still gets it.
@@ -1261,9 +1379,11 @@ test("a dropped network (error then 1006) is reported as a connection loss", asy
   const ws = await openLiveSession(harness);
   ws.onerror(new Event("error"));
   await ws.onclose({ code: 1006, reason: "", wasClean: false });
-  assert.equal(instance.status, "error");
-  assert.match(instance.error, /Mất kết nối tới Gemini Live \(mã 1006\)/);
+  assert.equal(instance.status, "connecting");
+  assert.match(instance.notice, /Mất kết nối/);
   assert.deepEqual({ ...instance.lastClose }, { code: 1006, reason: "" }, "close is kept for the UI");
+  instance.disconnect();
+  assert.equal(harness.timers.size, 0, "hangup cancels pending retries");
 });
 
 test("search quota blocks are remembered across app launches", async () => {
@@ -1352,7 +1472,7 @@ test("WKWebView-style opaque setup closes still bring the call up", async () => 
   instance.disconnect();
 });
 
-test("opaque closes shed captions then tools, then give up with the close shown", async () => {
+test("opaque initial closes shed captions then tools, then wait for network recovery", async () => {
   const harness = createGeminiLiveHarness();
   const { instance } = harness;
   instance.setWebSearchEnabled(false);
@@ -1370,9 +1490,12 @@ test("opaque closes shed captions then tools, then give up with the close shown"
   assert.equal(setup.tools, undefined, "tools shed");
 
   await third.onclose({ code: 1006, reason: "", wasClean: false });
-  assert.equal(MockWebSocket.instances.length, 3, "bounded: no endless retries");
-  assert.equal(instance.status, "error");
+  assert.equal(MockWebSocket.instances.length, 3, "waits rather than spinning");
+  assert.equal(instance.status, "connecting");
   assert.equal(instance.lastClose.code, 1006);
+  await harness.retry();
+  assert.equal(MockWebSocket.instances.length, 4);
+  instance.disconnect();
 });
 
 test("a bad key during setup is never retried, even with search declared", async () => {

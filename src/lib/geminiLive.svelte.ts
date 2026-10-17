@@ -300,6 +300,11 @@ export class GeminiLiveService {
    */
   private setupDowngradeLevel = 0;
   private reconnectAttempts = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private setupTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionGeneration = 0;
+  private restoreTranscript = false;
+  private callTranscriptStart = 0;
   /** Latest resumable handle; re-opening with it keeps the conversation context. */
   private resumeHandle: string | null = null;
   /** The current notice only describes a re-open in progress and clears once it lands. */
@@ -367,9 +372,10 @@ export class GeminiLiveService {
   }
 
   async connect(options?: GeminiLiveConnectOptions): Promise<void> {
-    if (options) {
-      this.lastOptions = { ...options };
-    }
+    this.lastOptions = { ...(options ?? this.lastOptions ?? {}) };
+    this.callTranscriptStart = this.transcript.length;
+    this.callStartedAt = null;
+    this.restoreTranscript = false;
     this.setupDowngradeLevel = 0;
     this.reconnectAttempts = 0;
     this.notice = null;
@@ -431,14 +437,15 @@ export class GeminiLiveService {
           ? { inputAudioTranscription: {}, outputAudioTranscription: {} }
           : {}),
         ...(tools.length > 0 ? { tools } : {}),
-        ...(this.setupDowngradeLevel < 2
-          ? { sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} }
-          : {}),
+        sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
+        contextWindowCompression: { slidingWindow: {} },
       },
     };
   }
 
   private async openSession(options: GeminiLiveConnectOptions): Promise<void> {
+    this.cancelRetry();
+    const generation = ++this.sessionGeneration;
     // Re-opening (persona switch, search/setup fallback, goAway, resume) swaps only
     // the socket. Tearing down and re-acquiring the mic and AudioContexts on every
     // re-open left WebKit with a silent mic: the call "connected" but never heard you.
@@ -454,6 +461,7 @@ export class GeminiLiveService {
       apiKey = (await this.getApiKey())?.trim();
     }
 
+    if (generation !== this.sessionGeneration) return;
     if (!apiKey) {
       this.status = "error";
       this.error =
@@ -477,6 +485,7 @@ export class GeminiLiveService {
         await this.setupMicrophone();
       }
     } catch (err) {
+      if (generation !== this.sessionGeneration) return;
       this.logDiag(`mic failed: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`);
       this.disconnect();
       this.status = "error";
@@ -485,15 +494,17 @@ export class GeminiLiveService {
       return;
     }
 
+    if (generation !== this.sessionGeneration) {
+      if (["idle"].includes(this.status)) this.cleanupMedia();
+      return;
+    }
     const wsUrl = `${GEMINI_LIVE_WS_BASE}?key=${encodeURIComponent(apiKey)}`;
 
     try {
       this.ws = new WebSocket(wsUrl);
-    } catch (err) {
-      this.disconnect();
-      this.status = "error";
-      const msg = err instanceof Error ? err.message : String(err);
-      this.error = `Không thể khởi tạo kết nối WebSocket: ${msg}`;
+    } catch {
+      this.logDiag("WebSocket creation failed; retrying");
+      this.scheduleReconnect();
       return;
     }
 
@@ -507,7 +518,7 @@ export class GeminiLiveService {
     };
 
     this.ws.onmessage = async (event: MessageEvent) => {
-      await this.handleServerMessage(event);
+      await this.handleServerMessage(event, generation);
     };
 
     // `error` is always followed by `close`, which carries the code and reason.
@@ -520,6 +531,12 @@ export class GeminiLiveService {
     };
 
     this.ws.onclose = (event: CloseEvent) => this.handleClose(event);
+    this.setupTimer = setTimeout(() => {
+      if (generation === this.sessionGeneration && this.status === "connecting") {
+        this.logDiag("setup timeout");
+        this.scheduleReconnect();
+      }
+    }, 20_000);
 
     if (options?.enableVideo) {
       await this.enableVideo();
@@ -548,7 +565,18 @@ export class GeminiLiveService {
     const unknownField = event.code === 1007 && /unknown name|cannot find field/i.test(reason);
     const opaque = !reason || event.code === 1006;
 
-    if (wasConnecting && !fatalSetupError) {
+    const rejectedHandle = wasConnecting && this.openedWithHandle &&
+      /session.*(not found|expired|invalid)|(?:invalid|expired).*handle|resumption.*(invalid|expired)/i.test(reason);
+    if (rejectedHandle) {
+      this.resumeHandle = null;
+      this.restoreTranscript = true;
+      this.notice = "Phiên cũ hết hạn; đang khôi phục từ lịch sử chữ (không gồm audio/video cũ).";
+      this.noticeClearsOnConnect = false;
+      await this.reconnect();
+      return;
+    }
+
+    if (wasConnecting && !fatalSetupError && (this.callStartedAt === null || unknownField)) {
       // The server named the field it rejects: shed exactly that (captions, then tools).
       if (unknownField && this.hasPendingSetupExtras()) {
         this.setupDowngradeLevel += 1;
@@ -567,10 +595,8 @@ export class GeminiLiveService {
         const quota = /quota|exceeded/i.test(reason);
         if (!this.searchBlockedModels.includes(this.activeModel)) {
           this.searchBlockedModels.push(this.activeModel);
-          // Remembered for a day even when the engine hands over no reason: WKWebView
-          // often reports the quota close with an empty reason, and without this every
-          // single call pays a doomed setup plus a visible retry before it connects.
-          persistSearchBlocked(this.searchBlockedModels);
+          // Only confirmed quota failures persist; an opaque network blip is temporary.
+          if (quota) persistSearchBlocked(this.searchBlockedModels);
         }
         this.noticeClearsOnConnect = false;
         this.notice = quota
@@ -593,24 +619,12 @@ export class GeminiLiveService {
       }
     }
 
-    // An expired resume handle must not strand the call: start a fresh context.
-    if (wasConnecting && this.openedWithHandle && event.code !== 1000 && !/api key/i.test(reason)) {
-      this.resumeHandle = null;
-      this.notice = "Phiên cũ đã hết hạn, đã mở cuộc hội thoại mới.";
-      this.noticeClearsOnConnect = false;
-      await this.reconnect();
-      return;
-    }
-
-    // An established call dropped by the server (1011 "Internal error encountered",
-    // a dead socket, …) is not the user's problem to fix with a button: re-open with
-    // the resume handle, which keeps the conversation. Bounded, so a flapping server
-    // ends up in the error state instead of looping.
-    if (!wasConnecting && event.code !== 1000 && this.reconnectAttempts < 2) {
-      this.reconnectAttempts += 1;
-      this.notice = `Máy chủ ngắt cuộc gọi (mã ${event.code}), đang kết nối lại...`;
-      this.noticeClearsOnConnect = true;
-      await this.reconnect();
+    // Transport failures (including a normal server close) never end an active call.
+    // Bad credentials/model/setup need intervention, not an endless request loop.
+    if (!fatalSetupError && (event.code === 1000 || event.code === 1001 ||
+        event.code === 1006 || event.code === 1011 || event.code === 1012 ||
+        event.code === 1013 || /goaway|quota|exceeded|unavailable/i.test(reason))) {
+      this.scheduleReconnect();
       return;
     }
 
@@ -633,7 +647,28 @@ export class GeminiLiveService {
     this.cleanupMedia();
   }
 
-  private async handleServerMessage(event: MessageEvent): Promise<void> {
+  private cancelRetry(): void {
+    if (this.retryTimer !== null) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
+  }
+
+  private scheduleReconnect(): void {
+    ++this.sessionGeneration;
+    this.cancelRetry();
+    this.closeTransport();
+    this.status = "connecting";
+    const delay = Math.min(30_000, 1000 * 2 ** Math.min(this.reconnectAttempts++, 5));
+    this.notice = `Mất kết nối; tự thử lại sau ${delay / 1000}s, giữ ngữ cảnh cuộc gọi.`;
+    this.noticeClearsOnConnect = true;
+    this.logDiag(`retry in ${delay}ms`);
+    const generation = this.sessionGeneration;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (generation === this.sessionGeneration) void this.reconnect();
+    }, delay);
+  }
+
+  private async handleServerMessage(event: MessageEvent, generation = this.sessionGeneration): Promise<void> {
     let rawText = "";
     if (typeof event.data === "string") {
       rawText = event.data;
@@ -645,11 +680,33 @@ export class GeminiLiveService {
       return;
     }
 
+    if (generation !== this.sessionGeneration) return;
     try {
       const parsed = JSON.parse(rawText);
 
       if (parsed.setupComplete) {
         this.logDiag("setupComplete");
+        this.reconnectAttempts = 0;
+        if (this.setupTimer !== null) clearTimeout(this.setupTimer);
+        this.setupTimer = null;
+        if (!this.openedWithHandle && (this.restoreTranscript || this.callStartedAt !== null)) {
+          // ponytail: bound fallback history to 24k characters; summaries can retain older turns later.
+          let remaining = 24_000;
+          const turns = this.transcript.slice(this.callTranscriptStart).reverse()
+            .filter((message) => (message.sender === "user" || message.sender === "ai") && message.text.trim())
+            .flatMap((message) => {
+              if (!remaining) return [];
+              const text = message.text.slice(-remaining);
+              remaining -= text.length;
+              return [{ role: message.sender === "ai" ? "model" : "user", parts: [{ text }] }];
+            }).reverse();
+          if (turns.length) this.ws?.send(JSON.stringify({ clientContent: { turns, turnComplete: false } }));
+          this.notice = turns.length
+            ? "Đã khôi phục lịch sử chữ gần nhất (tối đa 24.000 ký tự); không gồm audio/video cũ."
+            : "Không có lịch sử chữ để khôi phục ngữ cảnh phiên cũ.";
+          this.noticeClearsOnConnect = false;
+          this.restoreTranscript = false;
+        }
         this.markConnected();
       }
 
@@ -658,6 +715,11 @@ export class GeminiLiveService {
           typeof parsed.error === "object" && parsed.error && "message" in parsed.error
             ? String(parsed.error.message)
             : "Gemini Live API báo lỗi.";
+
+        if ([429, 500, 502, 503, 504].includes(Number(parsed.error?.code))) {
+          this.scheduleReconnect();
+          return;
+        }
 
         // A setup rejected while we asked for transcription or tools is retried
         // with one feature less, so an older model never breaks the call outright.
@@ -678,12 +740,11 @@ export class GeminiLiveService {
       }
 
       if (parsed.goAway) {
+        this.logDiag("goAway: renewing session");
         this.notice = "Phiên Gemini Live sắp hết hạn, đang tự động kết nối lại...";
         this.noticeClearsOnConnect = true;
-        if (this.reconnectAttempts < 2) {
-          this.reconnectAttempts++;
-          await this.reconnect();
-        }
+        // Scheduled expiry is not a failure: long calls must renew beyond two sessions.
+        await this.reconnect();
         return;
       }
 
@@ -1581,6 +1642,7 @@ export class GeminiLiveService {
   }
 
   clearTranscript(): void {
+    this.callTranscriptStart = 0;
     this.transcript = [];
     this.audioCache.clear();
     this.turnAudio = [];
@@ -1745,6 +1807,8 @@ export class GeminiLiveService {
 
   /** Replace only the socket: mic, camera, screen and the audio graph stay live. */
   private closeTransport(): void {
+    if (this.setupTimer !== null) clearTimeout(this.setupTimer);
+    this.setupTimer = null;
     if (this.ws) {
       this.ws.onopen = null;
       this.ws.onmessage = null;
@@ -1813,6 +1877,9 @@ export class GeminiLiveService {
 
   /** End the call: release every device and forget the conversation. */
   disconnect(): void {
+    ++this.sessionGeneration;
+    this.cancelRetry();
+    this.restoreTranscript = false;
     this.cleanupMedia();
     this.closeTransport();
 

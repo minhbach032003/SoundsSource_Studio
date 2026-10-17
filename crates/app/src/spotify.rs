@@ -23,6 +23,8 @@ pub struct SpotifyStatus {
     pub playback_error: Option<String>,
     pub local_running: bool,
     pub local_error: Option<String>,
+    /// Đã đăng nhập danh tính dành riêng cho phát nhạc chưa.
+    pub playback_signed_in: bool,
 }
 
 pub struct SpotifyIntegration {
@@ -137,6 +139,7 @@ impl SpotifyIntegration {
                     warning,
                     local_running: local_state.running,
                     local_error: local_state.error,
+                    playback_signed_in: sound_engine::spotify_player::playback_connected(),
                     ..Default::default()
                 };
                 // rate is only written by IOProc: read the router's EQ rate under its lock.
@@ -264,8 +267,9 @@ pub async fn spotify_local_player(enabled: bool, state: State<'_, AppState>) -> 
     if enabled {
         state.spotify.enabled.store(false, Ordering::Release);
         state.spotify.set_local(true);
-        let web = state.spotify.web.clone();
-        let token = tauri::async_runtime::spawn_blocking(move || web.current_access_token()).await.map_err(|e| e.to_string())??;
+        let token = tauri::async_runtime::spawn_blocking(sound_engine::spotify_player::playback_access_token)
+            .await
+            .map_err(|e| e.to_string())??;
         let router = state.router.clone();
         let spectrum = state.spotify.spectrum.clone();
         let player = state.spotify.player.clone();
@@ -287,6 +291,18 @@ pub async fn spotify_local_player(enabled: bool, state: State<'_, AppState>) -> 
 }
 
 #[tauri::command]
+pub async fn spotify_playback_login() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(sound_engine::spotify_player::playback_login)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn spotify_playback_connected() -> bool {
+    sound_engine::spotify_player::playback_connected()
+}
+
+#[tauri::command]
 pub async fn spotify_control(action: String, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
     tauri::async_runtime::spawn_blocking(move || if web.connected() { web.control(&action) } else { spotify::control(&action) }).await.map_err(|e| e.to_string())?
@@ -305,7 +321,15 @@ pub async fn spotify_login(state: State<'_, AppState>) -> Result<sound_engine::s
 #[tauri::command]
 pub async fn spotify_logout(state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.logout()).await.map_err(|e| e.to_string())?
+    // Ngắt tài khoản là ngắt cả hai danh tính: thư viện và phát nhạc.
+    state.spotify.set_local(false);
+    state.spotify.player.stop();
+    tauri::async_runtime::spawn_blocking(move || {
+        let _ = sound_engine::spotify_player::playback_logout();
+        web.logout()
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub async fn spotify_browse(kind: String, query: String, offset: u32, playlist_id: Option<String>, state: State<'_, AppState>) -> Result<sound_engine::spotify::MusicPage, String> {

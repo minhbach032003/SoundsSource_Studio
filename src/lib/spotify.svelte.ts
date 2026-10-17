@@ -20,6 +20,7 @@ export interface SpotifyStatus {
   playback_error: string | null;
   local_running: boolean;
   local_error: string | null;
+  playback_signed_in: boolean;
 }
 
 export interface SpotifyAccount { configured: boolean; connected: boolean; device_id: string | null }
@@ -125,6 +126,26 @@ class SpotifyState {
       if (!aIsLocal && bIsLocal) return 1;
       return 0;
     });
+  }
+
+  playbackAuthBusy = $state(false);
+
+  /// Spotify Connect chỉ nhận token của client desktop chính thức, nên phần phát nhạc
+  /// có một lần đăng nhập riêng, tách khỏi đăng nhập thư viện.
+  async loginPlayback(): Promise<boolean> {
+    this.playbackAuthBusy = true;
+    this.error = null;
+    try {
+      await invoke("spotify_playback_login");
+      toastState.info("Đã đăng nhập phần phát nhạc");
+      return true;
+    } catch (e) {
+      this.error = String(e);
+      toastState.error(String(e));
+      return false;
+    } finally {
+      this.playbackAuthBusy = false;
+    }
   }
 
   async setLocalPlayer(enabled: boolean): Promise<void> {

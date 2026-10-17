@@ -22,6 +22,7 @@ librespot-core = { version = "0.8.0", default-features = false, features = ["nat
 librespot-connect = { version = "0.8.0", default-features = false }
 librespot-playback = { version = "0.8.0", default-features = false }
 librespot-metadata = { version = "0.8.0", default-features = false }
+librespot-oauth = { version = "0.8.0", default-features = false }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
 
 [target.'cfg(unix)'.dependencies]

@@ -54,7 +54,7 @@ try {
   await browser('eval','window.spectrum.heights=[NaN]');
   await browser('wait','--text','Invalid Spotify spectrum data');
   await browser('eval','window.spectrum.heights=Array(28).fill(0); window.spectrum.error="System Audio Recording permission denied"');
-  await browser('wait','--text','System Audio Recording permission denied');
+  await browser('wait','--text','Xem chi tiết lỗi ở bảng Spotify.');
   await browser('eval','window.rejectSpectrum=true');
   await browser('wait','--text','Capture unavailable');
   await browser('eval','window.rejectSpectrum=false; window.spectrum.error=null; window.spectrum.enabled=true; window.spectrum.connected=true; window.spectrum.receiving=true; window.spectrum.has_signal=true; window.spectrum.heights[8]=65');

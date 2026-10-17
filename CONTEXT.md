@@ -28,6 +28,10 @@ _Avoid_: Wallpaper background, backdrop tint
 rust-sound tự là nguồn nhạc Spotify: phát không cần app Spotify trên máy. Loại trừ với Spotify DSP Connection — mỗi lúc chỉ một nguồn.
 _Avoid_: tap, remote device
 
+**Spotify Playback Sign-In**:
+A sign-in of its own, separate from the Spotify Library Connection, that authorizes rust-sound to play music itself. Spotify grants playback only to its official desktop client identity, so the library sign-in cannot carry it. Asked for once; stored apart from the library credential, and cleared together with it on sign-out.
+_Avoid_: second account, logging in twice to the same thing
+
 **Spotify Integration**:
 The in-app controls and now-playing information for Spotify, supporting both local playback inside rust-sound and external background Spotify on this Mac as the music source.
 

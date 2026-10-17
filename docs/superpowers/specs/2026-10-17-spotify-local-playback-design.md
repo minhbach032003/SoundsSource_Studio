@@ -161,8 +161,25 @@ Playback SDK.
 **Spike (task đầu tiên, throwaway):** một binary nhỏ, lấy token qua luồng PKCE hiện có
 của app + scope `streaming`, gọi `Credentials::with_access_token`, in kết quả.
 
-- **Kết quả thực nghiệm (2026-10-17):** **OK: session connected thành công, device_id=06f2598d-4d0d-440d-ba28-5b87ab4b7222**.
-- **Chốt phương án:** **Đăng nhập một lần duy nhất**! Dùng token của `SpotifyWeb` với `Credentials::with_access_token(token)`. Không cần luồng 2 danh tính hay nút đăng nhập thứ 2 trên UI.
+- **Kết quả spike (2026-10-17):** `session.connect` với token của Client ID riêng **thành công**
+  → lúc đó kết luận "một lần đăng nhập". **Kết luận này sai: spike là dương tính giả.**
+- **Kiểm chứng lại sau khi implement (2026-10-17):** chạy thật `LocalPlayer` với token của
+  Client ID riêng → `Spirc::new` trả `FailedPrecondition / INVALID_CREDENTIALS`. Ép session
+  mang Client ID của rust-sound → `InvalidArgument / StatusCode(400)` ở bước `client_token`.
+  Token lúc đó **đã có** scope `streaming` (đọc trực tiếp trường `scope` của token response),
+  nên đây không phải chuyện scope.
+- **Lý do:** `session.connect` chỉ là bước login. Spotify **Connect** đi thêm
+  `spclient().client_token()` + `login5().auth_token()`, và hai bước đó chỉ chấp nhận
+  Client ID của client desktop chính thức. Spike không chạm tới chúng nên không phát hiện ra.
+- **Chốt phương án (đã kiểm chứng chạy được):** **hai danh tính.** Thư viện và điều khiển dùng
+  Client ID riêng của rust-sound như cũ; phần phát nhạc đăng nhập qua `librespot-oauth` với
+  `SessionConfig::default().client_id` (client desktop chính thức), scope `streaming`,
+  redirect `http://127.0.0.1:5588/login`. Refresh token lưu Keychain dưới account
+  `rust-sound-playback`, tách hẳn khỏi token thư viện (khoá theo Client ID), nên đăng xuất
+  cái này không xoá nhầm cái kia. Người dùng bấm đăng nhập lần thứ hai **một lần duy nhất**.
+- **Bẫy đã dính và đã sửa:** `Spirc::new` **tự gọi** `session.connect` sau khi đăng ký
+  listener. Gọi `session.connect` trước đó làm Spirc hỏng với `Unavailable / NotConnected`.
+  `main.rs` của librespot upstream cũng không bao giờ connect trước.
 
 ## 7. Verify — và giới hạn của verify
 

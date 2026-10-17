@@ -119,6 +119,8 @@
           onchange={async (event) => {
             const val = event.currentTarget.value;
             if (val === "rust-sound" || val === spotifyState.localDeviceId) {
+              // Phát trong app cần danh tính phát nhạc riêng; xin nó ngay tại đây.
+              if (!status?.playback_signed_in && !(await spotifyState.loginPlayback())) return;
               await spotifyState.setLocalPlayer(true);
             } else {
               if (status?.local_running) {
@@ -140,6 +142,14 @@
         </select>
         <button class="btn icon-button" type="button" aria-label="Làm mới thiết bị Spotify" disabled={spotifyState.devicesBusy || spotifyState.busy} onclick={() => spotifyState.refreshDevices()}><RefreshCw class="w-4 h-4" /></button>
       </div>
+      {#if !status?.playback_signed_in}
+        <div class="device-row playback-auth-row">
+          <button class="btn" type="button" disabled={spotifyState.playbackAuthBusy} onclick={() => spotifyState.loginPlayback()}>
+            <LogIn class="w-3.5 h-3.5" /> Đăng nhập để phát trong app
+          </button>
+          <p class="note">Spotify chỉ cho phát nhạc qua phiên đăng nhập riêng, tách khỏi đăng nhập thư viện. Làm một lần, app nhớ luôn.</p>
+        </div>
+      {/if}
       <p class="note device-hint">Bass / EQ áp dụng cho nhạc phát trong rust-sound và cho app Spotify trên Mac này, không xử lý nhạc phát ở thiết bị khác.</p>
       <form class="spotify-search" onsubmit={(event) => { event.preventDefault(); void spotifyState.loadLibrary("search", query); }}>
         <input type="search" aria-label="Tìm bài hát trên Spotify" placeholder="Tìm bài hát hoặc nghệ sĩ…" maxlength="500" required bind:value={query} />
@@ -210,6 +220,8 @@
   .note { margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
   .error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--error); overflow-wrap: anywhere; }
   .warning { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+  .playback-auth-row { flex-wrap: wrap; border-top: none; padding-top: 8px; }
+  .playback-auth-row .note { flex: 1; min-width: 220px; }
   .device-row { display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
   .device-row select { flex: 1; min-width: 0; max-width: 100%; }
   .spotify-search { display: flex; gap: 8px; }

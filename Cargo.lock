@@ -4616,6 +4616,7 @@ dependencies = [
  "librespot-connect",
  "librespot-core",
  "librespot-metadata",
+ "librespot-oauth",
  "librespot-playback",
  "reqwest 0.13.5",
  "serde",
