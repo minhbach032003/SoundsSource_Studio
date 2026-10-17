@@ -153,26 +153,45 @@ pub fn get_spotify_spectrum(state: State<'_, AppState>) -> SpotifySpectrum {
     state.spotify.spectrum()
 }
 
-unsafe extern "C" fn process_audio(context: *mut std::ffi::c_void, samples: *mut f32, count: u32, rate: f64) {
-    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() || !sound_engine::spectrum::SUPPORTED_RATES.contains(&(rate as f32)) { return; }
-    let processor = unsafe { &*context.cast::<Processor>() };
-    let samples = unsafe { std::slice::from_raw_parts_mut(samples, count as usize) };
-    // Never block the audio thread on UI commands. A contended buffer passes through.
-    if let Ok(mut router) = processor.router.try_lock() {
-        if router.master_eq().sample_rate != rate as f32 {
+pub fn process_spotify_frame(
+    router: &Mutex<AudioRouter>,
+    spectrum: &Mutex<SpectrumBuffer>,
+    samples: &mut [f32],
+    rate: f32,
+    apply_channel_gain: bool,
+) {
+    if samples.is_empty() || samples.len() % 2 != 0 || !rate.is_finite() || !sound_engine::spectrum::SUPPORTED_RATES.contains(&rate) {
+        return;
+    }
+    if let Ok(mut router) = router.try_lock() {
+        if apply_channel_gain {
+            router.get_or_create_channel("com.spotify.client").process(samples);
+        }
+        if router.master_eq().sample_rate != rate {
             let eq = router.master_eq_mut();
-            eq.sample_rate = rate as f32; eq.recalculate_all();
+            eq.sample_rate = rate;
+            eq.recalculate_all();
             let eq = &mut router.get_or_create_channel("com.spotify.client").eq;
-            eq.sample_rate = rate as f32; eq.recalculate_all();
+            eq.sample_rate = rate;
+            eq.recalculate_all();
         }
         router.get_or_create_channel("com.spotify.client").eq.process_interleaved_stereo(samples);
-        // This rack is fed only by the Spotify tap, not the system mix.
+        // This rack is fed only by Spotify (tap or local), not the system mix.
         router.master_eq_mut().process_interleaved_stereo(samples);
     }
-    for s in samples.iter_mut() { *s = if s.is_finite() { s.clamp(-1.0, 1.0) } else { 0.0 }; }
-    if let Ok(mut spectrum) = processor.spectrum.try_lock() {
-        spectrum.push_stereo(samples, rate as f32);
+    for s in samples.iter_mut() {
+        *s = if s.is_finite() { s.clamp(-1.0, 1.0) } else { 0.0 };
     }
+    if let Ok(mut spectrum) = spectrum.try_lock() {
+        spectrum.push_stereo(samples, rate);
+    }
+}
+
+unsafe extern "C" fn process_audio(context: *mut std::ffi::c_void, samples: *mut f32, count: u32, rate: f64) {
+    if context.is_null() || samples.is_null() || count == 0 || count > 32768 || count % 2 != 0 || !rate.is_finite() { return; }
+    let processor = unsafe { &*context.cast::<Processor>() };
+    let samples = unsafe { std::slice::from_raw_parts_mut(samples, count as usize) };
+    process_spotify_frame(&processor.router, &processor.spectrum, samples, rate as f32, false);
 }
 
 #[tauri::command]
@@ -240,6 +259,28 @@ pub async fn spotify_open_automation_settings() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn channel_volume_applies_only_to_the_local_player() {
+        let router = Arc::new(Mutex::new(AudioRouter::new(44100.0)));
+        let spectrum: Arc<Mutex<SpectrumBuffer>> = Default::default();
+        router.lock().unwrap().master_eq_mut().set_master_bypass(true);
+        router.lock().unwrap().set_app_volume("com.spotify.client", 0.5);
+        let tone = vec![0.5f32; 512];
+
+        let mut local = tone.clone();
+        process_spotify_frame(&router, &spectrum, &mut local, 44100.0, true);
+        assert!(local[0] < 0.3, "local player phải ăn volume của mixer");
+
+        let mut tapped = tone.clone();
+        process_spotify_frame(&router, &spectrum, &mut tapped, 44100.0, false);
+        assert_eq!(tapped[0], 0.5, "đường tap không được giảm âm lượng hai lần");
+
+        router.lock().unwrap().set_app_mute("com.spotify.client", true);
+        let mut muted = tone.clone();
+        process_spotify_frame(&router, &spectrum, &mut muted, 44100.0, true);
+        assert_eq!(muted, vec![0.0; 512]);
+    }
     #[test]
     fn actual_tap_callback_routes_spotify_through_eq_and_bypass() {
         let router = Arc::new(Mutex::new(AudioRouter::new(48000.0)));

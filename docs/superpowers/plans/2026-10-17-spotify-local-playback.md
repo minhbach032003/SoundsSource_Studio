@@ -162,7 +162,7 @@ pub fn process_spotify_frame(
 
 `apply_channel_gain = true` chỉ cho local player. Đường tap truyền `false` vì âm lượng ở đó đã do AppleScript (`AudioProcess::set_app_volume`) xử lý — áp thêm gain nữa là giảm hai lần.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào mod tests sẵn có trong `crates/app/src/spotify.rs`:
 
@@ -190,23 +190,23 @@ fn channel_volume_applies_only_to_the_local_player() {
 }
 ```
 
-- [ ] **Step 2: Chạy, phải fail**
+- [x] **Step 2: Chạy, phải fail**
 
 Run: `cargo test -p rust-sound channel_volume_applies_only_to_the_local_player`
 Expected: không compile — `cannot find function process_spotify_frame`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Chuyển nguyên thân `process_audio` (từ chỗ `if let Ok(mut router) = processor.router.try_lock()` đến hết phần push spectrum) sang `process_spotify_frame`. Khi `apply_channel_gain == true`, gọi `AppAudioChannel::process` **trước** EQ. `process_audio` chỉ còn giữ phần kiểm tra con trỏ/độ dài/rate rồi gọi hàm mới với `false`.
 
 Giữ nguyên: `try_lock` (không `lock`), việc đồng bộ `eq.sample_rate` + `recalculate_all()` khi rate đổi, clamp NaN → 0, push spectrum.
 
-- [ ] **Step 4: Chạy toàn bộ test Spotify**
+- [x] **Step 4: Chạy toàn bộ test Spotify**
 
 Run: `cargo test -p rust-sound spotify`
 Expected: PASS, gồm cả `actual_tap_callback_routes_spotify_through_eq_and_bypass` cũ.
 
-- [ ] **Step 5: Commit** — `refactor: share the Spotify DSP chain between tap and local player`
+- [x] **Step 5: Commit** — `refactor: share the Spotify DSP chain between tap and local player`
 
 ---
 
