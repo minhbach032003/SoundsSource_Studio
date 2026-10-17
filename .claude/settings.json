@@ -8,6 +8,7 @@
       "Bash(cargo fmt:*)",
       "Bash(pnpm install:*)",
       "Bash(pnpm build)",
+      "Bash(pnpm rebuild:app)",
       "Bash(pnpm check)",
       "Bash(node tests/:*)",
       "Bash(npx @fission-ai/openspec validate:*)",
@@ -18,7 +19,6 @@
       "Bash(rg:*)"
     ],
     "deny": [
-      "Bash(pnpm rebuild:app)",
       "Bash(pnpm tauri:*)",
       "Read(./.env)",
       "Read(./.env.*)"
