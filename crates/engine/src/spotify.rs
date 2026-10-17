@@ -302,6 +302,7 @@ impl SpotifyWeb {
                     status.as_u16(),
                     &String::from_utf8_lossy(&body),
                     retry_after.as_deref(),
+                    path,
                 ));
             }
             if status == StatusCode::NO_CONTENT || response.content_length() == Some(0) {
@@ -642,7 +643,7 @@ fn default_device<'a>(devices: &'a [Device], local_name: &str) -> Option<&'a Dev
 }
 
 /// Dịch một phản hồi lỗi của Spotify, giữ nguyên lời giải thích của chính Spotify.
-fn api_error(status: u16, body: &str, retry_after: Option<&str>) -> String {
+fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> String {
     let base = match status {
         401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
         403 => "Spotify không cho phép thao tác này. Kiểm tra Premium, User Management của Developer App; playlist của người khác có thể bị Spotify giới hạn.".to_string(),
@@ -653,6 +654,8 @@ fn api_error(status: u16, body: &str, retry_after: Option<&str>) -> String {
         ),
         _ => format!("Spotify gặp lỗi ({status}). Thử lại sau."),
     };
+    // Lệnh nào bị từ chối là thông tin đầu tiên cần có khi đi tìm nguyên nhân.
+    let base = format!("{base} [{path}]");
     let Ok(parsed) = serde_json::from_str::<Value>(body) else {
         return base;
     };
@@ -751,15 +754,17 @@ mod tests {
                 403,
                 r#"{"error":{"status":403,"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#,
                 None,
+                "me/player",
             )
             .ends_with("Spotify nói: Player command failed: Restriction violated (UNKNOWN)"),
             "lý do Spotify đưa ra phải tới được người dùng"
         );
+        let refused = api_error(403, "", None, "me/player/play");
         assert!(
-            api_error(403, "", None).ends_with("bị Spotify giới hạn."),
-            "không có thân phản hồi thì giữ nguyên câu cũ, không thêm đuôi rỗng"
+            refused.ends_with("[me/player/play]"),
+            "phải nói rõ lệnh nào bị từ chối, nếu không thì không lần ra được: {refused}"
         );
-        assert!(api_error(429, "not json", Some("12")).contains("sau 12 giây"));
+        assert!(api_error(429, "not json", Some("12"), "me/player").contains("sau 12 giây"));
         assert!(
             tokens_from_response(
                 TokenResponse {
