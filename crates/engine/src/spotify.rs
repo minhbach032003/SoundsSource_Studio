@@ -290,13 +290,19 @@ impl SpotifyWeb {
                 continue;
             }
             if !status.is_success() {
-                return Err(match status.as_u16() {
-                    401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".into(),
-                    403 => "Spotify không cho phép thao tác này. Kiểm tra Premium, User Management của Developer App; playlist của người khác có thể bị Spotify giới hạn.".into(),
-                    404 => "Không thấy thiết bị Spotify sẵn sàng. Mở Spotify trên Mac, chọn thiết bị phát rồi thử lại.".into(),
-                    429 => format!("Spotify giới hạn số yêu cầu. Thử lại sau {} giây.", response.headers().get("retry-after").and_then(|v| v.to_str().ok()).unwrap_or("30")),
-                    _ => format!("Spotify gặp lỗi ({}). Thử lại sau.", status.as_u16()),
-                });
+                let retry_after = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_owned);
+                // Spotify nói rõ lý do trong thân phản hồi; đoán hộ nó thì mất luôn manh mối.
+                let mut body = Vec::new();
+                let _ = response.take(4096).read_to_end(&mut body);
+                return Err(api_error(
+                    status.as_u16(),
+                    &String::from_utf8_lossy(&body),
+                    retry_after.as_deref(),
+                ));
             }
             if status == StatusCode::NO_CONTENT || response.content_length() == Some(0) {
                 return Ok(Value::Null);
@@ -333,10 +339,7 @@ impl SpotifyWeb {
                 .ok()
                 .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
                 .unwrap_or_default();
-            *selected = devices
-                .iter()
-                .find(|d| d.name == local_name)
-                .map(|d| d.id.clone());
+            *selected = default_device(&devices, &local_name).map(|d| d.id.clone());
         }
         Ok(devices)
     }
@@ -607,6 +610,45 @@ fn parse_page(page: &Value, offset: u32, limit: u32, kind: &str) -> MusicPage {
     }
 }
 
+/// rust-sound tự phát nhạc, nên nó là đích mặc định; app Spotify trên máy chỉ là phương án dự phòng.
+fn default_device<'a>(devices: &'a [Device], local_name: &str) -> Option<&'a Device> {
+    devices
+        .iter()
+        .find(|d| d.name.eq_ignore_ascii_case(crate::spotify_player::LOCAL_DEVICE_NAME))
+        .or_else(|| devices.iter().find(|d| d.name == local_name))
+}
+
+/// Dịch một phản hồi lỗi của Spotify, giữ nguyên lời giải thích của chính Spotify.
+fn api_error(status: u16, body: &str, retry_after: Option<&str>) -> String {
+    let base = match status {
+        401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
+        403 => "Spotify không cho phép thao tác này. Kiểm tra Premium, User Management của Developer App; playlist của người khác có thể bị Spotify giới hạn.".to_string(),
+        404 => "Không thấy thiết bị Spotify sẵn sàng. Mở Spotify trên Mac, chọn thiết bị phát rồi thử lại.".to_string(),
+        429 => format!(
+            "Spotify giới hạn số yêu cầu. Thử lại sau {} giây.",
+            retry_after.unwrap_or("30")
+        ),
+        _ => format!("Spotify gặp lỗi ({status}). Thử lại sau."),
+    };
+    let Ok(parsed) = serde_json::from_str::<Value>(body) else {
+        return base;
+    };
+    let field = |key: &str| {
+        parsed["error"][key]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let detail = match (field("message"), field("reason")) {
+        (Some(message), Some(reason)) if message != reason => format!("{message} ({reason})"),
+        (Some(message), _) => message,
+        (None, Some(reason)) => reason,
+        (None, None) => return base,
+    };
+    format!("{base} Spotify nói: {detail}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -664,6 +706,37 @@ mod tests {
             assert_eq!(page.items[0].artist, "Artist");
             assert_eq!(page.next_offset, Some(20));
         }
+        let device = |id: &str, name: &str| Device {
+            id: id.into(),
+            name: name.into(),
+            is_active: false,
+        };
+        let both = [device("mac", "mac's Mac mini"), device("rs", "rust-sound")];
+        assert_eq!(
+            default_device(&both, "mac's Mac mini").map(|d| d.id.as_str()),
+            Some("rs"),
+            "có rust-sound thì phát trong app, không đẩy sang app Spotify"
+        );
+        assert_eq!(
+            default_device(&both[..1], "mac's Mac mini").map(|d| d.id.as_str()),
+            Some("mac"),
+            "chưa có rust-sound thì mới dùng máy này"
+        );
+        assert!(default_device(&both[..1], "máy khác").is_none());
+        assert!(
+            api_error(
+                403,
+                r#"{"error":{"status":403,"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#,
+                None,
+            )
+            .ends_with("Spotify nói: Player command failed: Restriction violated (UNKNOWN)"),
+            "lý do Spotify đưa ra phải tới được người dùng"
+        );
+        assert!(
+            api_error(403, "", None).ends_with("bị Spotify giới hạn."),
+            "không có thân phản hồi thì giữ nguyên câu cũ, không thêm đuôi rỗng"
+        );
+        assert!(api_error(429, "not json", Some("12")).contains("sau 12 giây"));
         assert!(
             tokens_from_response(
                 TokenResponse {

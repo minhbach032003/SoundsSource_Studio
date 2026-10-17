@@ -175,11 +175,16 @@ class SpotifyState {
       this.writeSource(enabled ? "local" : "none");
       toastState.info(enabled ? "Đang phát nhạc trực tiếp trong rust-sound" : "Đã tắt phát nhạc nội bộ");
       if (enabled) {
-        await this.refreshDevices();
-        const localId = this.localDeviceId;
-        if (localId) {
-          await this.selectDevice(localId);
+        // Spirc mất vài giây mới đăng ký thiết bị với Spotify. Chọn đích phát trước khi nó
+        // xuất hiện thì lệnh play rơi vào thiết bị cũ và Spotify trả về 403.
+        let localId: string | null = null;
+        for (let attempt = 0; attempt < 6 && !localId; attempt++) {
+          if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 1000));
+          await this.refreshDevices();
+          localId = this.localDeviceId;
         }
+        if (localId) await this.selectDevice(localId);
+        else this.error = "Spotify chưa thấy thiết bị rust-sound. Bấm làm mới thiết bị rồi thử lại.";
       }
     } catch (e) {
       this.error = String(e);

@@ -12,6 +12,9 @@ use librespot_oauth::OAuthClientBuilder;
 use serde::Serialize;
 use tokio::runtime::Runtime;
 
+/// Tên thiết bị rust-sound đăng ký với Spotify Connect.
+pub const LOCAL_DEVICE_NAME: &str = "rust-sound";
+
 #[derive(Clone, Default, Serialize)]
 pub struct LocalPlayerState {
     pub running: bool,
@@ -107,7 +110,7 @@ impl LocalPlayer {
             );
 
             let mut connect_config = ConnectConfig::default();
-            connect_config.name = "rust-sound".to_string();
+            connect_config.name = LOCAL_DEVICE_NAME.to_string();
             connect_config.device_type = DeviceType::Computer;
 
             match Spirc::new(connect_config, session, credentials, player, mixer).await {
