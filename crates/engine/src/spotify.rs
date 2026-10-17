@@ -647,9 +647,14 @@ fn default_device<'a>(devices: &'a [Device], local_name: &str) -> Option<&'a Dev
 
 /// Dịch một phản hồi lỗi của Spotify, giữ nguyên lời giải thích của chính Spotify.
 fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> String {
+    // Spotify chỉ cho app đọc nội dung playlist do chính người dùng tạo hoặc cộng tác.
+    // Đây là giới hạn của Spotify, không phải hỏng hóc, nên nói đúng như vậy.
+    if status == 403 && path.starts_with("playlists/") {
+        return "Spotify không cho app xem bài trong playlist của người khác. Bạn vẫn phát được cả playlist này.".to_string();
+    }
     let base = match status {
         401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
-        403 => "Spotify không cho phép thao tác này. Kiểm tra Premium, User Management của Developer App; playlist của người khác có thể bị Spotify giới hạn.".to_string(),
+        403 => "Spotify không cho phép thao tác này. Kiểm tra Premium và User Management của Developer App.".to_string(),
         404 => "Không thấy thiết bị Spotify sẵn sàng. Mở Spotify trên Mac, chọn thiết bị phát rồi thử lại.".to_string(),
         429 => format!(
             "Spotify giới hạn số yêu cầu. Thử lại sau {} giây.",
@@ -766,6 +771,11 @@ mod tests {
         assert!(
             refused.ends_with("[me/player/play]"),
             "phải nói rõ lệnh nào bị từ chối, nếu không thì không lần ra được: {refused}"
+        );
+        let blocked = api_error(403, "", None, "playlists/5lxcbIY30f9RX8x4zFVoZ5/items");
+        assert!(
+            blocked.contains("playlist của người khác") && !blocked.contains('['),
+            "giới hạn của Spotify phải nói bằng tiếng người, không ném endpoint ra: {blocked}"
         );
         assert!(api_error(429, "not json", Some("12"), "me/player").contains("sau 12 giây"));
         assert!(
