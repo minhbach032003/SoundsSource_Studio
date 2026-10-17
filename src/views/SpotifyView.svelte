@@ -50,12 +50,16 @@
   <section class="panel eq-panel" aria-label="Bass / EQ Spotify">
     <div class="rack-heading">
       <span class="note" role="status">{dspLabel}</span>
-      <button class="btn" type="button" disabled={!isTauri() || spotifyState.busy} onclick={() => status?.enabled ? spotifyState.connect(false) : (confirmConnect = true)}>
-        {#if status?.enabled}<Unplug class="w-3.5 h-3.5" /> Ngắt DSP{:else}<AudioLines class="w-3.5 h-3.5" /> Kết nối DSP{/if}
-      </button>
+      {#if status?.local_running}
+        <span class="note status-pill"><AudioLines class="w-3.5 h-3.5 text-(--accent)" /> Đang phát trong rust-sound · DSP luôn bật</span>
+      {:else}
+        <button class="btn" type="button" disabled={!isTauri() || spotifyState.busy} onclick={() => status?.enabled ? spotifyState.connect(false) : (confirmConnect = true)}>
+          {#if status?.enabled}<Unplug class="w-3.5 h-3.5" /> Ngắt DSP{:else}<AudioLines class="w-3.5 h-3.5" /> Kết nối DSP{/if}
+        </button>
+      {/if}
     </div>
-    {#if status?.error}<p class="error" role="alert">{status.error}</p>{/if}
-    {#if status?.warning && !status?.error}<p class="warning" role="status">{status.warning}</p>{/if}
+    {#if status?.local_error || status?.error}<p class="error" role="alert">{status.local_error || status.error}</p>{/if}
+    {#if status?.warning && !status?.error && !status?.local_error}<p class="warning" role="status">{status.warning}</p>{/if}
     <StudioEQInspector embedded compact wide={!narrow} activePresetName={preset} isAudioActive={status?.processing ?? false}
       onPresetSelect={(name) => { preset = name; toastState.info(`Đã chọn EQ: ${name}`); }}
       onBandChange={setBand} onToggleBypass={bypass} />
@@ -108,13 +112,35 @@
     {:else}
       <div class="device-row">
         <label for="spotify-device">Phát trên</label>
-        <select id="spotify-device" value={spotifyState.account?.device_id ?? ""} disabled={spotifyState.devicesBusy || spotifyState.busy} onchange={(event) => spotifyState.selectDevice(event.currentTarget.value)}>
-          <option value="" disabled>Chọn Spotify trên Mac này</option>
-          {#each spotifyState.devices as device (device.id)}<option value={device.id}>{device.name}{device.is_active ? " · đang phát" : ""}</option>{/each}
+        <select
+          id="spotify-device"
+          value={status?.local_running ? (spotifyState.localDeviceId ?? "rust-sound") : (spotifyState.account?.device_id ?? "")}
+          disabled={spotifyState.devicesBusy || spotifyState.busy}
+          onchange={async (event) => {
+            const val = event.currentTarget.value;
+            if (val === "rust-sound" || val === spotifyState.localDeviceId) {
+              await spotifyState.setLocalPlayer(true);
+            } else {
+              if (status?.local_running) {
+                await spotifyState.setLocalPlayer(false);
+              }
+              await spotifyState.selectDevice(val);
+            }
+          }}
+        >
+          <option value="" disabled>Chọn thiết bị phát</option>
+          {#if !spotifyState.devices.some(d => d.name.toLowerCase() === "rust-sound")}
+            <option value="rust-sound">rust-sound (máy này)</option>
+          {/if}
+          {#each spotifyState.sortedDevices as device (device.id)}
+            <option value={device.id}>
+              {device.name.toLowerCase() === "rust-sound" ? "rust-sound (máy này)" : device.name}{device.is_active ? " · đang phát" : ""}
+            </option>
+          {/each}
         </select>
         <button class="btn icon-button" type="button" aria-label="Làm mới thiết bị Spotify" disabled={spotifyState.devicesBusy || spotifyState.busy} onclick={() => spotifyState.refreshDevices()}><RefreshCw class="w-4 h-4" /></button>
       </div>
-      <p class="note device-hint">Bass / EQ chỉ áp dụng cho Spotify trên Mac này, không xử lý nhạc phát ở thiết bị khác.</p>
+      <p class="note device-hint">Bass / EQ áp dụng cho nhạc phát trong rust-sound và cho app Spotify trên Mac này, không xử lý nhạc phát ở thiết bị khác.</p>
       <form class="spotify-search" onsubmit={(event) => { event.preventDefault(); void spotifyState.loadLibrary("search", query); }}>
         <input type="search" aria-label="Tìm bài hát trên Spotify" placeholder="Tìm bài hát hoặc nghệ sĩ…" maxlength="500" required bind:value={query} />
         <button class="btn icon-button" type="submit" aria-label="Tìm bài hát" disabled={!query.trim() || spotifyState.libraryBusy}><Search class="w-4 h-4" /></button>

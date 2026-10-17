@@ -395,37 +395,13 @@ pub local_error: Option<String>,
 - Modify: `src/lib/spotify.svelte.ts` (interface `SpotifyStatus` dòng 4-20, class `SpotifyState`)
 - Modify: `src/views/SpotifyView.svelte` (nút DSP dòng 53-55, ô thiết bị dòng 109-117)
 
-- [ ] **Step 1: Thêm field và hàm**
-
-Vào `interface SpotifyStatus`: `local_running: boolean; local_error: string | null;`
-
-Vào `class SpotifyState`:
-
-```ts
-async setLocalPlayer(enabled: boolean): Promise<void>   // invoke("spotify_local_player", { enabled })
-get localDeviceId(): string | null                      // id của device tên "rust-sound" trong this.devices
-```
-
-- [ ] **Step 2: Ô "Phát trên"**
-
-Device tên `rust-sound` hiển thị là `rust-sound (máy này)`, luôn đứng đầu danh sách, và là lựa chọn mặc định sau khi đăng nhập nếu người dùng chưa chọn gì. `onchange`: chọn nó → `setLocalPlayer(true)`; chọn thiết bị khác → `setLocalPlayer(false)` rồi `selectDevice(...)` như cũ.
-
-Nếu Task 1 ra nhánh FAIL (hai danh tính): thêm nút đăng nhập thứ hai ngay dưới ô này, nhãn `Đăng nhập để phát trong app`, kèm một dòng `note` giải thích Spotify yêu cầu đăng nhập riêng cho phần phát nhạc.
-
-- [ ] **Step 3: Nút "Kết nối DSP"**
-
-Chỉ hiện khi nguồn đang là app Spotify. Khi `status.local_running`, thay bằng dòng trạng thái: `Đang phát trong rust-sound · DSP luôn bật`. Icon dùng `@lucide/svelte` như phần còn lại của file.
-
-- [ ] **Step 4: Sửa câu ở dòng 117**
-
-Hiện: `Bass / EQ chỉ áp dụng cho Spotify trên Mac này, không xử lý nhạc phát ở thiết bị khác.`
-Thành câu nói rõ EQ áp dụng cho nhạc phát **trong rust-sound** và cho app Spotify trên máy này, không áp dụng cho thiết bị khác.
-
-- [ ] **Step 5: Hiện `local_error`** ở chỗ đang hiện `status.error`, cùng kiểu `role="alert"`.
-
-- [ ] **Step 6: Chạy** `pnpm build` → PASS (tsc không lỗi type).
-
-- [ ] **Step 7: Commit** — `feat: pick rust-sound itself as the Spotify playback device`
+- [x] **Step 1: Thêm field và hàm**
+- [x] **Step 2: Ô "Phát trên"**
+- [x] **Step 3: Nút "Kết nối DSP"**
+- [x] **Step 4: Sửa câu ở dòng 117**
+- [x] **Step 5: Hiện `local_error`** ở chỗ đang hiện `status.error`, cùng kiểu `role="alert"`.
+- [x] **Step 6: Chạy** `pnpm build` → PASS (tsc không lỗi type).
+- [x] **Step 7: Commit** — `feat: pick rust-sound itself as the Spotify playback device`
 
 ---
 

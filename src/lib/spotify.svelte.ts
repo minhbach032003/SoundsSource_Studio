@@ -18,6 +18,8 @@ export interface SpotifyStatus {
   error: string | null;
   warning: string | null;
   playback_error: string | null;
+  local_running: boolean;
+  local_error: string | null;
 }
 
 export interface SpotifyAccount { configured: boolean; connected: boolean; device_id: string | null }
@@ -109,6 +111,41 @@ class SpotifyState {
       this.account = await invoke<SpotifyAccount>("spotify_account");
     } catch (e) { this.libraryError = String(e); }
     finally { this.devicesBusy = false; }
+  }
+
+  get localDeviceId(): string | null {
+    return this.devices.find((d) => d.name.toLowerCase() === "rust-sound")?.id ?? null;
+  }
+
+  get sortedDevices(): SpotifyDevice[] {
+    return [...this.devices].sort((a, b) => {
+      const aIsLocal = a.name.toLowerCase() === "rust-sound";
+      const bIsLocal = b.name.toLowerCase() === "rust-sound";
+      if (aIsLocal && !bIsLocal) return -1;
+      if (!aIsLocal && bIsLocal) return 1;
+      return 0;
+    });
+  }
+
+  async setLocalPlayer(enabled: boolean): Promise<void> {
+    this.busy = true;
+    this.error = null;
+    try {
+      await invoke("spotify_local_player", { enabled });
+      toastState.info(enabled ? "Đang phát nhạc trực tiếp trong rust-sound" : "Đã tắt phát nhạc nội bộ");
+      if (enabled) {
+        await this.refreshDevices();
+        const localId = this.localDeviceId;
+        if (localId) {
+          await this.selectDevice(localId);
+        }
+      }
+    } catch (e) {
+      this.error = String(e);
+      toastState.error(String(e));
+    } finally {
+      this.busy = false;
+    }
   }
 
   async selectDevice(id: string) {
