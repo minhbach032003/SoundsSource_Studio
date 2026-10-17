@@ -245,3 +245,11 @@ test("screen share asks macOS for Screen Recording before opening a black stream
   assert.equal(/<div[^>]*onpointerdown/.test(view), false, "no handlers on static elements");
   assert.equal(emojiRegex.test(view), false, "zero emojis");
 });
+
+test("a failed call shows the server's close code and reason with retry and copy", () => {
+  const view = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+  assert.ok(view.includes('callStatus === "error"') && view.includes('role="alert"'), "error banner");
+  assert.ok(view.includes("geminiLiveState.lastClose"), "shows the close frame verbatim");
+  assert.ok(view.includes("Gọi lại"), "one-click retry");
+  assert.ok(view.includes("Sao chép chẩn đoán"), "one-click diagnostics copy");
+});

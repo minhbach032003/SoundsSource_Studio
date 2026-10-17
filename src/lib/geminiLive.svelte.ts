@@ -182,6 +182,17 @@ const BLACK_FRAME_MAX_LUMA = 16;
 const SCREEN_ISSUE_AFTER_TICKS = 3;
 
 const DIAGNOSTICS_MAX_LINES = 80;
+
+/**
+ * WebKit can leave `resume()` pending until the next user gesture. Opening the
+ * socket must not wait on that: the next click resumes it (see resumeAudio).
+ */
+async function resumeWithTimeout(ctx: AudioContext, ms = 600): Promise<void> {
+  await Promise.race([
+    ctx.resume().catch(() => {}),
+    new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  ]);
+}
 const SEARCH_BLOCKED_KEY = "gemini_live_search_blocked";
 const SEARCH_BLOCK_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -295,6 +306,8 @@ export class GeminiLiveService {
   diagnostics = $state<string[]>([]);
   /** Wire counters, so "Gemini does not answer" can be told apart from "Gemini never heard you". */
   stats = $state({ audioSent: 0, audioReceived: 0, framesSent: 0 });
+  /** The server's last close frame, shown verbatim next to the error. */
+  lastClose = $state<{ code: number; reason: string } | null>(null);
   private socketErrored = false;
   private lastSetupHadSearch = false;
   /** Consecutive screen ticks that were all-black, or had no decoded frame at all. */
@@ -357,6 +370,7 @@ export class GeminiLiveService {
     this.reconnectAttempts = 0;
     this.notice = null;
     this.resumeHandle = null;
+    this.lastClose = null;
     await this.openSession(options ?? this.lastOptions ?? {});
   }
 
@@ -518,8 +532,21 @@ export class GeminiLiveService {
     const wasConnecting = this.status === "connecting";
     this.logDiag(`close code=${event.code} clean=${event.wasClean} while=${this.status} reason=${reason.slice(0, 120)}`);
 
-    if (wasConnecting && event.code === 1007 && /unknown name|cannot find field/i.test(reason)) {
-      if (this.hasPendingSetupExtras()) {
+    this.lastClose = { code: event.code, reason };
+
+    // A close before setupComplete means the server refused this setup. Chromium
+    // reports exactly why (1007 unknown field, 1011 quota) but WKWebView may hand
+    // over a different code or an empty reason, and keying recovery on those
+    // details is what killed the call on macOS right after "connecting". So any
+    // setup-phase refusal that is not a bad key or a dead model sheds one optional
+    // feature and retries: Google Search first, then captions, then tools.
+    const fatalSetupError = /api key|api_key|not found|not supported for bidiGenerateContent/i.test(reason);
+    const unknownField = event.code === 1007 && /unknown name|cannot find field/i.test(reason);
+    const opaque = !reason || event.code === 1006;
+
+    if (wasConnecting && !fatalSetupError) {
+      // The server named the field it rejects: shed exactly that (captions, then tools).
+      if (unknownField && this.hasPendingSetupExtras()) {
         this.setupDowngradeLevel += 1;
         this.noticeClearsOnConnect = false;
         this.notice =
@@ -529,19 +556,36 @@ export class GeminiLiveService {
         await this.reconnect();
         return;
       }
-    }
 
-    // Free-tier keys often have no Search grounding quota on preview Live models:
-    // the server closes the setup with 1011. Keep the call, lose only the search.
-    if (wasConnecting && event.code === 1011 && /quota|exceeded/i.test(reason) && this.lastSetupHadSearch) {
-      if (!this.searchBlockedModels.includes(this.activeModel)) {
-        this.searchBlockedModels.push(this.activeModel);
-        persistSearchBlocked(this.searchBlockedModels);
+      // Otherwise Google Search is the usual culprit (1011 quota on free keys), and
+      // also the first thing to drop when the engine gave no usable reason.
+      if (this.lastSetupHadSearch) {
+        const quota = /quota|exceeded/i.test(reason);
+        if (!this.searchBlockedModels.includes(this.activeModel)) {
+          this.searchBlockedModels.push(this.activeModel);
+          // Only a stated quota refusal is remembered across launches; a network
+          // blip must not cost the user search for a day.
+          if (quota) persistSearchBlocked(this.searchBlockedModels);
+        }
+        this.noticeClearsOnConnect = false;
+        this.notice = quota
+          ? `Khóa API hết quota Google Search với ${this.activeModel.replace(/^models\//, "")}, đã tắt tìm kiếm web cho model này. Gemini vẫn trả lời mọi chủ đề từ kiến thức sẵn có; chọn Gemini 2.5 Flash Native Audio nếu cần tin tức mới.`
+          : `Phiên có Google Search bị máy chủ đóng (mã ${event.code}), đã kết nối lại không kèm tìm kiếm web.`;
+        await this.reconnect();
+        return;
       }
-      this.noticeClearsOnConnect = false;
-      this.notice = `Khóa API hết quota Google Search với ${this.activeModel.replace(/^models\//, "")}, đã tắt tìm kiếm web cho model này. Gemini vẫn trả lời mọi chủ đề từ kiến thức sẵn có; chọn Gemini 2.5 Flash Native Audio nếu cần tin tức mới.`;
-      await this.reconnect();
-      return;
+
+      // No reason at all and nothing named: keep shedding optional features.
+      if (opaque && this.hasPendingSetupExtras()) {
+        this.setupDowngradeLevel += 1;
+        this.noticeClearsOnConnect = false;
+        this.notice =
+          this.setupDowngradeLevel === 1
+            ? `Máy chủ từ chối phiên (mã ${event.code}), đã tắt phụ đề và kết nối lại.`
+            : `Máy chủ từ chối phiên (mã ${event.code}), đã kết nối lại ở chế độ thoại cơ bản.`;
+        await this.reconnect();
+        return;
+      }
     }
 
     // An expired resume handle must not strand the call: start a fresh context.
@@ -561,7 +605,7 @@ export class GeminiLiveService {
         this.status = "error";
         this.error =
           event.code === 1006 || (this.socketErrored && !reason)
-            ? "Mất kết nối mạng tới Gemini Live (1006). Kiểm tra mạng rồi bấm kết nối lại."
+            ? `Mất kết nối tới Gemini Live (mã ${event.code}). Kiểm tra mạng rồi bấm thử lại.`
             : describeCloseReason(event.code, reason, this.activeModel);
       } else {
         this.status = "idle";
@@ -867,7 +911,7 @@ export class GeminiLiveService {
     this.inputAudioContext = new AudioContextClass({ sampleRate: GEMINI_INPUT_SAMPLE_RATE });
     const actualSampleRate = this.inputAudioContext.sampleRate;
     if (this.inputAudioContext.state === "suspended") {
-      await this.inputAudioContext.resume().catch(() => {});
+      await resumeWithTimeout(this.inputAudioContext);
     }
     const micTrack = this.micStream.getAudioTracks()[0];
     this.logDiag(
@@ -1667,7 +1711,7 @@ export class GeminiLiveService {
   async resumeAudio(): Promise<void> {
     for (const ctx of [this.inputAudioContext, this.outputAudioContext]) {
       if (ctx && ctx.state === "suspended") {
-        await ctx.resume().catch(() => {});
+        await resumeWithTimeout(ctx);
         this.logDiag(`resumed audio context -> ${ctx.state}`);
       }
     }

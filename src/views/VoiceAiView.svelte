@@ -705,6 +705,51 @@
     </div>
   {/if}
 
+  {#if callStatus === "error"}
+    <!-- Lỗi cuộc gọi: luôn hiện lý do thật từ máy chủ để không phải đoán -->
+    <div
+      class="shrink-0 flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-(--error)/10 border border-(--error)/30 text-[11px] text-(--ink)"
+      role="alert"
+    >
+      <AlertTriangle class="w-4 h-4 text-(--error) shrink-0 mt-0.5" />
+      <div class="flex-1 min-w-0 space-y-1">
+        <p class="m-0 font-semibold">{geminiLiveState.error || "Cuộc gọi đã bị ngắt."}</p>
+        {#if geminiLiveState.lastClose}
+          <p class="m-0 font-mono text-[10px] text-(--muted) break-all">
+            Máy chủ đóng kết nối: mã {geminiLiveState.lastClose.code}{geminiLiveState.lastClose.reason
+              ? ` · ${geminiLiveState.lastClose.reason}`
+              : " · (không kèm lý do)"}
+          </p>
+        {/if}
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            onclick={handleStartCall}
+            class="h-7 px-2.5 rounded-lg bg-(--error)/15 hover:bg-(--error)/25 border border-(--error)/30 text-(--ink) text-[11px] font-medium flex items-center gap-1.5 cursor-pointer"
+          >
+            <PhoneCall class="w-3.5 h-3.5" />
+            <span>Gọi lại</span>
+          </button>
+          <button
+            type="button"
+            onclick={handleCopyDiagnostics}
+            class="h-7 px-2.5 rounded-lg bg-(--surface) hover:bg-(--paper) border border-(--line) text-(--ink) text-[11px] flex items-center gap-1.5 cursor-pointer"
+          >
+            <Copy class="w-3.5 h-3.5" />
+            <span>Sao chép chẩn đoán</span>
+          </button>
+          <button
+            type="button"
+            onclick={() => (isDiagnosticsOpen = true)}
+            class="h-7 px-2 rounded-lg text-(--muted) hover:text-(--ink) text-[11px] cursor-pointer"
+          >
+            Xem chi tiết
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <!-- 2. Responsive 2-Column Workspace (Stage & Dialogue Rail) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
     <!-- Cột trái (Stage): Interactive Live Stage, PiP Webcam, Dual Visualizer & HUD -->

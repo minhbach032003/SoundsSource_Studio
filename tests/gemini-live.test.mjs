@@ -236,6 +236,7 @@ function createGeminiLiveHarness(options) {
     requestAnimationFrame: () => 1,
     cancelAnimationFrame: () => {},
     setInterval: () => 1,
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
     clearInterval: () => {},
     console,
   });
@@ -1261,7 +1262,8 @@ test("a dropped network (error then 1006) is reported as a connection loss", asy
   ws.onerror(new Event("error"));
   await ws.onclose({ code: 1006, reason: "", wasClean: false });
   assert.equal(instance.status, "error");
-  assert.match(instance.error, /Mất kết nối mạng/);
+  assert.match(instance.error, /Mất kết nối tới Gemini Live \(mã 1006\)/);
+  assert.deepEqual({ ...instance.lastClose }, { code: 1006, reason: "" }, "close is kept for the UI");
 });
 
 test("search quota blocks are remembered across app launches", async () => {
@@ -1322,4 +1324,66 @@ test("resumeAudio wakes suspended audio contexts", async () => {
   await instance.resumeAudio();
   assert.equal(instance.inputAudioContext.state, "running");
   instance.disconnect();
+});
+
+test("WKWebView-style opaque setup closes still bring the call up", async () => {
+  // What "connect, then immediately off" looks like when the engine does not pass
+  // the server's 1011 + reason through: an abnormal close with no reason at all.
+  const harness = createGeminiLiveHarness();
+  const { instance, micTracks, localStorageData } = harness;
+  await instance.connect({ apiKey: "AIzaOpaque" });
+
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  assert.ok(JSON.parse(first.sent[0]).setup.tools.some((t) => t.googleSearch));
+  first.onerror(new Event("error"));
+  await first.onclose({ code: 1006, reason: "", wasClean: false });
+
+  assert.equal(MockWebSocket.instances.length, 2, "retried instead of hanging up");
+  const second = MockWebSocket.instances[1];
+  second.onopen();
+  assert.equal(JSON.parse(second.sent[0]).setup.tools.some((t) => t.googleSearch), false, "search shed first");
+  assert.match(instance.notice, /mã 1006/);
+  assert.equal(localStorageData.get("gemini_live_search_blocked"), undefined, "a blip is not remembered for a day");
+
+  await second.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  assert.equal(instance.status, "connected", "the call is up");
+  assert.equal(micTracks.length, 1, "same mic throughout");
+  instance.disconnect();
+});
+
+test("opaque closes shed captions then tools, then give up with the close shown", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  instance.setWebSearchEnabled(false);
+  await instance.connect({ apiKey: "AIzaOpaque2" });
+
+  for (let i = 0; i < 2; i++) {
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    ws.onopen();
+    await ws.onclose({ code: 1006, reason: "", wasClean: false });
+  }
+  const third = MockWebSocket.instances[2];
+  third.onopen();
+  const setup = JSON.parse(third.sent[0]).setup;
+  assert.equal(setup.inputAudioTranscription, undefined, "captions shed");
+  assert.equal(setup.tools, undefined, "tools shed");
+
+  await third.onclose({ code: 1006, reason: "", wasClean: false });
+  assert.equal(MockWebSocket.instances.length, 3, "bounded: no endless retries");
+  assert.equal(instance.status, "error");
+  assert.equal(instance.lastClose.code, 1006);
+});
+
+test("a bad key during setup is never retried, even with search declared", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  await instance.connect({ apiKey: "AIzaBadKey" });
+  const ws = MockWebSocket.instances[0];
+  ws.onopen();
+  await ws.onclose({ code: 1007, reason: "API key not valid. Please pass a valid API key.", wasClean: true });
+  assert.equal(MockWebSocket.instances.length, 1);
+  assert.equal(instance.status, "error");
+  assert.match(instance.error, /API Key không hợp lệ/);
+  assert.equal(instance.lastClose.reason, "API key not valid. Please pass a valid API key.");
 });
