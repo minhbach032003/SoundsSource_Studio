@@ -6,6 +6,7 @@ pub mod pet;
 pub mod preset;
 pub mod router;
 pub mod spotify;
+pub mod spotify_player;
 pub mod spectrum;
 pub mod pcm_queue;
 pub mod timer;

@@ -19,7 +19,10 @@ tempfile = "3"
 reqwest = { version = "0.13", features = ["blocking", "json", "form", "query"] }
 url = "2.5"
 librespot-core = { version = "0.8.0", default-features = false, features = ["native-tls"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+librespot-connect = { version = "0.8.0", default-features = false }
+librespot-playback = { version = "0.8.0", default-features = false }
+librespot-metadata = { version = "0.8.0", default-features = false }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -305,67 +305,13 @@ Spirc::new(config: ConnectConfig, session: Session, credentials: Credentials, pl
 
 Mixer: dùng `librespot_playback::mixer::softmixer::SoftMixer` qua `Mixer::open(MixerConfig::default())`. `volume_getter` lấy từ `mixer.get_soft_volume()`.
 
-- [ ] **Step 1: Thêm dep** vào `crates/engine/Cargo.toml`:
-
-```toml
-librespot-core = { version = "0.8", default-features = false }
-librespot-connect = { version = "0.8", default-features = false }
-librespot-playback = { version = "0.8", default-features = false }
-librespot-metadata = { version = "0.8", default-features = false }
-librespot-oauth = { version = "0.8", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
-```
-
-`default-features = false` để không kéo alsa/pulse/jack/gstreamer. Nếu librespot cần `protoc` lúc build, ghi lại vào README mục commands.
-
-- [ ] **Step 2: Viết test thất bại** (không chạm mạng)
-
-```rust
-#[test]
-fn a_player_that_never_started_is_not_running() {
-    let player = LocalPlayer::new();
-    let state = player.state();
-    assert!(!state.running && !state.playing && state.error.is_none());
-    player.stop();                        // stop khi chưa start không được panic
-    assert!(!player.state().running);
-}
-
-#[test]
-fn an_empty_token_fails_before_touching_the_network() {
-    let player = LocalPlayer::new();
-    let error = player.start("", Box::new(|| unreachable!("không được dựng sink khi token rỗng"))).unwrap_err();
-    assert!(error.contains("đăng nhập"), "lỗi phải là tiếng Việt, nhận được: {error}");
-}
-```
-
-- [ ] **Step 3: Chạy, phải fail.** Run: `cargo test -p sound-engine spotify_player`
-
-- [ ] **Step 4: Implement `LocalPlayer`**
-
-- `LocalPlayer` sở hữu một `tokio::runtime::Runtime` multi-thread riêng, tạo lúc `start`, drop lúc `stop`.
-- `start` kiểm tra token rỗng trước, trả lỗi tiếng Việt, **không** dựng sink.
-- Thứ tự dựng: `Session::new` → `session.connect` → `SoftMixer::open` → `Player::new` → `Spirc::new` → spawn future của Spirc.
-- `PlayerConfig` đặt bitrate 320 (`Bitrate::Bitrate320`).
-- Mọi `Error` của librespot chuyển thành câu tiếng Việt ngắn, đưa vào `state().error`. Không `unwrap`, không panic, không để lỗi làm chết thread.
-- `stop` phải dừng Spirc và drop runtime; gọi hai lần liên tiếp không được panic.
-
-- [ ] **Step 5: Chạy test** — `cargo test -p sound-engine` → PASS.
-
-- [ ] **Step 6: Review Focus 1 và 2 — token hết hạn và mất mạng**
-
-Thêm test với một `TokenSource` giả (trait nhỏ do task này định nghĩa, để test tiêm được):
-
-```rust
-#[test]
-fn an_expired_token_is_refreshed_instead_of_stalling() { /* token đầu hết hạn → lấy token mới → running vẫn true */ }
-
-#[test]
-fn a_dropped_connection_surfaces_a_vietnamese_error_and_stops_cleanly() {
-    /* sau lỗi: state().playing == false, state().error là Some, không panic */
-}
-```
-
-- [ ] **Step 7: Commit** — `feat: embed a librespot session as the local Spotify source`
+- [x] **Step 1: Thêm dep** vào `crates/engine/Cargo.toml`
+- [x] **Step 2: Viết test thất bại** (không chạm mạng)
+- [x] **Step 3: Chạy, phải fail.** Run: `cargo test -p sound-engine spotify_player`
+- [x] **Step 4: Implement `LocalPlayer`**
+- [x] **Step 5: Chạy test** — `cargo test -p sound-engine` → PASS.
+- [x] **Step 6: Review Focus 1 và 2 — token hết hạn và mất mạng**
+- [x] **Step 7: Commit** — `feat: embed a librespot session as the local Spotify source`
 
 ---
 
