@@ -148,6 +148,7 @@ function createGeminiLiveHarness(options) {
   const drawnSources = [];
 
   const opts = typeof options === "function" ? { invoke: options } : options || {};
+  const frame = { luma: 200 };
 
   // geminiLive imports its function-calling layer, so both modules share one scope.
   const source = `${stripModule("src/lib/geminiAudioTools.ts")}\n${stripModule(
@@ -222,6 +223,9 @@ function createGeminiLiveHarness(options) {
               drawImage(source) {
                 drawnSources.push(source);
               },
+              getImageData(x, y, w, h) {
+                return { data: new Uint8ClampedArray(w * h * 4).fill(frame.luma) };
+              },
             }),
             toDataURL: () => "data:image/jpeg;base64,mockframedata",
           };
@@ -255,6 +259,9 @@ function createGeminiLiveHarness(options) {
     camTracks,
     screenTracks,
     drawnSources,
+    setFrameLuma: (v) => {
+      frame.luma = v;
+    },
     localStorageData,
     context,
   };
@@ -687,7 +694,12 @@ test("Agent Control off refuses function calls without touching the mixer", asyn
   instance.setToolsEnabled(false);
   const ws = await openLiveSession(harness);
 
-  assert.equal(JSON.parse(ws.sent[0]).setup.tools, undefined, "no tools declared while off");
+  const offTools = JSON.parse(ws.sent[0]).setup.tools || [];
+  assert.equal(
+    offTools.some((t) => t.functionDeclarations),
+    false,
+    "no mixer functions declared while off (Google Search may remain)"
+  );
 
   await ws.onmessage({
     data: JSON.stringify({
@@ -975,9 +987,14 @@ test("screen share replaces the camera in the uplink and survives a persona swit
   assert.equal(instance.isVideoEnabled, true, "camera stays on for the PiP");
 
   drawnSources.length = 0;
+  const framesBefore = uplinkedFrames(ws);
   instance.captureAndSendVideoFrame();
-  assert.equal(drawnSources.length, 1, "exactly one frame per tick");
-  assert.equal(drawnSources[0].srcObject, instance.screenStream, "the uplinked frame is the screen, not the camera");
+  assert.ok(drawnSources.length >= 1, "the tick drew a frame");
+  assert.ok(
+    drawnSources.every((src) => src.srcObject === instance.screenStream),
+    "every sampled/uplinked frame is the screen, never the camera"
+  );
+  assert.equal(uplinkedFrames(ws) - framesBefore, 1, "exactly one frame uplinked per tick");
   assert.ok(lastSent(ws).realtimeInput.video, "frame sent as realtimeInput.video");
 
   await instance.switchVoice("Kore");
@@ -1060,5 +1077,131 @@ test("a downgrade notice stays visible after the degraded session connects", asy
   await second.onmessage({ data: JSON.stringify({ setupComplete: true }) });
   assert.equal(instance.status, "connected");
   assert.match(instance.notice, /phụ đề/, "the user still learns captions were turned off");
+  instance.disconnect();
+});
+
+function uplinkedFrames(ws) {
+  return ws.sent.filter((raw) => JSON.parse(raw).realtimeInput?.video).length;
+}
+
+test("the assistant is general-purpose, not limited to the mixer", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaGeneral" });
+  const ws = MockWebSocket.instances[0];
+  ws.onopen();
+  const prompt = JSON.parse(ws.sent[0]).setup.systemInstruction.parts[0].text;
+  assert.match(prompt, /mọi chủ đề/, "explicitly answers any topic");
+  assert.match(prompt, /Không tự giới hạn/, "tells the model not to restrict itself");
+  assert.match(prompt, /không đoán hay bịa/, "forbids inventing what a frame shows");
+  assert.match(prompt, /Chỉ gọi các hàm này khi người dùng yêu cầu/, "mixer tools only on request");
+  instance.disconnect();
+});
+
+test("Google Search grounding is declared alongside the mixer tools", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaSearch" });
+  const ws = MockWebSocket.instances[0];
+  ws.onopen();
+  const tools = JSON.parse(ws.sent[0]).setup.tools;
+  assert.ok(tools.some((t) => t.googleSearch), "googleSearch tool present");
+  assert.ok(tools.some((t) => t.functionDeclarations), "mixer functions still present");
+  instance.disconnect();
+
+  instance.setWebSearchEnabled(false);
+  await instance.connect({ apiKey: "AIzaSearch" });
+  const off = MockWebSocket.instances[1];
+  off.onopen();
+  assert.equal(
+    JSON.parse(off.sent[0]).setup.tools.some((t) => t.googleSearch),
+    false,
+    "the toggle removes search"
+  );
+  instance.disconnect();
+});
+
+test("a key without Search quota keeps the call and drops search for that model only", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaNoSearchQuota" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+
+  // Exact close the live service sends for gemini-3.1-flash-live + googleSearch on a free key.
+  await first.onclose({
+    code: 1011,
+    reason: "You exceeded your current quota, please check your plan and billing details.",
+    wasClean: true,
+  });
+
+  assert.equal(MockWebSocket.instances.length, 2, "re-opened instead of failing");
+  const retry = MockWebSocket.instances[1];
+  retry.onopen();
+  const retryTools = JSON.parse(retry.sent[0]).setup.tools;
+  assert.equal(retryTools.some((t) => t.googleSearch), false, "search dropped");
+  assert.ok(retryTools.some((t) => t.functionDeclarations), "mixer tools kept");
+  assert.match(instance.notice, /quota Google Search/, "user learns why search is off");
+  assert.equal(instance.status, "connecting");
+
+  // The same quota close without search pending is a real error, not a loop.
+  await retry.onclose({ code: 1011, reason: "You exceeded your current quota", wasClean: true });
+  assert.equal(instance.status, "error");
+  assert.equal(MockWebSocket.instances.length, 2);
+
+  // Later calls on that model skip search; another model still gets it.
+  await instance.connect({ apiKey: "AIzaNoSearchQuota" });
+  const again = MockWebSocket.instances[2];
+  again.onopen();
+  assert.equal(JSON.parse(again.sent[0]).setup.tools.some((t) => t.googleSearch), false);
+  instance.disconnect();
+
+  await instance.connect({ apiKey: "AIzaNoSearchQuota", model: "models/gemini-2.5-flash-native-audio-latest" });
+  const other = MockWebSocket.instances[3];
+  other.onopen();
+  assert.ok(JSON.parse(other.sent[0]).setup.tools.some((t) => t.googleSearch), "other model keeps search");
+  instance.disconnect();
+});
+
+test("an all-black screen share is never uplinked and is reported after 3 seconds", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+  await instance.startScreenShare();
+
+  harness.setFrameLuma(0);
+  instance.captureAndSendVideoFrame();
+  instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, null, "a couple of dark frames are tolerated");
+  instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, "black", "persistent black capture is flagged");
+  assert.equal(uplinkedFrames(ws), 0, "black frames never reach Gemini");
+
+  harness.setFrameLuma(180);
+  instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, null, "real content clears the warning");
+  assert.equal(uplinkedFrames(ws), 1, "real content is uplinked");
+
+  instance.disconnect();
+});
+
+test("a black capture is diagnosed before the call even starts", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  harness.setFrameLuma(0);
+  await instance.startScreenShare();
+  for (let i = 0; i < 3; i++) instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, "black", "user is warned while still in standby");
+  instance.stopScreenShare();
+  assert.equal(instance.screenShareIssue, null, "stopping the share clears the warning");
+});
+
+test("a share that never decodes a frame is reported as no-frames", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  await openLiveSession(harness);
+  await instance.startScreenShare();
+  instance.screenVideoElement.videoWidth = 0;
+  for (let i = 0; i < 4; i++) instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, null, "startup latency is tolerated");
+  instance.captureAndSendVideoFrame();
+  assert.equal(instance.screenShareIssue, "no-frames");
   instance.disconnect();
 });

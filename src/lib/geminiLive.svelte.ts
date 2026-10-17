@@ -57,16 +57,17 @@ export const GEMINI_OUTPUT_SAMPLE_RATE = 24000;
 const AUDIO_CACHE_MAX_SAMPLES = GEMINI_OUTPUT_SAMPLE_RATE * 120;
 const AUDIO_CACHE_MAX_TURNS = 12;
 
-const DEFAULT_SYSTEM_INSTRUCTION = `Bạn là trợ lý âm thanh thời gian thực tích hợp sẵn trong rust-sound, một ứng dụng mixer âm thanh trên macOS.
+const DEFAULT_SYSTEM_INSTRUCTION = `Bạn là Gemini, một trợ lý AI đa năng đang trò chuyện trực tiếp bằng giọng nói với người dùng qua ứng dụng rust-sound trên macOS.
 
-Bạn điều khiển được mixer thật của máy thông qua các hàm được cung cấp: liệt kê ứng dụng đang phát tiếng, đặt âm lượng và mute từng ứng dụng, đặt âm lượng và mute master, đọc và chỉnh 10 band EQ master.
+Phạm vi: trả lời mọi chủ đề người dùng hỏi — kiến thức chung, khoa học, y sinh, lập trình, công việc, học tập, đời sống, tin tức, giải thích những gì họ đang cho xem qua camera hoặc màn hình chia sẻ. Không tự giới hạn mình vào chủ đề âm thanh hay ứng dụng này.
 
-Nguyên tắc làm việc:
-- Khi người dùng yêu cầu thay đổi âm thanh, hãy gọi hàm tương ứng ngay thay vì chỉ mô tả cách làm.
-- Trước khi chỉnh âm lượng một ứng dụng, gọi list_audio_apps để lấy tên chính xác.
-- Sau khi gọi hàm, báo lại ngắn gọn bằng tiếng Việt kết quả thực tế (giá trị đã đặt, ứng dụng nào).
-- Nếu một hàm trả về lỗi, nói rõ lý do và đề xuất phương án khác, không bịa là đã thành công.
-- Trả lời ngắn, đi thẳng vào việc, bằng tiếng Việt, giữ nguyên thuật ngữ kỹ thuật tiếng Anh.`;
+Hình ảnh: khi có khung hình từ camera hoặc màn hình chia sẻ, hãy dựa vào nội dung thực sự nhìn thấy. Nếu khung hình đen, mờ hoặc không đọc được, nói thẳng là không thấy rõ; tuyệt đối không đoán hay bịa nội dung.
+
+Thông tin mới: nếu có công cụ Google Search, dùng nó cho câu hỏi về sự kiện, giá cả, thời tiết hay dữ liệu thay đổi theo thời gian, rồi trả lời dựa trên kết quả tìm được.
+
+Điều khiển âm thanh: bạn có thêm các hàm điều khiển mixer thật của máy (liệt kê ứng dụng đang phát tiếng, âm lượng và mute từng ứng dụng, âm lượng và mute master, 10 band EQ master). Chỉ gọi các hàm này khi người dùng yêu cầu thay đổi hoặc kiểm tra âm thanh. Trước khi chỉnh một ứng dụng, gọi list_audio_apps để lấy tên chính xác. Sau khi gọi, báo lại kết quả thực tế; nếu hàm lỗi thì nói rõ lý do, không nói là đã thành công.
+
+Cách trả lời: dùng ngôn ngữ người dùng đang nói (mặc định tiếng Việt), giữ nguyên thuật ngữ chuyên ngành tiếng Anh, đi thẳng vào nội dung. Đây là hội thoại bằng giọng nói nên ưu tiên câu ngắn, rõ ràng; chỉ trình bày dài khi người dùng hỏi chi tiết.`;
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -155,6 +156,31 @@ function downsampleBuffer(
   return result;
 }
 
+/**
+ * Keep a capture-only <video> inside the document. Chromium decodes frames for
+ * detached elements, WebKit (the macOS Tauri webview) does not reliably do so,
+ * which leaves `drawImage` with empty frames. 2px at near-zero opacity keeps it
+ * "visible" to WebKit's media policies without showing anything.
+ */
+function mountCaptureVideo(el: HTMLVideoElement): void {
+  if (typeof document === "undefined" || !document.body || el.isConnected) return;
+  el.setAttribute("aria-hidden", "true");
+  el.style.cssText =
+    "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1;";
+  document.body.appendChild(el);
+}
+
+function unmountCaptureVideo(el: HTMLVideoElement | null): void {
+  if (el && el.isConnected && typeof el.remove === "function") {
+    el.remove();
+  }
+}
+
+/** Frames whose brightest sampled pixel stays below this are treated as black. */
+const BLACK_FRAME_MAX_LUMA = 16;
+/** Consecutive bad ticks (at 1 fps) before the user is told the share is not working. */
+const SCREEN_ISSUE_AFTER_TICKS = 3;
+
 /** Turn a Live API close frame into something the user can act on. */
 function describeCloseReason(code: number, reason: string, model: string): string {
   if (/api key not valid|api_key_invalid/i.test(reason)) {
@@ -185,6 +211,14 @@ export class GeminiLiveService {
   toolsEnabled = $state<boolean>(true);
   /** When off, the session runs without input/output audio transcription. */
   captionsEnabled = $state<boolean>(true);
+  /** Google Search grounding, so questions about current events get real answers. */
+  webSearchEnabled = $state<boolean>(true);
+  /**
+   * Why the shared screen is not reaching Gemini, if it isn't: `black` means the
+   * capture delivers empty frames (on macOS, missing Screen Recording permission),
+   * `no-frames` means the stream never produced a decodable frame.
+   */
+  screenShareIssue = $state<"black" | "no-frames" | null>(null);
   /** Epoch ms of the moment the session became usable, for the call timer. */
   callStartedAt = $state<number | null>(null);
   /** Cumulative token count reported by the server for this session. */
@@ -231,6 +265,13 @@ export class GeminiLiveService {
   private resumeHandle: string | null = null;
   /** The current notice only describes a re-open in progress and clears once it lands. */
   private noticeClearsOnConnect = false;
+  /** Models whose key has no Search grounding quota: setup is closed with 1011 when asked. */
+  searchBlockedModels = $state<string[]>([]);
+  private lastSetupHadSearch = false;
+  /** Consecutive screen ticks that were all-black, or had no decoded frame at all. */
+  private blackFrameStreak = 0;
+  private emptyFrameStreak = 0;
+  private probeCanvas: HTMLCanvasElement | null = null;
   /** Whether the socket in flight was opened with `resumeHandle`. */
   private openedWithHandle = false;
 
@@ -315,6 +356,13 @@ export class GeminiLiveService {
   ): Record<string, unknown> {
     const withCaptions = this.captionsEnabled && this.setupDowngradeLevel < 1;
     const withTools = this.toolsEnabled && this.setupDowngradeLevel < 2;
+    const withSearch =
+      this.webSearchEnabled && this.setupDowngradeLevel < 2 && !this.searchBlockedModels.includes(model);
+    this.lastSetupHadSearch = withSearch;
+
+    const tools: Record<string, unknown>[] = [];
+    if (withTools) tools.push({ functionDeclarations: GEMINI_AUDIO_TOOL_DECLARATIONS });
+    if (withSearch) tools.push({ googleSearch: {} });
 
     return {
       setup: {
@@ -337,9 +385,7 @@ export class GeminiLiveService {
         ...(withCaptions
           ? { inputAudioTranscription: {}, outputAudioTranscription: {} }
           : {}),
-        ...(withTools
-          ? { tools: [{ functionDeclarations: GEMINI_AUDIO_TOOL_DECLARATIONS }] }
-          : {}),
+        ...(tools.length > 0 ? { tools } : {}),
         ...(this.setupDowngradeLevel < 2
           ? { sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} }
           : {}),
@@ -445,6 +491,18 @@ export class GeminiLiveService {
         await this.reconnect();
         return;
       }
+    }
+
+    // Free-tier keys often have no Search grounding quota on preview Live models:
+    // the server closes the setup with 1011. Keep the call, lose only the search.
+    if (wasConnecting && event.code === 1011 && /quota|exceeded/i.test(reason) && this.lastSetupHadSearch) {
+      if (!this.searchBlockedModels.includes(this.activeModel)) {
+        this.searchBlockedModels.push(this.activeModel);
+      }
+      this.noticeClearsOnConnect = false;
+      this.notice = `Khóa API hết quota Google Search với ${this.activeModel.replace(/^models\//, "")}, đã tắt tìm kiếm web cho model này. Gemini vẫn trả lời mọi chủ đề từ kiến thức sẵn có; chọn Gemini 2.5 Flash Native Audio nếu cần tin tức mới.`;
+      await this.reconnect();
+      return;
     }
 
     // An expired resume handle must not strand the call: start a fresh context.
@@ -963,6 +1021,10 @@ export class GeminiLiveService {
     this.captionsEnabled = enabled;
   }
 
+  setWebSearchEnabled(enabled: boolean): void {
+    this.webSearchEnabled = enabled;
+  }
+
   private stopAudioPlayback(): void {
     for (const source of this.activeSources) {
       try {
@@ -1019,6 +1081,7 @@ export class GeminiLiveService {
         this.videoElement.muted = true;
         this.videoElement.playsInline = true;
       }
+      mountCaptureVideo(this.videoElement);
       this.videoElement.srcObject = this.cameraStream;
       await this.videoElement.play().catch(() => {});
 
@@ -1111,8 +1174,10 @@ export class GeminiLiveService {
       this.screenVideoElement.muted = true;
       this.screenVideoElement.playsInline = true;
     }
+    mountCaptureVideo(this.screenVideoElement);
     this.screenVideoElement.srcObject = stream;
     void this.screenVideoElement.play().catch(() => {});
+    this.resetScreenDiagnostics();
 
     if (!this.canvasElement) {
       this.canvasElement = document.createElement("canvas");
@@ -1135,7 +1200,69 @@ export class GeminiLiveService {
       this.screenVideoElement.srcObject = null;
     }
     this.isScreenSharing = false;
+    this.resetScreenDiagnostics();
     this.syncFrameCapture();
+  }
+
+  private resetScreenDiagnostics(): void {
+    this.blackFrameStreak = 0;
+    this.emptyFrameStreak = 0;
+    this.screenShareIssue = null;
+  }
+
+  /**
+   * Downscale the frame to 32x18 and return its brightest luma, or null when the
+   * pixels cannot be read. Cheap enough to run on every 1 fps tick.
+   */
+  private sampleFrameMaxLuma(source: HTMLVideoElement): number | null {
+    try {
+      if (!this.probeCanvas) {
+        this.probeCanvas = document.createElement("canvas");
+        this.probeCanvas.width = 32;
+        this.probeCanvas.height = 18;
+      }
+      const ctx = this.probeCanvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D | null;
+      if (!ctx || typeof ctx.getImageData !== "function") return null;
+      ctx.drawImage(source, 0, 0, 32, 18);
+      const { data } = ctx.getImageData(0, 0, 32, 18);
+      let max = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const luma = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+        if (luma > max) max = luma;
+      }
+      return max;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Track whether the shared screen is actually delivering content. Returns false
+   * when this tick's frame must not be uplinked (no frame yet, or all black).
+   */
+  private checkScreenFrame(source: HTMLVideoElement): boolean {
+    if (!source.videoWidth || !source.videoHeight) {
+      this.emptyFrameStreak += 1;
+      if (this.emptyFrameStreak >= SCREEN_ISSUE_AFTER_TICKS + 2 && this.screenShareIssue === null) {
+        this.screenShareIssue = "no-frames";
+      }
+      return false;
+    }
+    this.emptyFrameStreak = 0;
+
+    const maxLuma = this.sampleFrameMaxLuma(source);
+    if (maxLuma !== null && maxLuma < BLACK_FRAME_MAX_LUMA) {
+      this.blackFrameStreak += 1;
+      if (this.blackFrameStreak >= SCREEN_ISSUE_AFTER_TICKS) {
+        this.screenShareIssue = "black";
+      }
+      // A black frame tells Gemini nothing and invites it to guess.
+      return false;
+    }
+
+    this.blackFrameStreak = 0;
+    this.screenShareIssue = null;
+    return true;
   }
 
   async toggleScreenShare(): Promise<void> {
@@ -1166,6 +1293,14 @@ export class GeminiLiveService {
   }
 
   private captureAndSendVideoFrame(): void {
+    const sharing = this.isScreenSharing && this.screenVideoElement !== null;
+
+    // Diagnose the share even before the call connects, so a black capture is
+    // reported as soon as the user picks a screen.
+    if (sharing && this.screenVideoElement && !this.checkScreenFrame(this.screenVideoElement)) {
+      return;
+    }
+
     if (
       !this.canvasElement ||
       !this.ws ||
@@ -1175,7 +1310,6 @@ export class GeminiLiveService {
       return;
     }
 
-    const sharing = this.isScreenSharing && this.screenVideoElement !== null;
     const v = sharing ? this.screenVideoElement : this.isVideoEnabled ? this.videoElement : null;
     if (!v || !v.videoWidth || !v.videoHeight) return;
 
@@ -1338,9 +1472,11 @@ export class GeminiLiveService {
       }
       if (this.screenVideoElement) {
         this.screenVideoElement.srcObject = null;
+        unmountCaptureVideo(this.screenVideoElement);
         this.screenVideoElement = null;
       }
       this.isScreenSharing = false;
+      this.resetScreenDiagnostics();
     }
 
     if (this.cameraStream) {
@@ -1354,6 +1490,7 @@ export class GeminiLiveService {
 
     if (this.videoElement) {
       this.videoElement.srcObject = null;
+      unmountCaptureVideo(this.videoElement);
       this.videoElement = null;
     }
 

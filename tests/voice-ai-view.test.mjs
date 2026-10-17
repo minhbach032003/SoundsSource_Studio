@@ -201,3 +201,20 @@ test("VoiceAiView offers screen sharing and a live-capable model picker", () => 
   assert.equal(src.includes("gemini-2.0-flash-exp"), false, "no dead model hardcoded in the view");
   assert.equal(emojiRegex.test(src), false, "zero emojis");
 });
+
+test("VoiceAiView handles general questions, web search and black screen shares", () => {
+  const src = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+  assert.ok(src.includes("toggleWebSearch") && src.includes("webSearchEnabled"), "Google Search toggle");
+  assert.ok(src.includes('kind: "general"'), "offers non-mixer quick actions");
+  assert.ok(src.includes("Hỏi Gemini bất cứ điều gì"), "input invites any topic");
+  assert.ok(src.includes("screenShareIssue"), "surfaces screen capture problems");
+  assert.ok(src.includes("Screen &amp; System Audio Recording"), "names the macOS permission to grant");
+  assert.ok(src.includes("Cmd+Q"), "tells the user the app must be restarted");
+  assert.ok(src.includes("retryScreenShare"), "lets the user pick the screen again");
+  assert.ok(
+    /\{#if geminiLiveState\.isScreenSharing && geminiLiveState\.screenStream\}\s*<video/.test(src),
+    "stage preview element is created per share, not toggled with display:none"
+  );
+  assert.equal(src.includes("dark:"), false, "theme tokens only, no dark: variants");
+  assert.equal(emojiRegex.test(src), false, "zero emojis");
+});

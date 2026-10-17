@@ -48,6 +48,8 @@
     ScreenShare,
     ScreenShareOff,
     Cpu,
+    Globe,
+    RotateCcw,
   } from "@lucide/svelte";
 
   interface Props {
@@ -70,7 +72,17 @@
     { label: "Fenrir (Rõ ràng, uy lực)", value: "Fenrir" },
   ];
 
-  const QUICK_ACTIONS = [
+  const QUICK_ACTIONS: { label: string; prompt: string; kind?: "general" | "mixer" }[] = [
+    {
+      label: "Giải thích màn hình",
+      prompt: "Hãy xem màn hình tôi đang chia sẻ và giải thích ngắn gọn nội dung chính.",
+      kind: "general",
+    },
+    {
+      label: "Tin nổi bật hôm nay",
+      prompt: "Tóm tắt 3 tin tức nổi bật nhất hôm nay ở Việt Nam và thế giới.",
+      kind: "general",
+    },
     {
       label: "Cân bằng Spotify & Trình duyệt",
       prompt: "Cân bằng âm lượng giữa Spotify và Brave Browser để ưu tiên giọng nói trong cuộc họp.",
@@ -125,6 +137,7 @@
   const isAiSpeaking = $derived(aiVolPct > 3);
   const isUserSpeaking = $derived(userVolPct > 3 && !geminiLiveState.isMuted);
   const outputVolPct = $derived(Math.round(geminiLiveState.outputVolume * 100));
+  const searchBlocked = $derived(geminiLiveState.searchBlockedModels.includes(selectedModel));
   const uplinkLabel = $derived(`640x480 - ${GEMINI_VIDEO_UPLINK_FPS} fps uplink`);
   const pcmLabel = $derived(
     `Mic ${GEMINI_INPUT_SAMPLE_RATE / 1000} kHz - Out ${GEMINI_OUTPUT_SAMPLE_RATE / 1000} kHz PCM`
@@ -311,6 +324,24 @@
       );
     } else if (geminiLiveState.error) {
       toastState.error(geminiLiveState.error);
+    }
+  }
+
+  async function retryScreenShare() {
+    geminiLiveState.stopScreenShare();
+    await geminiLiveState.startScreenShare();
+    if (geminiLiveState.error) {
+      toastState.error(geminiLiveState.error);
+    }
+  }
+
+  async function toggleWebSearch() {
+    const next = !geminiLiveState.webSearchEnabled;
+    geminiLiveState.setWebSearchEnabled(next);
+    toastState.info(next ? "Đã bật Google Search cho câu hỏi thời sự" : "Đã tắt Google Search");
+    // Tools are negotiated in the setup frame; the resumed session keeps the conversation.
+    if (callStatus === "connected" || callStatus === "connecting") {
+      await geminiLiveState.reconnect();
     }
   }
 
@@ -641,6 +672,20 @@
           </button>
           <button
             type="button"
+            onclick={toggleWebSearch}
+            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-medium transition-colors cursor-pointer {geminiLiveState.webSearchEnabled && !searchBlocked
+              ? 'bg-(--accent)/15 border-(--accent)/30 text-(--accent-text)'
+              : 'bg-(--surface) border-(--line) text-(--muted)'} {searchBlocked ? 'line-through' : ''}"
+            title={searchBlocked
+              ? "Khóa API hết quota Google Search với model này; chọn Gemini 2.5 Flash Native Audio để tìm kiếm web"
+              : "Cho phép Gemini tìm Google để trả lời tin tức, giá cả, thời tiết"}
+            aria-pressed={geminiLiveState.webSearchEnabled}
+          >
+            <Globe class="w-3 h-3" />
+            <span>Google Search</span>
+          </button>
+          <button
+            type="button"
             onclick={toggleCaptions}
             class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-medium transition-colors cursor-pointer {geminiLiveState.captionsEnabled
               ? 'bg-(--accent)/15 border-(--accent)/30 text-(--accent-text)'
@@ -675,16 +720,64 @@
             : 'bg-transparent'}"
         ></div>
 
-        <!-- Màn hình đang chia sẻ: đây chính là khung hình Gemini nhận -->
-        <video
-          bind:this={screenVideoElement}
-          autoplay
-          playsinline
-          muted
-          class="absolute inset-0 w-full h-full object-contain bg-stone-950 z-5 {geminiLiveState.isScreenSharing
-            ? ''
-            : 'hidden'}"
-        ></video>
+        <!-- Màn hình đang chia sẻ: đây chính là khung hình Gemini nhận.
+             Created per share (like the webcam PiP) instead of toggled with display:none,
+             which WebKit may keep from painting the stream. -->
+        {#if geminiLiveState.isScreenSharing && geminiLiveState.screenStream}
+          <video
+            bind:this={screenVideoElement}
+            autoplay
+            playsinline
+            muted
+            onloadedmetadata={(e) => e.currentTarget.play().catch(() => {})}
+            class="absolute inset-0 w-full h-full object-contain bg-stone-950 z-5"
+          ></video>
+        {/if}
+
+        {#if geminiLiveState.isScreenSharing && geminiLiveState.screenShareIssue}
+          <!-- Hướng dẫn khi capture trả về khung đen / không có khung hình -->
+          <div class="absolute inset-0 z-15 flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-sm">
+            <div class="max-w-md w-full rounded-2xl border border-amber-500/40 bg-stone-900/95 p-4 text-stone-200 space-y-2.5 shadow-2xl">
+              <div class="flex items-center gap-2 text-amber-300 font-semibold text-sm">
+                <AlertTriangle class="w-4 h-4 shrink-0" />
+                <span>
+                  {geminiLiveState.screenShareIssue === "black"
+                    ? "Màn hình chia sẻ đang trả về khung đen"
+                    : "Chưa nhận được khung hình nào từ màn hình chia sẻ"}
+                </span>
+              </div>
+              <p class="text-[11px] text-stone-400 m-0">
+                Gemini sẽ không nhận khung đen để tránh đoán sai nội dung. Trên macOS nguyên nhân thường gặp nhất là
+                app chưa có quyền ghi màn hình:
+              </p>
+              <ol class="text-[11px] text-stone-300 m-0 pl-4 space-y-1 list-decimal">
+                <li>Mở System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording.</li>
+                <li>
+                  Bật <span class="font-semibold">rust-sound</span>. Nếu đang chạy bằng
+                  <span class="font-mono">pnpm tauri dev</span>, bật cho Terminal / iTerm / VS Code đang chạy lệnh đó.
+                </li>
+                <li>Thoát hẳn app bằng Cmd+Q rồi mở lại. macOS chỉ áp dụng quyền này sau khi khởi động lại.</li>
+              </ol>
+              <div class="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onclick={retryScreenShare}
+                  class="h-8 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw class="w-3.5 h-3.5" />
+                  <span>Chọn lại màn hình</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={toggleScreenShare}
+                  class="h-8 px-3 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 text-xs cursor-pointer"
+                >
+                  Dừng chia sẻ
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
 
         {#if geminiLiveState.isScreenSharing}
           <div
@@ -1117,7 +1210,11 @@
               onclick={() => handleSendMessage(action.prompt)}
               class="px-2.5 py-1 rounded-lg bg-(--paper) border border-(--line) hover:border-(--focus) text-[11px] text-(--ink) transition-all cursor-pointer whitespace-nowrap active:scale-95 flex items-center gap-1.5"
             >
-              <Sliders class="w-3 h-3 text-(--accent-text)" />
+              {#if action.kind === "general"}
+                <Sparkles class="w-3 h-3 text-(--accent-text)" />
+              {:else}
+                <Sliders class="w-3 h-3 text-(--accent-text)" />
+              {/if}
               <span>{action.label}</span>
             </button>
           {/each}
@@ -1141,8 +1238,8 @@
               Nhấn "Bắt đầu gọi" để trò chuyện bằng giọng nói với Gemini hoặc gõ tin nhắn văn bản bên dưới.
             </p>
             <p class="text-[10px] text-(--muted)/80 mt-1.5 max-w-xs">
-              Khi Agent Control đang bật, Gemini tự gọi hàm để đặt âm lượng từng ứng dụng, mute và
-              chỉnh 10 band EQ master của máy.
+              Hỏi bất kỳ chủ đề nào, cho Gemini xem camera hoặc màn hình. Khi Agent Control bật, Gemini còn
+              tự đặt âm lượng từng ứng dụng, mute và chỉnh 10 band EQ master khi bạn yêu cầu.
             </p>
           </div>
         {:else}
@@ -1276,7 +1373,7 @@
           <input
             type="text"
             bind:value={inputText}
-            placeholder="Nhập lệnh điều khiển hoặc trao đổi với Gemini…"
+            placeholder="Hỏi Gemini bất cứ điều gì, hoặc ra lệnh chỉnh âm thanh…"
             class="field w-full h-9 pr-10 text-xs"
           />
           <button
