@@ -37,6 +37,9 @@ test("VoiceAiView Svelte 5 component integrity", () => {
     "Loader2",
     "Send",
     "Sliders",
+    "ScreenShare",
+    "ScreenShareOff",
+    "Monitor",
     "AlertTriangle",
     "KeyRound",
     "Eye",
@@ -58,6 +61,20 @@ test("VoiceAiView Svelte 5 component integrity", () => {
   assert.ok(src.includes("isCameraFlipped"), "supports flipping camera mirror mode");
   assert.ok(src.includes("toggleCameraFlip"), "provides toggleCameraFlip action");
   assert.ok(src.includes("<video"), "renders HTML5 video tag for local webcam PiP");
+
+  // Screen share controls (getDisplayMedia -> Gemini Live video stream)
+  assert.ok(src.includes("toggleScreenShare"), "provides screen share toggle handler");
+  assert.ok(src.includes("isScreenSharing"), "tracks screen sharing state");
+  assert.ok(src.includes("startScreenShare"), "starts a screen share through the service");
+  assert.ok(src.includes("stopScreenShare"), "stops a screen share through the service");
+  assert.ok(src.includes("screenPreviewElement"), "binds the shared screen preview element");
+  assert.ok(src.includes("screenStream"), "renders the live screen stream");
+  assert.ok(src.includes("videoFrameInfo"), "surfaces the real streamed frame geometry");
+
+  // Model negotiated by the service is shown instead of a hardcoded label
+  assert.ok(src.includes("activeModelLabel"), "shows which Live model is active");
+  assert.ok(src.includes("modelInput"), "allows pinning a Live API model id");
+  assert.ok(src.includes("setStoredModel"), "persists the pinned model");
 
   // Camera toggle controls
   assert.ok(src.includes("toggleCamera"), "provides camera toggle handler");

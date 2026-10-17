@@ -26,6 +26,9 @@
     Loader2,
     Send,
     Sliders,
+    ScreenShare,
+    ScreenShareOff,
+    Monitor,
     AlertTriangle,
     KeyRound,
     Eye,
@@ -101,7 +104,10 @@
   let isCameraFlipped = $state(true);
   let isPipExpanded = $state(false);
 
+  let modelInput = $state("");
+
   let pipVideoElement = $state<HTMLVideoElement | null>(null);
+  let screenPreviewElement = $state<HTMLVideoElement | null>(null);
   let messagesEndRef = $state<HTMLDivElement | null>(null);
   let messagesContainer = $state<HTMLDivElement | null>(null);
 
@@ -110,6 +116,9 @@
   const userVolPct = $derived(Math.min(100, Math.round(geminiLiveState.userVolume * 100)));
   const aiVolPct = $derived(Math.min(100, Math.round(geminiLiveState.aiVolume * 100)));
   const isAiSpeaking = $derived(aiVolPct > 3);
+  const activeModelLabel = $derived(
+    geminiLiveState.activeModel ? geminiLiveState.activeModel.replace("models/", "") : null
+  );
   const isUserSpeaking = $derived(userVolPct > 3 && !geminiLiveState.isMuted);
 
   // Initialize transcript if empty
@@ -129,6 +138,7 @@
       } else {
         hasApiKey = false;
       }
+      modelInput = geminiLiveState.getStoredModel() ?? "";
     })();
   });
 
@@ -144,6 +154,22 @@
         }
       } else {
         pipVideoElement.srcObject = null;
+      }
+    }
+  });
+
+  // Bind shared screen stream to the stage preview element
+  $effect(() => {
+    const stream = geminiLiveState.screenStream;
+    const isSharing = geminiLiveState.isScreenSharing;
+    if (screenPreviewElement) {
+      if (isSharing && stream) {
+        if (screenPreviewElement.srcObject !== stream) {
+          screenPreviewElement.srcObject = stream;
+          screenPreviewElement.play().catch(() => {});
+        }
+      } else {
+        screenPreviewElement.srcObject = null;
       }
     }
   });
@@ -211,12 +237,22 @@
 
     try {
       toastState.info(`Đang kết nối Gemini Live với persona ${selectedPersona}...`);
-      await geminiLiveState.connect({
+      // connect() chỉ resolve khi đã nhận setupComplete, nên toast dưới đây phản ánh
+      // đúng trạng thái thật thay vì báo thành công lúc socket còn đang bắt tay.
+      const connected = await geminiLiveState.connect({
         voiceName: selectedPersona,
         apiKey: existingKey.trim(),
+        model: modelInput.trim() || undefined,
         enableVideo: geminiLiveState.isVideoEnabled,
       });
-      toastState.success("Đã kết nối Gemini Live Video 1-on-1!");
+
+      if (connected) {
+        toastState.success(
+          `Đã kết nối Gemini Live${activeModelLabel ? ` · ${activeModelLabel}` : ""}`
+        );
+      } else {
+        toastState.error(geminiLiveState.error || "Không thể kết nối Gemini Live.");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       toastState.error(`Lỗi kết nối: ${msg}`);
@@ -251,6 +287,21 @@
     }
   }
 
+  async function toggleScreenShare() {
+    if (geminiLiveState.isScreenSharing) {
+      geminiLiveState.stopScreenShare();
+      toastState.info("Đã dừng chia sẻ màn hình");
+      return;
+    }
+
+    const started = await geminiLiveState.startScreenShare();
+    if (started) {
+      toastState.success("Đang chia sẻ màn hình với Gemini Live");
+    } else {
+      toastState.error(geminiLiveState.error || "Không thể chia sẻ màn hình.");
+    }
+  }
+
   function toggleCameraFlip() {
     isCameraFlipped = !isCameraFlipped;
     toastState.info(isCameraFlipped ? "Đã bật chế độ lật gương" : "Đã tắt chế độ lật gương");
@@ -271,6 +322,7 @@
       return;
     }
     await geminiLiveState.setApiKey(trimmed);
+    geminiLiveState.setStoredModel(modelInput.trim());
     hasApiKey = true;
     isApiKeyModalOpen = false;
     toastState.success("Đã lưu Gemini API Key thành công.");
@@ -308,12 +360,14 @@
       }
       toastState.info("Đang bắt đầu cuộc gọi để gửi tin nhắn...");
       void handleStartCall().then(() => {
-        setTimeout(() => {
-          if (geminiLiveState.status === "connected") {
-            geminiLiveState.sendTextMessage(text);
-            inputText = "";
-          }
-        }, 1500);
+        if (geminiLiveState.status !== "connected") return;
+        try {
+          geminiLiveState.sendTextMessage(text);
+          inputText = "";
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          toastState.error(`Lỗi gửi: ${msg}`);
+        }
       });
     }
   }
@@ -381,7 +435,7 @@
             class="w-1.5 h-1.5 rounded-full bg-(--success) shadow-[0_0_6px_var(--success)] animate-pulse"
           ></span>
           <span class="text-[10px] text-(--accent-text) font-mono font-medium">
-            ~120ms Latency · Flash 2.0
+            {activeModelLabel ?? "Live Session"}
           </span>
         {:else}
           <span class="w-1.5 h-1.5 rounded-full bg-(--muted)"></span>
@@ -464,10 +518,15 @@
           </span>
         </div>
         <div class="flex items-center gap-2">
-          {#if geminiLiveState.isVideoEnabled}
+          {#if geminiLiveState.isScreenSharing}
+            <span class="inline-flex items-center gap-1 text-[10px] text-(--success) font-mono font-medium">
+              <Monitor class="w-3 h-3 text-(--success)" />
+              {geminiLiveState.videoFrameInfo ?? "Screen · 1fps"}
+            </span>
+          {:else if geminiLiveState.isVideoEnabled}
             <span class="inline-flex items-center gap-1 text-[10px] text-(--success) font-mono font-medium">
               <span class="w-1.5 h-1.5 rounded-full bg-(--success) animate-pulse"></span>
-              640x480 · 15fps
+              {geminiLiveState.videoFrameInfo ?? "Camera · 1fps"}
             </span>
           {/if}
           <span class="text-[10px] text-(--muted) font-mono">
@@ -489,8 +548,32 @@
             : 'bg-transparent'}"
         ></div>
 
+        <!-- Khung xem trước màn hình đang chia sẻ (chính là luồng gửi lên Gemini) -->
+        {#if geminiLiveState.isScreenSharing && geminiLiveState.screenStream}
+          <video
+            bind:this={screenPreviewElement}
+            autoplay
+            playsinline
+            muted
+            class="absolute inset-0 w-full h-full object-contain bg-stone-950"
+          ></video>
+          <div
+            class="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-stone-900/90 border border-emerald-500/40 text-[10px] font-medium text-emerald-300"
+          >
+            <ScreenShare class="w-3 h-3 text-emerald-300" />
+            <span>Đang chia sẻ màn hình</span>
+            {#if geminiLiveState.videoFrameInfo}
+              <span class="font-mono text-stone-400">{geminiLiveState.videoFrameInfo}</span>
+            {/if}
+          </div>
+        {/if}
+
         <!-- Central Gemini Interactive Live Halo & Waves -->
-        <div class="relative flex items-center justify-center w-44 h-44 sm:w-56 sm:h-56 z-10">
+        <div
+          class="relative flex items-center justify-center z-10 transition-all duration-300 {geminiLiveState.isScreenSharing
+            ? 'w-24 h-24 sm:w-28 sm:h-28 drop-shadow-2xl'
+            : 'w-44 h-44 sm:w-56 sm:h-56'}"
+        >
           <!-- Gemini Speaking Concentric Expansion Rings -->
           {#if isAiSpeaking}
             <span
@@ -556,7 +639,11 @@
         </div>
 
         <!-- Dynamic State Text -->
-        <p class="text-xs font-semibold text-stone-300 mt-3 text-center z-10 px-4">
+        <p
+          class="text-xs font-semibold text-stone-300 mt-3 text-center z-10 px-4 {geminiLiveState.isScreenSharing
+            ? 'rounded-lg bg-stone-900/85 border border-stone-700 py-1.5 max-w-md'
+            : ''}"
+        >
           {#if callStatus === "connecting"}
             Đang khởi tạo phiên làm việc Gemini Live đa phương thức...
           {:else if callStatus === "connected"}
@@ -639,6 +726,9 @@
             {#if geminiLiveState.isVideoEnabled}
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>Webcam</span>
+            {:else if geminiLiveState.isScreenSharing}
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Màn hình</span>
             {:else}
               <span class="w-1.5 h-1.5 rounded-full bg-stone-500"></span>
               <span>Bạn</span>
@@ -679,6 +769,24 @@
               <Video class="w-4 h-4 text-emerald-300" />
             {:else}
               <VideoOff class="w-4 h-4 text-stone-400" />
+            {/if}
+          </button>
+
+          <!-- Nút Chia Sẻ Màn Hình (getDisplayMedia -> Gemini Live video stream) -->
+          <button
+            type="button"
+            onclick={toggleScreenShare}
+            class="p-2 sm:p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center {geminiLiveState.isScreenSharing
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              : 'bg-stone-800 hover:bg-stone-700 border-stone-700 text-stone-400'}"
+            title={geminiLiveState.isScreenSharing
+              ? "Dừng chia sẻ màn hình"
+              : "Chia sẻ màn hình với Gemini"}
+          >
+            {#if geminiLiveState.isScreenSharing}
+              <ScreenShare class="w-4 h-4 text-emerald-300" />
+            {:else}
+              <ScreenShareOff class="w-4 h-4 text-stone-400" />
             {/if}
           </button>
 
@@ -1040,6 +1148,23 @@
             {/if}
           </button>
         </div>
+      </div>
+
+      <div>
+        <label for="gemini-model-input" class="block text-xs font-semibold text-(--ink) mb-1">
+          Model Live API (tuỳ chọn)
+        </label>
+        <input
+          id="gemini-model-input"
+          type="text"
+          bind:value={modelInput}
+          placeholder="models/gemini-3.1-flash-live-preview"
+          class="field w-full h-9 text-xs font-mono"
+        />
+        <p class="mt-1 text-[10px] text-(--muted) m-0">
+          Để trống để tự động dò lần lượt các model Live khả dụng. Nhập tên model khi Google
+          khai tử model cũ và cần ghim bản mới.
+        </p>
       </div>
 
       <div

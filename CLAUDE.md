@@ -19,6 +19,17 @@ Deps: `app → engine → core`, app also uses core directly, core never referen
 
 **One IPC boundary, three edits per feature.** All state lives in `AppState` (`crates/app/src/lib.rs`): `Mutex<AudioRouter>`, `Mutex<PresetStore>`, `Mutex<BreakTimerManager>`, `AuthService`. Every frontend capability is a `#[tauri::command]` fn in that same file, so adding one means: write the command, register it in `generate_handler!`, add the typed wrapper in `src/audio.ts`. Commands stay thin — DSP goes in `engine/router.rs` + `engine/eq.rs`, CoreAudio calls in `core/device.rs` + `core/process.rs`.
 
+**Gemini Live (`src/lib/geminiLive.svelte.ts`) negotiates its own session.** The service probes
+endpoint (`v1beta` then `v1alpha`) x setup profile (full with transcription + session resumption,
+then minimal) x `GEMINI_LIVE_MODEL_CANDIDATES`, and persists the pair that reached `setupComplete`
+in `localStorage` (`gemini_live_model`, `gemini_live_endpoint`). Don't hardcode one model name:
+Google retires Live models fast, and a retired model closes the socket right after `setup`.
+`connect()` resolves only once `setupComplete` arrives, realtime media goes up as
+`realtimeInput.audio` / `realtimeInput.video` (never the deprecated `mediaChunks`), and camera and
+screen share are mutually exclusive because the Live API takes a single video stream.
+Screen share rides on `getDisplayMedia`, which a container cannot exercise — WKWebView support and
+the macOS Screen Recording grant have to be checked on the Mac.
+
 `AuthService` (`crates/engine/src/auth/`) composes four verifiers behind one facade: internal HS256 JWT (`jwt.rs`), Google ID tokens (`google.rs`), Keycloak (`keycloak.rs`), either-of-the-two (`dual_auth.rs`), plus PKCE S256 (`pkce.rs`) and a Neon Postgres repo (`db.rs`). Frontend side is `src/lib/googleAuth.svelte.ts`.
 
 **README is out of date on two points:** Frontend is Svelte 5 + Tailwind v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`); and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.
