@@ -41,7 +41,7 @@ pub struct SpotifyIntegration {
 impl Default for SpotifyIntegration {
     fn default() -> Self {
         Self {
-            web: Arc::new(sound_engine::spotify::SpotifyWeb::new(env!("SPOTIFY_CLIENT_ID"))),
+            web: Arc::new(sound_engine::spotify::SpotifyWeb::new(env!("SPOTIFY_CLIENT_ID"), env!("SPOTIFY_CLIENT_SECRET"))),
             player: Arc::new(sound_engine::spotify_player::LocalPlayer::new()),
             status: Default::default(),
             spectrum: Default::default(),

@@ -8,7 +8,7 @@ use sound_engine::pcm_queue::PcmQueue;
 use sound_engine::spectrum::SpectrumBuffer;
 use std::num::NonZero;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub fn write_packet(
     router: &Mutex<AudioRouter>,
@@ -21,11 +21,41 @@ pub fn write_packet(
     }
     let mut buf: Vec<f32> = samples.iter().map(|&s| s as f32).collect();
     process_spotify_frame(router, spectrum, &mut buf, 44100.0, true);
-    queue.push(&buf)
+    // librespot giải mã nhanh hơn thời gian thực và trông đợi sink chặn lại cho tới khi
+    // dữ liệu được tiêu thụ. Đẩy rồi trả về ngay sẽ vứt gần hết bài hát và loa chỉ phát
+    // ra vụn âm thanh. Bỏ cuộc sau vài giây để lúc dừng phát không bị treo.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let mut written = 0;
+    while written < buf.len() {
+        written += queue.push(&buf[written..]);
+        if written < buf.len() {
+            if Instant::now() >= deadline {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    written
 }
+
+/// Rút theo khối: rodio lấy từng mẫu một, mà mỗi lần đọc hàng đợi tốn hơn nhiều một
+/// phép sao chép trong bộ nhớ.
+const PULL_CHUNK_SAMPLES: usize = 512;
 
 struct QueueSource {
     queue: Arc<PcmQueue>,
+    buffer: Box<[f32; PULL_CHUNK_SAMPLES]>,
+    cursor: usize,
+}
+
+impl QueueSource {
+    fn new(queue: Arc<PcmQueue>) -> Self {
+        Self {
+            queue,
+            buffer: Box::new([0.0; PULL_CHUNK_SAMPLES]),
+            cursor: PULL_CHUNK_SAMPLES,
+        }
+    }
 }
 
 impl Iterator for QueueSource {
@@ -33,9 +63,14 @@ impl Iterator for QueueSource {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut sample = [0.0f32; 1];
-        self.queue.pop(&mut sample);
-        Some(sample[0])
+        if self.cursor >= PULL_CHUNK_SAMPLES {
+            // pop lấp phần thiếu bằng im lặng, nên khối luôn đầy và hai kênh không lệch.
+            self.queue.pop(self.buffer.as_mut_slice());
+            self.cursor = 0;
+        }
+        let sample = self.buffer[self.cursor];
+        self.cursor += 1;
+        Some(sample)
     }
 }
 
@@ -77,9 +112,7 @@ impl RustSoundSink {
         let output_sink = DeviceSinkBuilder::open_default_sink()
             .map_err(|e| format!("Không thể mở thiết bị âm thanh đầu ra: {e}"))?;
 
-        let source = QueueSource {
-            queue: queue.clone(),
-        };
+        let source = QueueSource::new(queue.clone());
         output_sink.mixer().add(source);
 
         Ok(Self {
@@ -145,5 +178,32 @@ mod tests {
         let mut starved = vec![9.9f32; 64];
         assert_eq!(queue.pop(&mut starved), 0);
         assert_eq!(starved, vec![0.0; 64], "hết dữ liệu phải ra im lặng");
+    }
+
+    #[test]
+    fn a_full_queue_makes_the_decoder_wait_instead_of_dropping_audio() {
+        let router = Arc::new(Mutex::new(AudioRouter::new(44100.0)));
+        let spectrum: Arc<Mutex<SpectrumBuffer>> = Default::default();
+        // Hàng đợi nhỏ hơn hẳn một gói: librespot giải mã nhanh hơn thời gian thực, nên
+        // nếu ghi không chờ thì phần dư bị vứt và loa chỉ nhận được vụn âm thanh.
+        let queue = Arc::new(PcmQueue::new(64));
+        let packet: Vec<f64> = (0..4096).map(|i| ((i % 100) as f64 / 100.0) - 0.5).collect();
+
+        let drain = {
+            let queue = queue.clone();
+            std::thread::spawn(move || {
+                let mut drained = 0;
+                let mut out = vec![0.0f32; 128];
+                while drained < 4096 {
+                    drained += queue.pop(&mut out);
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                drained
+            })
+        };
+
+        let written = write_packet(&router, &spectrum, &queue, &packet);
+        assert_eq!(written, packet.len(), "phải ghi hết gói, không được bỏ mẫu");
+        assert_eq!(drain.join().unwrap(), 4096);
     }
 }

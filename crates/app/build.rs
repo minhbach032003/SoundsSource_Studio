@@ -1,24 +1,33 @@
 fn main() {
-    // Only the public Client ID is embedded. OAuth tokens stay in macOS Keychain.
+    // Spotify's Client ID and Client Secret are embedded. OAuth tokens stay in macOS
+    // Keychain. The secret ships inside the bundle and anyone with the app can read it
+    // out, which is why Spotify recommends PKCE for desktop clients; this build uses the
+    // confidential flow at the owner's explicit request.
     println!("cargo:rerun-if-changed=../../.env");
     println!("cargo:rerun-if-env-changed=SPOTIFY_CLIENT_ID");
+    println!("cargo:rerun-if-env-changed=SPOTIFY_CLIENT_SECRET");
     let dotenv = std::fs::read_to_string("../../.env").unwrap_or_default();
-    let client_id = std::env::var("SPOTIFY_CLIENT_ID")
-        .ok()
-        .or_else(|| {
+    let from_env = |key: &str| {
+        std::env::var(key).ok().or_else(|| {
             dotenv.lines().find_map(|line| {
-                let (key, value) = line.split_once('=')?;
-                (key.trim() == "SPOTIFY_CLIENT_ID")
-                    .then(|| value.trim().trim_matches(['\"', '\'']).to_owned())
+                let (name, value) = line.split_once('=')?;
+                (name.trim() == key).then(|| value.trim().trim_matches(['\"', '\'']).to_owned())
             })
         })
-        .unwrap_or_default();
+    };
+    let hex32 = |value: &str| value.len() == 32 && value.bytes().all(|c| c.is_ascii_hexdigit());
+    let client_id = from_env("SPOTIFY_CLIENT_ID").unwrap_or_default();
     assert!(
-        client_id.is_empty()
-            || (client_id.len() == 32 && client_id.bytes().all(|c| c.is_ascii_hexdigit())),
+        client_id.is_empty() || hex32(&client_id),
         "Invalid SPOTIFY_CLIENT_ID"
     );
     println!("cargo:rustc-env=SPOTIFY_CLIENT_ID={client_id}");
+    let client_secret = from_env("SPOTIFY_CLIENT_SECRET").unwrap_or_default();
+    assert!(
+        client_secret.is_empty() || hex32(&client_secret),
+        "Invalid SPOTIFY_CLIENT_SECRET"
+    );
+    println!("cargo:rustc-env=SPOTIFY_CLIENT_SECRET={client_secret}");
     // Public backend origin only. Never read or embed server credentials here.
     println!("cargo:rerun-if-env-changed=RUST_SOUND_AUTH_URL");
     let auth_url = std::env::var("RUST_SOUND_AUTH_URL").unwrap_or_default();

@@ -60,6 +60,7 @@ pub struct MusicPage {
 
 pub struct SpotifyWeb {
     client_id: String,
+    client_secret: String,
     client: Client,
     tokens: Mutex<Option<Tokens>>,
     restored: AtomicBool,
@@ -67,9 +68,10 @@ pub struct SpotifyWeb {
     device: Mutex<Option<String>>,
 }
 impl SpotifyWeb {
-    pub fn new(client_id: &str) -> Self {
+    pub fn new(client_id: &str, client_secret: &str) -> Self {
         Self {
             client_id: client_id.into(),
+            client_secret: client_secret.into(),
             client: Client::new(),
             tokens: Mutex::new(None),
             restored: AtomicBool::new(false),
@@ -107,6 +109,9 @@ impl SpotifyWeb {
         if self.client_id.len() != 32 {
             return Err("Thiếu SPOTIFY_CLIENT_ID. Cấu hình .env rồi build lại app.".into());
         }
+        if self.client_secret.len() != 32 {
+            return Err("Thiếu SPOTIFY_CLIENT_SECRET. Cấu hình .env rồi build lại app.".into());
+        }
         if self.logging_in.swap(true, Ordering::AcqRel) {
             return Err("Đang chờ đăng nhập trên trình duyệt.".into());
         }
@@ -117,6 +122,8 @@ impl SpotifyWeb {
             listener
                 .set_nonblocking(true)
                 .map_err(|_| "Không mở được callback đăng nhập.")?;
+            // Luồng này xác thực bằng client secret, không dùng PKCE. Vẫn phải có state:
+            // nó chống việc bị gán một mã ủy quyền của kẻ khác, PKCE không thay thế nó.
             let pkce = Pkce::generate_challenge();
             let mut url = Url::parse("https://accounts.spotify.com/authorize").unwrap();
             url.query_pairs_mut().extend_pairs([
@@ -125,8 +132,6 @@ impl SpotifyWeb {
                 ("redirect_uri", REDIRECT_URI),
                 ("scope", SCOPES),
                 ("state", &pkce.state),
-                ("code_challenge_method", "S256"),
-                ("code_challenge", &pkce.code_challenge),
             ]);
             sound_core::spotify::open_authorization(url.as_str())?;
             let deadline = Instant::now() + Duration::from_secs(180);
@@ -182,10 +187,8 @@ impl SpotifyWeb {
             };
             let token = self.exchange(&[
                 ("grant_type", "authorization_code"),
-                ("client_id", &self.client_id),
                 ("code", &code),
                 ("redirect_uri", REDIRECT_URI),
-                ("code_verifier", &pkce.code_verifier),
             ])?;
             let refresh = token
                 .refresh_token
@@ -221,6 +224,7 @@ impl SpotifyWeb {
             .client
             .post("https://accounts.spotify.com/api/token")
             .timeout(Duration::from_secs(15))
+            .basic_auth(&self.client_id, Some(&self.client_secret))
             .form(fields)
             .send()
             .map_err(|_| "Không kết nối được Spotify. Kiểm tra mạng rồi thử lại.")?;
@@ -249,7 +253,6 @@ impl SpotifyWeb {
             let response = self.exchange(&[
                 ("grant_type", "refresh_token"),
                 ("refresh_token", &current.refresh),
-                ("client_id", &self.client_id),
             ])?;
             let refresh = response
                 .refresh_token
