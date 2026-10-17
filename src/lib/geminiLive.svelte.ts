@@ -563,9 +563,10 @@ export class GeminiLiveService {
         const quota = /quota|exceeded/i.test(reason);
         if (!this.searchBlockedModels.includes(this.activeModel)) {
           this.searchBlockedModels.push(this.activeModel);
-          // Only a stated quota refusal is remembered across launches; a network
-          // blip must not cost the user search for a day.
-          if (quota) persistSearchBlocked(this.searchBlockedModels);
+          // Remembered for a day even when the engine hands over no reason: WKWebView
+          // often reports the quota close with an empty reason, and without this every
+          // single call pays a doomed setup plus a visible retry before it connects.
+          persistSearchBlocked(this.searchBlockedModels);
         }
         this.noticeClearsOnConnect = false;
         this.notice = quota

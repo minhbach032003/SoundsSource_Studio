@@ -9,6 +9,10 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [svelte(), tailwindcss()],
+  // esbuild cannot prebundle @lucide/svelte's .svelte entry points, which breaks `vite dev`.
+  optimizeDeps: {
+    exclude: ["@lucide/svelte"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
