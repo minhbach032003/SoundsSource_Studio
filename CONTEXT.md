@@ -116,3 +116,13 @@ _Avoid_: Avatar widget, mascot
 **Break Scrim**:
 The full-screen lock overlay enforcing scheduled rest intervals during deep work sessions.
 _Avoid_: Screen shield, lockscreen overlay
+
+### Voice AI
+
+**Reply Delay**:
+How long the user must stay silent before Gemini is allowed to answer. Lower means it answers sooner but may cut in while the user is still thinking mid-sentence; the user chooses it. Distinct from how long Gemini takes to answer once it has started, which nobody here controls.
+_Avoid_: response time (means both and neither), latency, speed
+
+**Uplink Priority**:
+Speech outranks vision on the one socket both travel. A screen frame is skipped rather than queued ahead of the words the user is saying, and a fresh frame is sent the moment they stop speaking.
+_Avoid_: frame rate, dropping frames

@@ -870,6 +870,11 @@ test("mic and video uplinks use realtimeInput.audio/video, never the rejected me
   assert.equal(audioMsg.realtimeInput.mediaChunks, undefined, "no deprecated mediaChunks");
 
   await instance.enableVideo();
+  // Khung hình đi chung socket với tiếng mic, nên nó nhường đường lúc người dùng đang nói.
+  const sentWhileSpeaking = ws.sent.length;
+  instance.captureAndSendVideoFrame();
+  assert.equal(ws.sent.length, sentWhileSpeaking, "đang nói thì bỏ qua khung hình");
+  instance.lastSpeechAt = 0;
   instance.captureAndSendVideoFrame();
   const videoMsg = lastSent(ws);
   assert.equal(videoMsg.realtimeInput.video.mimeType, "image/jpeg");
@@ -878,6 +883,38 @@ test("mic and video uplinks use realtimeInput.audio/video, never the rejected me
   for (const raw of ws.sent) {
     assert.equal(raw.includes("mediaChunks"), false, "nothing on the wire uses mediaChunks");
   }
+
+  instance.disconnect();
+});
+
+test("setup khai báo cửa sổ im lặng do người dùng chọn, và khung hình gửi ngay khi dứt câu", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  instance.setReplyDelay(200);
+  const ws = await openLiveSession(harness);
+
+  const setup = JSON.parse(ws.sent[0]).setup;
+  assert.equal(setup.realtimeInputConfig.automaticActivityDetection.silenceDurationMs, 200);
+  assert.equal(
+    setup.realtimeInputConfig.automaticActivityDetection.endOfSpeechSensitivity,
+    "END_SENSITIVITY_HIGH"
+  );
+
+  await instance.enableVideo();
+  // Nói, rồi im: lúc dứt câu là lúc Gemini cần khung hình mới nhất.
+  instance.scriptProcessor.onaudioprocess({
+    inputBuffer: { getChannelData: () => new Float32Array(2048).fill(0.2) },
+  });
+  instance.lastSpeechAt = Date.now() - 200;
+  const before = ws.sent.length;
+  instance.scriptProcessor.onaudioprocess({
+    inputBuffer: { getChannelData: () => new Float32Array(2048).fill(0) },
+  });
+  assert.ok(ws.sent.length > before, "dứt câu phải đẩy một khung hình đi ngay");
+  assert.ok(
+    ws.sent.slice(before).some((raw) => raw.includes("image/jpeg")),
+    "khung đó là JPEG màn hình/camera"
+  );
 
   instance.disconnect();
 });
@@ -1223,6 +1260,10 @@ test("Google Search grounding is declared alongside the mixer tools", async () =
   ws.onopen();
   const tools = JSON.parse(ws.sent[0]).setup.tools;
   assert.ok(tools.some((t) => t.googleSearch), "googleSearch tool present");
+  const instruction = JSON.parse(ws.sent[0]).setup.systemInstruction.parts[0].text;
+  assert.match(instruction, /tìm tài liệu.*search gg.*tra Google/);
+  assert.match(instruction, /dùng công cụ Google Search trước khi trả lời/);
+  assert.match(instruction, /Không bịa đường dẫn/);
   assert.ok(tools.some((t) => t.functionDeclarations), "mixer functions still present");
   instance.disconnect();
 
@@ -1235,6 +1276,8 @@ test("Google Search grounding is declared alongside the mixer tools", async () =
     false,
     "the toggle removes search"
   );
+  assert.match(JSON.parse(off.sent[0]).setup.systemInstruction.parts[0].text,
+    /Google Search hiện không khả dụng/);
   instance.disconnect();
 });
 

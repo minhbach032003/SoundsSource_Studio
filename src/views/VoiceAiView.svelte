@@ -53,6 +53,7 @@
     Activity,
     Settings2,
     ShieldAlert,
+    Gauge,
   } from "@lucide/svelte";
   import {
     checkScreenCapturePermission,
@@ -818,6 +819,25 @@
             <Captions class="w-3 h-3" />
             <span>Phụ đề</span>
           </button>
+          <label
+            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-(--line) bg-(--surface) text-[10px] font-medium text-(--muted)"
+            title="Gemini chờ bạn im lặng bao lâu rồi mới trả lời. Càng thấp càng đáp nhanh, nhưng ngập ngừng giữa câu dễ bị cắt lời. Áp cho cuộc gọi kế tiếp."
+          >
+            <Gauge class="w-3 h-3" />
+            <span class="sr-only">Tốc độ phản hồi</span>
+            <select
+              class="bg-transparent outline-none cursor-pointer"
+              value={String(geminiLiveState.replyDelayMs)}
+              onchange={(event) => {
+                geminiLiveState.setReplyDelay(Number(event.currentTarget.value));
+                toastState.info("Áp dụng từ cuộc gọi kế tiếp");
+              }}
+            >
+              <option value="200">Phản hồi: Nhanh nhất</option>
+              <option value="400">Phản hồi: Nhanh</option>
+              <option value="800">Phản hồi: Thong thả</option>
+            </select>
+          </label>
           {#if geminiLiveState.isVideoEnabled || geminiLiveState.isScreenSharing}
             <span class="inline-flex items-center gap-1 text-[10px] text-(--success) font-mono font-medium">
               <span class="w-1.5 h-1.5 rounded-full bg-(--success) animate-pulse"></span>

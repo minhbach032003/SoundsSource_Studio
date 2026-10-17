@@ -42,6 +42,28 @@ export const GEMINI_LIVE_MODELS = [
 
 export const DEFAULT_GEMINI_LIVE_MODEL: string = GEMINI_LIVE_MODELS[0].value;
 
+/** Im lặng bao lâu thì Live API coi như người dùng đã nói xong. Thấp = trả lời sớm hơn,
+ * nhưng ngập ngừng giữa câu dễ bị cắt lời. Người dùng chỉnh được trong Voice AI. */
+export const GEMINI_REPLY_DELAY_DEFAULT_MS = 400;
+export const GEMINI_REPLY_DELAY_MIN_MS = 150;
+export const GEMINI_REPLY_DELAY_MAX_MS = 1200;
+const REPLY_DELAY_KEY = "gemini_reply_delay_ms";
+
+function loadReplyDelay(): number {
+  try {
+    const raw = Number(localStorage.getItem(REPLY_DELAY_KEY));
+    if (Number.isFinite(raw) && raw >= GEMINI_REPLY_DELAY_MIN_MS && raw <= GEMINI_REPLY_DELAY_MAX_MS) {
+      return Math.round(raw);
+    }
+  } catch { /* Storage may be unavailable. */ }
+  return GEMINI_REPLY_DELAY_DEFAULT_MS;
+}
+
+/** Mic coi như đang nói khi RMS vượt ngưỡng này; chỉ dùng để canh khung hình và đo độ trễ. */
+const SPEAKING_RMS_THRESHOLD = 0.02;
+/** Còn ứ quá ngần này byte thì bỏ qua một khung hình thay vì nhét tiếp vào hàng đợi. */
+const FRAME_BACKPRESSURE_BYTES = 192 * 1024;
+
 /** Gemini Live accepts video at low frame rates; 1 fps is the documented uplink budget. */
 export const GEMINI_VIDEO_UPLINK_FPS = 1;
 
@@ -314,7 +336,12 @@ export class GeminiLiveService {
   /** Rolling event log shown in the in-app diagnostics panel. */
   diagnostics = $state<string[]>([]);
   /** Wire counters, so "Gemini does not answer" can be told apart from "Gemini never heard you". */
-  stats = $state({ audioSent: 0, audioReceived: 0, framesSent: 0 });
+  stats = $state({ audioSent: 0, audioReceived: 0, framesSent: 0, framesSkipped: 0, replyLatencyMs: 0 });
+  /** Cửa sổ im lặng trước khi Gemini được phép trả lời. Áp ở lần mở phiên kế tiếp. */
+  replyDelayMs = $state(loadReplyDelay());
+  /** Lần cuối mic vượt ngưỡng, và thời điểm dứt câu đang chờ Gemini đáp. */
+  private lastSpeechAt = 0;
+  private awaitingReplySince = 0;
   /** The server's last close frame, shown verbatim next to the error. */
   lastClose = $state<{ code: number; reason: string } | null>(null);
   private socketErrored = false;
@@ -390,6 +417,13 @@ export class GeminiLiveService {
     await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
   }
 
+  /** Áp ngay cho phiên sau; phiên đang chạy giữ nguyên để không cắt cuộc gọi. */
+  setReplyDelay(ms: number): void {
+    const clamped = Math.min(GEMINI_REPLY_DELAY_MAX_MS, Math.max(GEMINI_REPLY_DELAY_MIN_MS, Math.round(ms)));
+    this.replyDelayMs = clamped;
+    try { localStorage.setItem(REPLY_DELAY_KEY, String(clamped)); } catch { /* optional persistence */ }
+  }
+
   /** Gemini locks the voice per session, so a persona change re-opens the socket. */
   async switchVoice(voiceName: string): Promise<void> {
     this.lastOptions = { ...(this.lastOptions ?? {}), voiceName };
@@ -429,7 +463,9 @@ export class GeminiLiveService {
           },
         },
         systemInstruction: {
-          parts: [{ text: systemInstruction }],
+          parts: [{ text: `${systemInstruction}\n\n${withSearch
+            ? 'Tìm kiếm theo yêu cầu: khi người dùng nói hoặc gõ “tìm tài liệu”, “search gg”, “search Google”, “tra Google”, “tìm trên mạng” hoặc yêu cầu tra cứu tương đương, hãy dùng công cụ Google Search trước khi trả lời, không chỉ hướng dẫn họ tự tìm. Dùng ngữ cảnh hội thoại để hiểu “tài liệu này”; nếu chưa xác định được thì hỏi lại ngắn gọn. Tóm tắt kết quả bằng giọng nói, ưu tiên nguồn chính thức và cung cấp tên nguồn cùng URL thực từ kết quả khi có. Không bịa đường dẫn hoặc nói đã tìm khi chưa có kết quả. Không cần tìm kiếm cho lời chào, lệnh điều khiển âm thanh hay trò chuyện thông thường. Nếu công cụ lỗi hoặc không có kết quả, nói rõ chưa tra cứu được.'
+            : 'Google Search hiện không khả dụng trong phiên này. Khi người dùng yêu cầu tìm tài liệu, search gg hoặc tra Google, nói rõ chưa thể tra cứu web trong phiên này; không nói đã tìm, không bịa nguồn hay trình bày kiến thức sẵn có như kết quả tìm kiếm.'}` }],
         },
         // Audio-only responses carry no text, so transcription is what fills the
         // Dialogue Console for spoken turns on both sides.
@@ -437,6 +473,15 @@ export class GeminiLiveService {
           ? { inputAudioTranscription: {}, outputAudioTranscription: {} }
           : {}),
         ...(tools.length > 0 ? { tools } : {}),
+        // Mặc định của Live API chờ im lặng khá lâu mới chốt lượt nói; đây là núm
+        // chỉnh chính cho "Gemini trả lời nhanh tới đâu".
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            silenceDurationMs: this.replyDelayMs,
+            prefixPaddingMs: 20,
+            endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
+          },
+        },
         sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
         contextWindowCompression: { slidingWindow: {} },
       },
@@ -800,6 +845,10 @@ export class GeminiLiveService {
 
             if (part.inlineData?.data) {
               this.stats.audioReceived += 1;
+              if (this.awaitingReplySince > 0) {
+                this.stats.replyLatencyMs = Date.now() - this.awaitingReplySince;
+                this.awaitingReplySince = 0;
+              }
               const float32 = base64ToFloat32(part.inlineData.data);
               if (float32.length > 0) {
                 this.playAudioChunk(float32);
@@ -1019,6 +1068,14 @@ export class GeminiLiveService {
         sumSq += inputChannel[i] * inputChannel[i];
       }
       const rms = Math.sqrt(sumSq / inputChannel.length);
+      if (rms >= SPEAKING_RMS_THRESHOLD) {
+        this.lastSpeechAt = Date.now();
+        this.awaitingReplySince = 0;
+      } else if (this.lastSpeechAt > 0 && this.awaitingReplySince === 0 && Date.now() - this.lastSpeechAt > 120) {
+        // Vừa dứt câu: đây là lúc Gemini cần khung hình mới nhất, và là mốc đo độ trễ.
+        this.awaitingReplySince = Date.now();
+        void this.captureAndSendVideoFrame(true);
+      }
       const targetVol = Math.min(1, Math.max(0, rms * 4.5));
       this.userVolume = Math.max(this.userVolume * 0.2 + targetVol * 0.8, targetVol);
 
@@ -1519,7 +1576,8 @@ export class GeminiLiveService {
     }
   }
 
-  private async captureAndSendVideoFrame(): Promise<void> {
+  /** `force` là khung gửi ngay khi người dùng vừa dứt câu, không chịu bộ hãm bên dưới. */
+  private async captureAndSendVideoFrame(force = false): Promise<void> {
     const nativeSharing = this.isScreenSharing && isTauri();
     const sharing = this.isScreenSharing && (nativeSharing || this.screenVideoElement !== null);
 
@@ -1575,6 +1633,14 @@ export class GeminiLiveService {
         },
       },
     };
+
+    // Khung hình và tiếng mic đi chung một socket: một JPEG đang xếp hàng sẽ đẩy lùi
+    // đúng câu người dùng vừa hỏi. Đang nói, hoặc hàng đợi còn ứ, thì bỏ qua nhịp này.
+    const speaking = Date.now() - this.lastSpeechAt < 400;
+    if (!force && (speaking || this.ws.bufferedAmount > FRAME_BACKPRESSURE_BYTES)) {
+      this.stats.framesSkipped += 1;
+      return;
+    }
 
     try {
       this.ws.send(JSON.stringify(payload));
@@ -1866,7 +1932,8 @@ export class GeminiLiveService {
     return [
       `status=${this.status} model=${this.activeModel} voice=${this.activeVoice}`,
       `ws=${this.ws ? this.ws.readyState : "none"} error=${this.error ?? "-"}`,
-      `audio sent=${this.stats.audioSent} received=${this.stats.audioReceived} frames sent=${this.stats.framesSent}`,
+      `audio sent=${this.stats.audioSent} received=${this.stats.audioReceived} frames sent=${this.stats.framesSent} skipped=${this.stats.framesSkipped}`,
+      `reply delay setting=${this.replyDelayMs}ms · last measured latency=${this.stats.replyLatencyMs || "chưa đo"}ms`,
       `mic=${this.micStream?.getAudioTracks()[0]?.readyState ?? "none"} muted=${this.isMuted} inCtx=${ctx(this.inputAudioContext)} outCtx=${ctx(this.outputAudioContext)}`,
       `screen=${this.isScreenSharing} native=${this.nativeScreenFrame !== null} track=${screenTrack ? `${screenTrack.readyState}/muted=${screenTrack.muted}` : "none"} size=${this.screenVideoElement?.videoWidth ?? 0}x${this.screenVideoElement?.videoHeight ?? 0} issue=${this.screenShareIssue ?? "-"}`,
       `search blocked=${this.searchBlockedModels.join(",") || "-"} getDisplayMedia=${typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getDisplayMedia)}`,
