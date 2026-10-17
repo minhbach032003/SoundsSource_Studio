@@ -49,6 +49,23 @@ class SpotifyState {
   playlistId = $state<string | null>(null);
   playlistName = $state("");
   private libraryRequest = 0;
+  private readonly sourceKey = "rust_sound_spotify_source";
+
+  /// Nguồn nhạc người dùng chọn lần trước. Khoá cũ chỉ biết mỗi đường tap.
+  private readSource(): "local" | "tap" | "none" {
+    try {
+      const stored = localStorage.getItem(this.sourceKey);
+      if (stored === "local" || stored === "tap" || stored === "none") return stored;
+      return localStorage.getItem("rust_sound_spotify_audio_consent") === "true" ? "tap" : "none";
+    } catch { return "none"; }
+  }
+
+  private writeSource(source: "local" | "tap" | "none") {
+    try {
+      localStorage.setItem(this.sourceKey, source);
+      localStorage.removeItem("rust_sound_spotify_audio_consent");
+    } catch { /* optional persistence */ }
+  }
 
   async restoreAccount() {
     this.authBusy = true;
@@ -153,6 +170,7 @@ class SpotifyState {
     this.error = null;
     try {
       await invoke("spotify_local_player", { enabled });
+      this.writeSource(enabled ? "local" : "none");
       toastState.info(enabled ? "Đang phát nhạc trực tiếp trong rust-sound" : "Đã tắt phát nhạc nội bộ");
       if (enabled) {
         await this.refreshDevices();
@@ -242,12 +260,14 @@ class SpotifyState {
         if (alive) this.error = String(e);
       } finally { pending = false; }
     };
-    try {
-      if (localStorage.getItem("rust_sound_spotify_audio_consent") === "true") {
-        void this.connect(true);
-      }
-    } catch { /* Storage may be unavailable; ask for consent again. */ }
-    void poll();
+    void (async () => {
+      await poll();
+      if (!alive) return;
+      const source = this.readSource();
+      // Bật tap khi không có app Spotify sẽ stall và giết luôn local player.
+      if (source === "tap") await this.connect(true);
+      else if (source === "local" && this.status?.playback_signed_in) await this.setLocalPlayer(true);
+    })();
     void this.restoreAccount();
     const timer = setInterval(poll, 1000);
     return () => { alive = false; clearInterval(timer); };
@@ -258,7 +278,7 @@ class SpotifyState {
     this.error = null;
     try {
       await invoke("connect_spotify_audio", { enabled });
-      try { localStorage.setItem("rust_sound_spotify_audio_consent", String(enabled)); } catch { /* optional persistence */ }
+      this.writeSource(enabled ? "tap" : "none");
       toastState.info(enabled ? "Đã yêu cầu kết nối DSP Spotify" : "Đã yêu cầu ngắt DSP Spotify");
     } catch (e) { this.error = String(e); }
     finally { this.busy = false; }

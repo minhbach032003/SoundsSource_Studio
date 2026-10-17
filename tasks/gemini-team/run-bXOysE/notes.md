@@ -312,6 +312,37 @@ Changes not staged for commit:
 - **Approval / Runtime Gaps**:
   - Lỗi biên dịch backend test là actionable defect đã được chứng minh bằng log thực tế.
 
+## Verify uiux
+- **Scope / Status**: DONE (Không phát hiện lỗi UI/UX, ok = true)
+- **Files Evaluated & Verified**:
+  - `src/views/SpotifyView.svelte`: Nút đăng nhập phát nhạc nội bộ (`playback-auth-row`), vector icon `<LogIn />`, responsive text note.
+  - `src/views/VoiceAiView.svelte`: Khung hình capture native ScreenCaptureKit (`<img src={nativeScreenFrame}>`), tránh lỗi màn hình đen WebKit.
+  - `src/components/audio/StudioEQInspector.svelte`: Thông báo gom gọn lỗi âm thanh (`'Xem chi tiết lỗi ở bảng Spotify.'`).
+  - `tests/*.test.mjs`, `tests/*-browser.mjs`: Toàn bộ các test suite kiểm định giao diện, tokens và hành vi trình duyệt.
+- **Work Actually Completed**:
+  - **Zero Emojis Audit**: Xác minh 100% icon và visual markers trong toàn bộ frontend dùng vector icon `@lucide/svelte` hoặc inline SVG chuẩn (AGENTS.md Rule 1), hoàn toàn không có ký tự emoji làm icon.
+  - **Hierarchy, Spacing & Responsive Layout**:
+    - Khối `.playback-auth-row` trong `SpotifyView.svelte` được đặt khoa học ngay dưới danh sách chọn thiết bị, hỗ trợ `flex-wrap: wrap` với text hướng dẫn `min-width: 220px`, tự động co giãn không tràn viền ở màn hình nhỏ.
+    - Cắt giảm sự lặp lại lỗi âm thanh trong `StudioEQInspector.svelte` giúp giảm tải nhận thức và tối ưu không gian hiển thị cho thanh EQ.
+  - **Keyboard Access & Interaction States**:
+    - Nút bấm sử dụng native `<button class="btn" type="button">`, có `focus-visible` ring rõ ràng, hỗ trợ Tab/Enter/Space.
+    - Trạng thái `disabled={spotifyState.playbackAuthBusy}` ngăn chặn spam click / double invocation khi đang xác thực.
+    - Có `toastState` phản hồi ngay lập tức cho người dùng khi thành công hoặc thất bại.
+  - **Contrast & Theme Tokens (WCAG AA)**:
+    - Kiểm tra độ tương phản thực tế trên trình duyệt (`tests/pet-popover-browser.mjs`): default light (5.54:1), default dark (7.91:1), Catppuccin latte (5.14:1), Catppuccin mocha (9.26:1), đều vượt ngưỡng tối thiểu WCAG AA (>= 4.5:1).
+- **Changed Files**:
+  - `tasks/gemini-team/run-bXOysE/notes.md` (chỉ ghi nhận kết quả xác minh UI/UX).
+- **Checks with Real Outcomes**:
+  - `pnpm check`: PASS (0 errors, 0 warnings).
+  - `pnpm build`: PASS (hoàn thành trong 4.50s, bundle `dist/` hoàn chỉnh).
+  - `node --test tests/*.test.mjs`: PASS (174/174 unit tests).
+  - `node --test tests/*-browser.mjs`: PASS (6/6 browser suites: `spotify-spectrum`, `spotify-layout`, `pet-alert-settings`, `pet-animation-identity`, `pet-popover`, `pet-settings`).
+- **Remaining TODOs**:
+  - Không có TODO cho UI/UX.
+- **Approval / Runtime Gaps (Unverified Visual/Browser Coverage)**:
+  - Kiểm thử giao diện tự động bằng Puppeteer/browser đã đạt 100% nhưng trải nghiệm visual thực tế trên cửa sổ native macOS App bundle (`/Applications/rust-sound.app`) cần được kiểm chứng lại sau khi hoàn tất auto-rebuild ở pha Release.
+
+
 
 
 

@@ -101,7 +101,10 @@ impl SpotifyIntegration {
                 if !enabled.load(Ordering::Acquire) || current != signature {
                     tap = None; previous_frames = 0; stalled = 0;
                 }
-                let mut error = if enabled.load(Ordering::Acquire) { None } else { route_error.clone() };
+                let local_state = player.state();
+                // Lỗi cũ của đường tap không được bám lại khi người dùng đã chuyển sang local.
+                if local_state.running { route_error = None; }
+                let mut error = if enabled.load(Ordering::Acquire) || local_state.running { None } else { route_error.clone() };
                 if enabled.load(Ordering::Acquire) && tap.is_none() {
                     // Try to launch Spotify if tap is enabled
                     if let Err(e) = spotify::launch() {
@@ -128,7 +131,6 @@ impl SpotifyIntegration {
                 } else { stalled = 0; }
                 if error.is_some() { route_error = error.clone(); }
                 let warning = tap.as_ref().and_then(|t| output_warning(t.output_format()));
-                let local_state = player.state();
                 let mut next = SpotifyStatus {
                     enabled: enabled.load(Ordering::Acquire),
                     connected: tap.is_some(),
