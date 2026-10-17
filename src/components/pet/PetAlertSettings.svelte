@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { Play, Upload, RotateCcw } from "@lucide/svelte";
   import Modal from "@/components/ui/Modal.svelte";
   import { readPetPreferences, subscribePetPreferences, writePetPreference } from "@/lib/petPreferences";
@@ -19,7 +20,7 @@
       prefs = readPetPreferences();
       names = { done: petSoundName("done"), waiting: petSoundName("waiting") };
     });
-    refreshPermission();
+    untrack(() => refreshPermission());
     const focus = () => refreshPermission();
     window.addEventListener("focus", focus);
     return () => { alive = false; unsubscribe(); window.removeEventListener("focus", focus); };

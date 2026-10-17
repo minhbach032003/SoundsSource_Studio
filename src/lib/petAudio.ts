@@ -143,8 +143,18 @@ export async function playPetSound(kind: PetSoundKind, preview = false, volume =
   if (!preview && !readPetPreferences()[kind === "done" ? "doneSound" : "waitingSound"]) return false;
   const ctx = getAudioContext();
   if (!ctx) throw new Error("Audio playback is unavailable in this window");
-  if (ctx.state === "suspended") await ctx.resume();
+  if (ctx.state === "suspended") {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        ctx.resume(),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Audio is blocked. Click Play again to enable playback.")), 3000); }),
+      ]);
+    } finally { clearTimeout(timer); }
+  }
   if (ctx.state !== "running") throw new Error("Audio is blocked. Click Play in AgentPet Settings to enable playback.");
+  // Resume may have yielded while Settings muted this event in another webview.
+  if (!preview && !readPetPreferences()[kind === "done" ? "doneSound" : "waitingSound"]) return false;
   const record = customRecord(customValue(kind));
   if (record) {
     const bytes = Uint8Array.from(atob(record.data), c => c.charCodeAt(0));
