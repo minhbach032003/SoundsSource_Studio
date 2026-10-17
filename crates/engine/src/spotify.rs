@@ -369,10 +369,9 @@ impl SpotifyWeb {
         if !self.devices()?.iter().any(|d| d.id == id) {
             return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
         }
+        // Chọn thiết bị chỉ là lựa chọn cục bộ cho lệnh phát tiếp theo. Không đánh thức
+        // ở đây: mở app lên mà nhạc đang chạy trên điện thoại thì nó sẽ bị cướp mất.
         *self.device.lock().unwrap() = Some(id.into());
-        // Chọn thiết bị chỉ là một lựa chọn cục bộ: nó không được hỏng vì Spotify từ
-        // chối đánh thức. Lỗi đó thuộc về lúc phát, nơi nó thật sự cản người dùng.
-        let _ = self.ensure_active(id);
         Ok(())
     }
     fn device_id(&self) -> Result<String, String> {
@@ -403,15 +402,19 @@ impl SpotifyWeb {
         };
         Ok(parse_page(page, offset, limit, kind))
     }
-    pub fn play_uri(&self, uri: &str) -> Result<(), String> {
+    pub fn play_uri(&self, uri: &str, position_ms: Option<u32>) -> Result<(), String> {
         if !valid_uri(uri) {
             return Err("Invalid Spotify URI".into());
         }
-        let body = if uri.starts_with("spotify:track:") {
+        let mut body = if uri.starts_with("spotify:track:") {
             json!({"uris":[uri]})
         } else {
             json!({"context_uri":uri})
         };
+        // Phát tiếp đúng chỗ đang dở của phiên trước.
+        if let Some(position) = position_ms {
+            body["position_ms"] = json!(position);
+        }
         let device = self.device_id()?;
         self.ensure_active(&device)?;
         self.request(
@@ -471,6 +474,7 @@ impl SpotifyWeb {
         Ok(sound_core::spotify::SpotifyPlayback {
             running: true,
             playing: data["is_playing"].as_bool().unwrap_or(false),
+            uri: text(item, "uri"),
             title: text(item, "name"),
             artist: artists(item),
             album: text(&item["album"], "name"),

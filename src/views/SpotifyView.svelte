@@ -169,13 +169,7 @@
     {/if}
     {#if signedIn}
       <div class="list-heading">
-        {#if spotifyState.kind === "playlist"}
-          <button class="btn icon-button" type="button" aria-label="Trở về playlist" onclick={() => spotifyState.loadLibrary("playlists")}><ChevronLeft class="w-4 h-4" /></button>
-          <h3 title={spotifyState.playlistName}>{spotifyState.playlistName}</h3>
-          <button class="btn icon-button" type="button" aria-label="Phát playlist" disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.play(`spotify:playlist:${spotifyState.playlistId}`)}><Play class="w-4 h-4" /></button>
-        {:else}
-          <h3>{spotifyState.kind === "search" ? `Kết quả: ${spotifyState.searchQuery}` : spotifyState.kind === "saved" ? "Bài đã thích" : "Playlist của tôi"}</h3>
-        {/if}
+        <h3>{spotifyState.kind === "search" ? `Kết quả: ${spotifyState.searchQuery}` : spotifyState.kind === "saved" ? "Bài đã thích" : "Playlist của tôi"}</h3>
       </div>
       <div class="spotify-results" aria-busy={spotifyState.libraryBusy}>
         {#if spotifyState.libraryBusy}<p class="note empty-state" role="status">Đang tải nhạc từ Spotify…</p>
@@ -187,7 +181,9 @@
               <li class:current-track={spotifyState.kind !== "playlists" && status?.title === item.name && status?.artist === item.artist}>
                 {#if item.artwork?.startsWith("https://")}<img src={item.artwork} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="artwork-placeholder"><Music2 class="w-4 h-4" /></span>{/if}
                 {#if spotifyState.kind === "playlists"}
-                  <button class="item-name" type="button" onclick={() => { spotifyState.playlistName = item.name; void spotifyState.loadLibrary("playlist", "", 0, item.id); }}><strong title={item.name}>{item.name}</strong><span>{item.artist || "Playlist"}</span></button>
+                  <!-- Spotify không cho app đọc bài trong playlist của người khác, nên
+                       bấm vào tên là phát cả playlist thay vì mở một màn luôn rỗng. -->
+                  <button class="item-name" type="button" aria-label={`Phát playlist ${item.name}`} disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.play(item.uri)}><strong title={item.name}>{item.name}</strong><span>{item.artist || "Playlist"}</span></button>
                 {:else}<div class="item-name"><strong title={item.name}>{item.name}</strong><span title={item.artist}>{item.artist}</span></div><span class="duration">{time(item.duration_ms)}</span>{/if}
                 <button class="btn icon-button" type="button" aria-label={`Phát ${item.name}`} disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.play(item.uri)}><Play class="w-4 h-4" /></button>
               </li>

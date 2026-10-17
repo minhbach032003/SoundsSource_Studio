@@ -11,7 +11,16 @@
     status?.running ? "Spotify trên Mac này" :
     "Chưa có nguồn phát"
   );
-  const artwork = $derived(status?.artwork?.startsWith("https://") ? status.artwork : "");
+  /// Spotify quên phiên phát khi mọi thiết bị đã tắt, nên khi chưa có gì đang phát ta
+  /// hiện lại bài dở mà rust-sound tự nhớ — tạm dừng, chờ bấm phát.
+  const resuming = $derived(!status?.title && Boolean(spotifyState.lastTrack));
+  const shown = $derived(resuming ? spotifyState.lastTrack : null);
+  const title = $derived(status?.title || shown?.title || "");
+  const artist = $derived(status?.artist || shown?.artist || "");
+  const position = $derived(status?.title ? (status?.position ?? 0) : (shown?.position ?? 0));
+  const duration = $derived(status?.title ? (status?.duration ?? 0) : (shown?.duration ?? 0));
+  const art = $derived(status?.artwork || shown?.artwork || "");
+  const artwork = $derived(art.startsWith("https://") ? art : "");
   let volume = $state(100);
   let editingVolume = $state(false);
   $effect(() => { if (!editingVolume) volume = Math.round(spotifyState.volume * 100); });
@@ -27,22 +36,22 @@
       {#if artwork}<img src={artwork} alt="Bìa album {status?.album ?? ''}" referrerpolicy="no-referrer" />{:else}<Music2 class="w-5 h-5" />{/if}
     </div>
     <div class="track-copy">
-      <p title={status?.title}>{status?.title || "Chưa chọn bài hát"}</p>
-      <span title={status?.artist || sourceLabel}>{status?.artist || sourceLabel}</span>
+      <p title={title}>{title || "Chưa chọn bài hát"}</p>
+      <span title={artist || sourceLabel}>{resuming ? `${artist} · đang dở` : artist || sourceLabel}</span>
     </div>
   </div>
   <div class="playback">
     <div class="transport">
       <button class="btn icon-button" type="button" aria-label="Bài trước" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("previous")}><SkipBack class="w-4 h-4" /></button>
-      <button class="btn btn-primary icon-button play-button" type="button" aria-label={status?.playing ? "Tạm dừng Spotify" : "Phát Spotify"} disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("play_pause")}>
+      <button class="btn btn-primary icon-button play-button" type="button" aria-label={status?.playing ? "Tạm dừng Spotify" : resuming ? `Phát tiếp ${title}` : "Phát Spotify"} disabled={!canControl || spotifyState.busy} onclick={() => resuming ? spotifyState.resumeLastTrack() : spotifyState.control("play_pause")}>
         {#if status?.playing}<Pause class="w-4 h-4" />{:else}<Play class="w-4 h-4" />{/if}
       </button>
       <button class="btn icon-button" type="button" aria-label="Bài tiếp theo" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("next")}><SkipForward class="w-4 h-4" /></button>
     </div>
     <div class="progress-row">
-      <span>{time(status?.position ?? 0)}</span>
-      <progress aria-label="Tiến độ bài hát" max={status?.duration || 1} value={Math.min(status?.position ?? 0, status?.duration || 0)}></progress>
-      <span>{time(status?.duration ?? 0)}</span>
+      <span>{time(position)}</span>
+      <progress aria-label="Tiến độ bài hát" max={duration || 1} value={Math.min(position, duration || 0)}></progress>
+      <span>{time(duration)}</span>
     </div>
   </div>
   <div class="volume-control">

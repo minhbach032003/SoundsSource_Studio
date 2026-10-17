@@ -1,9 +1,19 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { toastState } from "./toast.svelte";
 
+export interface LastTrack {
+  uri: string;
+  title: string;
+  artist: string;
+  artwork: string;
+  position: number;
+  duration: number;
+}
+
 export interface SpotifyStatus {
   running: boolean;
   playing: boolean;
+  uri: string;
   title: string;
   artist: string;
   album: string;
@@ -204,15 +214,51 @@ class SpotifyState {
     finally { this.devicesBusy = false; }
   }
 
-  async play(uri: string) {
+  async play(uri: string, positionMs?: number) {
     if (this.busy) return;
     this.busy = true;
     this.error = null;
     try {
-      await invoke("spotify_play_uri", { uri });
+      await invoke("spotify_play_uri", { uri, positionMs: positionMs ?? null });
       toastState.info("Đã gửi bài đến Spotify");
     } catch (e) { this.error = String(e); }
     finally { this.busy = false; }
+  }
+
+  /// Spotify quên phiên phát khi không còn thiết bị nào hoạt động, nên rust-sound
+  /// tự nhớ bài đang dở để mở app lên còn thấy lại nó.
+  private readonly lastTrackKey = "rust_sound_spotify_last_track";
+  lastTrack = $state<LastTrack | null>(null);
+
+  private rememberTrack(status: SpotifyStatus) {
+    if (!status.uri || !status.title) return;
+    const track: LastTrack = {
+      uri: status.uri,
+      title: status.title,
+      artist: status.artist,
+      artwork: status.artwork,
+      position: status.position,
+      duration: status.duration,
+    };
+    this.lastTrack = track;
+    try { localStorage.setItem(this.lastTrackKey, JSON.stringify(track)); } catch { }
+  }
+
+  private restoreLastTrack() {
+    try {
+      const raw = localStorage.getItem(this.lastTrackKey);
+      if (!raw) return;
+      const track = JSON.parse(raw) as LastTrack;
+      if (typeof track?.uri === "string" && typeof track?.title === "string") this.lastTrack = track;
+    } catch { }
+  }
+
+  /// Phát tiếp bài đang dở, đúng chỗ đã dừng.
+  async resumeLastTrack() {
+    const track = this.lastTrack;
+    if (!track) return;
+    // status.position tính bằng giây, Spotify nhận mili-giây.
+    await this.play(track.uri, Math.max(0, Math.floor(track.position * 1000)));
   }
 
   async setVolume(volume: number) {
@@ -256,7 +302,10 @@ class SpotifyState {
       pending = true;
       try {
         const status = await invoke<SpotifyStatus>("get_spotify_status");
-        if (alive) this.status = status;
+        if (alive) {
+          this.status = status;
+          this.rememberTrack(status);
+        }
         const channels = await invoke<Record<string, { volume: number; muted: boolean }>>("get_channel_states");
         const channel = channels["com.spotify.client"];
         if (alive && channel && !this.volumeBusy) {
@@ -267,6 +316,7 @@ class SpotifyState {
         if (alive) this.error = String(e);
       } finally { pending = false; }
     };
+    this.restoreLastTrack();
     void (async () => {
       await poll();
       if (!alive) return;

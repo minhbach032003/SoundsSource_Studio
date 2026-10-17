@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 pub struct SpotifyPlayback {
     pub running: bool,
     pub playing: bool,
+    /// Cần để phát tiếp đúng bài đang dở sau khi mở lại app.
+    #[serde(default)] pub uri: String,
     #[serde(default)] pub title: String,
     #[serde(default)] pub artist: String,
     #[serde(default)] pub album: String,

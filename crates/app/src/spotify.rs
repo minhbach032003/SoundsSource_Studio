@@ -349,9 +349,15 @@ pub async fn spotify_select_device(id: String, state: State<'_, AppState>) -> Re
     tauri::async_runtime::spawn_blocking(move || web.select_device(&id)).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
-pub async fn spotify_play_uri(uri: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn spotify_play_uri(
+    uri: String,
+    position_ms: Option<u32>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.play_uri(&uri)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || web.play_uri(&uri, position_ms))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
