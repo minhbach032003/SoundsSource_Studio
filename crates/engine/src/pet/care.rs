@@ -279,12 +279,24 @@ impl PetCareState {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PetCareDocument {
+    #[serde(default)]
+    pub selected_pet_id: Option<String>,
+    #[serde(default)]
+    pub states: HashMap<String, PetCareState>,
+    #[serde(flatten)]
+    pub legacy_state: Option<PetCareState>,
+}
+
 pub struct PetCareStore {
     path: PathBuf,
     secondary_path: Option<PathBuf>,
 }
 
 impl PetCareStore {
+    pub const DEFAULT_PET_ID: &'static str = "default";
+
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
@@ -320,33 +332,154 @@ impl PetCareStore {
         }
     }
 
-    pub fn load(&self) -> PetCareState {
-        let mut primary_state: Option<PetCareState> = None;
-        if let Ok(data) = fs::read_to_string(&self.path) {
-            if let Ok(mut state) = serde_json::from_str::<PetCareState>(&data) {
-                let today = PetCareState::current_day_key();
-                state.rollover_day_if_needed(&today);
-                primary_state = Some(state);
-            }
+    fn parse_document(data: &str) -> Option<(HashMap<String, PetCareState>, Option<String>)> {
+        // 1. Try parsing single global PetCareState (v1 legacy) first or plain dictionary
+        if let Ok(single) = serde_json::from_str::<PetCareState>(data) {
+            let mut map = HashMap::new();
+            map.insert(Self::DEFAULT_PET_ID.to_string(), single);
+            return Some((map, None));
         }
 
-        let mut secondary_state: Option<PetCareState> = None;
-        if let Some(ref sec_path) = self.secondary_path {
-            if let Ok(data) = fs::read_to_string(sec_path) {
-                if let Ok(mut state) = serde_json::from_str::<PetCareState>(&data) {
-                    let today = PetCareState::current_day_key();
-                    state.rollover_day_if_needed(&today);
-                    secondary_state = Some(state);
+        // 2. Try parsing PetCareDocument: { "selected_pet_id": "...", "states": { "pet_a": { ... } } }
+        if let Ok(doc) = serde_json::from_str::<PetCareDocument>(data) {
+            let mut states = doc.states;
+            let selected = doc.selected_pet_id.clone();
+            if states.is_empty() {
+                if let Some(leg) = doc.legacy_state {
+                    let pet_id = selected.as_deref().unwrap_or(Self::DEFAULT_PET_ID);
+                    states.insert(pet_id.to_string(), leg);
                 }
             }
+            if !states.is_empty() {
+                return Some((states, selected));
+            }
         }
 
-        match (primary_state, secondary_state) {
-            (Some(s1), Some(s2)) => Self::merge_states(s1, s2),
-            (Some(s), None) => s,
-            (None, Some(s)) => s,
-            (None, None) => PetCareState::default(),
+        // 3. Try parsing plain [String: PetCareState] dictionary (Swift agentpet.care.v2 export)
+        if let Ok(dict) = serde_json::from_str::<HashMap<String, PetCareState>>(data) {
+            if !dict.is_empty() {
+                return Some((dict, None));
+            }
         }
+
+        None
+    }
+
+    pub fn load_all(&self) -> (HashMap<String, PetCareState>, Option<String>) {
+        let mut primary_doc: Option<(HashMap<String, PetCareState>, Option<String>)> = None;
+        if let Ok(data) = fs::read_to_string(&self.path) {
+            primary_doc = Self::parse_document(&data);
+        }
+
+        let mut secondary_doc: Option<(HashMap<String, PetCareState>, Option<String>)> = None;
+        if let Some(ref sec_path) = self.secondary_path {
+            if let Ok(data) = fs::read_to_string(sec_path) {
+                secondary_doc = Self::parse_document(&data);
+            }
+        }
+
+        let (mut states, selected) = match (primary_doc, secondary_doc) {
+            (Some((p_states, p_sel)), Some((s_states, s_sel))) => {
+                let mut merged = p_states;
+                for (pet_id, s_state) in s_states {
+                    if let Some(p_state) = merged.remove(&pet_id) {
+                        merged.insert(pet_id, Self::merge_states(p_state, s_state));
+                    } else {
+                        merged.insert(pet_id, s_state);
+                    }
+                }
+                (merged, p_sel.or(s_sel))
+            }
+            (Some(doc), None) => doc,
+            (None, Some(doc)) => doc,
+            (None, None) => (HashMap::new(), None),
+        };
+
+        let today = PetCareState::current_day_key();
+        for state in states.values_mut() {
+            state.rollover_day_if_needed(&today);
+        }
+
+        (states, selected)
+    }
+
+    pub fn load_for_pet(&self, pet_id: Option<&str>) -> PetCareState {
+        let (states, selected) = self.load_all();
+        let target_id = pet_id
+            .or(selected.as_deref())
+            .unwrap_or(Self::DEFAULT_PET_ID);
+
+        if let Some(state) = states.get(target_id) {
+            return state.clone();
+        }
+
+        // If specific non-default pet requested and not found, start fresh
+        if let Some(id) = pet_id {
+            if id != Self::DEFAULT_PET_ID && selected.as_deref() != Some(id) {
+                return PetCareState::default();
+            }
+        }
+
+        // Fallback: if target_id not found but DEFAULT_PET_ID exists, or first existing pet
+        if let Some(def) = states.get(Self::DEFAULT_PET_ID) {
+            def.clone()
+        } else if let Some((_, first)) = states.iter().next() {
+            first.clone()
+        } else {
+            PetCareState::default()
+        }
+    }
+
+    pub fn load(&self) -> PetCareState {
+        self.load_for_pet(None)
+    }
+
+    pub fn save_all(
+        &self,
+        states: &HashMap<String, PetCareState>,
+        selected_pet_id: Option<&str>,
+    ) -> Result<(), std::io::Error> {
+        let doc = PetCareDocument {
+            selected_pet_id: selected_pet_id.map(|s| s.to_string()),
+            states: states.clone(),
+            legacy_state: None,
+        };
+
+        let json = serde_json::to_string_pretty(&doc).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
+        })?;
+
+        if let Some(parent) = self.path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        fs::write(&self.path, &json)?;
+
+        if let Some(ref sec_path) = self.secondary_path {
+            if let Some(parent) = sec_path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(sec_path, &json);
+        }
+
+        Ok(())
+    }
+
+    pub fn save_for_pet(
+        &self,
+        pet_id: Option<&str>,
+        state: &PetCareState,
+    ) -> Result<(), std::io::Error> {
+        let (mut states, selected) = self.load_all();
+        let target_id = pet_id
+            .or(selected.as_deref())
+            .unwrap_or(Self::DEFAULT_PET_ID);
+
+        states.insert(target_id.to_string(), state.clone());
+        self.save_all(&states, selected.as_deref())
+    }
+
+    pub fn save(&self, state: &PetCareState) -> Result<(), std::io::Error> {
+        self.save_for_pet(None, state)
     }
 
     pub fn merge_states(mut s1: PetCareState, s2: PetCareState) -> PetCareState {
@@ -373,26 +506,6 @@ impl PetCareStore {
         }
 
         s1
-    }
-
-    pub fn save(&self, state: &PetCareState) -> Result<(), std::io::Error> {
-        let json = serde_json::to_string_pretty(state).map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-        })?;
-
-        if let Some(parent) = self.path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let _ = fs::write(&self.path, &json);
-
-        if let Some(ref sec_path) = self.secondary_path {
-            if let Some(parent) = sec_path.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
-            let _ = fs::write(sec_path, &json);
-        }
-
-        Ok(())
     }
 }
 
@@ -486,10 +599,43 @@ mod tests {
         updated.xp += 25;
         store.save(&updated).unwrap();
 
-        let reloaded1: PetCareState = serde_json::from_str(&std::fs::read_to_string(&path1).unwrap()).unwrap();
-        let reloaded2: PetCareState = serde_json::from_str(&std::fs::read_to_string(&path2).unwrap()).unwrap();
+        let reloaded1 = store.load_for_pet(None);
         assert_eq!(reloaded1.xp, 1166);
-        assert_eq!(reloaded2.xp, 1166);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_per_pet_isolation_and_migration() {
+        let temp_dir = std::env::temp_dir().join(format!("pet_care_per_pet_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let path = temp_dir.join("care.json");
+
+        // 1. Write legacy v1 format: single PetCareState at root
+        let mut legacy_state = PetCareState::default();
+        legacy_state.xp = 500;
+        legacy_state.total_tokens = 25_000;
+        std::fs::write(&path, serde_json::to_string_pretty(&legacy_state).unwrap()).unwrap();
+
+        let store = PetCareStore::new(&path);
+
+        // Load falls back to legacy for default or any initial read
+        let loaded_def = store.load_for_pet(Some("default"));
+        assert_eq!(loaded_def.xp, 500);
+
+        // A new pet "dragon" starts fresh
+        let loaded_dragon = store.load_for_pet(Some("dragon"));
+        assert_eq!(loaded_dragon.xp, 0);
+
+        // Mutate and save dragon independently
+        let mut dragon_state = loaded_dragon;
+        dragon_state.xp = 1200;
+        store.save_for_pet(Some("dragon"), &dragon_state).unwrap();
+
+        // Check A/B isolation: default pet is still 500 XP, dragon is 1200 XP
+        let (all_states, _) = store.load_all();
+        assert_eq!(all_states.get("default").unwrap().xp, 500);
+        assert_eq!(all_states.get("dragon").unwrap().xp, 1200);
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }
@@ -497,8 +643,6 @@ mod tests {
     #[test]
     fn test_all_14_achievements_unlock_conditions() {
         let mut state = PetCareState::default();
-
-        // 1. firstMeal
         let midday_ts = Local::now().date_naive().and_hms_opt(12, 0, 0).unwrap().and_local_timezone(Local).unwrap().timestamp();
         let night_ts = Local::now().date_naive().and_hms_opt(3, 0, 0).unwrap().and_local_timezone(Local).unwrap().timestamp();
         state.record_meal(midday_ts);

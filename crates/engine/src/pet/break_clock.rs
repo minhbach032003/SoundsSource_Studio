@@ -149,5 +149,18 @@ mod tests {
         let r4 = clock.tick(1016, false, &config);
         assert_eq!(r4, BreakTickResult::BreakOver);
         assert!(!clock.is_resting());
+
+        // Disabled clock resets
+        let disabled_config = BreakClockConfig { enabled: false, ..config };
+        let r5 = clock.tick(1020, true, &disabled_config);
+        assert_eq!(r5, BreakTickResult::None);
+        assert_eq!(clock.active_seconds(), 0);
+
+        // Long absence (> max_delta_secs) resets work time
+        let _ = clock.tick(2000, true, &config);
+        let _ = clock.tick(2005, true, &config);
+        assert_eq!(clock.active_seconds(), 5);
+        let _ = clock.tick(2100, true, &config); // Delta 95s > max_delta 30s
+        assert_eq!(clock.active_seconds(), 0);
     }
 }

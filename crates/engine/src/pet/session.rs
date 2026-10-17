@@ -19,11 +19,25 @@ pub struct AgentSession {
     pub last_event_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SessionArchive {
+    pub session_id: String,
+    pub agent_kind: String,
+    pub project: Option<String>,
+    pub title: Option<String>,
+    pub message: Option<String>,
+    pub token_count: Option<u64>,
+    pub started_at: i64,
+    pub ended_at: i64,
+    pub duration: f64,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct SessionStore {
     sessions: HashMap<String, AgentSession>,
     // Retain shutdown watermarks so late handlers cannot resurrect a session.
     watermarks: HashMap<String, (u64, bool)>,
+    archive_dir: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -43,9 +57,55 @@ struct HistorySessionEntry {
 
 impl SessionStore {
     pub fn new() -> Self {
+        let archive_dir = std::env::var("HOME").ok().map(|h| {
+            std::path::Path::new(&h).join(".agentpet").join("history")
+        });
         Self {
             sessions: HashMap::new(),
             watermarks: HashMap::new(),
+            archive_dir,
+        }
+    }
+
+    pub fn with_archive_dir(archive_dir: impl Into<std::path::PathBuf>) -> Self {
+        Self {
+            sessions: HashMap::new(),
+            watermarks: HashMap::new(),
+            archive_dir: Some(archive_dir.into()),
+        }
+    }
+
+    pub fn archive_session(&self, sess: &AgentSession, ended_at: i64) {
+        let Some(ref dir) = self.archive_dir else { return };
+        let _ = std::fs::create_dir_all(dir);
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let file_path = dir.join(format!("{today}.json"));
+
+        let mut archives: Vec<SessionArchive> = if file_path.exists() {
+            std::fs::read_to_string(&file_path)
+                .ok()
+                .and_then(|c| serde_json::from_str(&c).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        if !archives.iter().any(|a| a.session_id == sess.id) {
+            let duration = (ended_at.saturating_sub(sess.started_at) as f64).max(0.0);
+            archives.push(SessionArchive {
+                session_id: sess.id.clone(),
+                agent_kind: sess.agent_kind.clone(),
+                project: sess.project.clone(),
+                title: sess.tool_summary.clone().or(sess.message.clone()),
+                message: sess.message.clone(),
+                token_count: None,
+                started_at: sess.started_at,
+                ended_at,
+                duration,
+            });
+            if let Ok(json) = serde_json::to_string_pretty(&archives) {
+                let _ = std::fs::write(&file_path, json);
+            }
         }
     }
 
@@ -226,6 +286,8 @@ impl SessionStore {
     }
 
     pub fn prune(&mut self, now_ts: i64) {
+        let mut to_archive = Vec::new();
+
         self.sessions.retain(|_, sess| {
             let quiet = now_ts.saturating_sub(sess.last_event_at);
             match sess.state {
@@ -234,12 +296,37 @@ impl SessionStore {
                     sess.last_event_at = now_ts;
                     true
                 }
-                AgentState::Working | AgentState::Waiting => quiet < 300,
-                AgentState::Registered => quiet < 90,
-                AgentState::Idle => quiet < 600,
+                AgentState::Working | AgentState::Waiting => {
+                    if quiet >= 300 {
+                        to_archive.push(sess.clone());
+                        false
+                    } else {
+                        true
+                    }
+                }
+                AgentState::Registered => {
+                    if quiet >= 90 {
+                        to_archive.push(sess.clone());
+                        false
+                    } else {
+                        true
+                    }
+                }
+                AgentState::Idle => {
+                    if quiet >= 600 {
+                        to_archive.push(sess.clone());
+                        false
+                    } else {
+                        true
+                    }
+                }
                 _ => true,
             }
         });
+
+        for sess in to_archive {
+            self.archive_session(&sess, now_ts);
+        }
     }
 
     pub fn aggregate_mood(&self) -> PetMood {
@@ -394,6 +481,37 @@ mod tests {
         assert_eq!(state3, Some(AgentState::Done));
         assert!(meal3);
         assert_eq!(store.aggregate_mood(), PetMood::Done);
+    }
+
+    #[test]
+    fn test_archive_persistence_on_prune() {
+        let temp_dir = std::env::temp_dir().join(format!("session_archive_test_{}", uuid::Uuid::new_v4()));
+        let mut store = SessionStore::with_archive_dir(&temp_dir);
+
+        let event = AgentEvent {
+            event_name: "SessionStart".to_string(),
+            session_id: "sess_arch_1".to_string(),
+            agent_kind: "claude".to_string(),
+            project: Some("/test/project".to_string()),
+            message: Some("Archivable task".to_string()),
+            ..Default::default()
+        };
+        store.apply(event, 1000);
+
+        // Advance 100s (> 90s staleRegisteredAfter) -> should prune and archive
+        store.prune(1100);
+        assert!(store.get("sess_arch_1").is_none());
+
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let archive_file = temp_dir.join(format!("{today}.json"));
+        assert!(archive_file.exists());
+
+        let archives: Vec<SessionArchive> = serde_json::from_str(&std::fs::read_to_string(&archive_file).unwrap()).unwrap();
+        assert_eq!(archives.len(), 1);
+        assert_eq!(archives[0].session_id, "sess_arch_1");
+        assert_eq!(archives[0].agent_kind, "claude");
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 
     #[test]

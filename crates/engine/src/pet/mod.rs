@@ -72,23 +72,35 @@ impl PetManager {
     }
 
     pub fn get_care_state(&self) -> PetCareState {
+        self.get_care_state_for_pet(None)
+    }
+
+    pub fn get_care_state_for_pet(&self, pet_id: Option<&str>) -> PetCareState {
         let store = self.care_store.lock().unwrap();
-        store.load()
+        store.load_for_pet(pet_id)
     }
 
     pub fn apply_care_action(&self, action: &str) -> PetCareState {
+        self.apply_care_action_for_pet(None, action)
+    }
+
+    pub fn apply_care_action_for_pet(&self, pet_id: Option<&str>, action: &str) -> PetCareState {
         let store = self.care_store.lock().unwrap();
-        let mut state = store.load();
+        let mut state = store.load_for_pet(pet_id);
         let now_ts = Utc::now().timestamp();
         state.apply_care_action(action, now_ts);
-        let _ = store.save(&state);
+        let _ = store.save_for_pet(pet_id, &state);
         state
     }
 
     pub fn reset_care_state(&self) -> PetCareState {
+        self.reset_care_state_for_pet(None)
+    }
+
+    pub fn reset_care_state_for_pet(&self, pet_id: Option<&str>) -> PetCareState {
         let store = self.care_store.lock().unwrap();
         let state = PetCareState::default();
-        let _ = store.save(&state);
+        let _ = store.save_for_pet(pet_id, &state);
         state
     }
 

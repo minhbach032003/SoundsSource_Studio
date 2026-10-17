@@ -1,5 +1,5 @@
 use crate::pet::care::PetCareStore;
-use crate::pet::event::AgentEvent;
+use crate::pet::event::{AgentEvent, AgentState};
 use crate::pet::question::QuestionDetector;
 use crate::pet::session::SessionStore;
 use crate::pet::transcript::TranscriptReader;
@@ -226,8 +226,14 @@ impl AgentPetServer {
                                     if is_meal {
                                         state.record_meal(now_ts);
                                     }
-                                    let feed_amount = if tokens_to_feed > 0 { tokens_to_feed } else { 500 };
-                                    state.feed_tokens(feed_amount, now_ts);
+                                    // Default token burst (500) for tool use / live activity if no explicit or transcript tokens
+                                    if tokens_to_feed == 0 && (is_meal || applied == Some(AgentState::Working)) {
+                                        tokens_to_feed = 500;
+                                    }
+
+                                    if tokens_to_feed > 0 {
+                                        state.feed_tokens(tokens_to_feed, now_ts);
+                                    }
                                     let _ = care_guard.save(&state);
                                 }
                             }
@@ -301,8 +307,10 @@ impl AgentPetServer {
                                     let mut state = care_guard.load();
                                     if is_meal {
                                         state.record_meal(now_ts);
-                                    } else {
-                                        state.feed_tokens(500, now_ts);
+                                    }
+                                    let tokens = event.tokens.unwrap_or(0);
+                                    if tokens > 0 {
+                                        state.feed_tokens(tokens, now_ts);
                                     }
                                     let _ = care_guard.save(&state);
                                 }
