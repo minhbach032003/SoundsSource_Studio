@@ -343,9 +343,16 @@ impl SpotifyWeb {
         }
         Ok(devices)
     }
-    /// Đánh thức một thiết bị Connect. Thiết bị vừa đăng ký vẫn nằm chờ: không chuyển
-    /// sang nó thì lệnh phát được chấp nhận nhưng không có nhạc nào được gửi tới.
-    fn transfer_playback(&self, id: &str) -> Result<(), String> {
+    /// Đánh thức một thiết bị Connect. Thiết bị đang nằm chờ vẫn nhận lệnh phát,
+    /// nhưng Spotify không gửi nhạc tới cho đến khi phát được chuyển hẳn sang nó.
+    fn ensure_active(&self, id: &str) -> Result<(), String> {
+        let devices = self.devices()?;
+        let Some(device) = devices.iter().find(|d| d.id == id) else {
+            return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
+        };
+        if device.is_active {
+            return Ok(());
+        }
         self.request(
             Method::PUT,
             "me/player",
@@ -355,14 +362,13 @@ impl SpotifyWeb {
         .map(|_| ())
     }
     pub fn select_device(&self, id: &str) -> Result<(), String> {
-        let devices = self.devices()?;
-        let Some(device) = devices.iter().find(|d| d.id == id) else {
+        if !self.devices()?.iter().any(|d| d.id == id) {
             return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
-        };
-        if !device.is_active {
-            self.transfer_playback(id)?;
         }
         *self.device.lock().unwrap() = Some(id.into());
+        // Chọn thiết bị chỉ là một lựa chọn cục bộ: nó không được hỏng vì Spotify từ
+        // chối đánh thức. Lỗi đó thuộc về lúc phát, nơi nó thật sự cản người dùng.
+        let _ = self.ensure_active(id);
         Ok(())
     }
     fn device_id(&self) -> Result<String, String> {
@@ -402,10 +408,12 @@ impl SpotifyWeb {
         } else {
             json!({"context_uri":uri})
         };
+        let device = self.device_id()?;
+        self.ensure_active(&device)?;
         self.request(
             Method::PUT,
             "me/player/play",
-            &[("device_id", self.device_id()?)],
+            &[("device_id", device)],
             Some(body),
         )
         .map(|_| ())
