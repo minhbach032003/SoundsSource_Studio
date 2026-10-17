@@ -343,9 +343,24 @@ impl SpotifyWeb {
         }
         Ok(devices)
     }
+    /// Đánh thức một thiết bị Connect. Thiết bị vừa đăng ký vẫn nằm chờ: không chuyển
+    /// sang nó thì lệnh phát được chấp nhận nhưng không có nhạc nào được gửi tới.
+    fn transfer_playback(&self, id: &str) -> Result<(), String> {
+        self.request(
+            Method::PUT,
+            "me/player",
+            &[],
+            Some(json!({ "device_ids": [id] })),
+        )
+        .map(|_| ())
+    }
     pub fn select_device(&self, id: &str) -> Result<(), String> {
-        if !self.devices()?.iter().any(|d| d.id == id) {
+        let devices = self.devices()?;
+        let Some(device) = devices.iter().find(|d| d.id == id) else {
             return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
+        };
+        if !device.is_active {
+            self.transfer_playback(id)?;
         }
         *self.device.lock().unwrap() = Some(id.into());
         Ok(())
