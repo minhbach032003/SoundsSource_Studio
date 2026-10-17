@@ -16,7 +16,7 @@ use subtle::ConstantTimeEq;
 use url::Url;
 
 pub const REDIRECT_URI: &str = "http://127.0.0.1:8888/callback";
-const SCOPES: &str = "playlist-read-private playlist-read-collaborative user-library-read user-read-playback-state user-modify-playback-state";
+const SCOPES: &str = "playlist-read-private playlist-read-collaborative user-library-read user-read-playback-state user-modify-playback-state streaming";
 const API: &str = "https://api.spotify.com/v1/";
 
 struct Tokens {
@@ -99,6 +99,9 @@ impl SpotifyWeb {
             connected: self.connected(),
             device_id: self.device.lock().unwrap().clone(),
         })
+    }
+    pub fn current_access_token(&self) -> Result<String, String> {
+        self.access_token(false)
     }
     pub fn login(&self) -> Result<AccountStatus, String> {
         if self.client_id.len() != 32 {
