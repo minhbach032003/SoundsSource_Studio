@@ -15,6 +15,17 @@ use tokio::runtime::Runtime;
 /// Tên thiết bị rust-sound đăng ký với Spotify Connect.
 pub const LOCAL_DEVICE_NAME: &str = "rust-sound";
 
+/// librespot mặc định mở ở nửa thang âm lượng, mà thang đó là log 60 dB: 50% tương
+/// đương −30 dB, tức chỉ còn ~3% biên độ. rust-sound là bàn trộn, nó cần tín hiệu
+/// nguyên vẹn rồi mới tự chỉnh — âm lượng do EQ, kênh và hệ thống quyết định.
+fn connect_config() -> ConnectConfig {
+    let mut config = ConnectConfig::default();
+    config.name = LOCAL_DEVICE_NAME.to_string();
+    config.device_type = DeviceType::Computer;
+    config.initial_volume = u16::MAX;
+    config
+}
+
 #[derive(Clone, Default, Serialize)]
 pub struct LocalPlayerState {
     pub running: bool,
@@ -109,11 +120,7 @@ impl LocalPlayer {
                 sink_builder,
             );
 
-            let mut connect_config = ConnectConfig::default();
-            connect_config.name = LOCAL_DEVICE_NAME.to_string();
-            connect_config.device_type = DeviceType::Computer;
-
-            match Spirc::new(connect_config, session, credentials, player, mixer).await {
+            match Spirc::new(connect_config(), session, credentials, player, mixer).await {
                 Ok((spirc, spirc_task)) => {
                     let spirc = Arc::new(spirc);
                     let _ = spirc_tx.send(Ok(spirc));
@@ -223,6 +230,17 @@ pub fn playback_access_token() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_device_hands_over_audio_at_full_scale() {
+        let config = connect_config();
+        assert_eq!(config.name, LOCAL_DEVICE_NAME);
+        assert_eq!(
+            config.initial_volume,
+            u16::MAX,
+            "nửa thang log 60 dB là −30 dB: nhạc sẽ nhỏ hơn hẳn mọi app khác"
+        );
+    }
 
     #[test]
     fn a_missing_playback_login_names_the_button_to_press() {
