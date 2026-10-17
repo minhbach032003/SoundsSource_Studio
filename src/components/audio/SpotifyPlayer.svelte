@@ -1,19 +1,27 @@
 <script lang="ts">
   import { isTauri } from "@tauri-apps/api/core";
-  import { Music2, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "@lucide/svelte";
+  import { Music2, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1 } from "@lucide/svelte";
   import { spotifyState } from "@/lib/spotify.svelte";
 
   const status = $derived(spotifyState.status);
   const canControl = $derived(isTauri() && Boolean(spotifyState.account?.connected || status?.running || status?.local_running));
   /// Thanh này từng chỉ biết kể chuyện app Spotify chạy nền; giờ rust-sound tự phát.
+  /// Nhạc chạy ở thiết bị khác thì phải nói ra tên nó, nếu không thanh này trông như
+  /// hỏng trong khi thật ra nhạc vẫn đang phát, chỉ là ở chỗ khác.
+  const elsewhere = $derived(
+    Boolean(status?.device_name) && status?.device_id !== spotifyState.account?.device_id
+      ? status?.device_name
+      : ""
+  );
   const sourceLabel = $derived(
+    elsewhere ? `Đang phát trên ${elsewhere}` :
     status?.local_running ? "Đang phát trong rust-sound" :
     status?.running ? "Spotify trên Mac này" :
     "Chưa có nguồn phát"
   );
   /// Spotify quên phiên phát khi mọi thiết bị đã tắt, nên khi chưa có gì đang phát ta
   /// hiện lại bài dở mà rust-sound tự nhớ — tạm dừng, chờ bấm phát.
-  const resuming = $derived(!status?.title && Boolean(spotifyState.lastTrack));
+  const resuming = $derived(!status?.title && !elsewhere && Boolean(spotifyState.lastTrack));
   const shown = $derived(resuming ? spotifyState.lastTrack : null);
   const title = $derived(status?.title || shown?.title || "");
   const artist = $derived(status?.artist || shown?.artist || "");
@@ -42,11 +50,15 @@
   </div>
   <div class="playback">
     <div class="transport">
+      <button class="btn icon-button" type="button" aria-label="Trộn bài" aria-pressed={status?.shuffle ?? false} disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.setShuffle(!(status?.shuffle ?? false))}><Shuffle class="w-4 h-4" /></button>
       <button class="btn icon-button" type="button" aria-label="Bài trước" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("previous")}><SkipBack class="w-4 h-4" /></button>
       <button class="btn btn-primary icon-button play-button" type="button" aria-label={status?.playing ? "Tạm dừng Spotify" : resuming ? `Phát tiếp ${title}` : "Phát Spotify"} disabled={!canControl || spotifyState.busy} onclick={() => resuming ? spotifyState.resumeLastTrack() : spotifyState.control("play_pause")}>
         {#if status?.playing}<Pause class="w-4 h-4" />{:else}<Play class="w-4 h-4" />{/if}
       </button>
       <button class="btn icon-button" type="button" aria-label="Bài tiếp theo" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("next")}><SkipForward class="w-4 h-4" /></button>
+      <button class="btn icon-button" type="button" aria-label={status?.repeat === "track" ? "Đang lặp một bài" : status?.repeat === "context" ? "Đang lặp danh sách" : "Lặp lại"} aria-pressed={(status?.repeat ?? "off") !== "off"} disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.cycleRepeat()}>
+        {#if status?.repeat === "track"}<Repeat1 class="w-4 h-4" />{:else}<Repeat class="w-4 h-4" />{/if}
+      </button>
     </div>
     <div class="progress-row">
       <span>{time(position)}</span>
@@ -78,6 +90,8 @@
   .playback { display: grid; gap: 6px; min-width: 0; }
   .transport { display: flex; justify-content: center; gap: 8px; }
   .icon-button { width: 32px; height: 32px; padding: 0; flex-shrink: 0; }
+  /* Cùng cách đánh dấu đang bật với thanh điều hướng thư viện. */
+  .transport button[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); }
   .play-button { border-radius: 50%; }
   .progress-row { display: flex; align-items: center; gap: 10px; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
   progress { flex: 1; min-width: 0; width: 100%; height: 4px; accent-color: var(--accent); }

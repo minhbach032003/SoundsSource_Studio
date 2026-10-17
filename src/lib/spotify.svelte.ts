@@ -14,6 +14,10 @@ export interface SpotifyStatus {
   running: boolean;
   playing: boolean;
   uri: string;
+  device_id: string;
+  device_name: string;
+  shuffle: boolean;
+  repeat: "off" | "context" | "track";
   title: string;
   artist: string;
   album: string;
@@ -133,13 +137,15 @@ class SpotifyState {
     finally { if (ticket === this.libraryRequest) this.libraryBusy = false; }
   }
 
-  async refreshDevices() {
+  /// `silent`: lần làm mới định kỳ chạy nền. Nó không được khoá ô chọn hay ném lỗi
+  /// đè lên thư viện — người dùng có bấm gì đâu mà báo hỏng.
+  async refreshDevices(silent = false) {
     if (this.devicesBusy) return;
     this.devicesBusy = true;
     try {
       this.devices = await invoke<SpotifyDevice[]>("spotify_devices");
       this.account = await invoke<SpotifyAccount>("spotify_account");
-    } catch (e) { this.libraryError = String(e); }
+    } catch (e) { if (!silent) this.libraryError = String(e); }
     finally { this.devicesBusy = false; }
   }
 
@@ -222,6 +228,32 @@ class SpotifyState {
       await invoke("spotify_play_uri", { uri, positionMs: positionMs ?? null });
       toastState.info("Đã gửi bài đến Spotify");
     } catch (e) { this.error = String(e); }
+    finally { this.busy = false; }
+  }
+
+  async setShuffle(on: boolean) {
+    if (this.busy) return;
+    this.busy = true;
+    this.error = null;
+    try {
+      await invoke("spotify_set_shuffle", { on });
+      this.status = await invoke<SpotifyStatus>("get_spotify_status");
+      toastState.info(on ? "Đã bật trộn bài" : "Đã tắt trộn bài");
+    } catch (e) { this.error = String(e); toastState.error(String(e)); }
+    finally { this.busy = false; }
+  }
+
+  /// Vòng qua ba chế độ Spotify có: không lặp → lặp danh sách → lặp một bài.
+  async cycleRepeat() {
+    if (this.busy) return;
+    const mode = this.status?.repeat === "off" ? "context" : this.status?.repeat === "context" ? "track" : "off";
+    this.busy = true;
+    this.error = null;
+    try {
+      await invoke("spotify_set_repeat", { mode });
+      this.status = await invoke<SpotifyStatus>("get_spotify_status");
+      toastState.info(mode === "off" ? "Đã tắt lặp lại" : mode === "context" ? "Lặp lại danh sách" : "Lặp lại một bài");
+    } catch (e) { this.error = String(e); toastState.error(String(e)); }
     finally { this.busy = false; }
   }
 
@@ -341,7 +373,12 @@ class SpotifyState {
     })();
     void this.restoreAccount();
     const timer = setInterval(poll, 1000);
-    return () => { alive = false; clearInterval(timer); };
+    // Thiết bị đến và đi ngoài tầm app: mở Spotify trên điện thoại, rút tai nghe, tắt máy
+    // khác. Hỏi lại định kỳ để danh sách không nói sai, nhưng thưa hơn nhịp trạng thái.
+    const devicesTimer = setInterval(() => {
+      if (alive && this.account?.connected && !this.devicesBusy && !this.busy) void this.refreshDevices(true);
+    }, 5000);
+    return () => { alive = false; clearInterval(timer); clearInterval(devicesTimer); };
   }
 
   async connect(enabled: boolean) {

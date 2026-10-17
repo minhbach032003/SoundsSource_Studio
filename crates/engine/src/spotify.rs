@@ -464,6 +464,33 @@ impl SpotifyWeb {
         self.request(method, path, &[("device_id", self.device_id()?)], None)
             .map(|_| ())
     }
+    /// Trộn bài. Spotify chỉ mở API cho trộn ngẫu nhiên thường; Smart Shuffle là tính
+    /// năng riêng của ứng dụng Spotify, không có endpoint nào cho bên thứ ba.
+    pub fn set_shuffle(&self, on: bool) -> Result<(), String> {
+        let device = self.device_id()?;
+        self.ensure_active(&device)?;
+        self.request(
+            Method::PUT,
+            "me/player/shuffle",
+            &[("device_id", device), ("state", on.to_string())],
+            None,
+        )
+        .map(|_| ())
+    }
+    pub fn set_repeat(&self, mode: &str) -> Result<(), String> {
+        if !matches!(mode, "off" | "context" | "track") {
+            return Err("Chế độ lặp không hợp lệ.".into());
+        }
+        let device = self.device_id()?;
+        self.ensure_active(&device)?;
+        self.request(
+            Method::PUT,
+            "me/player/repeat",
+            &[("device_id", device), ("state", mode.to_string())],
+            None,
+        )
+        .map(|_| ())
+    }
     pub fn set_volume(&self, volume: f32) -> Result<(), String> {
         if !volume.is_finite() || !(0.0..=1.0).contains(&volume) {
             return Err("Volume must be between 0 and 1".into());
@@ -483,15 +510,25 @@ impl SpotifyWeb {
         let data = self.request(Method::GET, "me/player", &[], None)?;
         // Do not display a phone/remote session as the Mac's DSP source.
         let selected = self.device.lock().unwrap().clone();
+        let device_id = text(&data["device"], "id");
+        let device_name = text(&data["device"], "name");
         if data.is_null() || selected.as_deref() != data["device"]["id"].as_str() {
+            // Bài hát thì không nhận, vì đó không phải nguồn đi qua DSP của máy này.
+            // Nhưng thiết bị thì phải nói ra, nếu không app không biết nhạc đã sang chỗ khác.
             return Ok(sound_core::spotify::SpotifyPlayback {
                 running: true,
+                device_id,
+                device_name,
                 ..Default::default()
             });
         }
         let item = &data["item"];
         Ok(sound_core::spotify::SpotifyPlayback {
             running: true,
+            device_id,
+            device_name,
+            shuffle: data["shuffle_state"].as_bool().unwrap_or(false),
+            repeat: text(&data, "repeat_state"),
             playing: data["is_playing"].as_bool().unwrap_or(false),
             uri: text(item, "uri"),
             title: text(item, "name"),

@@ -28,6 +28,9 @@ _Avoid_: Wallpaper background, backdrop tint
 rust-sound tự là nguồn nhạc Spotify: phát không cần app Spotify trên máy. Loại trừ với Spotify DSP Connection — mỗi lúc chỉ một nguồn.
 _Avoid_: tap, remote device
 
+**Playback Device**:
+The Spotify device a playback command is sent to. Choosing one is a local preference and never moves music on its own; the device is woken only when playback is actually started, so opening rust-sound leaves music playing on a phone alone. Which device is *actually* playing is reported separately, and may be one rust-sound did not choose.
+
 **Resumable Track**:
 The track and position rust-sound remembers on its own so the Now-Playing Bar can show what was left unfinished. Spotify reports nothing once no device of the account is active, so the account is not a source for this after everything is closed. Shown paused; playing it resumes from the remembered position.
 

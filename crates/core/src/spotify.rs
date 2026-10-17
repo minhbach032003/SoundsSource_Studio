@@ -9,6 +9,13 @@ pub struct SpotifyPlayback {
     pub playing: bool,
     /// Cần để phát tiếp đúng bài đang dở sau khi mở lại app.
     #[serde(default)] pub uri: String,
+    /// Thiết bị Spotify đang thật sự phát, kể cả khi đó là điện thoại chứ không phải
+    /// thiết bị app đang chọn. Thiếu nó thì app không biết người dùng vừa đổi chỗ phát.
+    #[serde(default)] pub device_id: String,
+    #[serde(default)] pub device_name: String,
+    #[serde(default)] pub shuffle: bool,
+    /// "off", "context" (lặp danh sách) hoặc "track" (lặp một bài).
+    #[serde(default)] pub repeat: String,
     #[serde(default)] pub title: String,
     #[serde(default)] pub artist: String,
     #[serde(default)] pub album: String,

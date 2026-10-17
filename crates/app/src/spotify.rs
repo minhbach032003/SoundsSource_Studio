@@ -374,6 +374,22 @@ pub async fn spotify_play_tracks(
 }
 
 #[tauri::command]
+pub async fn spotify_set_shuffle(on: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let web = state.spotify.web.clone();
+    tauri::async_runtime::spawn_blocking(move || web.set_shuffle(on))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn spotify_set_repeat(mode: String, state: State<'_, AppState>) -> Result<(), String> {
+    let web = state.spotify.web.clone();
+    tauri::async_runtime::spawn_blocking(move || web.set_repeat(&mode))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn spotify_open_automation_settings() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(|| {
         std::process::Command::new("/usr/bin/open").arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
