@@ -179,6 +179,7 @@ export class PetRenderer {
   private unsubscribe: () => void;
   private clipMaxW: number[] = [];
   private isDestroyed = false;
+  private loadVersion = 0;
   private animId: number | null = null;
 
   public headroom = 0;
@@ -204,11 +205,19 @@ export class PetRenderer {
   }
 
   load(spritesheetUrl: string) {
+    if (this.isDestroyed) return;
+    const version = ++this.loadVersion;
+    const isCurrent = () => !this.isDestroyed && version === this.loadVersion;
     this.loaded = false;
+    this.clips = [];
+    this.clipMaxW = [];
+    this.spriteRect = null;
+    this.headroom = 0;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      if (this.isDestroyed) return;
+      if (!isCurrent()) return;
       this.img = img;
       this.clips = slice(img);
       this.clipMaxW = this.clips.map((clip) =>
@@ -220,10 +229,10 @@ export class PetRenderer {
     };
 
     img.onerror = () => {
-      if (this.isDestroyed) return;
+      if (!isCurrent()) return;
       const plain = new Image();
       plain.onload = () => {
-        if (this.isDestroyed) return;
+        if (!isCurrent()) return;
         this.img = plain;
         this.clips = [];
         this.frame = 0;

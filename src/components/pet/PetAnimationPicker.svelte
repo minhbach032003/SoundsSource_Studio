@@ -26,6 +26,8 @@
   let hoveredClip = $state<number | null>(null);
 
   let loadedImage = $state<HTMLImageElement | null>(null);
+  let loadedSlug = $state<string | null>(null);
+  let loadError = $state(false);
   let clips = $state<Rect[][]>([]);
   let canvases = new Map<number, HTMLCanvasElement>();
   let hoverTimer: number | null = null;
@@ -57,14 +59,39 @@
   // Load and slice spritesheet when slug changes
   $effect(() => {
     const currentSlug = slug;
+    let active = true;
+    loadedSlug = null;
+    loadedImage = null;
+    clips = [];
+    loadError = false;
+    hoveredClip = null;
+    if (hoverTimer !== null) clearInterval(hoverTimer);
+    hoverTimer = null;
+
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      loadedImage = img;
+      if (!active || slug !== currentSlug) return;
       const sliced = slice(img);
-      clips = sliced.length > 0 ? sliced : [];
+      if (!sliced.length) {
+        loadError = true;
+        return;
+      }
+      loadedImage = img;
+      clips = sliced;
+      loadedSlug = currentSlug;
+    };
+    img.onerror = () => {
+      if (active && slug === currentSlug) loadError = true;
     };
     img.src = `/pets/${currentSlug}/spritesheet.webp`;
+    return () => {
+      active = false;
+      img.onload = null;
+      img.onerror = null;
+      if (hoverTimer !== null) clearInterval(hoverTimer);
+      hoverTimer = null;
+    };
   });
 
   // Render static frame on each canvas
@@ -148,6 +175,7 @@
   }
 
   function bindClip(index: number) {
+    if (loadedSlug !== slug || !clips[index]) return;
     try {
       writePetStorage(`ap_bind_${slug}_${selectedState}`, String(index));
       onBindingChange?.(selectedState, index);
@@ -157,14 +185,11 @@
     }
   }
 
-  function registerCanvas(el: HTMLCanvasElement | null, index: number) {
-    if (!el) {
-      canvases.delete(index);
-      return;
-    }
+  function registerCanvas(el: HTMLCanvasElement, index: number) {
     canvases.set(index, el);
     const c = clips[index];
     if (c) renderStaticFrame(el, c);
+    return { destroy() { if (canvases.get(index) === el) canvases.delete(index); } };
   }
 
   $effect(() => {
@@ -214,12 +239,12 @@
   <div class="text-[11px] text-(--muted) flex items-center justify-between">
     <span>Hover a clip to preview it. Click to bind to <b>{selectedState}</b>.</span>
     <span class="font-mono text-[10px] text-(--accent-text)">
-      {clips.length} Clips Available
+      {loadedSlug === slug ? clips.length : 0} Clips Available
     </span>
   </div>
 
   <!-- Clips Grid -->
-  {#if clips.length > 0}
+  {#if loadedSlug === slug && clips.length > 0}
     <div class="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-9 gap-2">
       {#each clips as _, i (i)}
         {@const isCurrent = i === currentBoundClip}
@@ -249,8 +274,12 @@
         </button>
       {/each}
     </div>
+  {:else if loadError}
+    <div role="alert" class="text-center py-6 text-xs text-(--muted)">
+      Could not load animation clips for {slug}. Select another pet and try again.
+    </div>
   {:else}
-    <div class="text-center py-6 text-xs text-(--muted)">
+    <div role="status" class="text-center py-6 text-xs text-(--muted)">
       Loading animation clips for {slug}...
     </div>
   {/if}
