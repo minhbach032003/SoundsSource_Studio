@@ -18,7 +18,14 @@
   const status = $derived(spotifyState.status);
   const signedIn = $derived(spotifyState.account?.connected ?? false);
   const page = $derived(spotifyState.page);
-  const dspLabel = $derived(status?.processing ? "Đang xử lý âm thanh" : status?.connected ? "Đã nối DSP · chờ âm thanh" : status?.enabled ? "Đang chờ kết nối DSP" : "Chưa nối DSP");
+  const dspLabel = $derived(
+    status?.local_running
+      ? (status?.processing ? "rust-sound đang phát · qua EQ" : "rust-sound sẵn sàng phát")
+      : status?.processing ? "Đang xử lý âm thanh"
+      : status?.connected ? "Đã nối DSP · chờ âm thanh"
+      : status?.enabled ? "Đang chờ kết nối DSP"
+      : status?.playback_signed_in ? "Chọn một bài để phát trong rust-sound"
+      : "Chưa sẵn sàng phát");
   onMount(() => {
     const media = window.matchMedia("(max-width: 1099px)");
     const resize = () => { narrow = media.matches; };
@@ -52,7 +59,7 @@
       <span class="note" role="status">{dspLabel}</span>
       {#if status?.local_running}
         <span class="note status-pill"><AudioLines class="w-3.5 h-3.5 text-(--accent)" /> Đang phát trong rust-sound · DSP luôn bật</span>
-      {:else}
+      {:else if status?.running}
         <button class="btn" type="button" disabled={!isTauri() || spotifyState.busy} onclick={() => status?.enabled ? spotifyState.connect(false) : (confirmConnect = true)}>
           {#if status?.enabled}<Unplug class="w-3.5 h-3.5" /> Ngắt DSP{:else}<AudioLines class="w-3.5 h-3.5" /> Kết nối DSP{/if}
         </button>
@@ -105,7 +112,7 @@
       <div class="signed-out">
         <Music2 class="w-8 h-8 text-(--accent-text)" />
         <h3>Nhạc của bạn, ngay tại đây</h3>
-        <p class="note">Đăng nhập Spotify Premium để xem playlist, bài đã thích và tìm bài. Spotify là nguồn phát nền trên Mac; rust-sound điều khiển và xử lý bass / EQ.</p>
+        <p class="note">Đăng nhập Spotify Premium để xem playlist, bài đã thích và tìm bài. rust-sound tự phát nhạc, không cần mở app Spotify, và xử lý bass / EQ ngay trên đường phát.</p>
         {#if spotifyState.authBusy}<p class="note" role="status">Chọn Đồng ý trên trình duyệt rồi quay lại app. Yêu cầu hết hạn sau 3 phút.</p>{/if}
         {#if spotifyState.account?.configured === false}<p class="error" role="alert">Thiếu Client ID. Cấu hình SPOTIFY_CLIENT_ID trong .env rồi build lại app.</p>{/if}
       </div>
@@ -150,7 +157,7 @@
           <p class="note">Spotify chỉ cho phát nhạc qua phiên đăng nhập riêng, tách khỏi đăng nhập thư viện. Làm một lần, app nhớ luôn.</p>
         </div>
       {/if}
-      <p class="note device-hint">Bass / EQ áp dụng cho nhạc phát trong rust-sound và cho app Spotify trên Mac này, không xử lý nhạc phát ở thiết bị khác.</p>
+      <p class="note device-hint">Bass / EQ chỉ áp dụng cho nhạc phát trong rust-sound, không xử lý nhạc phát ở điện thoại hay thiết bị khác.</p>
       <form class="spotify-search" onsubmit={(event) => { event.preventDefault(); void spotifyState.loadLibrary("search", query); }}>
         <input type="search" aria-label="Tìm bài hát trên Spotify" placeholder="Tìm bài hát hoặc nghệ sĩ…" maxlength="500" required bind:value={query} />
         <button class="btn icon-button" type="submit" aria-label="Tìm bài hát" disabled={!query.trim() || spotifyState.libraryBusy}><Search class="w-4 h-4" /></button>

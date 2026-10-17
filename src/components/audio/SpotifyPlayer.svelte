@@ -4,7 +4,13 @@
   import { spotifyState } from "@/lib/spotify.svelte";
 
   const status = $derived(spotifyState.status);
-  const canControl = $derived(isTauri() && Boolean(spotifyState.account?.connected || status?.running));
+  const canControl = $derived(isTauri() && Boolean(spotifyState.account?.connected || status?.running || status?.local_running));
+  /// Thanh này từng chỉ biết kể chuyện app Spotify chạy nền; giờ rust-sound tự phát.
+  const sourceLabel = $derived(
+    status?.local_running ? "Đang phát trong rust-sound" :
+    status?.running ? "Spotify trên Mac này" :
+    "Chưa có nguồn phát"
+  );
   const artwork = $derived(status?.artwork?.startsWith("https://") ? status.artwork : "");
   let volume = $state(100);
   let editingVolume = $state(false);
@@ -22,7 +28,7 @@
     </div>
     <div class="track-copy">
       <p title={status?.title}>{status?.title || "Chưa chọn bài hát"}</p>
-      <span title={status?.artist}>{status?.artist || "Spotify phát nền trên Mac"}</span>
+      <span title={status?.artist || sourceLabel}>{status?.artist || sourceLabel}</span>
     </div>
   </div>
   <div class="playback">

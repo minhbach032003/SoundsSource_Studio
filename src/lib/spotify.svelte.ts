@@ -51,13 +51,15 @@ class SpotifyState {
   private libraryRequest = 0;
   private readonly sourceKey = "rust_sound_spotify_source";
 
-  /// Nguồn nhạc người dùng chọn lần trước. Khoá cũ chỉ biết mỗi đường tap.
+  /// Nguồn nhạc người dùng chọn lần trước. rust-sound tự phát là mặc định; khoá cũ
+  /// chỉ biết mỗi đường tap nên không được dùng nó để bật lại thứ cần app Spotify.
   private readSource(): "local" | "tap" | "none" {
     try {
+      localStorage.removeItem("rust_sound_spotify_audio_consent");
       const stored = localStorage.getItem(this.sourceKey);
       if (stored === "local" || stored === "tap" || stored === "none") return stored;
-      return localStorage.getItem("rust_sound_spotify_audio_consent") === "true" ? "tap" : "none";
-    } catch { return "none"; }
+    } catch { /* Storage may be unavailable. */ }
+    return "local";
   }
 
   private writeSource(source: "local" | "tap" | "none") {
@@ -264,9 +266,10 @@ class SpotifyState {
       await poll();
       if (!alive) return;
       const source = this.readSource();
-      // Bật tap khi không có app Spotify sẽ stall và giết luôn local player.
-      if (source === "tap") await this.connect(true);
-      else if (source === "local" && this.status?.playback_signed_in) await this.setLocalPlayer(true);
+      // Bật tap khi không có app Spotify sẽ stall và giết luôn local player, nên chỉ
+      // khôi phục nó khi app Spotify đang thật sự chạy.
+      if (source === "tap" && this.status?.running) await this.connect(true);
+      else if (source !== "tap" && this.status?.playback_signed_in) await this.setLocalPlayer(true);
     })();
     void this.restoreAccount();
     const timer = setInterval(poll, 1000);
