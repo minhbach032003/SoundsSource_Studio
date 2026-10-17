@@ -1,6 +1,17 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { toastState } from "./toast.svelte";
 
+/// Fisher-Yates trên một bản sao: danh sách đang hiển thị không được đổi chỗ dưới tay
+/// người dùng chỉ vì họ bấm phát.
+function shuffled(uris: string[]): string[] {
+  const out = [...uris];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export interface LastTrack {
   uri: string;
   title: string;
@@ -17,6 +28,8 @@ export interface SpotifyStatus {
   device_id: string;
   device_name: string;
   shuffle: boolean;
+  can_shuffle: boolean;
+  can_repeat: boolean;
   repeat: "off" | "context" | "track";
   title: string;
   artist: string;
@@ -231,8 +244,24 @@ class SpotifyState {
     finally { this.busy = false; }
   }
 
+  /// Trộn bài là lựa chọn của rust-sound, không phải của Spotify. Một danh sách bài rời
+  /// (bài đã thích, kết quả tìm) tạo ngữ cảnh tạm mà Spotify cấm bật trộn, nên khi đó
+  /// ta tự xáo thứ tự lúc gửi đi. Playlist có ngữ cảnh thật thì nhờ Spotify trộn.
+  private readonly shuffleKey = "rust_sound_spotify_shuffle";
+  shuffleOn = $state(false);
+
+  private restoreShuffle() {
+    try { this.shuffleOn = localStorage.getItem(this.shuffleKey) === "true"; } catch { }
+  }
+
   async setShuffle(on: boolean) {
     if (this.busy) return;
+    this.shuffleOn = on;
+    try { localStorage.setItem(this.shuffleKey, String(on)); } catch { }
+    if (!this.status?.can_shuffle) {
+      toastState.info(on ? "Trộn bài: áp dụng cho danh sách phát tiếp theo" : "Đã tắt trộn bài");
+      return;
+    }
     this.busy = true;
     this.error = null;
     try {
@@ -264,7 +293,8 @@ class SpotifyState {
     this.busy = true;
     this.error = null;
     try {
-      await invoke("spotify_play_tracks", { uris, start, positionMs: null });
+      const queue = this.shuffleOn ? shuffled(uris) : uris;
+      await invoke("spotify_play_tracks", { uris: queue, start, positionMs: null });
       toastState.info("Đã gửi bài đến Spotify");
     } catch (e) { this.error = String(e); }
     finally { this.busy = false; }
@@ -350,6 +380,10 @@ class SpotifyState {
         if (alive) {
           this.status = status;
           this.rememberTrack(status);
+          // Spotify nắm quyền trộn khi ngữ cảnh cho phép; lúc đó nó là nguồn đúng.
+          if (status.can_shuffle && status.shuffle !== this.shuffleOn && !this.busy) {
+            this.shuffleOn = status.shuffle;
+          }
         }
         const channels = await invoke<Record<string, { volume: number; muted: boolean }>>("get_channel_states");
         const channel = channels["com.spotify.client"];
@@ -362,6 +396,7 @@ class SpotifyState {
       } finally { pending = false; }
     };
     this.restoreLastTrack();
+    this.restoreShuffle();
     void (async () => {
       await poll();
       if (!alive) return;

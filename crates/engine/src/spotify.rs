@@ -529,6 +529,12 @@ impl SpotifyWeb {
             device_name,
             shuffle: data["shuffle_state"].as_bool().unwrap_or(false),
             repeat: text(&data, "repeat_state"),
+            can_shuffle: !data["actions"]["disallows"]["toggling_shuffle"]
+                .as_bool()
+                .unwrap_or(false),
+            can_repeat: !data["actions"]["disallows"]["toggling_repeat_context"]
+                .as_bool()
+                .unwrap_or(false),
             playing: data["is_playing"].as_bool().unwrap_or(false),
             uri: text(item, "uri"),
             title: text(item, "name"),

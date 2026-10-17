@@ -14,6 +14,10 @@ pub struct SpotifyPlayback {
     #[serde(default)] pub device_id: String,
     #[serde(default)] pub device_name: String,
     #[serde(default)] pub shuffle: bool,
+    /// Spotify tự báo lệnh nào đang bị cấm. Danh sách bài rời không cho bật trộn hay
+    /// lặp danh sách; bấm vào là nhận "Restriction violated".
+    #[serde(default)] pub can_shuffle: bool,
+    #[serde(default)] pub can_repeat: bool,
     /// "off", "context" (lặp danh sách) hoặc "track" (lặp một bài).
     #[serde(default)] pub repeat: String,
     #[serde(default)] pub title: String,
