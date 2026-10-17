@@ -21,25 +21,57 @@ pub struct SpotifyStatus {
     /// Degraded but working: the output device forces a lossy rate or mono.
     pub warning: Option<String>,
     pub playback_error: Option<String>,
+    pub local_running: bool,
+    pub local_error: Option<String>,
 }
 
 pub struct SpotifyIntegration {
     pub web: Arc<sound_engine::spotify::SpotifyWeb>,
+    pub player: Arc<sound_engine::spotify_player::LocalPlayer>,
     status: Arc<Mutex<SpotifyStatus>>,
     spectrum: Arc<Mutex<SpectrumBuffer>>,
     enabled: Arc<AtomicBool>,
+    local_enabled: Arc<AtomicBool>,
     stop: Arc<AtomicBool>,
     worker: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Default for SpotifyIntegration {
     fn default() -> Self {
-        Self { web: Arc::new(sound_engine::spotify::SpotifyWeb::new(env!("SPOTIFY_CLIENT_ID"))),
-            status: Default::default(), spectrum: Default::default(), enabled: Default::default(), stop: Default::default(), worker: Default::default() }
+        Self {
+            web: Arc::new(sound_engine::spotify::SpotifyWeb::new(env!("SPOTIFY_CLIENT_ID"))),
+            player: Arc::new(sound_engine::spotify_player::LocalPlayer::new()),
+            status: Default::default(),
+            spectrum: Default::default(),
+            enabled: Default::default(),
+            local_enabled: Default::default(),
+            stop: Default::default(),
+            worker: Default::default(),
+        }
     }
 }
 
 impl SpotifyIntegration {
+    pub fn local_enabled(&self) -> bool {
+        self.local_enabled.load(Ordering::Acquire)
+    }
+
+    pub fn set_local(&self, enabled: bool) {
+        self.local_enabled.store(enabled, Ordering::Release);
+        if enabled {
+            self.enabled.store(false, Ordering::Release);
+        }
+    }
+
+    pub fn reconcile_sources(&self) {
+        let tap = self.enabled.load(Ordering::Acquire);
+        let local = self.local_enabled.load(Ordering::Acquire);
+        if tap && local {
+            // Priority to latest change: if tap is on, local is disabled
+            self.local_enabled.store(false, Ordering::Release);
+            self.player.stop();
+        }
+    }
     #[cfg(target_os = "macos")]
     pub fn start(&self, router: Arc<Mutex<AudioRouter>>) {
         let web = self.web.clone();
@@ -47,13 +79,11 @@ impl SpotifyIntegration {
         let spectrum = self.spectrum.clone();
         let enabled = self.enabled.clone();
         let stop = self.stop.clone();
+        let player = self.player.clone();
+        let _local_enabled = self.local_enabled.clone();
         let mut worker = self.worker.lock().unwrap();
         if worker.is_some() { return; }
         *worker = Some(std::thread::spawn(move || {
-            if let Err(error) = spotify::launch() {
-                status.lock().unwrap().error = Some(error);
-                return;
-            }
             router.lock().unwrap().get_or_create_channel("com.spotify.client");
             let mut context = Box::new(Processor { router, spectrum });
             let mut tap: Option<spotify::SpotifyTap> = None;
@@ -71,10 +101,15 @@ impl SpotifyIntegration {
                 }
                 let mut error = if enabled.load(Ordering::Acquire) { None } else { route_error.clone() };
                 if enabled.load(Ordering::Acquire) && tap.is_none() {
-                    // Context is boxed and remains alive until after AudioDeviceStop.
-                    match unsafe { spotify::SpotifyTap::start(&current.0, process_audio, (&mut *context as *mut Processor).cast()) } {
-                        Ok(session) => { tap = Some(session); signature = current; route_error = None; },
-                        Err(e) => error = Some(e),
+                    // Try to launch Spotify if tap is enabled
+                    if let Err(e) = spotify::launch() {
+                        error = Some(e);
+                    } else {
+                        // Context is boxed and remains alive until after AudioDeviceStop.
+                        match unsafe { spotify::SpotifyTap::start(&current.0, process_audio, (&mut *context as *mut Processor).cast()) } {
+                            Ok(session) => { tap = Some(session); signature = current; route_error = None; },
+                            Err(e) => error = Some(e),
+                        }
                     }
                 }
                 let frames = tap.as_ref().map_or(0, |t| t.frames());
@@ -91,7 +126,19 @@ impl SpotifyIntegration {
                 } else { stalled = 0; }
                 if error.is_some() { route_error = error.clone(); }
                 let warning = tap.as_ref().and_then(|t| output_warning(t.output_format()));
-                let mut next = SpotifyStatus { enabled: enabled.load(Ordering::Acquire), connected: tap.is_some(), processing: processing && tap.is_some(), frames, sample_rate: 0.0, error, warning, ..Default::default() };
+                let local_state = player.state();
+                let mut next = SpotifyStatus {
+                    enabled: enabled.load(Ordering::Acquire),
+                    connected: tap.is_some(),
+                    processing: (processing && tap.is_some()) || local_state.playing,
+                    frames,
+                    sample_rate: 0.0,
+                    error,
+                    warning,
+                    local_running: local_state.running,
+                    local_error: local_state.error,
+                    ..Default::default()
+                };
                 // rate is only written by IOProc: read the router's EQ rate under its lock.
                 next.sample_rate = context.router.lock().unwrap().master_eq().sample_rate as f64;
                 match playback {
@@ -205,7 +252,38 @@ pub fn get_spotify_status(state: State<'_, AppState>) -> SpotifyStatus {
 
 #[tauri::command]
 pub fn connect_spotify_audio(enabled: bool, state: State<'_, AppState>) {
+    if enabled {
+        state.spotify.set_local(false);
+        state.spotify.player.stop();
+    }
     state.spotify.enabled.store(enabled, Ordering::Release);
+}
+
+#[tauri::command]
+pub async fn spotify_local_player(enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    if enabled {
+        state.spotify.enabled.store(false, Ordering::Release);
+        state.spotify.set_local(true);
+        let web = state.spotify.web.clone();
+        let token = tauri::async_runtime::spawn_blocking(move || web.current_access_token()).await.map_err(|e| e.to_string())??;
+        let router = state.router.clone();
+        let spectrum = state.spotify.spectrum.clone();
+        let player = state.spotify.player.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            player.start(
+                &token,
+                Box::new(move || {
+                    let sink = spotify_sink::RustSoundSink::new(router, spectrum)
+                        .expect("Không khởi tạo được audio sink");
+                    Box::new(sink)
+                }),
+            )
+        }).await.map_err(|e| e.to_string())?
+    } else {
+        state.spotify.set_local(false);
+        state.spotify.player.stop();
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -261,6 +339,19 @@ pub async fn spotify_open_automation_settings() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn turning_on_one_source_turns_off_the_other() {
+        let integration = SpotifyIntegration::default();
+        integration.set_local(true);
+        assert!(integration.local_enabled());
+        integration.enabled.store(true, Ordering::Release); // bật tap
+        integration.reconcile_sources();
+        assert!(!integration.local_enabled(), "bật tap phải tắt local");
+        integration.set_local(true);
+        integration.reconcile_sources();
+        assert!(!integration.enabled.load(Ordering::Acquire), "bật local phải tắt tap");
+    }
 
     #[test]
     fn channel_volume_applies_only_to_the_local_player() {

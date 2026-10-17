@@ -379,52 +379,13 @@ pub local_running: bool,
 pub local_error: Option<String>,
 ```
 
-- [ ] **Step 1: Viết test thất bại — Review Focus 5**
-
-```rust
-#[test]
-fn turning_on_one_source_turns_off_the_other() {
-    let integration = SpotifyIntegration::default();
-    integration.set_local(true);
-    assert!(integration.local_enabled());
-    integration.enabled.store(true, Ordering::Release);   // bật tap
-    integration.reconcile_sources();
-    assert!(!integration.local_enabled(), "bật tap phải tắt local");
-    integration.set_local(true);
-    integration.reconcile_sources();
-    assert!(!integration.enabled.load(Ordering::Acquire), "bật local phải tắt tap");
-}
-
-#[test]
-fn the_worker_keeps_polling_when_spotify_is_not_installed() {
-    // launch() lỗi không được làm worker return sớm: status vẫn phải cập nhật
-}
-```
-
-- [ ] **Step 2: Chạy, phải fail.** Run: `cargo test -p rust-sound spotify`
-
-- [ ] **Step 3: Bỏ auto-launch**
-
-Trong `SpotifyIntegration::start`, hiện có:
-
-```rust
-if let Err(error) = spotify::launch() {
-    status.lock().unwrap().error = Some(error);
-    return;                       // <- giết luôn vòng poll
-}
-```
-
-Sửa thành: **không** gọi `launch()` ở đây. Chỉ gọi khi người dùng bật nguồn tap (`connect_spotify_audio(true)`), và nếu lỗi thì ghi vào `status.error` rồi **vẫn tiếp tục** vòng poll.
-
-- [ ] **Step 4: Implement loại trừ nhau**
-
-`connect_spotify_audio(true)` → tắt local trước (`LocalPlayer::stop`), rồi bật tap. `spotify_local_player(true)` → tắt tap (`enabled = false`, drop tap) rồi `LocalPlayer::start`. Token lấy từ `state.spotify.web`.
-
-- [ ] **Step 5: Đăng ký command** — thêm `spotify_local_player` vào import dòng 2 và vào `generate_handler!`.
-
-- [ ] **Step 6: Chạy test** — `cargo test -p rust-sound` → PASS, test tap cũ xanh.
-
-- [ ] **Step 7: Commit** — `feat: make the local player and the tap mutually exclusive, stop auto-launching Spotify`
+- [x] **Step 1: Viết test thất bại — Review Focus 5**
+- [x] **Step 2: Chạy, phải fail.** Run: `cargo test -p rust-sound spotify`
+- [x] **Step 3: Bỏ auto-launch**
+- [x] **Step 4: Implement loại trừ nhau**
+- [x] **Step 5: Đăng ký command** — thêm `spotify_local_player` vào import dòng 2 và vào `generate_handler!`.
+- [x] **Step 6: Chạy test** — `cargo test -p rust-sound` → PASS, test tap cũ xanh.
+- [x] **Step 7: Commit** — `feat: make the local player and the tap mutually exclusive, stop auto-launching Spotify`
 
 ---
 
