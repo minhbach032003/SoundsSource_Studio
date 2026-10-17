@@ -1,4 +1,4 @@
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := all
 
 .PHONY: all build dev check test run clean help reinstall reset-screen-permission
 
@@ -9,7 +9,9 @@ INSTALLED_APP := /Applications/rust-sound.app
 build:
 	pnpm tauri build
 
-all: build
+# Một lệnh `make` duy nhất: xóa bản cũ, build lại, cài lại, mở app, và xóa luôn
+# quyền ghi màn hình cũ để macOS hỏi lại cho bundle mới.
+all: reinstall reset-screen-permission
 
 # Run local development with live HMR
 dev:
@@ -51,7 +53,8 @@ clean:
 # Show available commands
 help:
 	@echo "SoundsSource Rust - Build Commands:"
-	@echo "  make (or make build)  - Build production .app and .dmg installer"
+	@echo "  make                  - Wipe old builds, rebuild, reinstall, reopen, reset screen permission"
+	@echo "  make build            - Build production .app and .dmg installer"
 	@echo "  make dev              - Start Tauri dev server with live reload"
 	@echo "  make check            - Run frontend build and Rust test suite"
 	@echo "  make run              - Launch the built macOS application"
