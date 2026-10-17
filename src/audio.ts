@@ -174,3 +174,31 @@ export async function testHeadphoneChannel(channel: "left" | "right"): Promise<s
   }
 }
 
+
+/**
+ * macOS Screen Recording (TCC) grant for this app. `null` outside the desktop
+ * app, where the browser's own picker owns the permission.
+ */
+export async function checkScreenCapturePermission(): Promise<boolean | null> {
+  if (!isTauri()) return null;
+  try {
+    return await invoke<boolean>("check_screen_capture_permission");
+  } catch {
+    return null;
+  }
+}
+
+/** Shows the macOS prompt the first time; a new grant needs an app restart. */
+export async function requestScreenCapturePermission(): Promise<boolean | null> {
+  if (!isTauri()) return null;
+  try {
+    return await invoke<boolean>("request_screen_capture_permission");
+  } catch {
+    return null;
+  }
+}
+
+export async function openScreenCaptureSettings(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("open_screen_capture_settings");
+}

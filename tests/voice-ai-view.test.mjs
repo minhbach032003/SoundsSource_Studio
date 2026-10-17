@@ -218,3 +218,30 @@ test("VoiceAiView handles general questions, web search and black screen shares"
   assert.equal(src.includes("dark:"), false, "theme tokens only, no dark: variants");
   assert.equal(emojiRegex.test(src), false, "zero emojis");
 });
+
+test("screen share asks macOS for Screen Recording before opening a black stream", () => {
+  const view = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+  const audio = readFileSync("src/audio.ts", "utf8");
+  const rust = readFileSync("crates/app/src/lib.rs", "utf8");
+
+  for (const cmd of [
+    "check_screen_capture_permission",
+    "request_screen_capture_permission",
+    "open_screen_capture_settings",
+  ]) {
+    assert.ok(new RegExp(`fn ${cmd}\\s*\\(`).test(rust), `backend defines ${cmd}`);
+    const handler = rust.slice(rust.indexOf("generate_handler!["));
+    assert.ok(handler.includes(cmd), `${cmd} is registered in generate_handler!`);
+    assert.ok(audio.includes(`"${cmd}"`), `src/audio.ts wraps ${cmd}`);
+  }
+  assert.ok(rust.includes("CGPreflightScreenCaptureAccess"), "uses the non-prompting TCC check");
+  assert.ok(rust.includes("Privacy_ScreenCapture"), "opens the Screen Recording settings pane");
+
+  assert.ok(view.includes("checkScreenCapturePermission"), "view checks before sharing");
+  assert.ok(view.includes("screenPermissionMissing"), "view explains a missing grant");
+  assert.ok(view.includes("handleOpenScreenSettings"), "one click to the right Settings pane");
+  assert.ok(view.includes("startShareUnchecked"), "escape hatch when the check is wrong");
+  assert.ok(view.includes("diagnosticsReport"), "diagnostics panel for WKWebView-only failures");
+  assert.equal(/<div[^>]*onpointerdown/.test(view), false, "no handlers on static elements");
+  assert.equal(emojiRegex.test(view), false, "zero emojis");
+});

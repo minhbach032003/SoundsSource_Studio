@@ -50,7 +50,15 @@
     Cpu,
     Globe,
     RotateCcw,
+    Activity,
+    Settings2,
+    ShieldAlert,
   } from "@lucide/svelte";
+  import {
+    checkScreenCapturePermission,
+    requestScreenCapturePermission,
+    openScreenCaptureSettings,
+  } from "@/audio";
 
   interface Props {
     user?: GoogleUser | null;
@@ -112,6 +120,9 @@
   }
 
   let selectedPersona = $state("Aoede");
+  /** macOS reported no Screen Recording grant; sharing would only produce black frames. */
+  let screenPermissionMissing = $state(false);
+  let isDiagnosticsOpen = $state(false);
   let selectedModel = $state(loadStoredModel());
   let inputText = $state("");
   let isClearModalOpen = $state(false);
@@ -219,6 +230,19 @@
     }
   });
 
+  // Any click or key during a call is a user gesture: use it to un-suspend audio
+  // contexts the webview may have created suspended from a socket callback.
+  $effect(() => {
+    if (typeof window === "undefined" || callStatus === "idle") return;
+    const resume = () => void geminiLiveState.resumeAudio();
+    window.addEventListener("pointerdown", resume, true);
+    window.addEventListener("keydown", resume, true);
+    return () => {
+      window.removeEventListener("pointerdown", resume, true);
+      window.removeEventListener("keydown", resume, true);
+    };
+  });
+
   // Spacebar Push-to-Talk listener during active calls
   $effect(() => {
     if (typeof window === "undefined") return;
@@ -315,6 +339,23 @@
       toastState.info("Đã dừng chia sẻ màn hình");
       return;
     }
+
+    // Ask macOS first: without the grant the webview still returns a stream, just black.
+    const granted = await checkScreenCapturePermission();
+    if (granted === false) {
+      const afterPrompt = await requestScreenCapturePermission();
+      if (afterPrompt !== true) {
+        screenPermissionMissing = true;
+        return;
+      }
+    }
+    screenPermissionMissing = false;
+    await startShareUnchecked();
+  }
+
+  /** Start the share without the TCC pre-check (also the "share anyway" escape hatch). */
+  async function startShareUnchecked() {
+    screenPermissionMissing = false;
     await geminiLiveState.startScreenShare();
     if (geminiLiveState.isScreenSharing) {
       toastState.success(
@@ -324,6 +365,33 @@
       );
     } else if (geminiLiveState.error) {
       toastState.error(geminiLiveState.error);
+    }
+  }
+
+  async function handleOpenScreenSettings() {
+    try {
+      await openScreenCaptureSettings();
+      toastState.info("Bật rust-sound trong Screen & System Audio Recording, rồi thoát hẳn app (Cmd+Q) và mở lại.");
+    } catch (err) {
+      toastState.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function recheckScreenPermission() {
+    const granted = await checkScreenCapturePermission();
+    if (granted === false) {
+      toastState.error("macOS vẫn chưa cấp quyền. Nếu vừa bật, hãy thoát hẳn app (Cmd+Q) rồi mở lại.");
+      return;
+    }
+    await startShareUnchecked();
+  }
+
+  async function handleCopyDiagnostics() {
+    try {
+      await navigator.clipboard.writeText(geminiLiveState.diagnosticsReport());
+      toastState.success("Đã sao chép log chẩn đoán");
+    } catch {
+      toastState.error("Không sao chép được, hãy bôi đen và copy thủ công");
     }
   }
 
@@ -576,6 +644,16 @@
         <KeyRound class="w-3.5 h-3.5" />
         <span>{hasApiKey ? "API Key: Đã lưu" : "Chưa có API Key"}</span>
       </button>
+
+      <button
+        type="button"
+        onclick={() => (isDiagnosticsOpen = true)}
+        class="badge h-7 px-2.5 text-[11px] flex items-center gap-1.5 cursor-pointer bg-(--surface) border-(--line) text-(--muted) hover:text-(--ink) transition-colors"
+        title="Xem log kết nối, mic và chia sẻ màn hình"
+      >
+        <Activity class="w-3.5 h-3.5" />
+        <span>Chẩn đoán</span>
+      </button>
     </div>
 
     <!-- Active Call State Badge -->
@@ -734,6 +812,59 @@
           ></video>
         {/if}
 
+        {#if screenPermissionMissing && !geminiLiveState.isScreenSharing}
+          <!-- macOS chưa cấp quyền Screen Recording: không mở stream đen -->
+          <div class="absolute inset-0 z-15 flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-sm">
+            <div class="max-w-md w-full rounded-2xl border border-amber-500/40 bg-stone-900/95 p-4 text-stone-200 space-y-2.5 shadow-2xl">
+              <div class="flex items-center gap-2 text-amber-300 font-semibold text-sm">
+                <ShieldAlert class="w-4 h-4 shrink-0" />
+                <span>rust-sound chưa có quyền ghi màn hình</span>
+              </div>
+              <p class="text-[11px] text-stone-400 m-0">
+                macOS sẽ chỉ gửi khung đen cho đến khi bạn cấp quyền Screen Recording cho app.
+              </p>
+              <ol class="text-[11px] text-stone-300 m-0 pl-4 space-y-1 list-decimal">
+                <li>Bấm "Mở System Settings" và bật <span class="font-semibold">rust-sound</span>
+                  (chạy bằng <span class="font-mono">pnpm tauri dev</span> thì bật Terminal / iTerm / VS Code).</li>
+                <li>Thoát hẳn app bằng Cmd+Q rồi mở lại.</li>
+              </ol>
+              <div class="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onclick={handleOpenScreenSettings}
+                  class="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Settings2 class="w-3.5 h-3.5" />
+                  <span>Mở System Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={recheckScreenPermission}
+                  class="h-8 px-3 rounded-lg bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RotateCcw class="w-3.5 h-3.5" />
+                  <span>Kiểm tra lại</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={startShareUnchecked}
+                  class="h-8 px-3 rounded-lg text-stone-400 hover:text-stone-200 text-xs cursor-pointer"
+                  title="Bỏ qua kiểm tra của macOS và mở hộp chọn màn hình"
+                >
+                  Vẫn chia sẻ
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (screenPermissionMissing = false)}
+                  class="h-8 px-2 rounded-lg text-stone-500 hover:text-stone-300 text-xs cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
+
         {#if geminiLiveState.isScreenSharing && geminiLiveState.screenShareIssue}
           <!-- Hướng dẫn khi capture trả về khung đen / không có khung hình -->
           <div class="absolute inset-0 z-15 flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-sm">
@@ -759,6 +890,14 @@
                 <li>Thoát hẳn app bằng Cmd+Q rồi mở lại. macOS chỉ áp dụng quyền này sau khi khởi động lại.</li>
               </ol>
               <div class="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onclick={handleOpenScreenSettings}
+                  class="h-8 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Settings2 class="w-3.5 h-3.5" />
+                  <span>Mở System Settings</span>
+                </button>
                 <button
                   type="button"
                   onclick={retryScreenShare}
@@ -1418,6 +1557,39 @@
     {#snippet icon()}
       <AlertTriangle class="w-5 h-5 text-(--warning)" />
     {/snippet}
+  </Modal>
+
+  <!-- Modal Chẩn Đoán: log để gửi lại khi gọi trong WKWebView có vấn đề -->
+  <Modal
+    open={isDiagnosticsOpen}
+    onClose={() => (isDiagnosticsOpen = false)}
+    title="Chẩn đoán Gemini Live"
+    description="Trạng thái kết nối, mic, audio và chia sẻ màn hình. Sao chép và gửi kèm khi báo lỗi."
+    confirmText="Sao chép log"
+    cancelText="Đóng"
+    onConfirm={handleCopyDiagnostics}
+  >
+    {#snippet icon()}
+      <Activity class="w-5 h-5 text-(--accent-text)" />
+    {/snippet}
+
+    <div class="grid grid-cols-3 gap-2 py-2 text-center">
+      <div class="p-2 rounded-lg bg-(--paper) border border-(--line)">
+        <div class="text-[10px] text-(--muted)">Audio gửi đi</div>
+        <div class="text-sm font-mono text-(--ink) tabular-nums">{geminiLiveState.stats.audioSent}</div>
+      </div>
+      <div class="p-2 rounded-lg bg-(--paper) border border-(--line)">
+        <div class="text-[10px] text-(--muted)">Audio nhận về</div>
+        <div class="text-sm font-mono text-(--ink) tabular-nums">{geminiLiveState.stats.audioReceived}</div>
+      </div>
+      <div class="p-2 rounded-lg bg-(--paper) border border-(--line)">
+        <div class="text-[10px] text-(--muted)">Frame gửi đi</div>
+        <div class="text-sm font-mono text-(--ink) tabular-nums">{geminiLiveState.stats.framesSent}</div>
+      </div>
+    </div>
+    <pre
+      class="max-h-64 overflow-auto p-2.5 rounded-lg bg-(--paper) border border-(--line) text-[10px] leading-relaxed font-mono text-(--ink) whitespace-pre-wrap select-text"
+    >{isDiagnosticsOpen ? geminiLiveState.diagnosticsReport() : ""}</pre>
   </Modal>
 
   <!-- Modal Cấu Hình Gemini API Key -->

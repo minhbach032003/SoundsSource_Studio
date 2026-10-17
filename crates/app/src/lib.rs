@@ -1015,6 +1015,70 @@ fn set_gemini_api_key(key: String, state: State<'_, AppState>) -> Result<(), Str
     Ok(())
 }
 
+// MARK: - Screen Recording permission (Gemini Live screen share)
+//
+// The webview hands `getDisplayMedia` a stream regardless of TCC; without the
+// Screen Recording grant macOS fills it with black frames. These let the UI check
+// first and send the user to the right Settings pane instead of sharing black.
+
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+    fn CGPreflightScreenCaptureAccess() -> bool;
+    fn CGRequestScreenCaptureAccess() -> bool;
+}
+
+/// Whether this process may capture the screen. Never prompts.
+#[tauri::command]
+fn check_screen_capture_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: no arguments, no preconditions; available since macOS 10.15.
+        unsafe { CGPreflightScreenCaptureAccess() }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+/// Ask macOS for Screen Recording. Shows the system prompt only the first time and
+/// returns the current grant; a new grant takes effect after the app restarts.
+#[tauri::command]
+fn request_screen_capture_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: as above; runs on the main thread like every sync command.
+        unsafe { CGRequestScreenCaptureAccess() }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+#[tauri::command]
+async fn open_screen_capture_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        tauri::async_runtime::spawn_blocking(|| {
+            std::process::Command::new("/usr/bin/open")
+                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                .status()
+                .map_err(|e| e.to_string())?
+                .success()
+                .then_some(())
+                .ok_or_else(|| "Không mở được System Settings".to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(())
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AppPerformanceMetrics {
     pub resident_size_bytes: u64,
@@ -1874,6 +1938,9 @@ pub fn run() {
             auth_logout,
             get_gemini_api_key,
             set_gemini_api_key,
+            check_screen_capture_permission,
+            request_screen_capture_permission,
+            open_screen_capture_settings,
             get_pet_care_state,
             get_pet_activity_theme,
             set_pet_activity_theme,

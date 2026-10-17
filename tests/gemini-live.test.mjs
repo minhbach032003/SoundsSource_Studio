@@ -1205,3 +1205,121 @@ test("a share that never decodes a frame is reported as no-frames", async () => 
   assert.equal(instance.screenShareIssue, "no-frames");
   instance.disconnect();
 });
+
+test("re-opening a session keeps the same mic, camera and screen (no device re-acquisition)", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, micTracks, camTracks, screenTracks } = harness;
+  await openLiveSession(harness);
+  await instance.enableVideo();
+  await instance.startScreenShare();
+  const ctxBefore = instance.inputAudioContext;
+
+  await instance.switchVoice("Fenrir");
+  await instance.reconnect();
+
+  assert.equal(micTracks.length, 1, "mic acquired exactly once across re-opens");
+  assert.equal(micTracks[0].stopped, false, "mic track still live");
+  assert.equal(instance.inputAudioContext, ctxBefore, "input AudioContext reused");
+  assert.equal(camTracks.length, 1, "camera not re-acquired");
+  assert.equal(camTracks[0].stopped, false);
+  assert.equal(screenTracks[0].stopped, false, "screen share untouched");
+  assert.equal(MockWebSocket.instances.length, 3, "only the socket was replaced");
+  assert.equal(MockWebSocket.instances[0].readyState, MockWebSocket.CLOSED);
+
+  instance.disconnect();
+  assert.equal(micTracks[0].stopped, true, "hangup still releases the mic");
+});
+
+test("WebKit order (error event, then close 1011) still falls back and keeps the share", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, micTracks, screenTracks } = harness;
+  await instance.startScreenShare();
+  await instance.connect({ apiKey: "AIzaWebKitOrder" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+
+  // WebKit may fire `error` before the server's close frame is delivered.
+  first.onerror(new Event("error"));
+  assert.equal(instance.status, "connecting", "an error event alone decides nothing");
+  await first.onclose({ code: 1011, reason: "You exceeded your current quota", wasClean: true });
+
+  assert.equal(MockWebSocket.instances.length, 2, "search fallback still ran");
+  assert.equal(screenTracks[0].stopped, false, "screen share survived");
+  assert.equal(instance.isScreenSharing, true);
+  assert.equal(micTracks.length, 1, "mic was not re-acquired");
+  const second = MockWebSocket.instances[1];
+  second.onopen();
+  await second.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  assert.equal(instance.status, "connected", "call comes up");
+  instance.disconnect();
+});
+
+test("a dropped network (error then 1006) is reported as a connection loss", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+  ws.onerror(new Event("error"));
+  await ws.onclose({ code: 1006, reason: "", wasClean: false });
+  assert.equal(instance.status, "error");
+  assert.match(instance.error, /Mất kết nối mạng/);
+});
+
+test("search quota blocks are remembered across app launches", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, context, localStorageData } = harness;
+  await instance.connect({ apiKey: "AIzaPersist" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+  await first.onclose({ code: 1011, reason: "You exceeded your current quota", wasClean: true });
+  instance.disconnect();
+  assert.ok(localStorageData.get("gemini_live_search_blocked"), "block persisted");
+
+  // A fresh service (next launch) skips search on that model without a failed setup.
+  const relaunched = new context.GeminiLiveService();
+  await relaunched.connect({ apiKey: "AIzaPersist" });
+  const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+  ws.onopen();
+  assert.equal(JSON.parse(ws.sent[0]).setup.tools.some((t) => t.googleSearch), false);
+  relaunched.disconnect();
+
+  // Entries older than a day are dropped so a plan upgrade is picked up.
+  localStorageData.set(
+    "gemini_live_search_blocked",
+    JSON.stringify({ "models/gemini-3.1-flash-live-preview": Date.now() - 25 * 3600 * 1000 })
+  );
+  const later = new context.GeminiLiveService();
+  assert.deepEqual([...later.searchBlockedModels], [], "stale block expired");
+});
+
+test("diagnostics count the wire and explain what happened", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  const ws = await openLiveSession(harness);
+
+  instance.scriptProcessor.onaudioprocess({
+    inputBuffer: { getChannelData: () => new Float32Array(2048).fill(0.2) },
+  });
+  const pcm = Buffer.from(new Int16Array([100, -100]).buffer).toString("base64");
+  await ws.onmessage({
+    data: JSON.stringify({ serverContent: { modelTurn: { parts: [{ inlineData: { data: pcm } }] } } }),
+  });
+
+  assert.equal(instance.stats.audioSent, 1);
+  assert.equal(instance.stats.audioReceived, 1);
+  const report = instance.diagnosticsReport();
+  assert.match(report, /audio sent=1 received=1/);
+  assert.match(report, /setupComplete/);
+  assert.match(report, /mic ok/);
+  assert.match(report, /open session model=gemini-3.1-flash-live-preview/);
+  instance.disconnect();
+});
+
+test("resumeAudio wakes suspended audio contexts", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance } = harness;
+  await openLiveSession(harness);
+  instance.inputAudioContext.state = "suspended";
+  await instance.resumeAudio();
+  assert.equal(instance.inputAudioContext.state, "running");
+  instance.disconnect();
+});

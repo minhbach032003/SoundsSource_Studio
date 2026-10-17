@@ -181,6 +181,30 @@ const BLACK_FRAME_MAX_LUMA = 16;
 /** Consecutive bad ticks (at 1 fps) before the user is told the share is not working. */
 const SCREEN_ISSUE_AFTER_TICKS = 3;
 
+const DIAGNOSTICS_MAX_LINES = 80;
+const SEARCH_BLOCKED_KEY = "gemini_live_search_blocked";
+const SEARCH_BLOCK_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Remember quota-blocked models for a day so every call does not pay a failed setup. */
+function loadSearchBlocked(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SEARCH_BLOCKED_KEY) || "{}") as Record<string, number>;
+    const now = Date.now();
+    return Object.entries(raw)
+      .filter(([, at]) => typeof at === "number" && now - at < SEARCH_BLOCK_TTL_MS)
+      .map(([model]) => model);
+  } catch {
+    return [];
+  }
+}
+
+function persistSearchBlocked(models: string[]): void {
+  try {
+    const now = Date.now();
+    localStorage.setItem(SEARCH_BLOCKED_KEY, JSON.stringify(Object.fromEntries(models.map((m) => [m, now]))));
+  } catch {}
+}
+
 /** Turn a Live API close frame into something the user can act on. */
 function describeCloseReason(code: number, reason: string, model: string): string {
   if (/api key not valid|api_key_invalid/i.test(reason)) {
@@ -266,7 +290,12 @@ export class GeminiLiveService {
   /** The current notice only describes a re-open in progress and clears once it lands. */
   private noticeClearsOnConnect = false;
   /** Models whose key has no Search grounding quota: setup is closed with 1011 when asked. */
-  searchBlockedModels = $state<string[]>([]);
+  searchBlockedModels = $state<string[]>(loadSearchBlocked());
+  /** Rolling event log shown in the in-app diagnostics panel. */
+  diagnostics = $state<string[]>([]);
+  /** Wire counters, so "Gemini does not answer" can be told apart from "Gemini never heard you". */
+  stats = $state({ audioSent: 0, audioReceived: 0, framesSent: 0 });
+  private socketErrored = false;
   private lastSetupHadSearch = false;
   /** Consecutive screen ticks that were all-black, or had no decoded frame at all. */
   private blackFrameStreak = 0;
@@ -334,8 +363,7 @@ export class GeminiLiveService {
   /** Re-open the session with the last options; the resume handle keeps Gemini's context. */
   async reconnect(): Promise<void> {
     if (!this.lastOptions) return;
-    const resumeScreen = this.isScreenSharing ? this.screenStream : null;
-    await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled }, resumeScreen);
+    await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
   }
 
   /** Gemini locks the voice per session, so a persona change re-opens the socket. */
@@ -344,8 +372,7 @@ export class GeminiLiveService {
     if (this.status === "connected" || this.status === "connecting") {
       this.notice = `Đang áp dụng persona ${voiceName} cho phiên hiện tại...`;
       this.noticeClearsOnConnect = true;
-      const resumeScreen = this.isScreenSharing ? this.screenStream : null;
-      await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled }, resumeScreen);
+      await this.openSession({ ...this.lastOptions, enableVideo: this.isVideoEnabled });
     }
   }
 
@@ -393,12 +420,12 @@ export class GeminiLiveService {
     };
   }
 
-  private async openSession(
-    options: GeminiLiveConnectOptions,
-    carryScreen: MediaStream | null = null
-  ): Promise<void> {
-    if (this.status === "connecting" || this.status === "connected") {
-      this.disconnect({ keepSession: true, keepScreen: carryScreen !== null });
+  private async openSession(options: GeminiLiveConnectOptions): Promise<void> {
+    // Re-opening (persona switch, search/setup fallback, goAway, resume) swaps only
+    // the socket. Tearing down and re-acquiring the mic and AudioContexts on every
+    // re-open left WebKit with a silent mic: the call "connected" but never heard you.
+    if (this.ws) {
+      this.closeTransport();
     }
 
     this.status = "connecting";
@@ -423,9 +450,16 @@ export class GeminiLiveService {
     this.activeModel = model;
     this.openedWithHandle = this.resumeHandle !== null;
 
+    this.logDiag(
+      `open session model=${model.replace(/^models\//, "")} voice=${voiceName} resume=${this.openedWithHandle} mic=${this.hasLiveMicrophone() ? "reused" : "new"}`
+    );
+
     try {
-      await this.setupMicrophone();
+      if (!this.hasLiveMicrophone()) {
+        await this.setupMicrophone();
+      }
     } catch (err) {
+      this.logDiag(`mic failed: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`);
       this.disconnect();
       this.status = "error";
       const msg = err instanceof Error ? err.message : String(err);
@@ -446,7 +480,11 @@ export class GeminiLiveService {
     }
 
     this.ws.onopen = () => {
-      this.ws?.send(JSON.stringify(this.buildSetupMessage(model, voiceName, systemInstruction)));
+      const setup = this.buildSetupMessage(model, voiceName, systemInstruction);
+      this.ws?.send(JSON.stringify(setup));
+      this.logDiag(
+        `setup sent search=${this.lastSetupHadSearch} tools=${this.toolsEnabled && this.setupDowngradeLevel < 2} captions=${this.captionsEnabled && this.setupDowngradeLevel < 1}`
+      );
       this.startVolumeMonitor();
     };
 
@@ -454,12 +492,13 @@ export class GeminiLiveService {
       await this.handleServerMessage(event);
     };
 
-    this.ws.onerror = (event: Event) => {
-      console.error("Gemini Live WebSocket error:", event);
-      if (this.status !== "idle") {
-        this.status = "error";
-        this.error = "Lỗi kết nối hoặc gián đoạn WebSocket tới Gemini Live API.";
-      }
+    // `error` is always followed by `close`, which carries the code and reason.
+    // Deciding here (as this used to) flipped the status to "error" before the
+    // close handler ran, so WebKit skipped every recovery path and tore the call
+    // down — screen share included.
+    this.ws.onerror = () => {
+      this.socketErrored = true;
+      this.logDiag("socket error event");
     };
 
     this.ws.onclose = (event: CloseEvent) => this.handleClose(event);
@@ -467,9 +506,7 @@ export class GeminiLiveService {
     if (options?.enableVideo) {
       await this.enableVideo();
     }
-    if (carryScreen) {
-      this.syncFrameCapture();
-    }
+    this.syncFrameCapture();
   }
 
   /**
@@ -479,6 +516,7 @@ export class GeminiLiveService {
   private async handleClose(event: CloseEvent): Promise<void> {
     const reason = event.reason || "";
     const wasConnecting = this.status === "connecting";
+    this.logDiag(`close code=${event.code} clean=${event.wasClean} while=${this.status} reason=${reason.slice(0, 120)}`);
 
     if (wasConnecting && event.code === 1007 && /unknown name|cannot find field/i.test(reason)) {
       if (this.hasPendingSetupExtras()) {
@@ -498,6 +536,7 @@ export class GeminiLiveService {
     if (wasConnecting && event.code === 1011 && /quota|exceeded/i.test(reason) && this.lastSetupHadSearch) {
       if (!this.searchBlockedModels.includes(this.activeModel)) {
         this.searchBlockedModels.push(this.activeModel);
+        persistSearchBlocked(this.searchBlockedModels);
       }
       this.noticeClearsOnConnect = false;
       this.notice = `Khóa API hết quota Google Search với ${this.activeModel.replace(/^models\//, "")}, đã tắt tìm kiếm web cho model này. Gemini vẫn trả lời mọi chủ đề từ kiến thức sẵn có; chọn Gemini 2.5 Flash Native Audio nếu cần tin tức mới.`;
@@ -520,7 +559,10 @@ export class GeminiLiveService {
     if (this.status !== "idle") {
       if (wasConnecting || event.code !== 1000) {
         this.status = "error";
-        this.error = describeCloseReason(event.code, reason, this.activeModel);
+        this.error =
+          event.code === 1006 || (this.socketErrored && !reason)
+            ? "Mất kết nối mạng tới Gemini Live (1006). Kiểm tra mạng rồi bấm kết nối lại."
+            : describeCloseReason(event.code, reason, this.activeModel);
       } else {
         this.status = "idle";
         this.notice = "Gemini Live đã kết thúc phiên từ phía máy chủ.";
@@ -546,6 +588,7 @@ export class GeminiLiveService {
       const parsed = JSON.parse(rawText);
 
       if (parsed.setupComplete) {
+        this.logDiag("setupComplete");
         this.markConnected();
       }
 
@@ -634,6 +677,7 @@ export class GeminiLiveService {
             }
 
             if (part.inlineData?.data) {
+              this.stats.audioReceived += 1;
               const float32 = base64ToFloat32(part.inlineData.data);
               if (float32.length > 0) {
                 this.playAudioChunk(float32);
@@ -822,6 +866,13 @@ export class GeminiLiveService {
 
     this.inputAudioContext = new AudioContextClass({ sampleRate: GEMINI_INPUT_SAMPLE_RATE });
     const actualSampleRate = this.inputAudioContext.sampleRate;
+    if (this.inputAudioContext.state === "suspended") {
+      await this.inputAudioContext.resume().catch(() => {});
+    }
+    const micTrack = this.micStream.getAudioTracks()[0];
+    this.logDiag(
+      `mic ok "${micTrack?.label ?? "?"}" ctx=${this.inputAudioContext.state} rate=${actualSampleRate}`
+    );
 
     const bufferSize = 2048;
     this.scriptProcessor = this.inputAudioContext.createScriptProcessor(bufferSize, 1, 1);
@@ -873,6 +924,7 @@ export class GeminiLiveService {
 
       try {
         this.ws.send(JSON.stringify(payload));
+        this.stats.audioSent += 1;
       } catch (sendErr) {
         console.warn("Failed to send audio chunk to Gemini Live:", sendErr);
       }
@@ -1144,11 +1196,15 @@ export class GeminiLiveService {
 
       // Stopping from the OS/browser sharing indicator must end the share here too.
       stream.getVideoTracks().forEach((track) => {
+        this.logDiag(`screen track "${track.label}" state=${track.readyState} muted=${track.muted}`);
         track.addEventListener("ended", () => {
+          this.logDiag("screen track ended");
           if (this.screenStream === stream) {
             this.stopScreenShare();
           }
         });
+        track.addEventListener("mute", () => this.logDiag("screen track muted (no frames)"));
+        track.addEventListener("unmute", () => this.logDiag("screen track unmuted"));
       });
 
       this.attachScreenStream(stream);
@@ -1160,6 +1216,7 @@ export class GeminiLiveService {
         return;
       }
       const msg = err instanceof Error ? err.message : String(err);
+      this.logDiag(`getDisplayMedia failed: ${(err as { name?: string } | null)?.name ?? "Error"}: ${msg}`);
       console.error("Screen capture failed:", msg);
       this.error = `Không thể chia sẻ màn hình: ${msg}`;
       this.isScreenSharing = false;
@@ -1254,6 +1311,9 @@ export class GeminiLiveService {
     if (maxLuma !== null && maxLuma < BLACK_FRAME_MAX_LUMA) {
       this.blackFrameStreak += 1;
       if (this.blackFrameStreak >= SCREEN_ISSUE_AFTER_TICKS) {
+        if (this.screenShareIssue !== "black") {
+          this.logDiag(`screen frames black ${source.videoWidth}x${source.videoHeight}`);
+        }
         this.screenShareIssue = "black";
       }
       // A black frame tells Gemini nothing and invites it to guess.
@@ -1343,6 +1403,7 @@ export class GeminiLiveService {
 
     try {
       this.ws.send(JSON.stringify(payload));
+      this.stats.framesSent += 1;
     } catch (err) {
       console.warn("Failed to send video frame to Gemini Live:", err);
     }
@@ -1458,26 +1519,24 @@ export class GeminiLiveService {
     this.volumeAnimId = requestAnimationFrame(loop);
   }
 
-  private cleanupMedia(keepScreen = false): void {
+  private cleanupMedia(): void {
     this.stopVideoFrameCapture();
 
-    if (!keepScreen) {
-      if (this.screenStream) {
-        this.screenStream.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch {}
-        });
-        this.screenStream = null;
-      }
-      if (this.screenVideoElement) {
-        this.screenVideoElement.srcObject = null;
-        unmountCaptureVideo(this.screenVideoElement);
-        this.screenVideoElement = null;
-      }
-      this.isScreenSharing = false;
-      this.resetScreenDiagnostics();
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {}
+      });
+      this.screenStream = null;
     }
+    if (this.screenVideoElement) {
+      this.screenVideoElement.srcObject = null;
+      unmountCaptureVideo(this.screenVideoElement);
+      this.screenVideoElement = null;
+    }
+    this.isScreenSharing = false;
+    this.resetScreenDiagnostics();
 
     if (this.cameraStream) {
       this.cameraStream.getTracks().forEach((track) => {
@@ -1494,7 +1553,7 @@ export class GeminiLiveService {
       this.videoElement = null;
     }
 
-    if (this.canvasElement && !keepScreen) {
+    if (this.canvasElement) {
       this.canvasElement = null;
     }
     this.isVideoEnabled = false;
@@ -1570,40 +1629,89 @@ export class GeminiLiveService {
     }
   }
 
-  /**
-   * Tear the session down. `keepSession` is used when immediately re-opening
-   * (persona switch, downgrade retry) so the mute state and notice survive.
-   */
-  disconnect(options?: { keepSession?: boolean; keepScreen?: boolean }): void {
-    this.cleanupMedia(Boolean(options?.keepSession && options?.keepScreen));
-
+  /** Replace only the socket: mic, camera, screen and the audio graph stay live. */
+  private closeTransport(): void {
     if (this.ws) {
       this.ws.onopen = null;
       this.ws.onmessage = null;
       this.ws.onerror = null;
       this.ws.onclose = null;
       try {
-        this.ws.close(1000, "User disconnected");
+        this.ws.close(1000, "Session re-open");
       } catch {}
       this.ws = null;
     }
-
+    // The old session's queued speech must not play over the new one.
+    this.stopAudioPlayback();
+    this.finalizeTurn();
+    this.socketErrored = false;
     this.status = "idle";
+  }
+
+  /** True while the mic capture graph from an earlier open can be reused as is. */
+  private hasLiveMicrophone(): boolean {
+    const track = this.micStream?.getAudioTracks()[0];
+    return Boolean(
+      track &&
+        track.readyState !== "ended" &&
+        this.inputAudioContext &&
+        this.inputAudioContext.state !== "closed" &&
+        this.scriptProcessor
+    );
+  }
+
+  /**
+   * Resume AudioContexts the webview left suspended. Called from user gestures in
+   * the view, since a context created from a socket callback may need one.
+   */
+  async resumeAudio(): Promise<void> {
+    for (const ctx of [this.inputAudioContext, this.outputAudioContext]) {
+      if (ctx && ctx.state === "suspended") {
+        await ctx.resume().catch(() => {});
+        this.logDiag(`resumed audio context -> ${ctx.state}`);
+      }
+    }
+  }
+
+  private logDiag(message: string): void {
+    const time = new Date().toISOString().slice(11, 23);
+    this.diagnostics.push(`${time} ${message}`);
+    if (this.diagnostics.length > DIAGNOSTICS_MAX_LINES) {
+      this.diagnostics.splice(0, this.diagnostics.length - DIAGNOSTICS_MAX_LINES);
+    }
+  }
+
+  /** Plain-text report for the diagnostics panel's copy button. */
+  diagnosticsReport(): string {
+    const ctx = (c: AudioContext | null) => (c ? `${c.state}@${c.sampleRate}` : "none");
+    const screenTrack = this.screenStream?.getVideoTracks()[0];
+    return [
+      `status=${this.status} model=${this.activeModel} voice=${this.activeVoice}`,
+      `ws=${this.ws ? this.ws.readyState : "none"} error=${this.error ?? "-"}`,
+      `audio sent=${this.stats.audioSent} received=${this.stats.audioReceived} frames sent=${this.stats.framesSent}`,
+      `mic=${this.micStream?.getAudioTracks()[0]?.readyState ?? "none"} muted=${this.isMuted} inCtx=${ctx(this.inputAudioContext)} outCtx=${ctx(this.outputAudioContext)}`,
+      `screen=${this.isScreenSharing} track=${screenTrack ? `${screenTrack.readyState}/muted=${screenTrack.muted}` : "none"} size=${this.screenVideoElement?.videoWidth ?? 0}x${this.screenVideoElement?.videoHeight ?? 0} issue=${this.screenShareIssue ?? "-"}`,
+      `search blocked=${this.searchBlockedModels.join(",") || "-"} getDisplayMedia=${typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getDisplayMedia)}`,
+      "--- events ---",
+      ...this.diagnostics,
+    ].join("\n");
+  }
+
+  /** End the call: release every device and forget the conversation. */
+  disconnect(): void {
+    this.cleanupMedia();
+    this.closeTransport();
+
     this.error = null;
     this.userVolume = 0;
     this.aiVolume = 0;
     this.nextPlayTime = 0;
-    this.finalizeTurn();
-
-    if (!options?.keepSession) {
-      // A re-open (persona switch, resume) is still the same call for the user.
-      this.callStartedAt = null;
-      this.isMuted = false;
-      this.notice = null;
-      this.tokensUsed = 0;
-      this.reconnectAttempts = 0;
-      this.resumeHandle = null;
-    }
+    this.callStartedAt = null;
+    this.isMuted = false;
+    this.notice = null;
+    this.tokensUsed = 0;
+    this.reconnectAttempts = 0;
+    this.resumeHandle = null;
   }
 }
 
