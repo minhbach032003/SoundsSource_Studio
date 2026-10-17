@@ -192,13 +192,23 @@ pub struct SpotifySpectrum {
 impl SpotifyIntegration {
     fn spectrum(&self) -> SpotifySpectrum {
         let status = self.status.lock().unwrap().clone();
-        let enabled = self.enabled.load(Ordering::Acquire);
+        // Local player bơm thẳng vào spectrum buffer nhưng để cờ tap ở false. Chỉ hỏi cờ
+        // tap thì bảng phân tích báo "mất kết nối" trong khi nhạc đang chạy qua EQ.
+        let local = self.player.state();
+        let tap = self.enabled.load(Ordering::Acquire);
+        let live = local.running || (tap && status.connected);
+        let error = if local.running { local.error } else { status.error };
         // Copy a bounded PCM window, release the lock, then analyze off the audio thread.
         let buffer = self.spectrum.lock().unwrap().clone();
-        let reading = if enabled && status.connected && status.error.is_none() {
+        let reading = if live && error.is_none() {
             buffer.snapshot()
         } else { SpectrumReading::default() };
-        SpotifySpectrum { reading, enabled, connected: status.connected, error: status.error }
+        SpotifySpectrum {
+            reading,
+            enabled: live,
+            connected: local.running || status.connected,
+            error,
+        }
     }
 }
 

@@ -1,14 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
-  import { Music2, Play, Search, LogIn, LogOut, RefreshCw, ChevronLeft, ChevronRight, ListMusic, Heart, SlidersHorizontal, AudioLines, Unplug, Activity } from "@lucide/svelte";
+  import { Music2, Play, Search, LogIn, LogOut, RefreshCw, ChevronLeft, ChevronRight, ListMusic, Heart, SlidersHorizontal, AudioLines, Activity } from "@lucide/svelte";
   import Modal from "@/components/ui/Modal.svelte";
   import StudioEQInspector from "@/components/audio/StudioEQInspector.svelte";
   import PerformanceDiagnosticsCard from "@/components/diagnostics/PerformanceDiagnosticsCard.svelte";
   import { spotifyState } from "@/lib/spotify.svelte";
   import { toastState } from "@/lib/toast.svelte";
 
-  let confirmConnect = $state(false);
   let confirmLogout = $state(false);
   let query = $state(spotifyState.searchQuery);
   let narrow = $state(window.matchMedia("(max-width: 1099px)").matches);
@@ -59,9 +58,11 @@
       <span class="note" role="status">{dspLabel}</span>
       {#if status?.local_running}
         <span class="note status-pill"><AudioLines class="w-3.5 h-3.5 text-(--accent)" /> Đang phát trong rust-sound · DSP luôn bật</span>
-      {:else if status?.running}
-        <button class="btn" type="button" disabled={!isTauri() || spotifyState.busy} onclick={() => status?.enabled ? spotifyState.connect(false) : (confirmConnect = true)}>
-          {#if status?.enabled}<Unplug class="w-3.5 h-3.5" /> Ngắt DSP{:else}<AudioLines class="w-3.5 h-3.5" /> Kết nối DSP{/if}
+      {:else if status?.playback_signed_in}
+        <!-- rust-sound tự phát nhạc, nên chỗ này không còn là nơi nối DSP của app Spotify
+             mà là nơi bật lại bộ phát của chính app khi nó chưa chạy. -->
+        <button class="btn" type="button" disabled={!isTauri() || spotifyState.busy} onclick={() => spotifyState.setLocalPlayer(true)}>
+          <AudioLines class="w-3.5 h-3.5" /> Bật phát trong rust-sound
         </button>
       {/if}
     </div>
@@ -203,10 +204,6 @@
   </section>
 </div>
 
-<Modal open={confirmConnect} title="Đưa tiếng Spotify qua bass / EQ?"
-  description="rust-sound sẽ thu riêng âm thanh Spotify, xử lý rồi phát ra thiết bị hiện tại. Các ứng dụng khác không đổi. macOS có thể yêu cầu quyền System Audio Recording. Khi thoát rust-sound, Spotify vẫn chạy và phát bình thường. Lần mở sau sẽ tự kết nối lại."
-  confirmText="Cho phép và kết nối" cancelText="Để sau" onClose={() => confirmConnect = false}
-  onConfirm={() => { confirmConnect = false; void spotifyState.connect(true); }} />
 <Modal open={confirmLogout} title="Ngắt tài khoản Spotify?"
   description="Xóa phiên đăng nhập Spotify đã lưu trong Keychain của rust-sound. Spotify và kết nối bass / EQ vẫn hoạt động; cần đăng nhập lại để duyệt thư viện."
   confirmText="Ngắt tài khoản" cancelText="Giữ kết nối" onClose={() => confirmLogout = false}
