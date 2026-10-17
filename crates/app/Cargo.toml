@@ -18,6 +18,8 @@ serde_json = "1.0"
 sound-core = { path = "../core" }
 sound-engine = { path = "../engine" }
 pingloom = { path = "../pingloom" }
+rodio = "0.22"
+librespot-playback = { version = "0.8.0", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

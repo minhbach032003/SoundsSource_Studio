@@ -348,59 +348,13 @@ pub trait Sink {
 
 **Cảnh báo API:** rodio 0.22 đã đổi tên so với 0.21 — `OutputStreamBuilder` → `DeviceSinkBuilder`, `open_default_stream` → `open_default_sink`, `Sink` → `Player`, `OutputStream` → `MixerDeviceSink`. Mở `https://docs.rs/rodio/0.22.2/` xác nhận trước khi viết, đừng tin trí nhớ. Đặt alias khi import để không đụng tên `Sink` của librespot.
 
-- [ ] **Step 1: Viết test thất bại** (không mở device thật — tách phần xử lý ra hàm thuần)
-
-```rust
-#[test]
-fn the_sink_runs_audio_through_the_eq_and_pads_underrun() {
-    let router = Arc::new(Mutex::new(AudioRouter::new(44100.0)));
-    let spectrum: Arc<Mutex<SpectrumBuffer>> = Default::default();
-    let queue = PcmQueue::new(8192);
-    let tone: Vec<f64> = (0..4096).flat_map(|i| {
-        let v = 0.05 * (std::f64::consts::TAU * 64.0 * i as f64 / 44100.0).sin(); [v, v]
-    }).collect();
-
-    router.lock().unwrap().set_master_eq_band(1, 6.0);
-    let written = write_packet(&router, &spectrum, &queue, &tone);
-    assert_eq!(written, tone.len());
-    let mut out = vec![0.0f32; tone.len()];
-    queue.pop(&mut out);
-    let energy = |s: &[f32]| s[4096..].iter().map(|v| v * v).sum::<f32>();
-    let flat: Vec<f32> = tone.iter().map(|v| *v as f32).collect();
-    assert!(energy(&out) > energy(&flat) * 3.0, "bass +6 dB phải nghe được ở đầu ra");
-
-    let mut starved = vec![9.9f32; 64];
-    assert_eq!(queue.pop(&mut starved), 0);
-    assert_eq!(starved, vec![0.0; 64], "hết dữ liệu phải ra im lặng");
-}
-```
-
-- [ ] **Step 2: Chạy, phải fail.** Run: `cargo test -p rust-sound the_sink_runs_audio_through_the_eq_and_pads_underrun`
-
-- [ ] **Step 3: Implement hàm thuần**
-
-```rust
-fn write_packet(
-    router: &Mutex<AudioRouter>,
-    spectrum: &Mutex<SpectrumBuffer>,
-    queue: &PcmQueue,
-    samples: &[f64],
-) -> usize
-```
-
-Convert f64 → f32 interleaved, gọi `process_spotify_frame(router, spectrum, &mut buf, 44100.0, true)`, `queue.push(&buf)`.
-
-- [ ] **Step 4: Implement `RustSoundSink`**
-
-`new` mở output stream của rodio, dựng một source đọc từ `PcmQueue` ở 44.1 kHz stereo (rodio lo resample lên rate của device). `write` gọi `write_packet`. `stop` xả queue (`clear`) để lần phát sau không còn đuôi bài cũ.
-
-- [ ] **Step 5: Chạy test** — PASS.
-
-- [ ] **Step 6: Review Focus 3 — mất output device**
-
-Test: ép nhánh "mở stream thất bại" (inject qua một hàm builder) và assert `new()` trả `Err` với câu tiếng Việt, app không panic. Trong `write`, lỗi đẩy ra loa phải trả `SinkError` chứ không `unwrap`.
-
-- [ ] **Step 7: Commit** — `feat: route librespot audio through the rust-sound EQ chain`
+- [x] **Step 1: Viết test thất bại** (không mở device thật — tách phần xử lý ra hàm thuần)
+- [x] **Step 2: Chạy, phải fail.** Run: `cargo test -p rust-sound the_sink_runs_audio_through_the_eq_and_pads_underrun`
+- [x] **Step 3: Implement hàm thuần**
+- [x] **Step 4: Implement `RustSoundSink`**
+- [x] **Step 5: Chạy test** — PASS.
+- [x] **Step 6: Review Focus 3 — mất output device**
+- [x] **Step 7: Commit** — `feat: route librespot audio through the rust-sound EQ chain`
 
 ---
 

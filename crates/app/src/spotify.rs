@@ -1,3 +1,5 @@
+#[path = "spotify_sink.rs"]
+pub mod spotify_sink;
 use crate::{AudioRouter, AppState};
 use serde::Serialize;
 use sound_core::spotify::{self, SpotifyPlayback};
