@@ -1096,6 +1096,43 @@ test("expired context replays only this call's transcript and never repeats it a
   instance.disconnect();
 });
 
+test("ngữ cảnh dài tự tóm gọn rồi mở lại phiên bằng bản tóm tắt", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, context } = harness;
+  let summaryCalls = 0;
+  context.fetch = async () => {
+    summaryCalls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: "- Người dùng tên An, đang sửa Spotify" }] } }],
+      }),
+    };
+  };
+
+  const ws = await openLiveSession(harness);
+  for (let i = 0; i < 10; i += 1) {
+    instance.transcript.push({ sender: "user", text: `câu hỏi ${i}` }, { sender: "ai", text: `trả lời ${i}` });
+  }
+
+  await ws.onmessage({ data: JSON.stringify({ usageMetadata: { totalTokenCount: 30_000 } }) });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(summaryCalls, 1, "tóm tắt đúng một lần");
+  assert.equal(instance.tokensUsed, 0, "phiên mới bắt đầu lại từ 0 token");
+
+  const fresh = MockWebSocket.instances.at(-1);
+  fresh.onopen();
+  await fresh.onmessage({ data: JSON.stringify({ setupComplete: {} }) });
+  const history = JSON.parse(fresh.sent[1]).clientContent;
+  assert.match(history.turns[0].parts[0].text, /Tóm tắt phần trước/);
+  assert.match(history.turns[0].parts[0].text, /tên An/);
+  assert.equal(history.turns.length, 1 + 6, "tóm tắt cộng 6 lượt gần nhất giữ nguyên văn");
+  assert.equal(instance.transcript.length, 20, "transcript trên màn hình không bị cắt");
+
+  instance.disconnect();
+});
+
 test("session resumption keeps Gemini's context across reconnects but not across new calls", async () => {
   const harness = createGeminiLiveHarness();
   const { instance } = harness;

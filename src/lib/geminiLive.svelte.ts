@@ -72,6 +72,14 @@ const FRAME_HEARTBEAT_MS = 10_000;
 const CONTEXT_TRIGGER_TOKENS = 32_000;
 const CONTEXT_TARGET_TOKENS = 12_000;
 
+/** Gần chạm ngưỡng nén của Live API thì tự tóm gọn, giống /compact của CLI: tóm phần cũ
+ * thành vài dòng rồi mở lại phiên sạch, thay vì để context phình tới lúc trả lời ì ra. */
+const COMPACT_AT_TOKENS = 24_000;
+/** Số lượt gần nhất giữ nguyên văn; phần cũ hơn chỉ còn trong bản tóm tắt. */
+const COMPACT_KEEP_TURNS = 6;
+/** Model text rẻ dùng để tóm tắt. Lỗi thì rơi về cách cũ: phát lại lịch sử chữ. */
+const SUMMARY_MODEL = "gemini-flash-lite-latest";
+
 /** Còn ứ quá ngần này byte thì bỏ qua một khung hình thay vì nhét tiếp vào hàng đợi. */
 const FRAME_BACKPRESSURE_BYTES = 192 * 1024;
 
@@ -337,6 +345,9 @@ export class GeminiLiveService {
   private setupTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionGeneration = 0;
   private restoreTranscript = false;
+  /** Bản tóm tắt phần hội thoại đã bị nén, gửi lại ở đầu mỗi phiên mới. */
+  private contextSummary = "";
+  private compacting = false;
   private callTranscriptStart = 0;
   /** Latest resumable handle; re-opening with it keeps the conversation context. */
   private resumeHandle: string | null = null;
@@ -436,6 +447,83 @@ export class GeminiLiveService {
     const clamped = Math.min(GEMINI_REPLY_DELAY_MAX_MS, Math.max(GEMINI_REPLY_DELAY_MIN_MS, Math.round(ms)));
     this.replyDelayMs = clamped;
     try { localStorage.setItem(REPLY_DELAY_KEY, String(clamped)); } catch { /* optional persistence */ }
+  }
+
+
+  /** Các lượt có chữ của cuộc gọi hiện tại, cũ trước mới sau. */
+  private spokenTurns(): GeminiLiveMessage[] {
+    return this.transcript
+      .slice(this.callTranscriptStart)
+      .filter((m) => (m.sender === "user" || m.sender === "ai") && m.text.trim());
+  }
+
+  /**
+   * Tóm gọn ngữ cảnh rồi mở lại phiên — tương đương /compact của CLI. Transcript trên
+   * màn hình giữ nguyên; chỉ thứ gửi lên Gemini bị nén lại.
+   */
+  private async compactContext(): Promise<void> {
+    if (this.compacting || this.status !== "connected") return;
+    const turns = this.spokenTurns();
+    if (turns.length <= COMPACT_KEEP_TURNS) return;
+
+    this.compacting = true;
+    try {
+      const summary = await this.summarizeTurns(turns.slice(0, -COMPACT_KEEP_TURNS));
+      if (summary) this.contextSummary = summary;
+      // Phiên mới phải sạch, nếu không handle cũ kéo nguyên context nặng quay lại.
+      this.resumeHandle = null;
+      this.restoreTranscript = true;
+      this.tokensUsed = 0;
+      this.notice = summary
+        ? "Đã tóm gọn ngữ cảnh để Gemini trả lời nhanh lại."
+        : "Ngữ cảnh đã dài; đang khôi phục từ lịch sử chữ.";
+      this.noticeClearsOnConnect = true;
+      this.logDiag(`compact: ${turns.length} turns -> ${summary ? `${summary.length} chars` : "no summary"}`);
+      await this.reconnect();
+    } finally {
+      this.compacting = false;
+    }
+  }
+
+  /** Gọi một model text rẻ để tóm tắt. Trả null khi không tóm được, không ném lỗi. */
+  private async summarizeTurns(turns: GeminiLiveMessage[]): Promise<string | null> {
+    if (turns.length === 0) return null;
+    // Dùng đúng key đang chạy phiên; chỉ hỏi kho khi phiên không mang theo key.
+    const apiKey = this.lastOptions?.apiKey?.trim() || (await this.getApiKey())?.trim();
+    if (!apiKey) return null;
+    const previous = this.contextSummary ? `Tóm tắt trước đó:\n${this.contextSummary}\n\n` : "";
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text:
+                `${previous}Tóm tắt cuộc trò chuyện dưới đây thành tối đa 10 gạch đầu dòng tiếng Việt. ` +
+                `Giữ lại tên riêng, con số, quyết định đã chốt và việc đang dở; bỏ lời chào và câu xã giao. ` +
+                `Chỉ trả về các gạch đầu dòng.\n\n` +
+                turns.map((m) => `${m.sender === "ai" ? "Gemini" : "Người dùng"}: ${m.text}`).join("\n"),
+            },
+          ],
+        },
+      ],
+    };
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${SUMMARY_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (!response.ok) {
+        this.logDiag(`compact summary failed: HTTP ${response.status}`);
+        return null;
+      }
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("").trim();
+      return text || null;
+    } catch (err) {
+      this.logDiag(`compact summary failed: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    }
   }
 
   /** Gemini locks the voice per session, so a persona change re-opens the socket. */
@@ -754,18 +842,25 @@ export class GeminiLiveService {
         if (this.setupTimer !== null) clearTimeout(this.setupTimer);
         this.setupTimer = null;
         if (!this.openedWithHandle && (this.restoreTranscript || this.callStartedAt !== null)) {
-          // ponytail: bound fallback history to 24k characters; summaries can retain older turns later.
+          // Có tóm tắt thì chỉ gửi tóm tắt + vài lượt cuối; không thì phát lại lịch sử chữ
+          // như trước, chặn ở 24k ký tự.
+          const spoken = this.spokenTurns();
+          const verbatim = this.contextSummary ? spoken.slice(-COMPACT_KEEP_TURNS) : spoken;
           let remaining = 24_000;
-          const turns = this.transcript.slice(this.callTranscriptStart).reverse()
-            .filter((message) => (message.sender === "user" || message.sender === "ai") && message.text.trim())
+          const recent = verbatim.slice().reverse()
             .flatMap((message) => {
               if (!remaining) return [];
               const text = message.text.slice(-remaining);
               remaining -= text.length;
               return [{ role: message.sender === "ai" ? "model" : "user", parts: [{ text }] }];
             }).reverse();
+          const turns = this.contextSummary
+            ? [{ role: "user", parts: [{ text: `Tóm tắt phần trước của cuộc trò chuyện:\n${this.contextSummary}` }] }, ...recent]
+            : recent;
           if (turns.length) this.ws?.send(JSON.stringify({ clientContent: { turns, turnComplete: false } }));
-          this.notice = turns.length
+          this.notice = this.contextSummary
+            ? "Đã tóm gọn ngữ cảnh; Gemini nhớ ý chính và vài lượt gần nhất."
+            : turns.length
             ? "Đã khôi phục lịch sử chữ gần nhất (tối đa 24.000 ký tự); không gồm audio/video cũ."
             : "Không có lịch sử chữ để khôi phục ngữ cảnh phiên cũ.";
           this.noticeClearsOnConnect = false;
@@ -821,6 +916,7 @@ export class GeminiLiveService {
 
       if (parsed.usageMetadata?.totalTokenCount) {
         this.tokensUsed = Number(parsed.usageMetadata.totalTokenCount) || this.tokensUsed;
+        if (this.tokensUsed >= COMPACT_AT_TOKENS) void this.compactContext();
       }
 
       if (parsed.toolCall) {
