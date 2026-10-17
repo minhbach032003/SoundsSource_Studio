@@ -602,6 +602,18 @@ export class GeminiLiveService {
       return;
     }
 
+    // An established call dropped by the server (1011 "Internal error encountered",
+    // a dead socket, …) is not the user's problem to fix with a button: re-open with
+    // the resume handle, which keeps the conversation. Bounded, so a flapping server
+    // ends up in the error state instead of looping.
+    if (!wasConnecting && event.code !== 1000 && this.reconnectAttempts < 2) {
+      this.reconnectAttempts += 1;
+      this.notice = `Máy chủ ngắt cuộc gọi (mã ${event.code}), đang kết nối lại...`;
+      this.noticeClearsOnConnect = true;
+      await this.reconnect();
+      return;
+    }
+
     // User hangups detach this handler first, so every close that lands here came
     // from the server. Rejections arrive as *clean* 1007/1008 frames, so `wasClean`
     // says nothing about success: any close before setup, or with a non-1000 code, failed.
