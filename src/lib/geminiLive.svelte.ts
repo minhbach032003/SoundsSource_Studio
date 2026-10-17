@@ -283,6 +283,10 @@ export class GeminiLiveService {
 
   private videoElement: HTMLVideoElement | null = null;
   private screenVideoElement: HTMLVideoElement | null = null;
+  /** Latest natively captured screen frame (data URL), also what the stage previews. */
+  nativeScreenFrame = $state<string | null>(null);
+  private nativeScreenImage: HTMLImageElement | null = null;
+  private nativeScreenPending = false;
   private canvasElement: HTMLCanvasElement | null = null;
   private videoCaptureInterval: number | null = null;
 
@@ -1228,6 +1232,25 @@ export class GeminiLiveService {
     if (this.isScreenSharing && this.screenStream) {
       return;
     }
+    // In the desktop app the frames come from macOS itself: WKWebView's
+    // getDisplayMedia returns an all-black stream here however the Screen Recording
+    // grant is set, and a black frame tells Gemini nothing.
+    if (isTauri()) {
+      if (!this.canvasElement) {
+        this.canvasElement = document.createElement("canvas");
+      }
+      this.isScreenSharing = true;
+      this.resetScreenDiagnostics();
+      this.logDiag("screen share via native capture");
+      this.syncFrameCapture();
+      if (!(await this.captureNativeScreenFrame())) {
+        this.stopScreenShare();
+        this.error = "Không chụp được màn hình. Kiểm tra quyền Screen Recording cho rust-sound.";
+        return;
+      }
+      return;
+    }
+
     if (typeof window === "undefined" || !navigator.mediaDevices?.getDisplayMedia) {
       this.error = "Môi trường này không hỗ trợ chia sẻ màn hình (getDisplayMedia).";
       return;
@@ -1301,6 +1324,7 @@ export class GeminiLiveService {
     if (this.screenVideoElement) {
       this.screenVideoElement.srcObject = null;
     }
+    this.nativeScreenFrame = null;
     this.isScreenSharing = false;
     this.resetScreenDiagnostics();
     this.syncFrameCapture();
@@ -1383,7 +1407,7 @@ export class GeminiLiveService {
     const hasSource = this.isScreenSharing || this.isVideoEnabled;
     if (hasSource && this.videoCaptureInterval === null) {
       this.videoCaptureInterval = window.setInterval(() => {
-        this.captureAndSendVideoFrame();
+        void this.captureAndSendVideoFrame();
       }, Math.round(1000 / GEMINI_VIDEO_UPLINK_FPS));
     } else if (!hasSource) {
       this.stopVideoFrameCapture();
@@ -1397,12 +1421,42 @@ export class GeminiLiveService {
     }
   }
 
-  private captureAndSendVideoFrame(): void {
-    const sharing = this.isScreenSharing && this.screenVideoElement !== null;
+  /** Pull one frame from macOS and decode it; also what the stage preview shows. */
+  private async captureNativeScreenFrame(): Promise<HTMLImageElement | null> {
+    if (this.nativeScreenPending) return null;
+    this.nativeScreenPending = true;
+    try {
+      const base64Jpeg = await invoke<string>("capture_screen_jpeg");
+      const dataUrl = `data:image/jpeg;base64,${base64Jpeg}`;
+      const img = this.nativeScreenImage ?? (this.nativeScreenImage = new Image());
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Khung hình không giải mã được"));
+        img.src = dataUrl;
+      });
+      this.nativeScreenFrame = dataUrl;
+      this.screenShareIssue = null;
+      return img;
+    } catch (err) {
+      this.logDiag(`native screen capture failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.screenShareIssue = "no-frames";
+      return null;
+    } finally {
+      this.nativeScreenPending = false;
+    }
+  }
 
-    // Diagnose the share even before the call connects, so a black capture is
-    // reported as soon as the user picks a screen.
-    if (sharing && this.screenVideoElement && !this.checkScreenFrame(this.screenVideoElement)) {
+  private async captureAndSendVideoFrame(): Promise<void> {
+    const nativeSharing = this.isScreenSharing && isTauri();
+    const sharing = this.isScreenSharing && (nativeSharing || this.screenVideoElement !== null);
+
+    // Diagnose the share even before the call connects, so a dead capture is
+    // reported as soon as the user starts sharing.
+    let nativeFrame: HTMLImageElement | null = null;
+    if (nativeSharing) {
+      nativeFrame = await this.captureNativeScreenFrame();
+      if (!nativeFrame) return;
+    } else if (sharing && this.screenVideoElement && !this.checkScreenFrame(this.screenVideoElement)) {
       return;
     }
 
@@ -1415,13 +1469,16 @@ export class GeminiLiveService {
       return;
     }
 
-    const v = sharing ? this.screenVideoElement : this.isVideoEnabled ? this.videoElement : null;
-    if (!v || !v.videoWidth || !v.videoHeight) return;
+    const v = nativeFrame ?? (sharing ? this.screenVideoElement : this.isVideoEnabled ? this.videoElement : null);
+    if (!v) return;
+    const srcWidth = nativeFrame ? nativeFrame.naturalWidth : (v as HTMLVideoElement).videoWidth;
+    const srcHeight = nativeFrame ? nativeFrame.naturalHeight : (v as HTMLVideoElement).videoHeight;
+    if (!srcWidth || !srcHeight) return;
 
     const maxWidth = sharing ? SCREEN_FRAME_MAX_WIDTH : CAMERA_FRAME_MAX_WIDTH;
-    const scale = Math.min(1, maxWidth / v.videoWidth);
-    const width = Math.round(v.videoWidth * scale);
-    const height = Math.round(v.videoHeight * scale);
+    const scale = Math.min(1, maxWidth / srcWidth);
+    const width = Math.round(srcWidth * scale);
+    const height = Math.round(srcHeight * scale);
 
     this.canvasElement.width = width;
     this.canvasElement.height = height;
@@ -1735,7 +1792,7 @@ export class GeminiLiveService {
       `ws=${this.ws ? this.ws.readyState : "none"} error=${this.error ?? "-"}`,
       `audio sent=${this.stats.audioSent} received=${this.stats.audioReceived} frames sent=${this.stats.framesSent}`,
       `mic=${this.micStream?.getAudioTracks()[0]?.readyState ?? "none"} muted=${this.isMuted} inCtx=${ctx(this.inputAudioContext)} outCtx=${ctx(this.outputAudioContext)}`,
-      `screen=${this.isScreenSharing} track=${screenTrack ? `${screenTrack.readyState}/muted=${screenTrack.muted}` : "none"} size=${this.screenVideoElement?.videoWidth ?? 0}x${this.screenVideoElement?.videoHeight ?? 0} issue=${this.screenShareIssue ?? "-"}`,
+      `screen=${this.isScreenSharing} native=${this.nativeScreenFrame !== null} track=${screenTrack ? `${screenTrack.readyState}/muted=${screenTrack.muted}` : "none"} size=${this.screenVideoElement?.videoWidth ?? 0}x${this.screenVideoElement?.videoHeight ?? 0} issue=${this.screenShareIssue ?? "-"}`,
       `search blocked=${this.searchBlockedModels.join(",") || "-"} getDisplayMedia=${typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getDisplayMedia)}`,
       "--- events ---",
       ...this.diagnostics,

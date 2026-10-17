@@ -1079,6 +1079,41 @@ async fn open_screen_capture_settings() -> Result<(), String> {
     }
 }
 
+/// One JPEG of the main display, base64-encoded.
+///
+/// WKWebView's `getDisplayMedia` hands this app a stream of black frames even with the
+/// Screen Recording grant in place, so the frames Gemini sees come from the system
+/// capture tool instead — it runs as a child of this app and inherits its TCC grant.
+// ponytail: main display only; add a display argument if multi-monitor picking is wanted.
+fn capture_main_display_jpeg() -> Result<String, String> {
+    use base64::engine::general_purpose::STANDARD;
+    use base64::Engine;
+
+    let path = std::env::temp_dir().join(format!("rust-sound-screen-{}.jpg", std::process::id()));
+    let ok = std::process::Command::new("/usr/sbin/screencapture")
+        .args(["-x", "-t", "jpg", "-D", "1"])
+        .arg(&path)
+        .status()
+        .map_err(|e| format!("Không chạy được screencapture: {}", e))?
+        .success();
+    if !ok {
+        return Err("screencapture không chụp được màn hình".to_string());
+    }
+    let bytes = std::fs::read(&path).map_err(|e| format!("Không đọc được khung hình: {}", e))?;
+    let _ = std::fs::remove_file(&path);
+    if bytes.is_empty() {
+        return Err("Khung hình chụp được rỗng".to_string());
+    }
+    Ok(STANDARD.encode(bytes))
+}
+
+#[tauri::command]
+async fn capture_screen_jpeg() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(capture_main_display_jpeg)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct AppPerformanceMetrics {
     pub resident_size_bytes: u64,
@@ -1941,6 +1976,7 @@ pub fn run() {
             check_screen_capture_permission,
             request_screen_capture_permission,
             open_screen_capture_settings,
+            capture_screen_jpeg,
             get_pet_care_state,
             get_pet_activity_theme,
             set_pet_activity_theme,
@@ -2215,6 +2251,23 @@ pub fn run() {
 
 #[cfg(test)]
 mod pet_tray_tests {
+    /// The share Gemini sees is this JPEG, so a capture that returns nothing or
+    /// something that is not a JPEG is the whole feature broken.
+    #[test]
+    fn native_screen_capture_returns_a_jpeg() {
+        if !super::check_screen_capture_permission() {
+            eprintln!("skipped: no Screen Recording grant for the test runner");
+            return;
+        }
+        use base64::engine::general_purpose::STANDARD;
+        use base64::Engine;
+
+        let base64_jpeg = super::capture_main_display_jpeg().expect("capture failed");
+        let bytes = STANDARD.decode(base64_jpeg).expect("not valid base64");
+        assert!(bytes.len() > 1024, "frame too small: {} bytes", bytes.len());
+        assert_eq!(&bytes[..3], &[0xFF, 0xD8, 0xFF], "not a JPEG");
+    }
+
     #[test]
     fn retina_tray_anchor_uses_logical_offsets() {
         let anchor = super::tray_popover_anchor(tauri::PhysicalPosition::new(2000.0, 40.0), 2.0);

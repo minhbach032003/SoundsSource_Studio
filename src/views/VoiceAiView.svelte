@@ -846,7 +846,14 @@
         <!-- Màn hình đang chia sẻ: đây chính là khung hình Gemini nhận.
              Created per share (like the webcam PiP) instead of toggled with display:none,
              which WebKit may keep from painting the stream. -->
-        {#if geminiLiveState.isScreenSharing && geminiLiveState.screenStream}
+        {#if geminiLiveState.isScreenSharing && geminiLiveState.nativeScreenFrame}
+          <!-- Desktop app: khung hình do macOS chụp, đúng cái Gemini đang nhận -->
+          <img
+            src={geminiLiveState.nativeScreenFrame}
+            alt="Màn hình đang chia sẻ với Gemini"
+            class="absolute inset-0 w-full h-full object-contain bg-stone-950 z-5"
+          />
+        {:else if geminiLiveState.isScreenSharing && geminiLiveState.screenStream}
           <video
             bind:this={screenVideoElement}
             autoplay
