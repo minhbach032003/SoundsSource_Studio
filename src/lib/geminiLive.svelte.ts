@@ -61,6 +61,17 @@ function loadReplyDelay(): number {
 
 /** Mic coi như đang nói khi RMS vượt ngưỡng này; chỉ dùng để canh khung hình và đo độ trễ. */
 const SPEAKING_RMS_THRESHOLD = 0.02;
+/** Khung hình gần như y hệt khung đã gửi thì bỏ: màn hình đứng yên không đáng 258 token.
+ * Ngưỡng tính trên chênh lệch luma trung bình của ảnh thu nhỏ 32x18, thang 0-255. */
+const FRAME_CHANGE_THRESHOLD = 3;
+/** Dù màn hình đứng yên vẫn gửi lại một khung sau ngần này, để Gemini không quên đang nhìn gì. */
+const FRAME_HEARTBEAT_MS = 10_000;
+
+/** Nén context sớm hơn mặc định (80% cửa sổ của model): context ngắn thì mỗi lượt trả lời
+ * nhanh hơn, đổi lại Gemini quên phần hội thoại cũ sớm hơn. */
+const CONTEXT_TRIGGER_TOKENS = 32_000;
+const CONTEXT_TARGET_TOKENS = 12_000;
+
 /** Còn ứ quá ngần này byte thì bỏ qua một khung hình thay vì nhét tiếp vào hàng đợi. */
 const FRAME_BACKPRESSURE_BYTES = 192 * 1024;
 
@@ -342,6 +353,9 @@ export class GeminiLiveService {
   /** Lần cuối mic vượt ngưỡng, và thời điểm dứt câu đang chờ Gemini đáp. */
   private lastSpeechAt = 0;
   private awaitingReplySince = 0;
+  /** Ảnh thu nhỏ của khung hình đã gửi gần nhất, để bỏ qua những khung không đổi gì. */
+  private lastFrameSignature: Uint8Array | null = null;
+  private lastFrameSentAt = 0;
   /** The server's last close frame, shown verbatim next to the error. */
   lastClose = $state<{ code: number; reason: string } | null>(null);
   private socketErrored = false;
@@ -483,7 +497,12 @@ export class GeminiLiveService {
           },
         },
         sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
-        contextWindowCompression: { slidingWindow: {} },
+        // Mặc định chỉ nén khi chạm 80% cửa sổ model, nên phiên dài tích token tới mức
+        // mỗi lượt đều phải nhai lại cả đống context và chậm thấy rõ.
+        contextWindowCompression: {
+          triggerTokens: CONTEXT_TRIGGER_TOKENS,
+          slidingWindow: { targetTokens: CONTEXT_TARGET_TOKENS },
+        },
       },
     };
   }
@@ -1466,6 +1485,40 @@ export class GeminiLiveService {
     this.screenShareIssue = null;
   }
 
+  /** Ảnh luma 32x18 của khung vừa vẽ, dùng để so xem màn hình có đổi gì không. */
+  private frameSignature(): Uint8Array | null {
+    try {
+      if (!this.canvasElement) return null;
+      if (!this.probeCanvas) {
+        this.probeCanvas = document.createElement("canvas");
+        this.probeCanvas.width = 32;
+        this.probeCanvas.height = 18;
+      }
+      const ctx = this.probeCanvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D | null;
+      if (!ctx || typeof ctx.getImageData !== "function") return null;
+      ctx.drawImage(this.canvasElement, 0, 0, 32, 18);
+      const { data } = ctx.getImageData(0, 0, 32, 18);
+      const signature = new Uint8Array(32 * 18);
+      for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+        signature[p] = (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) | 0;
+      }
+      return signature;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Màn hình đứng yên thì khung mới chỉ tốn token chứ không nói thêm điều gì. */
+  private frameWorthSending(signature: Uint8Array | null, force: boolean): boolean {
+    if (force || !signature) return true;
+    const previous = this.lastFrameSignature;
+    if (!previous || previous.length !== signature.length) return true;
+    if (Date.now() - this.lastFrameSentAt >= FRAME_HEARTBEAT_MS) return true;
+    let total = 0;
+    for (let i = 0; i < signature.length; i += 1) total += Math.abs(signature[i] - previous[i]);
+    return total / signature.length >= FRAME_CHANGE_THRESHOLD;
+  }
+
   /**
    * Downscale the frame to 32x18 and return its brightest luma, or null when the
    * pixels cannot be read. Cheap enough to run on every 1 fps tick.
@@ -1619,6 +1672,20 @@ export class GeminiLiveService {
 
     ctx.drawImage(v, 0, 0, width, height);
 
+    // Quyết định bỏ khung TRƯỚC khi mã hoá JPEG: encode một ảnh 1280px mỗi giây là
+    // việc nặng, và khung bị bỏ thì không ai cần tới nó.
+    const speaking = Date.now() - this.lastSpeechAt < 400;
+    const signature = this.frameSignature();
+    if (
+      (!force && (speaking || this.ws.bufferedAmount > FRAME_BACKPRESSURE_BYTES)) ||
+      !this.frameWorthSending(signature, force)
+    ) {
+      this.stats.framesSkipped += 1;
+      return;
+    }
+    this.lastFrameSignature = signature;
+    this.lastFrameSentAt = Date.now();
+
     // Screen text needs more JPEG quality than a face does.
     const dataUrl = this.canvasElement.toDataURL("image/jpeg", sharing ? 0.8 : 0.7);
     const commaIdx = dataUrl.indexOf(",");
@@ -1636,11 +1703,6 @@ export class GeminiLiveService {
 
     // Khung hình và tiếng mic đi chung một socket: một JPEG đang xếp hàng sẽ đẩy lùi
     // đúng câu người dùng vừa hỏi. Đang nói, hoặc hàng đợi còn ứ, thì bỏ qua nhịp này.
-    const speaking = Date.now() - this.lastSpeechAt < 400;
-    if (!force && (speaking || this.ws.bufferedAmount > FRAME_BACKPRESSURE_BYTES)) {
-      this.stats.framesSkipped += 1;
-      return;
-    }
 
     try {
       this.ws.send(JSON.stringify(payload));
@@ -1934,6 +1996,7 @@ export class GeminiLiveService {
       `ws=${this.ws ? this.ws.readyState : "none"} error=${this.error ?? "-"}`,
       `audio sent=${this.stats.audioSent} received=${this.stats.audioReceived} frames sent=${this.stats.framesSent} skipped=${this.stats.framesSkipped}`,
       `reply delay setting=${this.replyDelayMs}ms · last measured latency=${this.stats.replyLatencyMs || "chưa đo"}ms`,
+      `tokens=${this.tokensUsed} · compress at ${CONTEXT_TRIGGER_TOKENS} down to ${CONTEXT_TARGET_TOKENS}`,
       `mic=${this.micStream?.getAudioTracks()[0]?.readyState ?? "none"} muted=${this.isMuted} inCtx=${ctx(this.inputAudioContext)} outCtx=${ctx(this.outputAudioContext)}`,
       `screen=${this.isScreenSharing} native=${this.nativeScreenFrame !== null} track=${screenTrack ? `${screenTrack.readyState}/muted=${screenTrack.muted}` : "none"} size=${this.screenVideoElement?.videoWidth ?? 0}x${this.screenVideoElement?.videoHeight ?? 0} issue=${this.screenShareIssue ?? "-"}`,
       `search blocked=${this.searchBlockedModels.join(",") || "-"} getDisplayMedia=${typeof navigator !== "undefined" && Boolean(navigator.mediaDevices?.getDisplayMedia)}`,

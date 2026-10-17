@@ -1055,7 +1055,11 @@ test("a stalled setup retries and hangup cancels a pending setup", async () => {
   await harness.instance.connect({ apiKey: "test-key" });
   const first = MockWebSocket.instances[0];
   first.onopen();
-  assert.deepEqual(JSON.parse(first.sent[0]).setup.contextWindowCompression, { slidingWindow: {} });
+  // Nén sớm hơn mặc định của Live API, nếu không phiên dài sẽ chậm dần theo context.
+  assert.deepEqual(JSON.parse(first.sent[0]).setup.contextWindowCompression, {
+    triggerTokens: 32_000,
+    slidingWindow: { targetTokens: 12_000 },
+  });
   assert.equal([...harness.timers.values()][0].ms, 20_000);
   await harness.retry(); // setup watchdog
   assert.equal(first.closed.code, 1000);
@@ -1147,7 +1151,10 @@ test("screen share replaces the camera in the uplink and survives a persona swit
   instance.captureAndSendVideoFrame();
   assert.ok(drawnSources.length >= 1, "the tick drew a frame");
   assert.ok(
-    drawnSources.every((src) => src.srcObject === instance.screenStream),
+    // Canvas tự vẽ lại chính nó để lấy chữ ký so khung; chỉ xét nguồn video thật.
+    drawnSources
+      .filter((src) => "srcObject" in src)
+      .every((src) => src.srcObject === instance.screenStream),
     "every sampled/uplinked frame is the screen, never the camera"
   );
   assert.equal(uplinkedFrames(ws) - framesBefore, 1, "exactly one frame uplinked per tick");
@@ -1233,6 +1240,28 @@ test("a downgrade notice stays visible after the degraded session connects", asy
   await second.onmessage({ data: JSON.stringify({ setupComplete: true }) });
   assert.equal(instance.status, "connected");
   assert.match(instance.notice, /phụ đề/, "the user still learns captions were turned off");
+  instance.disconnect();
+});
+
+test("màn hình đứng yên không gửi lại khung; đổi nội dung là gửi ngay", async () => {
+  const harness = createGeminiLiveHarness();
+  const { instance, setFrameLuma } = harness;
+  const ws = await openLiveSession(harness);
+  await instance.enableVideo();
+  instance.lastSpeechAt = 0;
+
+  setFrameLuma(120);
+  instance.captureAndSendVideoFrame();
+  const afterFirst = uplinkedFrames(ws);
+  assert.ok(afterFirst >= 1, "khung đầu luôn được gửi");
+
+  instance.captureAndSendVideoFrame();
+  assert.equal(uplinkedFrames(ws), afterFirst, "màn hình y nguyên thì không tốn thêm token");
+
+  setFrameLuma(40);
+  instance.captureAndSendVideoFrame();
+  assert.equal(uplinkedFrames(ws), afterFirst + 1, "màn hình đổi thì gửi ngay");
+
   instance.disconnect();
 });
 
