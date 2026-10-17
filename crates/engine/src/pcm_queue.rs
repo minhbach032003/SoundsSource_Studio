@@ -25,17 +25,23 @@ impl PcmQueue {
         let chunk_sample_cap = byte_chunk.len() / std::mem::size_of::<f32>();
 
         for chunk in samples.chunks(chunk_sample_cap) {
-            let byte_len = chunk.len() * std::mem::size_of::<f32>();
-            for (i, &sample) in chunk.iter().enumerate() {
+            // Ring buffer cắt theo byte. Chỉ đưa cho nó trọn mẫu, nếu không một f32 bị
+            // cắt đôi ở mép và mọi mẫu sau đều lệch byte — loa chỉ còn ra tiếng rè.
+            let room = self.inner.bytes_available_for_write() / std::mem::size_of::<f32>();
+            let take = chunk.len().min(room);
+            if take == 0 {
+                break;
+            }
+            for (i, &sample) in chunk[..take].iter().enumerate() {
                 let bytes = sample.to_ne_bytes();
                 byte_chunk[i * 4..(i + 1) * 4].copy_from_slice(&bytes);
             }
 
+            let byte_len = take * std::mem::size_of::<f32>();
             let accepted_bytes = self.inner.write(&byte_chunk[..byte_len]);
-            let accepted_samples = accepted_bytes / std::mem::size_of::<f32>();
-            written_samples += accepted_samples;
+            written_samples += accepted_bytes / std::mem::size_of::<f32>();
 
-            if accepted_bytes < byte_len {
+            if accepted_bytes < byte_len || take < chunk.len() {
                 break;
             }
         }
@@ -51,7 +57,13 @@ impl PcmQueue {
         let chunk_sample_cap = byte_chunk.len() / std::mem::size_of::<f32>();
 
         for chunk in out.chunks_mut(chunk_sample_cap) {
-            let byte_len = chunk.len() * std::mem::size_of::<f32>();
+            // Cũng vậy khi đọc: lấy lẻ byte sẽ bỏ lại nửa mẫu cho lần sau.
+            let have = self.inner.bytes_available_for_read() / std::mem::size_of::<f32>();
+            let take = chunk.len().min(have);
+            if take == 0 {
+                break;
+            }
+            let byte_len = take * std::mem::size_of::<f32>();
             let bytes_read = self.inner.read(&mut byte_chunk[..byte_len]);
             let samples_read = bytes_read / std::mem::size_of::<f32>();
 
@@ -62,9 +74,7 @@ impl PcmQueue {
             }
 
             read_samples += samples_read;
-            if bytes_read < byte_len {
-                // Pad the remaining chunk with silence
-                chunk[samples_read..].fill(0.0);
+            if samples_read < chunk.len() {
                 break;
             }
         }
@@ -101,5 +111,27 @@ mod tests {
         assert_eq!(&out[8..], &[0.0; 4], "underrun phải là im lặng, không phải rác");
         q.clear();
         assert_eq!(q.available(), 0);
+    }
+
+    #[test]
+    fn filling_the_queue_never_splits_a_sample_across_the_boundary() {
+        // Ring buffer đếm theo byte và giữ lại 1 byte để phân biệt đầy/rỗng, nên chỗ
+        // trống không phải bội số của 4. Ghi tràn mà cắt giữa một f32 thì mọi mẫu sau
+        // đều lệch byte và loa chỉ ra tiếng rè.
+        let q = PcmQueue::new(4);
+        let first: Vec<f32> = (1..=16).map(|v| v as f32).collect();
+        let accepted = q.push(&first);
+        assert_eq!(accepted % 2, 0, "phải nhận trọn khung stereo");
+
+        let mut out = vec![0.0f32; accepted];
+        assert_eq!(q.pop(&mut out), accepted);
+        assert_eq!(out, first[..accepted], "vòng đầu phải ra đúng mẫu đã ghi");
+
+        // Vòng hai là nơi lệch byte lộ ra: nó đọc tiếp từ chỗ mẫu bị cắt dở.
+        let second: Vec<f32> = (101..=116).map(|v| v as f32).collect();
+        let accepted = q.push(&second);
+        let mut out = vec![0.0f32; accepted];
+        assert_eq!(q.pop(&mut out), accepted);
+        assert_eq!(out, second[..accepted], "vòng sau vẫn phải nguyên vẹn, không lệch byte");
     }
 }
