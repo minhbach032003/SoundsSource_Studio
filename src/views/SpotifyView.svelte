@@ -185,7 +185,8 @@
                        bấm vào tên là phát cả playlist thay vì mở một màn luôn rỗng. -->
                   <button class="item-name" type="button" aria-label={`Phát playlist ${item.name}`} disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.play(item.uri)}><strong title={item.name}>{item.name}</strong><span>{item.artist || "Playlist"}</span></button>
                 {:else}<div class="item-name"><strong title={item.name}>{item.name}</strong><span title={item.artist}>{item.artist}</span></div><span class="duration">{time(item.duration_ms)}</span>{/if}
-                <button class="btn icon-button" type="button" aria-label={`Phát ${item.name}`} disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.play(item.uri)}><Play class="w-4 h-4" /></button>
+                <!-- Bài lẻ đi kèm cả trang đang xem làm hàng đợi; playlist tự có ngữ cảnh. -->
+                <button class="btn icon-button" type="button" aria-label={`Phát ${item.name}`} disabled={spotifyState.busy || !spotifyState.account?.device_id} onclick={() => spotifyState.kind === "playlists" ? spotifyState.play(item.uri) : spotifyState.playFromList(page?.items.map((t) => t.uri) ?? [], item.uri)}><Play class="w-4 h-4" /></button>
               </li>
             {/each}
           </ul>

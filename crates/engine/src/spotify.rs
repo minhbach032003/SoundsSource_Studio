@@ -425,6 +425,25 @@ impl SpotifyWeb {
         )
         .map(|_| ())
     }
+    /// Phát một bài kèm cả danh sách đang xem làm hàng đợi. Gửi mỗi một bài thì Spotify
+    /// phát xong là dừng, và nút tiếp / lùi không có gì để đi tới.
+    pub fn play_tracks(
+        &self,
+        uris: &[String],
+        start: &str,
+        position_ms: Option<u32>,
+    ) -> Result<(), String> {
+        let body = play_queue_body(uris, start, position_ms)?;
+        let device = self.device_id()?;
+        self.ensure_active(&device)?;
+        self.request(
+            Method::PUT,
+            "me/player/play",
+            &[("device_id", device)],
+            Some(body),
+        )
+        .map(|_| ())
+    }
     pub fn control(&self, action: &str) -> Result<(), String> {
         let (method, path) = match action {
             "play_pause" => {
@@ -641,6 +660,25 @@ fn parse_page(page: &Value, offset: u32, limit: u32, kind: &str) -> MusicPage {
     }
 }
 
+/// Thân lệnh phát cho một bài nằm trong danh sách đang xem.
+fn play_queue_body(uris: &[String], start: &str, position_ms: Option<u32>) -> Result<Value, String> {
+    // Spotify nhận tối đa 100 uri một lần; trang của app nhỏ hơn thế nhiều.
+    if uris.is_empty() || uris.len() > 100 {
+        return Err("Danh sách phát không hợp lệ.".into());
+    }
+    if !uris.iter().all(|uri| valid_uri(uri)) || !valid_uri(start) {
+        return Err("Invalid Spotify URI".into());
+    }
+    if !uris.iter().any(|uri| uri == start) {
+        return Err("Bài cần phát không nằm trong danh sách.".into());
+    }
+    let mut body = json!({ "uris": uris, "offset": { "uri": start } });
+    if let Some(position) = position_ms {
+        body["position_ms"] = json!(position);
+    }
+    Ok(body)
+}
+
 /// rust-sound tự phát nhạc, nên nó là đích mặc định; app Spotify trên máy chỉ là phương án dự phòng.
 fn default_device<'a>(devices: &'a [Device], local_name: &str) -> Option<&'a Device> {
     devices
@@ -659,7 +697,7 @@ fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> 
     let base = match status {
         401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
         403 => "Spotify không cho phép thao tác này. Kiểm tra Premium và User Management của Developer App.".to_string(),
-        404 => "Không thấy thiết bị Spotify sẵn sàng. Mở Spotify trên Mac, chọn thiết bị phát rồi thử lại.".to_string(),
+        404 => "Không có thiết bị nào đang phát. Chọn một bài để bắt đầu, rồi dùng nút tiếp / lùi.".to_string(),
         429 => format!(
             "Spotify giới hạn số yêu cầu. Thử lại sau {} giây.",
             retry_after.unwrap_or("30")
@@ -776,6 +814,19 @@ mod tests {
             refused.ends_with("[me/player/play]"),
             "phải nói rõ lệnh nào bị từ chối, nếu không thì không lần ra được: {refused}"
         );
+        let track = "spotify:track:6rqhFgbbKwnb9MLmUQDhG6".to_string();
+        let other = "spotify:track:0Hn2uAdwsZ2GfHF4yXU99z".to_string();
+        let queue = vec![track.clone(), other.clone()];
+        let body = play_queue_body(&queue, &other, Some(49_000)).unwrap();
+        assert_eq!(body["uris"][0], track, "cả danh sách phải đi cùng, không chỉ một bài");
+        assert_eq!(body["offset"]["uri"], other, "phải bắt đầu đúng bài được bấm");
+        assert_eq!(body["position_ms"], 49_000);
+        assert!(
+            play_queue_body(&queue, "spotify:track:6rqhFgbbKwnb9MLmUQDhG7", None).is_err(),
+            "bài không nằm trong danh sách thì Spotify từ chối, chặn sớm còn báo được"
+        );
+        assert!(play_queue_body(&[], &track, None).is_err());
+
         let blocked = api_error(403, "", None, "playlists/5lxcbIY30f9RX8x4zFVoZ5/items");
         assert!(
             blocked.contains("playlist của người khác") && !blocked.contains('['),

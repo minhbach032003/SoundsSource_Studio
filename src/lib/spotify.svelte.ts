@@ -225,6 +225,19 @@ class SpotifyState {
     finally { this.busy = false; }
   }
 
+  /// Phát một bài kèm cả danh sách đang xem, nếu không hết bài là Spotify dừng hẳn
+  /// và nút tiếp / lùi không có gì để đi tới.
+  async playFromList(uris: string[], start: string) {
+    if (this.busy) return;
+    this.busy = true;
+    this.error = null;
+    try {
+      await invoke("spotify_play_tracks", { uris, start, positionMs: null });
+      toastState.info("Đã gửi bài đến Spotify");
+    } catch (e) { this.error = String(e); }
+    finally { this.busy = false; }
+  }
+
   /// Spotify quên phiên phát khi không còn thiết bị nào hoạt động, nên rust-sound
   /// tự nhớ bài đang dở để mở app lên còn thấy lại nó.
   private readonly lastTrackKey = "rust_sound_spotify_last_track";

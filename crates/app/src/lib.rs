@@ -1,5 +1,5 @@
 pub mod spotify;
-use spotify::{get_spotify_spectrum, get_spotify_status, connect_spotify_audio, spotify_local_player, spotify_control, spotify_account, spotify_login, spotify_logout, spotify_browse, spotify_devices, spotify_select_device, spotify_play_uri, spotify_open_automation_settings, spotify_playback_login, spotify_playback_connected};
+use spotify::{get_spotify_spectrum, get_spotify_status, connect_spotify_audio, spotify_local_player, spotify_control, spotify_account, spotify_login, spotify_logout, spotify_browse, spotify_devices, spotify_select_device, spotify_play_uri, spotify_play_tracks, spotify_open_automation_settings, spotify_playback_login, spotify_playback_connected};
 pub use sound_core as core;
 pub use sound_engine as engine;
 
@@ -1919,6 +1919,7 @@ pub fn run() {
             spotify_devices,
             spotify_select_device,
             spotify_play_uri,
+            spotify_play_tracks,
             spotify_local_player,
             spotify_playback_login,
             spotify_playback_connected,
