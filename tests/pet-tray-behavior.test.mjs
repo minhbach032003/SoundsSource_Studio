@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-const production = ['src/lib/petPreferences.ts','src/lib/petTray.ts'].map(path =>
+const production = ['src/lib/petPreferences.ts','src/lib/petTrayTitle.ts','src/lib/petTray.ts'].map(path =>
   readFileSync(path,'utf8').replace(/^import .*;\n/gm,'').replaceAll('export ','')).join('\n');
 const controls = readFileSync('src/components/pet/PetDisplaySettings.svelte','utf8');
 const save = controls.slice(controls.indexOf('  async function save('),controls.indexOf('</script>'));

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
+  import { petMoodFor, splitPetSessions } from "@/lib/petMood";
   import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
@@ -35,20 +37,6 @@
     color: string;
   }
 
-  const IDLE_BOOST_LINES = [
-    "One clean diff can fix the whole afternoon.",
-    "Let's grill some bugs.",
-    "I miss you. Open a branch for me.",
-    "Tiny commit, tiny dopamine.",
-    "The build is quiet. Too quiet.",
-    "Ship something small. Future you is watching.",
-    "Your TODOs are pretending not to see us.",
-    "No agents running. The keyboard has entered standby drama.",
-    "Turn coffee into code. Carefully.",
-    "Open one file. Intimidate it professionally.",
-    "The repo is calm. Suspicious, but calm.",
-    "Refactor lightly. Leave with dignity.",
-  ];
 
   const isDesktop =
     typeof window !== "undefined" &&
@@ -57,17 +45,22 @@
 
   let petSlug = $state<string>("work-blue-cat");
   let petSize = $state(readPetPreferences().size);
-  $effect(() => subscribePetPreferences(() => { petSize = readPetPreferences().size; }));
+  let splitEnabled = $state(readPetPreferences().split);
+  $effect(() => subscribePetPreferences(() => {
+    petSize = readPetPreferences().size;
+    splitEnabled = readPetPreferences().split;
+  }));
   let resizeError = $state("");
   $effect(() => {
     const size = petSize;
+    const pets = Math.max(1, splitPets.length);
     if (!isDesktop) return;
     let active = true;
     (async () => {
       try {
         const { getCurrentWindow, LogicalSize } = await import("@tauri-apps/api/window");
         if (!active) return;
-        const bounds = petOverlayWindowSize(size);
+        const bounds = petOverlayWindowSize(size, pets);
         // setSize retains the saved logical top-left; no new window or routing changes.
         await getCurrentWindow().setSize(new LogicalSize(bounds.width, bounds.height));
         if (active) resizeError = "";
@@ -328,6 +321,10 @@
       ? activeSessions[carouselIndex % activeSessions.length]
       : topSession
   );
+
+  /// Split pet: mỗi agent đang bận một con pet riêng, thay vì một con xoay vòng qua
+  /// chúng. Rỗng nghĩa là giữ nguyên hành vi cũ — một con duy nhất.
+  const splitPets = $derived(splitPetSessions(activeSessions, splitEnabled));
 
   const mood = $derived<"idle" | "working" | "reading" | "waiting" | "done" | "celebrate" | "sleepy">(
     isInteracting || isCelebrating
@@ -657,12 +654,26 @@
         }
       }}
     >
-      <AgentPetSprite
-        slug={petSlug}
-        {mood}
-        size={petSize}
-        class="pet-silhouette cursor-pointer"
-      />
+      {#if splitPets.length > 1}
+        <!-- Một con cho mỗi agent đang bận, mỗi con mang tâm trạng của phiên nó đại diện. -->
+        <div class="flex items-end gap-3">
+          {#each splitPets as session (session.id)}
+            <AgentPetSprite
+              slug={petSlug}
+              mood={petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
+              size={petSize}
+              class="pet-silhouette cursor-pointer"
+            />
+          {/each}
+        </div>
+      {:else}
+        <AgentPetSprite
+          slug={petSlug}
+          {mood}
+          size={petSize}
+          class="pet-silhouette cursor-pointer"
+        />
+      {/if}
     </div>
 
     <!-- Right-Click Quick Care Menu & Size Switcher -->
