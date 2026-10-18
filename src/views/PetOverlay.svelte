@@ -688,21 +688,58 @@
         <!-- Một con cho mỗi agent đang bận, mỗi con mang tâm trạng của phiên nó đại diện. -->
         <div class="flex items-end gap-3">
           {#each splitPets as session (session.id)}
-            <AgentPetSprite
-              slug={petSlug}
-              mood={petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
-              size={petSize}
-              class="pet-silhouette cursor-pointer"
-            />
+            {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
+            <div class="relative flex items-center justify-center">
+              {#if sMood === "working" || sMood === "reading"}
+                <!-- Cozy ambient warm backlight underneath laptop -->
+                <div
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-60 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial from-amber-400/50 via-amber-500/25 to-transparent"
+                  style="width: {Math.round(petSize * 0.7)}px; height: {Math.round(petSize * 0.22)}px;"
+                  aria-hidden="true"
+                ></div>
+                <!-- Cute typing micro-sparkles -->
+                {#if motionEnabled && !reduceMotion}
+                  <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
+                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={10} class="text-amber-300 drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-2"><Sparkles size={8} class="text-teal-300 drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="text-amber-200 drop-shadow-sm" /></span>
+                  </div>
+                {/if}
+              {/if}
+              <AgentPetSprite
+                slug={petSlug}
+                mood={sMood}
+                size={petSize}
+                class="pet-silhouette cursor-pointer"
+              />
+            </div>
           {/each}
         </div>
       {:else}
-        <AgentPetSprite
-          slug={petSlug}
-          {mood}
-          size={petSize}
-          class="pet-silhouette cursor-pointer"
-        />
+        <div class="relative flex items-center justify-center">
+          {#if mood === "working" || mood === "reading"}
+            <!-- Cozy ambient warm backlight underneath laptop -->
+            <div
+              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-60 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial from-amber-400/50 via-amber-500/25 to-transparent"
+              style="width: {Math.round(petSize * 0.7)}px; height: {Math.round(petSize * 0.22)}px;"
+              aria-hidden="true"
+            ></div>
+            <!-- Cute typing micro-sparkles -->
+            {#if motionEnabled && !reduceMotion}
+              <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
+                <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={10} class="text-amber-300 drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-2"><Sparkles size={8} class="text-teal-300 drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="text-amber-200 drop-shadow-sm" /></span>
+              </div>
+            {/if}
+          {/if}
+          <AgentPetSprite
+            slug={petSlug}
+            {mood}
+            size={petSize}
+            class="pet-silhouette cursor-pointer"
+          />
+        </div>
       {/if}
     </div>
 
@@ -808,6 +845,62 @@
 <style>
   @media (prefers-reduced-motion: reduce) {
     .pet-reaction { transform: none; transition: none; }
+    .cozy-backlight { animation: none; opacity: 0.5; }
+    .cozy-sparkle { display: none; }
+  }
+
+  .cozy-backlight {
+    animation: cozyBacklightPulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes cozyBacklightPulse {
+    0%, 100% {
+      opacity: 0.45;
+      transform: translateX(-50%) scale(0.95);
+    }
+    50% {
+      opacity: 0.75;
+      transform: translateX(-50%) scale(1.05);
+    }
+  }
+
+  .cozy-sparkle {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .cozy-sparkle-1 {
+    left: 44%;
+    bottom: 24%;
+    animation: cozySparkleTwinkle 1.8s ease-in-out infinite;
+  }
+
+  .cozy-sparkle-2 {
+    left: 54%;
+    bottom: 26%;
+    animation: cozySparkleTwinkle 2.1s ease-in-out infinite 0.7s;
+  }
+
+  .cozy-sparkle-3 {
+    left: 49%;
+    bottom: 28%;
+    animation: cozySparkleTwinkle 1.9s ease-in-out infinite 1.3s;
+  }
+
+  @keyframes cozySparkleTwinkle {
+    0% {
+      opacity: 0;
+      transform: translateY(0) scale(0.6);
+    }
+    50% {
+      opacity: 0.9;
+      transform: translateY(-5px) scale(1.1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.5);
+    }
   }
 
   /* Follow each animated frame's alpha, not the rectangular sprite canvas.

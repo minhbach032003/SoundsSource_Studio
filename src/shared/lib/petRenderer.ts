@@ -140,7 +140,7 @@ export const PET_MOTION: Record<string, {
     rates: [6, 10, 10, 7, 10, 5, 5, 12, 5],
     restFrame: 7,
     pixel: true,
-    dynamics: { idleBreathSpeed: 0.45, idleBreathHeight: 0.7, workBobSpeed: 1.5, workBobHeight: 0.8, swayAngle: 0.45 },
+    dynamics: { idleBreathSpeed: 0.45, idleBreathHeight: 0.7, workBobSpeed: 1.5, workBobHeight: 0.8, swayAngle: 0.45, glowPulse: true },
   },
   "shinchan-3": {
     rates: [6, 12, 12, 9, 12, 5, 6, 11, 6],
@@ -190,7 +190,8 @@ export function drawPetFrame(
   r: Rect,
   slug: string,
   canvas = ctx.canvas,
-  dynamicsOffset: { offsetY: number; rotationDeg: number; squashY: number } = { offsetY: 0, rotationDeg: 0, squashY: 1 }
+  dynamicsOffset: { offsetY: number; rotationDeg: number; squashY: number; glow?: number } = { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 },
+  state: string = ""
 ): Rect {
   const { width, height } = canvas;
   const scale = Math.min(width / r.w, height / r.h);
@@ -220,6 +221,42 @@ export function drawPetFrame(
   }
 
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
+
+  // Subtle warm screen glow on paws/face for work-blue-cat in working/reading state
+  const sheetRow = img.naturalHeight ? Math.floor((r.y + 1) / (img.naturalHeight / ROWS)) : -1;
+  const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
+  if (
+    slug === "work-blue-cat" &&
+    isWorkOrRead &&
+    typeof ctx.save === "function" &&
+    typeof ctx.createRadialGradient === "function" &&
+    typeof ctx.beginPath === "function" &&
+    typeof ctx.arc === "function" &&
+    typeof ctx.fill === "function"
+  ) {
+    ctx.save();
+    const glowMult = dynamicsOffset.glow ?? 1;
+    const screenX = x + w * 0.48;
+    const screenY = y + h * 0.70;
+    const glowRadius = Math.max(w, h) * 0.45;
+
+    const grad = ctx.createRadialGradient(screenX, screenY, 2, screenX, screenY - h * 0.12, glowRadius);
+    const alphaBase = (state === "working" || sheetRow === 7) ? 0.24 : 0.18;
+    const alpha = alphaBase * glowMult;
+    grad.addColorStop(0, `rgba(254, 240, 199, ${alpha.toFixed(3)})`);
+    grad.addColorStop(0.35, `rgba(251, 211, 141, ${(alpha * 0.7).toFixed(3)})`);
+    grad.addColorStop(0.7, `rgba(167, 243, 208, ${(alpha * 0.35).toFixed(3)})`);
+    grad.addColorStop(1, "rgba(254, 240, 199, 0)");
+
+    if (typeof ctx.globalCompositeOperation === "string") {
+      ctx.globalCompositeOperation = "source-atop";
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY - h * 0.08, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   if (hasTransform) {
     ctx.restore();
@@ -279,7 +316,7 @@ export class PetRenderer {
   private lastTick = 0;
   private fps = 12;
   private phase = 0;
-  private prevPose = { offsetY: 0, rotationDeg: 0, squashY: 1 };
+  private prevPose = { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 };
   private transitionStart = 0;
   private transitionDuration = 0.22; // 220ms smooth C2 quintic hermite blend
   private lastRafTime: number | null = null;
@@ -481,11 +518,11 @@ export class PetRenderer {
     // Compute subpixel procedural dynamics for ultra-smooth 60fps motion
     const dynamicsOffset = this.computeDynamicsOffset();
 
-    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset);
+    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset, this.state);
     this.headroom = this.spriteRect.y / H;
   }
 
-  private computeRawStatePose(state: string): { offsetY: number; rotationDeg: number; squashY: number } {
+  private computeRawStatePose(state: string): { offsetY: number; rotationDeg: number; squashY: number; glow: number } {
     const dyn = PET_MOTION[this.slug]?.dynamics ?? PET_MOTION["work-blue-cat"]!.dynamics;
     const p = this.phase;
 
@@ -495,7 +532,7 @@ export class PetRenderer {
       const offsetY = breath * dyn.idleBreathHeight;
       const sway = Math.sin(p * 0.5) * (dyn.swayAngle * 0.4);
       const squashY = 1 + breath * 0.012;
-      return { offsetY, rotationDeg: sway, squashY };
+      return { offsetY, rotationDeg: sway, squashY, glow: 1 };
     }
 
     if (state === "working") {
@@ -504,14 +541,16 @@ export class PetRenderer {
       const offsetY = -bob * dyn.workBobHeight;
       const sway = Math.sin(p * 0.5) * dyn.swayAngle;
       const squashY = 1 + bob * 0.015;
-      return { offsetY, rotationDeg: sway, squashY };
+      const glow = dyn.glowPulse ? 0.75 + 0.25 * Math.sin(p * 2) : 1;
+      return { offsetY, rotationDeg: sway, squashY, glow };
     }
 
     if (state === "reading") {
       // Calm inspection: quiet head tilt, no typing bounce
       const sway = Math.sin(p * 0.5) * (dyn.swayAngle * 0.6);
       const breath = Math.sin(p);
-      return { offsetY: breath * (dyn.idleBreathHeight * 0.5), rotationDeg: sway, squashY: 1 };
+      const glow = dyn.glowPulse ? 0.85 + 0.15 * Math.sin(p) : 1;
+      return { offsetY: breath * (dyn.idleBreathHeight * 0.5), rotationDeg: sway, squashY: 1, glow };
     }
 
     if (state === "celebrate") {
@@ -520,15 +559,15 @@ export class PetRenderer {
       const offsetY = -jump * 2.8;
       const sway = Math.sin(p) * 1.5;
       const squashY = 1 + (0.5 - jump) * 0.03;
-      return { offsetY, rotationDeg: sway, squashY };
+      return { offsetY, rotationDeg: sway, squashY, glow: 1 };
     }
 
-    return { offsetY: 0, rotationDeg: 0, squashY: 1 };
+    return { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 };
   }
 
-  private computeDynamicsOffset(): { offsetY: number; rotationDeg: number; squashY: number } {
+  private computeDynamicsOffset(): { offsetY: number; rotationDeg: number; squashY: number; glow: number } {
     if (!this.animate || this.reducedMotion?.matches || !this.hasContinuousDynamics()) {
-      return { offsetY: 0, rotationDeg: 0, squashY: 1 };
+      return { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 };
     }
 
     const currentPose = this.computeRawStatePose(this.state);
@@ -540,10 +579,13 @@ export class PetRenderer {
       const u = Math.min(Math.max(elapsed / this.transitionDuration, 0), 1);
       // Quintic smoothstep: 6u^5 - 15u^4 + 10u^3 (zero 1st and 2nd derivatives at endpoints)
       const w = u * u * u * (u * (u * 6 - 15) + 10);
+      const prevGlow = this.prevPose.glow ?? 1;
+      const currGlow = currentPose.glow ?? 1;
       return {
         offsetY: this.prevPose.offsetY * (1 - w) + currentPose.offsetY * w,
         rotationDeg: this.prevPose.rotationDeg * (1 - w) + currentPose.rotationDeg * w,
         squashY: this.prevPose.squashY * (1 - w) + currentPose.squashY * w,
+        glow: prevGlow * (1 - w) + currGlow * w,
       };
     }
 

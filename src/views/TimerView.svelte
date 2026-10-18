@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { toastState } from "@/lib/toast.svelte";
-  import { googleAuthState } from "@/lib/googleAuth.svelte";
   import {
     googleCalendarState,
   } from "@/lib/googleCalendar.svelte";
@@ -35,6 +34,8 @@
     ArrowRight,
     RefreshCw,
     Video,
+    ExternalLink,
+    Unlink,
     Timer,
     ShieldCheck,
   } from "@lucide/svelte";
@@ -73,7 +74,7 @@
 
   let {
     status: initialStatus,
-    user: initialUser,
+    user: _user = null,
     screenLockEnabled: initialScreenLock,
     onToggleScreenLock: propOnToggleScreenLock,
     onSignInGoogle,
@@ -203,9 +204,13 @@
   const isWarning = $derived(status.phase === "warning");
   const isBreaking = $derived(status.phase === "breaking");
 
-  const currentUser = $derived(initialUser ?? googleAuthState.user);
   const calendarEvents = $derived(googleCalendarState.events);
   const isLoadingCalendar = $derived(googleCalendarState.isLoading);
+  const isCalendarConnected = $derived(googleCalendarState.isConnected);
+  const calendarEmail = $derived(googleCalendarState.accountEmail);
+  const lastSyncedTime = $derived(
+    googleCalendarState.lastSynced ? formatClockTime(googleCalendarState.lastSynced) : null
+  );
 
   const unifiedItems = $derived.by(() => {
     const calendarItems: TodoItem[] = calendarEvents.map((ev) => ({
@@ -638,26 +643,45 @@
 
   function handleFocusGoal(item: TodoItem) {
     activeGoalId = item.id;
-    if (isIdle && item.duration_minutes) {
-      handleSetDurations(item.duration_minutes * 60, status.break_duration);
+    if (item.duration_minutes && item.duration_minutes > 0) {
+      const clampedMinutes = Math.min(180, Math.max(1, item.duration_minutes));
+      if (isIdle) {
+        handleSetDurations(clampedMinutes * 60, status.break_duration);
+      }
     }
   }
 
-  // Google Calendar integrations
+  async function handleConnectCalendar() {
+    if (!isTauri() && onSignInGoogle) {
+      onSignInGoogle();
+      return;
+    }
+    const res = await googleCalendarState.login();
+    if (res.success) {
+      notify(
+        "success",
+        `Google Calendar connected (${googleCalendarState.events.length} events today)`
+      );
+    } else if (res.error) {
+      notify("error", res.error);
+    }
+  }
+
   async function handleSyncCalendar() {
-    const res = await googleCalendarState.syncCalendar(currentUser);
+    const res = await googleCalendarState.syncCalendar();
     if (res.success) {
       notify("success", `Google Calendar synced (${res.count} events today)`);
     } else {
-      notify("info", "Connect Google account to sync calendar");
+      notify("error", res.error || "Failed to sync Google Calendar");
     }
   }
 
-  function handleSignInGoogle() {
-    if (onSignInGoogle) {
-      onSignInGoogle();
-    } else {
-      googleAuthState.isLoginModalOpen = true;
+  async function handleDisconnectCalendar() {
+    const res = await googleCalendarState.disconnect();
+    if (res.success) {
+      notify("info", "Disconnected Google Calendar");
+    } else if (res.error) {
+      notify("error", res.error);
     }
   }
 
@@ -1075,30 +1099,59 @@
           </div>
 
           <!-- Google Calendar Sync Action / Status -->
-          <div class="flex items-center gap-2">
-            {#if currentUser}
+          <div class="flex items-center gap-1.5">
+            {#if isCalendarConnected}
+              <div class="flex items-center gap-1 text-[10px] text-(--muted) max-w-44 truncate">
+                {#if calendarEmail}
+                  <span class="truncate text-(--ink) font-medium" title={calendarEmail}>
+                    {calendarEmail}
+                  </span>
+                {/if}
+                {#if lastSyncedTime}
+                  <span class="text-(--muted) hidden sm:inline">
+                    ({lastSyncedTime})
+                  </span>
+                {/if}
+              </div>
+
               <button
                 type="button"
                 onclick={handleSyncCalendar}
                 disabled={isLoadingCalendar}
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/30 text-(--accent-text) text-[11px] font-semibold cursor-pointer transition-colors"
-                title="Sync events from Google Calendar"
+                class="flex items-center gap-1 px-2 py-1 rounded-lg bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/30 text-(--accent-text) text-[11px] font-semibold cursor-pointer transition-colors"
+                title="Sync Google Calendar events"
               >
                 <GoogleIcon class="w-3 h-3" />
                 <RefreshCw
                   class="w-3 h-3 {isLoadingCalendar ? 'animate-spin text-(--accent)' : ''}"
                 />
-                <span>{isLoadingCalendar ? "Syncing…" : "Sync Calendar"}</span>
+                <span>{isLoadingCalendar ? "Syncing…" : "Sync"}</span>
+              </button>
+
+              <button
+                type="button"
+                onclick={handleDisconnectCalendar}
+                disabled={isLoadingCalendar}
+                class="p-1 text-(--muted) hover:text-(--error) transition-colors rounded cursor-pointer"
+                title="Disconnect Google Calendar"
+              >
+                <Unlink class="w-3.5 h-3.5" />
               </button>
             {:else}
               <button
                 type="button"
-                onclick={handleSignInGoogle}
-                class="flex items-center gap-1 px-2 py-1 rounded-lg bg-(--surface) hover:bg-(--paper) text-(--ink) text-[11px] border border-(--line) cursor-pointer transition-colors"
-                title="Sign in with Google to sync calendar"
+                onclick={handleConnectCalendar}
+                disabled={isLoadingCalendar}
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-(--surface) hover:bg-(--paper) text-(--ink) text-[11px] border border-(--line) cursor-pointer transition-colors"
+                title="Connect Google Calendar"
               >
                 <GoogleIcon class="w-3 h-3" />
-                <span>Connect Calendar</span>
+                {#if isLoadingCalendar}
+                  <RefreshCw class="w-3 h-3 animate-spin text-(--accent)" />
+                  <span>Connecting…</span>
+                {:else}
+                  <span>Connect Calendar</span>
+                {/if}
               </button>
             {/if}
 
@@ -1151,7 +1204,7 @@
         </div>
 
         <!-- Guest Connection Prompt Banner if not logged in -->
-        {#if !currentUser}
+        {#if !isCalendarConnected}
           <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-3 mb-3 shrink-0">
             <div class="flex items-center gap-2.5 min-w-0">
               <div class="w-7 h-7 rounded-lg bg-(--accent)/15 border border-(--accent)/30 flex items-center justify-center shrink-0">
@@ -1169,11 +1222,12 @@
 
             <button
               type="button"
-              onclick={handleSignInGoogle}
+              onclick={handleConnectCalendar}
+              disabled={isLoadingCalendar}
               class="btn btn-primary h-7 text-[11px] shrink-0 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
             >
               <GoogleIcon class="w-3 h-3" />
-              <span>Connect</span>
+              <span>{isLoadingCalendar ? "Connecting…" : "Connect"}</span>
             </button>
           </div>
         {/if}
@@ -1268,7 +1322,9 @@
                 </p>
                 <p class="text-[11px] text-(--muted) mt-1 max-w-xs m-0">
                   {activeFilter === "calendar"
-                    ? "Kết nối tài khoản Google để tự động đồng bộ lịch hẹn."
+                    ? (!isCalendarConnected
+                        ? "Kết nối tài khoản Google để tự động đồng bộ lịch hẹn."
+                        : "Hôm nay không có cuộc hẹn hoặc sự kiện nào trong lịch.")
                     : "Thêm công việc vào ô phía trên để bắt đầu phiên tập trung."}
                 </p>
               </div>
@@ -1288,7 +1344,8 @@
                 <div class="flex items-center gap-2.5 min-w-0 flex-1">
                   <button
                     type="button"
-                    onclick={() => {
+                    onclick={(e) => {
+                      e.stopPropagation();
                       if (isGCal) {
                         handleToggleCalendarEvent(item.id);
                       } else {
@@ -1307,7 +1364,19 @@
                     {/if}
                   </button>
 
-                  <div class="min-w-0 flex-1">
+                  <div
+                    class="min-w-0 flex-1 cursor-pointer"
+                    onclick={() => handleFocusGoal(item)}
+                    role="button"
+                    tabindex="0"
+                    onkeydown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleFocusGoal(item);
+                      }
+                    }}
+                    title="Focus on this event in the timer"
+                  >
                     <div class="flex items-center gap-1.5 flex-wrap">
                       {#if isGCal}
                         <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-(--accent)/15 border border-(--accent)/30 text-[9px] font-semibold text-(--accent-text)">
@@ -1346,12 +1415,14 @@
                         <a
                           href={item.hangout_link}
                           target="_blank"
-                          rel="noreferrer"
-                          class="text-(--success) hover:opacity-80 flex items-center gap-0.5 transition-colors font-sans text-[10px]"
+                          rel="noopener noreferrer"
+                          onclick={(e) => e.stopPropagation()}
+                          class="text-(--success) hover:opacity-80 inline-flex items-center gap-1 transition-colors font-sans text-[10px] font-medium px-1.5 py-0.2 rounded bg-(--success)/10 border border-(--success)/25"
                           title="Open Google Meet link"
                         >
                           <Video class="w-3 h-3" />
                           <span>Meet</span>
+                          <ExternalLink class="w-2.5 h-2.5 opacity-80" />
                         </a>
                       {/if}
                     </div>
@@ -1376,7 +1447,8 @@
 
                   <button
                     type="button"
-                    onclick={() => {
+                    onclick={(e) => {
+                      e.stopPropagation();
                       if (isGCal) {
                         handleDeleteCalendarEvent(item.id);
                       } else {
@@ -1501,7 +1573,7 @@
             <span>Session Timeline</span>
           </div>
           <span class="text-(--ink) font-mono text-[11px] font-semibold">
-            {nowClockStr} ➔ {expectedEndClockStr}
+            {nowClockStr} → {expectedEndClockStr}
           </span>
         </div>
 
@@ -1545,7 +1617,7 @@
               Focus Session ({modalStudyMinutes}m)
             </span>
             <span class="font-bold">
-              {modalStartTime} ➔ {modalEndTime}
+              {modalStartTime} → {modalEndTime}
             </span>
           </div>
 
@@ -1556,7 +1628,7 @@
               Rest ({modalBreakVal}{breakUnit})
             </span>
             <span class="font-bold">
-              {modalEndTime} ➔ {addMinutesToTime(
+              {modalEndTime} → {addMinutesToTime(
                 modalEndTime,
                 breakUnit === "min" ? modalBreakVal : 1
               )}

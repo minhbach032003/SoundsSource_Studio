@@ -142,6 +142,10 @@ _Avoid_: Disabled, sleep
 An interactive pixel/vector desktop companion with focus level progression, token burning, and sound interactions.
 _Avoid_: Avatar widget, mascot
 
+**Classic Indie Cozy Cat**:
+The refined, high-detail pixel art archetype for `work-blue-cat`, featuring dual-tier amber pupils, sage-green cable knit textures, and soft screen luminescence.
+_Avoid_: Generic cat sprite, low-res cat
+
 **Break Scrim**:
 The full-screen lock overlay enforcing scheduled rest intervals during deep work sessions.
 _Avoid_: Screen shield, lockscreen overlay
