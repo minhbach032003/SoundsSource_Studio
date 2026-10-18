@@ -278,8 +278,8 @@ impl SpotifyWeb {
         body: Option<Value>,
     ) -> Result<Value, String> {
         // Paths are constructed internally. Never accept a URL supplied by the webview.
-        for attempt in 0..2 {
-            let token = self.access_token(attempt == 1)?;
+        for attempt in 0..3 {
+            let token = self.access_token(attempt > 0)?;
             let mut request = self
                 .client
                 .request(method.clone(), format!("{API}{path}"))
@@ -294,6 +294,11 @@ impl SpotifyWeb {
                 .map_err(|_| "Không kết nối được Spotify. Kiểm tra mạng rồi thử lại.")?;
             let status = response.status();
             if status == StatusCode::UNAUTHORIZED && attempt == 0 {
+                continue;
+            }
+            // Spotify Web API đôi khi trả 502/503/504 thoáng qua khi giao tiếp với cluster/device. Thử lại sau ít mili-giây.
+            if status.is_server_error() && attempt < 2 {
+                std::thread::sleep(Duration::from_millis(150 * (attempt as u64 + 1)));
                 continue;
             }
             if !status.is_success() {
@@ -755,6 +760,7 @@ fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> 
         401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
         403 => "Spotify không cho phép thao tác này. Kiểm tra Premium và User Management của Developer App.".to_string(),
         404 => "Không có thiết bị nào đang phát. Chọn một bài để bắt đầu, rồi dùng nút tiếp / lùi.".to_string(),
+        502 | 503 | 504 => "Máy chủ Spotify tạm thời gián đoạn (Bad Gateway / Timeout). Hãy thử lại hoặc bấm phát lại bài.".to_string(),
         429 => format!(
             "Spotify giới hạn số yêu cầu. Thử lại sau {} giây.",
             retry_after.unwrap_or("30")
@@ -910,6 +916,7 @@ mod tests {
             "giới hạn của Spotify phải nói bằng tiếng người, không ném endpoint ra: {blocked}"
         );
         assert!(api_error(429, "not json", Some("12"), "me/player").contains("sau 12 giây"));
+        assert!(api_error(502, r#"{"error":{"message":"Bad gateway"}}"#, None, "me/player/play").contains("Máy chủ Spotify tạm thời gián đoạn"));
         assert!(
             tokens_from_response(
                 TokenResponse {
