@@ -156,7 +156,7 @@
   // Events & Modal
   let events = $state<PetEvent[]>(INITIAL_EVENTS);
   let isResetModalOpen = $state<boolean>(false);
-  let activeViewTab = $state<"cockpit" | "gallery" | "stream" | "socket">("cockpit");
+  let activeViewTab = $state<"cockpit" | "gallery" | "animations" | "stream" | "socket">("cockpit");
 
   // Read saved pet slug from localStorage on mount
   $effect(() => {
@@ -593,7 +593,7 @@
         : 'text-(--muted) hover:text-(--ink)'}"
     >
       <Bot class="w-3.5 h-3.5 text-(--accent-text)" />
-      Companion Cockpit
+      Companion
     </button>
     <button
       type="button"
@@ -604,6 +604,16 @@
     >
       <Sparkles class="w-3.5 h-3.5 text-(--warning)" />
       Pet Gallery (7)
+    </button>
+    <button
+      type="button"
+      onclick={() => (activeViewTab = "animations")}
+      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'animations'
+        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
+        : 'text-(--muted) hover:text-(--ink)'}"
+    >
+      <Award class="w-3.5 h-3.5 text-(--accent-text)" />
+      Animation Bindings
     </button>
     <button
       type="button"
@@ -645,6 +655,15 @@
       onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
     />
 
+  <!-- TAB: ANIMATIONS BINDING INSPECTOR -->
+  {:else if activeViewTab === "animations"}
+    <PetAnimationPicker
+      slug={selectedPet}
+      onBindingChange={(state, clipIdx) =>
+        toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`)
+      }
+    />
+
   <!-- TAB: FULL ACTIVITY STREAM VIEW -->
   {:else if activeViewTab === "stream"}
     <PetActivityStream
@@ -676,23 +695,23 @@
       onToggleHook={handleToggleHook}
     />
 
-  <!-- MAIN COCKPIT VIEW (Hero Companion Stage & Fluid Split) -->
+  <!-- MAIN COMPANION VIEW (Focused, Studio-Grade Hero & Consolidated Sidebar) -->
   {:else}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-      <!-- Left Column (lg:col-span-7): Hologram Stage & Vitals Cockpit -->
-      <div class="lg:col-span-7 flex flex-col gap-4.5">
-        <!-- Main Companion Hologram Stage -->
+      <!-- Left Column (lg:col-span-7): Clean Companion Stage & Vitals -->
+      <div class="lg:col-span-7 flex flex-col gap-4">
+        <!-- Main Companion Stage -->
         <div class="flex flex-col items-center p-5 sm:p-6 panel relative overflow-hidden gap-3">
-          <!-- Ambient Background Aura -->
+          <!-- Subtle Glow Backdrop -->
           <div
-            class="absolute inset-0 rounded-full blur-3xl transition-all duration-1000 pointer-events-none opacity-40 {audioReactive
-              ? 'bg-linear-to-tr from-rose-500/25 via-pink-500/15 to-purple-500/20 animate-pulse'
+            class="absolute inset-0 rounded-full blur-3xl pointer-events-none opacity-20 {audioReactive
+              ? 'bg-linear-to-tr from-rose-500/20 via-pink-500/10 to-purple-500/15'
               : 'bg-rose-500/10'}"
           ></div>
 
-          <!-- Top Row: Pet Selector Dropdown & Streak Badge -->
+          <!-- Top Row: Pet Selector Dropdown & Switcher -->
           <div class="flex items-center justify-between w-full mb-1 gap-2 relative z-10 shrink-0">
-            <div class="w-64 min-w-0">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
               <select
                 bind:value={selectedPet}
                 onchange={() => {
@@ -702,12 +721,19 @@
                   } catch {}
                   toastState.info(`Switched active companion to ${selectedPet}`);
                 }}
-                class="field w-full text-xs h-8.5 rounded-lg"
+                class="field text-xs h-8.5 rounded-lg max-w-60"
               >
                 {#each INSTALLED_PETS as pet}
                   <option value={pet.id}>{pet.name} ({pet.tag})</option>
                 {/each}
               </select>
+              <button
+                type="button"
+                onclick={() => (activeViewTab = "gallery")}
+                class="btn btn-ghost h-8 text-[11px] px-2 text-(--accent-text) border border-(--line)"
+              >
+                Gallery…
+              </button>
             </div>
 
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--paper) border border-(--line) text-(--warning) text-xs font-semibold shadow-xs">
@@ -716,50 +742,49 @@
             </div>
           </div>
 
-          <!-- Interactive Speech Bubble -->
-          <div class="relative max-w-lg w-full my-2 z-10 shrink-0">
+          <!-- Interactive Speech / Context Bubble -->
+          <div class="relative max-w-lg w-full my-1 z-10 shrink-0">
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               onclick={() => (currentQuoteIndex = (currentQuoteIndex + 1) % activeQuotes.length)}
-              class="relative bg-(--paper) border border-(--line) rounded-2xl p-3 px-4 shadow-sm backdrop-blur-md cursor-pointer hover:border-(--focus) transition-all text-center group"
+              class="relative bg-(--paper) border border-(--line) rounded-2xl p-2.5 px-3.5 shadow-sm cursor-pointer hover:border-(--focus) transition-all text-center group"
               title="Click companion to hear next thought"
             >
               <div class="flex items-center justify-center gap-2">
-                <Sparkles class="w-3.5 h-3.5 text-(--accent-text) shrink-0 animate-spin" style="animation-duration: 8s;" />
+                <Sparkles class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
                 <p class="text-xs font-medium text-(--ink) m-0 group-hover:text-(--accent-text) transition-colors">
                   "{liveBubbleMessage}"
                 </p>
               </div>
-              <!-- Speech arrow tail -->
-              <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-(--paper) border-r border-b border-(--line) transform rotate-45"></div>
+              <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-(--paper) border-r border-b border-(--line) transform rotate-45"></div>
             </div>
           </div>
 
-          <!-- Character Stage & Authentic Animated Pixel Sprite -->
-          <div class="relative w-full flex-1 flex flex-col items-center justify-center select-none py-2 z-10">
+          <!-- Character Stage & Crisp Animated Sprite -->
+          <div class="relative w-full flex-1 flex flex-col items-center justify-center select-none py-3 z-10">
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               onclick={handlePetAction}
-              class="relative flex flex-col items-center justify-center cursor-pointer transition-transform duration-300 {isInteracting
-                ? 'scale-110'
-                : 'hover:scale-105'}"
-              title="Click companion to interact!"
+              class="relative flex flex-col items-center justify-center cursor-pointer transition-transform duration-200 {isInteracting
+                ? 'scale-105'
+                : 'hover:scale-102'}"
+              title="Click companion to pet!"
             >
               <AgentPetSprite
                 slug={selectedPet}
                 mood={currentMood}
-                size={165}
+                size={160}
               />
 
-              <!-- Status Micro-Badge -->
-              <span class="mt-2 px-3 py-1 rounded-full text-[10px] font-bold bg-(--paper) border border-(--line) text-(--ink) shadow-md flex items-center gap-1.5">
+              <!-- Status Pill -->
+              <span class="mt-2.5 px-3 py-0.5 rounded-full text-[10px] font-bold bg-(--paper) border border-(--line) text-(--ink) shadow-xs flex items-center gap-1.5">
                 <span
                   class="w-1.5 h-1.5 rounded-full {currentMood === 'working'
-                    ? 'bg-(--success) animate-ping'
+                    ? 'bg-(--success)'
                     : currentMood === 'waiting'
-                    ? 'bg-(--warning) animate-bounce'
+                    ? 'bg-(--warning)'
                     : 'bg-(--accent)'}"
                 ></span>
                 <span>
@@ -772,95 +797,69 @@
                   {:else if topActiveSession}
                     {topActiveSession.agent_kind.toUpperCase()} ({topActiveSession.state})
                   {:else}
-                    Coding Companion (Active)
+                    Coding Companion (Ready)
                   {/if}
                 </span>
               </span>
             </div>
           </div>
 
-          <!-- Tactical Pet Care Action Dock: Pet, Feed, Sleep, Celebrate -->
-          <div class="flex flex-wrap items-center justify-center gap-2 pt-3.5 mt-2 border-t border-(--line) w-full relative z-10">
-            <!-- 1. Pet -->
+          <!-- Tactical Care Action Dock -->
+          <div class="flex flex-wrap items-center justify-center gap-2 pt-3 mt-1 border-t border-(--line) w-full relative z-10">
             <button
               type="button"
               onclick={handlePetAction}
-              class="btn btn-primary h-8 px-3.5 text-xs font-semibold shadow-sm"
+              class="btn btn-primary h-8 px-3.5 text-xs font-semibold shadow-xs"
               title="Pet companion (+15 XP, Mood Boost)"
             >
               <Sparkles class="w-3.5 h-3.5 text-(--accent-ink)" />
-              <span>Pet Companion</span>
+              <span>Pet</span>
             </button>
-
-            <!-- 2. Feed -->
             <button
               type="button"
               onclick={handleFeedAction}
               class="btn h-8 px-3.5 text-xs font-semibold"
-              title="Feed meal treat (+20 XP, Satisfy Hunger)"
+              title="Feed treat (+20 XP, Satisfy Hunger)"
             >
               <Utensils class="w-3.5 h-3.5 text-(--success)" />
-              <span>Feed (+20 XP)</span>
+              <span>Feed</span>
             </button>
-
-            <!-- 3. Sleep -->
             <button
               type="button"
               onclick={handleSleepAction}
               class="btn btn-ghost h-8 px-3.5 text-xs font-semibold border border-(--line)"
-              title="Power nap meditation (+10 XP, Rest Energy)"
+              title="Rest meditation (+10 XP, Rest Energy)"
             >
               <Moon class="w-3.5 h-3.5 text-(--accent-text)" />
-              <span>Sleep (+10 XP)</span>
+              <span>Rest</span>
             </button>
-
-            <!-- 4. Celebrate -->
             <button
               type="button"
               onclick={handleCelebrateAction}
               class="btn h-8 px-3.5 text-xs font-semibold"
-              title="Celebrate coding milestone (+25 XP, Boost Focus)"
+              title="Celebrate milestone (+25 XP)"
             >
               <PartyPopper class="w-3.5 h-3.5 text-(--warning)" />
               <Coffee class="w-3 h-3 text-(--warning)" />
-              <span>Celebrate (+25 XP)</span>
+              <span>Celebrate</span>
             </button>
           </div>
         </div>
 
-        <!-- Embedded Pet Gallery Showcase -->
-        <PetGallery
-          bind:selectedPet
-          {careState}
-          onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
-        />
-
-        <!-- Interactive Animations Clip Inspector & Binding Panel -->
-        <PetAnimationPicker
-          slug={selectedPet}
-          onBindingChange={(state, clipIdx) =>
-            toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`)
-          }
-        />
-
-        <!-- Progression Bar & Vitals Cockpit -->
-        <div class="panel p-4 sm:p-5 shadow-sm space-y-3.5 shrink-0">
+        <!-- Compact Progression & Vitals Panel -->
+        <div class="panel p-4 sm:p-5 shadow-sm space-y-3.5">
           <!-- Level & XP Progression Bar -->
           <div class="bg-(--paper) border border-(--line) rounded-xl p-3 px-3.5">
             <div class="flex items-center justify-between text-xs mb-1.5">
               <div class="flex items-center gap-2">
-                <div
-                  class="w-6 h-6 rounded-lg flex items-center justify-center border {stageConfig.bg} {stageConfig.border}"
-                >
+                <div class="w-6 h-6 rounded-lg flex items-center justify-center border {stageConfig.bg} {stageConfig.border}">
                   <StageIcon class="w-3.5 h-3.5 {stageConfig.text}" />
                 </div>
                 <div class="flex items-center gap-1.5">
                   <span class="font-bold text-(--ink) text-xs">
                     Lv {careState.display_level}
                   </span>
-                  <span
-                    class="px-2 py-0.5 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}"
-                  >
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}">
                     {careState.stage_name}
                   </span>
                 </div>
@@ -895,11 +894,11 @@
             </div>
           </div>
 
-          <!-- 4 Core Vitals Grid: Energy, Mood, Focus, Hunger -->
+          <!-- 4 Core Vitals Grid -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <!-- 1. Energy -->
-            <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
+              <div class="flex items-center justify-between text-[11px] mb-1">
                 <span class="text-(--muted) flex items-center gap-1 font-medium">
                   <Zap class="w-3 h-3 text-(--warning)" />
                   Energy
@@ -907,16 +906,13 @@
                 <span class="font-semibold text-(--ink) tabular-nums">{petEnergy}%</span>
               </div>
               <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-amber-400 rounded-full transition-all duration-300"
-                  style="width: {petEnergy}%;"
-                ></div>
+                <div class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: {petEnergy}%;"></div>
               </div>
             </div>
 
             <!-- 2. Mood -->
-            <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
+              <div class="flex items-center justify-between text-[11px] mb-1">
                 <span class="text-(--muted) flex items-center gap-1 font-medium">
                   <Heart class="w-3 h-3 text-(--accent-text)" />
                   Mood
@@ -924,16 +920,13 @@
                 <span class="font-semibold text-(--ink) tabular-nums">{petMood}%</span>
               </div>
               <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-rose-400 rounded-full transition-all duration-300"
-                  style="width: {petMood}%;"
-                ></div>
+                <div class="h-full bg-rose-400 rounded-full transition-all duration-300" style="width: {petMood}%;"></div>
               </div>
             </div>
 
             <!-- 3. Focus -->
-            <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
+              <div class="flex items-center justify-between text-[11px] mb-1">
                 <span class="text-(--muted) flex items-center gap-1 font-medium">
                   <Activity class="w-3 h-3 text-(--accent-text)" />
                   Focus
@@ -941,16 +934,13 @@
                 <span class="font-semibold text-(--ink) tabular-nums">{petFocus}%</span>
               </div>
               <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-rose-400 rounded-full transition-all duration-300"
-                  style="width: {petFocus}%;"
-                ></div>
+                <div class="h-full bg-rose-400 rounded-full transition-all duration-300" style="width: {petFocus}%;"></div>
               </div>
             </div>
 
-            <!-- 4. Hunger Bar -->
-            <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1.5">
+            <!-- 4. Hunger -->
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
+              <div class="flex items-center justify-between text-[11px] mb-1">
                 <span class="text-(--muted) flex items-center gap-1 font-medium">
                   <Fish class="w-3 h-3 text-(--success)" />
                   Hunger
@@ -973,58 +963,41 @@
             </div>
           </div>
 
-          <!-- Daily Feeding & Work Activity Ledger -->
-          <div class="p-3 rounded-xl bg-(--paper) border border-(--line) space-y-2 text-xs">
-            <div class="flex items-center justify-between text-[11px] pb-1.5 border-b border-(--line)">
-              <span class="text-(--muted) flex items-center gap-1.5 font-medium">
-                <Flame class="w-3.5 h-3.5 text-(--warning)" />
-                Daily Feeding & Work Activity
+          <!-- Collapsible Progress Details & Achievements -->
+          <details class="bg-(--paper) border border-(--line) rounded-xl p-3 text-xs group">
+            <summary class="font-semibold text-(--ink) flex items-center justify-between cursor-pointer select-none">
+              <span class="flex items-center gap-1.5">
+                <Trophy class="w-3.5 h-3.5 text-(--warning)" />
+                <Award class="w-3 h-3 text-(--accent-text)" />
+                Achievements & Work Ledger
               </span>
-              <span class="font-mono text-(--success) font-semibold text-[10px]">
-                {careState.streak_days} Day Streak
+              <span class="text-(--muted) text-[10px] font-mono">
+                {careState.unlocked_achievements.length}/{ACHIEVEMENTS_METADATA.length} Unlocked
               </span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+            </summary>
+
+            <!-- Ledger stats -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] mt-3 pt-2.5 border-t border-(--line)">
               <div>
                 <span class="text-(--muted) block">Tokens Today</span>
-                <span class="font-mono font-semibold text-(--ink)">
-                  {careState.tokens_today.toLocaleString()}
-                </span>
+                <span class="font-mono font-semibold text-(--ink)">{careState.tokens_today.toLocaleString()}</span>
               </div>
               <div>
                 <span class="text-(--muted) block">Meals Today</span>
-                <span class="font-mono font-semibold text-(--ink)">
-                  {careState.meals_today} sessions
-                </span>
+                <span class="font-mono font-semibold text-(--ink)">{careState.meals_today}</span>
               </div>
               <div>
                 <span class="text-(--muted) block">Lifetime Tokens</span>
-                <span class="font-mono font-semibold text-(--ink)">
-                  {careState.total_tokens.toLocaleString()}
-                </span>
+                <span class="font-mono font-semibold text-(--ink)">{careState.total_tokens.toLocaleString()}</span>
               </div>
               <div>
                 <span class="text-(--muted) block">Lifetime Meals</span>
-                <span class="font-mono font-semibold text-(--ink)">
-                  {careState.total_meals} sessions
-                </span>
+                <span class="font-mono font-semibold text-(--ink)">{careState.total_meals}</span>
               </div>
             </div>
-          </div>
 
-          <!-- Achievements Showcase -->
-          <div class="p-3 rounded-xl bg-(--paper) border border-(--line) space-y-2 text-xs">
-            <div class="flex items-center justify-between text-[11px] pb-1.5 border-b border-(--line)">
-              <span class="text-(--muted) flex items-center gap-1.5 font-medium">
-                <Trophy class="w-3.5 h-3.5 text-(--warning)" />
-                <Award class="w-3 h-3 text-(--accent-text)" />
-                Achievements Showcase
-              </span>
-              <span class="text-(--muted) font-mono text-[10px]">
-                {careState.unlocked_achievements.length} / {ACHIEVEMENTS_METADATA.length} Unlocked
-              </span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <!-- Achievements grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-3 pt-2.5 border-t border-(--line)">
               {#each ACHIEVEMENTS_METADATA as ach}
                 {@const isUnlocked = careState.unlocked_achievements.includes(ach.id)}
                 {@const AchIcon = ach.icon}
@@ -1032,7 +1005,7 @@
                   class="p-2 rounded-lg border text-center transition-all flex flex-col items-center gap-1 {isUnlocked
                     ? 'bg-(--surface) border-(--line) text-(--warning) shadow-xs'
                     : 'bg-(--paper) border-(--line) text-(--muted) opacity-40'}"
-                  title="{ach.name}: {ach.description} ({isUnlocked ? 'Unlocked' : 'Locked'})"
+                  title="{ach.name}: {ach.description}"
                 >
                   <AchIcon class="w-3.5 h-3.5 {isUnlocked ? 'text-(--warning)' : 'text-(--muted)'}" />
                   <span class="text-[9px] font-semibold truncate w-full block">
@@ -1041,40 +1014,90 @@
                 </div>
               {/each}
             </div>
-          </div>
+          </details>
         </div>
       </div>
 
-      <!-- Right Column (lg:col-span-5): Socket Diagnostics & Real-Time Console -->
-      <div class="lg:col-span-5 flex flex-col gap-4.5">
-        <!-- Socket Panel -->
-        <PetSocketPanel
-          {agentSessions}
-          {agentIntegrations}
-          {showDesktopOverlay}
-          {audioReactive}
-          {focusTimerSync}
-          {activityTheme}
-          onToggleDesktopOverlay={handleToggleDesktopOverlay}
-          onToggleAudioReactive={() => {
-            audioReactive = !audioReactive;
-            toastState.info(audioReactive ? "Audio-reactive rhythm enabled" : "Audio-reactive rhythm paused");
-          }}
-          onToggleFocusTimerSync={() => {
-            focusTimerSync = !focusTimerSync;
-            toastState.info(focusTimerSync ? "Break timer sync activated" : "Break timer sync disabled");
-          }}
-          onActivityThemeChange={handleActivityThemeChange}
-          onSimulatePing={handleSimulatePing}
-          onDismissSession={handleDismissSession}
-          onToggleHook={handleToggleHook}
-        />
+      <!-- Right Column (lg:col-span-5): Active Sessions & Recent Activity -->
+      <div class="lg:col-span-5 flex flex-col gap-4">
+        <!-- Active Sessions Quick Monitor -->
+        <div class="panel p-4 sm:p-5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-(--line)">
+            <div class="flex items-center gap-2">
+              <Radio class="w-4 h-4 text-(--accent-text)" />
+              <h4 class="text-xs font-bold text-(--ink) m-0">Connected Sessions</h4>
+            </div>
+            <button
+              type="button"
+              onclick={() => (activeViewTab = "socket")}
+              class="text-[11px] text-(--accent-text) hover:underline"
+            >
+              Manage Hooks…
+            </button>
+          </div>
 
-        <!-- Activity Stream -->
-        <PetActivityStream
-          {events}
-          onSimulatePing={handleSimulatePing}
-        />
+          {#if agentSessions.length === 0}
+            <div class="text-center py-6 text-xs text-(--muted)">
+              No active agent sessions. Start Pi, Claude, or Codex to stream events!
+            </div>
+          {:else}
+            <div class="space-y-2">
+              {#each agentSessions as session (session.id)}
+                <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-xs">
+                  <div class="min-w-0 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-ping' : session.state === 'waiting' ? 'bg-amber-400' : 'bg-slate-400'}"></span>
+                    <div class="truncate">
+                      <span class="font-bold text-(--ink)">{session.agent_kind.toUpperCase()}</span>
+                      <span class="text-[10px] text-(--muted) ml-1 font-mono">{session.project || "workspace"}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onclick={() => handleDismissSession(session.id)}
+                    class="btn btn-ghost h-6 text-[10px] px-1.5 text-(--muted) hover:text-(--ink)"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Recent Activity Feed Preview -->
+        <div class="panel p-4 sm:p-5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-(--line)">
+            <div class="flex items-center gap-2">
+              <Terminal class="w-4 h-4 text-(--success)" />
+              <h4 class="text-xs font-bold text-(--ink) m-0">Recent Event Stream</h4>
+            </div>
+            <button
+              type="button"
+              onclick={() => (activeViewTab = "stream")}
+              class="text-[11px] text-(--accent-text) hover:underline"
+            >
+              Full Stream…
+            </button>
+          </div>
+
+          {#if events.length === 0}
+            <div class="text-center py-6 text-xs text-(--muted)">
+              No recent events logged yet.
+            </div>
+          {:else}
+            <div class="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+              {#each events.slice(0, 6) as event (event.id)}
+                <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[11px]">
+                  <div class="min-w-0 flex items-center gap-2">
+                    <span class="badge text-[9px] px-1 py-0">{event.event}</span>
+                    <span class="text-(--ink) truncate font-mono">{event.message}</span>
+                  </div>
+                  <span class="text-(--muted) text-[10px] font-mono shrink-0">{event.time}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
