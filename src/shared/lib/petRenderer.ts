@@ -119,46 +119,46 @@ export const PET_MOTION: Record<string, {
   };
 }> = {
   boba: {
-    rates: [6, 10, 10, 8, 10, 5, 6, 9, 6],
+    rates: [5, 10, 10, 7, 10, 5, 5, 7, 5],
     restFrame: 7,
     pixel: true,
-    dynamics: { idleBreathSpeed: 1.2, idleBreathHeight: 2.2, workBobSpeed: 3.0, workBobHeight: 1.5, swayAngle: 1.2 },
+    dynamics: { idleBreathSpeed: 0.55, idleBreathHeight: 1.2, workBobSpeed: 1.25, workBobHeight: 0.8, swayAngle: 0.5 },
   },
   eddy: {
-    rates: [6, 11, 11, 9, 11, 6, 7, 10, 7],
+    rates: [5, 10, 10, 6, 9, 5, 5, 9, 5],
     restFrame: 6,
     pixel: true,
-    dynamics: { idleBreathSpeed: 1.4, idleBreathHeight: 2.0, workBobSpeed: 3.8, workBobHeight: 2.0, swayAngle: 1.8 },
+    dynamics: { idleBreathSpeed: 0.35, idleBreathHeight: 0.9, workBobSpeed: 1.5, workBobHeight: 0.7, swayAngle: 0.4 },
   },
   "code-frenzy-cat": {
-    rates: [7, 12, 12, 10, 12, 6, 8, 12, 8],
-    restFrame: 5,
-    pixel: true,
-    dynamics: { idleBreathSpeed: 1.6, idleBreathHeight: 1.8, workBobSpeed: 5.5, workBobHeight: 2.6, swayAngle: 1.5 },
-  },
-  "work-blue-cat": {
-    rates: [6, 11, 11, 8, 11, 6, 7, 12, 7],
-    restFrame: 7,
-    pixel: true,
-    dynamics: { idleBreathSpeed: 1.3, idleBreathHeight: 1.9, workBobSpeed: 4.8, workBobHeight: 2.2, swayAngle: 1.2 },
-  },
-  "shinchan-3": {
-    rates: [7, 12, 12, 10, 12, 6, 8, 11, 8],
-    restFrame: 7,
-    pixel: true,
-    dynamics: { idleBreathSpeed: 1.8, idleBreathHeight: 2.5, workBobSpeed: 4.2, workBobHeight: 3.0, swayAngle: 2.5 },
-  },
-  "super-saiyan-goku": {
-    rates: [7, 12, 12, 10, 12, 6, 8, 12, 8],
+    rates: [5, 12, 12, 9, 12, 5, 6, 12, 6],
     restFrame: 6,
     pixel: true,
-    dynamics: { idleBreathSpeed: 1.5, idleBreathHeight: 2.0, workBobSpeed: 5.0, workBobHeight: 2.8, swayAngle: 1.0, glowPulse: true },
+    dynamics: { idleBreathSpeed: 0.70, idleBreathHeight: 0.8, workBobSpeed: 2.0, workBobHeight: 1.1, swayAngle: 0.6 },
+  },
+  "work-blue-cat": {
+    rates: [6, 10, 10, 7, 10, 5, 5, 12, 5],
+    restFrame: 7,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 0.45, idleBreathHeight: 0.7, workBobSpeed: 1.5, workBobHeight: 0.8, swayAngle: 0.45 },
+  },
+  "shinchan-3": {
+    rates: [6, 12, 12, 9, 12, 5, 6, 11, 6],
+    restFrame: 7,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 0.85, idleBreathHeight: 1.6, workBobSpeed: 1.8, workBobHeight: 1.6, swayAngle: 1.4 },
+  },
+  "super-saiyan-goku": {
+    rates: [5, 12, 12, 8, 12, 5, 5, 12, 5],
+    restFrame: 4,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 0.50, idleBreathHeight: 0.7, workBobSpeed: 1.75, workBobHeight: 0.9, swayAngle: 0.35, glowPulse: true },
   },
   "wode-daodun-3d": {
-    rates: [6, 11, 11, 8, 11, 6, 7, 11, 7],
+    rates: [5, 11, 11, 7, 10, 5, 5, 9, 5],
     restFrame: 5,
     pixel: false,
-    dynamics: { idleBreathSpeed: 1.1, idleBreathHeight: 2.4, workBobSpeed: 3.4, workBobHeight: 1.8, swayAngle: 1.6 },
+    dynamics: { idleBreathSpeed: 0.40, idleBreathHeight: 1.2, workBobSpeed: 1.38, workBobHeight: 0.9, swayAngle: 0.6 },
   },
 };
 
@@ -274,7 +274,11 @@ export class PetRenderer {
   private row = 0;
   private lastTick = 0;
   private fps = 12;
-  private dynamicsTime = 0;
+  private phase = 0;
+  private prevPose = { offsetY: 0, rotationDeg: 0, squashY: 1 };
+  private transitionStart = 0;
+  private transitionDuration = 0.22; // 220ms smooth C2 quintic hermite blend
+  private lastRafTime: number | null = null;
   private state = "idle";
   private animate = true;
   private unsubscribe: () => void;
@@ -364,13 +368,18 @@ export class PetRenderer {
     const petMap = ARCHETYPE_STATE_ROW[this.slug] || DEFAULT_STATE_ROW;
     const row = customRow ?? petMap[state] ?? DEFAULT_STATE_ROW[state] ?? 0;
     const fps = petAnimationFps(this.slug, row, readPetPreferences().fps);
-    if (row !== this.row || fps !== this.fps) this.lastTick = performance.now();
-    this.fps = fps;
     if (row !== this.row) {
+      this.lastTick = performance.now();
+      // Capture current outgoing procedural pose for seamless C2 blending into new state
+      this.prevPose = this.computeRawStatePose(this.state);
+      this.transitionStart = performance.now() / 1000;
       this.row = row;
       this.frame = 0;
       this.draw();
+    } else if (fps !== this.fps) {
+      this.lastTick = performance.now();
     }
+    this.fps = fps;
   }
 
   private refreshPreferences() {
@@ -394,10 +403,19 @@ export class PetRenderer {
 
   private loop(t: number) {
     this.animId = null;
-    if (this.isDestroyed || !this.animate) return;
+    if (this.isDestroyed || !this.animate) {
+      this.lastRafTime = null;
+      return;
+    }
 
-    // Track smooth 60fps dynamics continuous clock
-    this.dynamicsTime = t / 1000;
+    const nowSec = t / 1000;
+    const dt = this.lastRafTime === null ? 0 : Math.min(Math.max(nowSec - this.lastRafTime, 0), 0.05);
+    this.lastRafTime = nowSec;
+
+    // Continuous smooth phase integration (prevents clock jumps on pause/resume)
+    const dyn = PET_MOTION[this.slug]?.dynamics ?? PET_MOTION["work-blue-cat"]!.dynamics;
+    const speed = (this.state === "working" || this.state === "reading") ? dyn.workBobSpeed : dyn.idleBreathSpeed;
+    this.phase = (this.phase + Math.PI * 2 * speed * dt) % (Math.PI * 2);
 
     let shouldRedraw = false;
     if (this.loaded && t - this.lastTick >= 1000 / this.fps) {
@@ -453,42 +471,69 @@ export class PetRenderer {
     this.headroom = this.spriteRect.y / H;
   }
 
+  private computeRawStatePose(state: string): { offsetY: number; rotationDeg: number; squashY: number } {
+    const dyn = PET_MOTION[this.slug]?.dynamics ?? PET_MOTION["work-blue-cat"]!.dynamics;
+    const p = this.phase;
+
+    if (state === "idle" || state === "waiting") {
+      // Smooth sinusoidal natural respiration (no velocity cusp)
+      const breath = Math.sin(p);
+      const offsetY = breath * dyn.idleBreathHeight;
+      const sway = Math.sin(p * 0.5) * (dyn.swayAngle * 0.4);
+      const squashY = 1 + breath * 0.012;
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    if (state === "working") {
+      // Harmonic bounce with zero velocity cusp at ground contact
+      const bob = 0.5 - 0.5 * Math.cos(p);
+      const offsetY = -bob * dyn.workBobHeight;
+      const sway = Math.sin(p * 0.5) * dyn.swayAngle;
+      const squashY = 1 + bob * 0.015;
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    if (state === "reading") {
+      // Calm inspection: quiet head tilt, no typing bounce
+      const sway = Math.sin(p * 0.5) * (dyn.swayAngle * 0.6);
+      const breath = Math.sin(p);
+      return { offsetY: breath * (dyn.idleBreathHeight * 0.5), rotationDeg: sway, squashY: 1 };
+    }
+
+    if (state === "celebrate") {
+      // Smooth continuous celebratory bounce (no sign-flip step jump)
+      const jump = 0.5 - 0.5 * Math.cos(p * 2);
+      const offsetY = -jump * 2.8;
+      const sway = Math.sin(p) * 1.5;
+      const squashY = 1 + (0.5 - jump) * 0.03;
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    return { offsetY: 0, rotationDeg: 0, squashY: 1 };
+  }
+
   private computeDynamicsOffset(): { offsetY: number; rotationDeg: number; squashY: number } {
     if (!this.animate || this.reducedMotion?.matches || !this.hasContinuousDynamics()) {
       return { offsetY: 0, rotationDeg: 0, squashY: 1 };
     }
 
-    const dyn = PET_MOTION[this.slug]?.dynamics ?? PET_MOTION["work-blue-cat"]!.dynamics;
-    const time = this.dynamicsTime;
+    const currentPose = this.computeRawStatePose(this.state);
 
-    if (this.state === "idle" || this.state === "waiting") {
-      // Gentle sine-wave breathing curve
-      const breath = Math.sin(time * Math.PI * 2 * dyn.idleBreathSpeed);
-      const offsetY = breath * dyn.idleBreathHeight;
-      const sway = Math.sin(time * Math.PI * dyn.idleBreathSpeed * 0.5) * (dyn.swayAngle * 0.4);
-      const squashY = 1 + breath * 0.015;
-      return { offsetY, rotationDeg: sway, squashY };
+    // C2 Quintic Hermite transition blending to completely eliminate sudden jerk on state change
+    const nowSec = performance.now() / 1000;
+    const elapsed = nowSec - this.transitionStart;
+    if (elapsed < this.transitionDuration) {
+      const u = Math.min(Math.max(elapsed / this.transitionDuration, 0), 1);
+      // Quintic smoothstep: 6u^5 - 15u^4 + 10u^3 (zero 1st and 2nd derivatives at endpoints)
+      const w = u * u * u * (u * (u * 6 - 15) + 10);
+      return {
+        offsetY: this.prevPose.offsetY * (1 - w) + currentPose.offsetY * w,
+        rotationDeg: this.prevPose.rotationDeg * (1 - w) + currentPose.rotationDeg * w,
+        squashY: this.prevPose.squashY * (1 - w) + currentPose.squashY * w,
+      };
     }
 
-    if (this.state === "working" || this.state === "reading") {
-      // Typing bounce rhythm
-      const bob = Math.abs(Math.sin(time * Math.PI * 2 * dyn.workBobSpeed));
-      const offsetY = -bob * dyn.workBobHeight;
-      const sway = Math.sin(time * Math.PI * dyn.workBobSpeed * 0.5) * dyn.swayAngle;
-      const squashY = 1 + (bob - 0.5) * 0.02;
-      return { offsetY, rotationDeg: sway, squashY };
-    }
-
-    if (this.state === "celebrate") {
-      // Energetic celebratory bounce
-      const jump = Math.sin(time * Math.PI * 6);
-      const offsetY = jump * 3.5;
-      const sway = Math.cos(time * Math.PI * 3) * 2.5;
-      const squashY = 1 + (jump > 0 ? 0.04 : -0.04);
-      return { offsetY, rotationDeg: sway, squashY };
-    }
-
-    return { offsetY: 0, rotationDeg: 0, squashY: 1 };
+    return currentPose;
   }
 
   destroy() {

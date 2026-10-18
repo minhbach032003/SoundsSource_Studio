@@ -81,9 +81,9 @@ test('clock keeps remainder, starts new states with a full interval and bounds s
   assert.equal(f.context.renderer.frame, 11, 'catch-up is bounded to eight steps');
   f.run('renderer.setState("reading")'); f.tick(1150);
   assert.equal(f.context.renderer.frame, 0, 'new clip must not immediately skip its entry pose');
-  f.tick(1270); assert.equal(f.context.renderer.frame, 1);
+  f.tick(1350); assert.equal(f.context.renderer.frame, 1);
   const before = f.context.renderer.frame;
-  f.events.get('storage')({ key: 'rust_sound_pet_size' }); f.tick(1440);
+  f.events.get('storage')({ key: 'rust_sound_pet_size' }); f.tick(1550);
   assert.equal(f.context.renderer.frame, before + 1, 'unrelated preferences must not reset playback clock');
 });
 
