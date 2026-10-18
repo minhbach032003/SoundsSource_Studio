@@ -177,10 +177,11 @@ export function petFrameIndex(slug: string, row: number, count: number, step: nu
     const phase = step % (2 * count - 2);
     return phase < count ? phase : 2 * count - 2 - phase;
   }
-  // Let the neutral pose breathe and a wave / landing resolve before repeating.
-  const hold = row === 0 ? 2 : row === 3 ? 1 : row === 4 ? 2 : 0;
+  // Let a wave / landing resolve before repeating.
+  // Row 0 (Idle) runs continuous smooth breathing cycles without an artificial 3-frame freeze.
+  const hold = row === 3 ? 1 : row === 4 ? 2 : 0;
   const phase = step % (count + hold);
-  return row === 0 ? Math.max(0, phase - hold) : Math.min(phase, count - 1);
+  return Math.min(phase, count - 1);
 }
 
 export function drawPetFrame(

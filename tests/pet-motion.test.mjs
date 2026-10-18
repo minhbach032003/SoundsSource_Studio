@@ -47,7 +47,7 @@ test('every shipped pet has a distinct bounded motion profile and an authored re
   }
   assert.equal(profiles.size, pets.length, 'no pet is given a copied generic profile');
   assert.deepEqual(Array.from(f.run('Array.from({length: 10}, (_, step) => petFrameIndex("boba", 8, 6, step))')), [0,1,2,3,4,5,4,3,2,1]);
-  assert.deepEqual(Array.from(f.run('Array.from({length: 8}, (_, step) => petFrameIndex("boba", 0, 6, step))')), [0,0,0,1,2,3,4,5]);
+  assert.deepEqual(Array.from(f.run('Array.from({length: 8}, (_, step) => petFrameIndex("boba", 0, 6, step))')), [0,1,2,3,4,5,0,1]);
 });
 
 test('slicing preserves grid rows, disconnected limbs, authored offsets and one scale across all states', () => {
