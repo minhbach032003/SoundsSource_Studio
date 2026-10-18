@@ -33,6 +33,7 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         input_blocker: InputBlocker::new(),
         #[cfg(target_os = "macos")]
         gesture_listener: Mutex::new(None),
+        google_calendar: Default::default(),
     };
 
     // 1. Verify initial settings and dual triggers

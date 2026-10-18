@@ -28,6 +28,12 @@ fn main() {
         "Invalid SPOTIFY_CLIENT_SECRET"
     );
     println!("cargo:rustc-env=SPOTIFY_CLIENT_SECRET={client_secret}");
+    println!("cargo:rerun-if-env-changed=GOOGLE_CLIENT_ID");
+    println!("cargo:rerun-if-env-changed=GOOGLE_CLIENT_SECRET");
+    let google_client_id = from_env("GOOGLE_CLIENT_ID").unwrap_or_default();
+    println!("cargo:rustc-env=GOOGLE_CLIENT_ID={google_client_id}");
+    let google_client_secret = from_env("GOOGLE_CLIENT_SECRET").unwrap_or_default();
+    println!("cargo:rustc-env=GOOGLE_CLIENT_SECRET={google_client_secret}");
     // Public backend origin only. Never read or embed server credentials here.
     println!("cargo:rerun-if-env-changed=RUST_SOUND_AUTH_URL");
     let auth_url = std::env::var("RUST_SOUND_AUTH_URL").unwrap_or_default();

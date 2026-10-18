@@ -21,7 +21,8 @@ pub use engine::{
     Action, ActivityFormatter, ActivityTheme, AgentIntegrationInfo, AgentSession, AppAudioChannel,
     AppAudioSettings, AudioDevice, AudioFilterSettings, AudioRouter, AuthService, AuthenticatedUser,
     BreakTimerManager, Button, CatalogEntry, ChannelStateDto, EQBandConfig, FilterProcessingStats,
-    GestureEngine, GestureResult, GestureState, InputDecision, InputEvent, MicFilterConfig,
+    GestureEngine, GestureResult, GestureState, GoogleCalendarAccount, GoogleCalendarEventDto,
+    GoogleCalendarService, GoogleCalendarStatus, InputDecision, InputEvent, MicFilterConfig,
     OutputFilterConfig, ParametricEQ, PetCareState, PetManager, PingAsset, PingId, PingloomSettings,
     Pkce, PkceChallenge, Point, Preset, PresetStore, ReplayInput, Settings, SettingsError,
     TimerPhase, TimerStatus, TodoItem, Trigger, User, WheelKind, DEFAULT_EQ_FREQUENCIES,
@@ -44,6 +45,7 @@ pub struct AppState {
     #[cfg(target_os = "macos")]
     pub gesture_listener: Mutex<Option<pingloom::NativeGestureListener>>,
     pub gemini_api_key: Mutex<Option<String>>,
+    pub google_calendar: Arc<engine::GoogleCalendarService>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -983,6 +985,43 @@ async fn auth_google_discard_cancelled(state: State<'_, AppState>) -> Result<(),
     let auth = state.auth.clone();
     tauri::async_runtime::spawn_blocking(move || auth.logout(true)).await
         .map_err(|_| "Chưa dọn dẹp được phiên đăng nhập đã hủy.".to_string())?
+}
+
+// MARK: - Google Calendar Commands
+
+#[tauri::command]
+fn google_calendar_status(state: State<'_, AppState>) -> GoogleCalendarAccount {
+    state.google_calendar.status()
+}
+
+#[tauri::command]
+async fn google_calendar_login(
+    state: State<'_, AppState>,
+) -> Result<GoogleCalendarAccount, String> {
+    let service = state.google_calendar.clone();
+    tauri::async_runtime::spawn_blocking(move || service.login())
+        .await
+        .map_err(|e| format!("Login task failed: {e}"))?
+}
+
+#[tauri::command]
+async fn google_calendar_sync(
+    state: State<'_, AppState>,
+) -> Result<Vec<GoogleCalendarEventDto>, String> {
+    let service = state.google_calendar.clone();
+    tauri::async_runtime::spawn_blocking(move || service.sync_today())
+        .await
+        .map_err(|e| format!("Sync task failed: {e}"))?
+}
+
+#[tauri::command]
+async fn google_calendar_disconnect(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let service = state.google_calendar.clone();
+    tauri::async_runtime::spawn_blocking(move || service.disconnect())
+        .await
+        .map_err(|e| format!("Disconnect task failed: {e}"))?
 }
 
 // MARK: - Gemini Multimodal Live API Key Management
@@ -1932,6 +1971,7 @@ pub fn run() {
         #[cfg(target_os = "macos")]
         gesture_listener: Mutex::new(None),
         gemini_api_key: Mutex::new(std::env::var("GEMINI_API_KEY").ok().filter(|k| !k.trim().is_empty())),
+        google_calendar: Arc::new(engine::GoogleCalendarService::default()),
     };
 
     let app = tauri::Builder::default()
@@ -2060,7 +2100,11 @@ pub fn run() {
             get_virtual_audio_status,
             update_dock_icon,
             play_ping_sound,
-            get_pingloom_assets_manifest
+            get_pingloom_assets_manifest,
+            google_calendar_status,
+            google_calendar_login,
+            google_calendar_sync,
+            google_calendar_disconnect
         ])
         .on_window_event(|window, event| {
             if window.label() == "main" {

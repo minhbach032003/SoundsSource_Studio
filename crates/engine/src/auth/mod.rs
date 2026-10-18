@@ -5,7 +5,7 @@ pub mod jwt;
 pub mod keycloak;
 pub mod pkce;
 pub mod remote;
-mod loopback;
+pub mod loopback;
 
 pub use db::{AuthRepository, AuthSession, DbError, User, UserIdentity, NEON_MIGRATIONS_DDL};
 pub use dual_auth::{AuthenticatedUser, DualAuthError, DualAuthValidator};
@@ -13,6 +13,7 @@ pub use google::{GoogleAuthError, GoogleAuthVerifier, GoogleUserProfile};
 pub use jwt::{JwtClaims, JwtError, JwtManager};
 pub use keycloak::{KeycloakClaims, KeycloakError, KeycloakVerifier};
 pub use pkce::{Pkce, PkceChallenge, PkceError};
+pub use loopback::{bind_listener, wait_for_code};
 
 use std::sync::Arc;
 use uuid::Uuid;

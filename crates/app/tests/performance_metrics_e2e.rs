@@ -48,6 +48,7 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         input_blocker: InputBlocker::new(),
         #[cfg(target_os = "macos")]
         gesture_listener: Mutex::new(None),
+        google_calendar: Default::default(),
     };
 
     assert!(!state.background_mode.load(Ordering::Relaxed));

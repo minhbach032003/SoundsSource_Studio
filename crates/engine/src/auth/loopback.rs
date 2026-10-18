@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 use url::Url;
 
-pub(super) fn bind_listener() -> Result<(TcpListener, String), String> {
+pub fn bind_listener() -> Result<(TcpListener, String), String> {
     let listener =
         TcpListener::bind(("127.0.0.1", 0)).map_err(|_| "Không mở được callback Google.")?;
     listener
@@ -82,7 +82,7 @@ fn callback_code(request: &str, port: u16, state: &str) -> Result<String, Callba
     }
     Ok(codes[0].1.to_string())
 }
-pub(super) fn wait_for_code(
+pub fn wait_for_code(
     listener: &TcpListener,
     state: &str,
     cancelled: &AtomicBool,

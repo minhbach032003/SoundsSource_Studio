@@ -8,6 +8,8 @@ pub mod router;
 pub mod spotify;
 pub mod spotify_player;
 pub mod spectrum;
+pub mod google_calendar;
+pub use google_calendar as calendar;
 pub mod pcm_queue;
 pub mod timer;
 pub mod wheel;
@@ -23,6 +25,13 @@ pub use eq::{EQBandConfig, ParametricEQ, DEFAULT_EQ_FREQUENCIES};
 pub use filter::{
     AudioFilterEngine, AudioFilterSettings, FilterProcessingStats, MicFilterConfig,
     OutputFilterConfig,
+};
+pub use google_calendar::{
+    parse_calendar_events_json, today_time_window, today_time_window_from,
+    GoogleCalendarAccount, GoogleCalendarEventDto, GoogleCalendarService,
+    GoogleCalendarStatus, KeychainTokenStorage, MockTokenStorage, StoredTokens,
+    TokenStorage, CALENDAR_SCOPES, GOOGLE_AUTH_URL, GOOGLE_CALENDAR_EVENTS_URL,
+    GOOGLE_TOKEN_URL, GOOGLE_USERINFO_URL,
 };
 pub use pet::{
     ActivityFormatter, ActivityTheme, AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer,
