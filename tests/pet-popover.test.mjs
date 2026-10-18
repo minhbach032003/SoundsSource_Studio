@@ -75,3 +75,19 @@ test("Rust backend exposes popover and tray commands", () => {
   assert.ok(src.includes("fn update_tray_title"), "implements update_tray_title");
   assert.ok(src.includes("agentpet-tray"), "configures agentpet-tray TrayIcon");
 });
+
+test("a switch that cannot be pressed says so on the row itself", () => {
+  const src = readFileSync("src/components/pet/PetDisplaySettings.svelte", "utf8");
+
+  // Ba hàng này tắt có chủ ý vì tính năng chưa có. Một công tắc xám trông giống hệt
+  // một công tắc đang tắt, nên hàng phải tự nói ra, không bắt đi tìm dòng ghi chú.
+  for (const id of ["show-chat", "show-bubble", "split-pet"]) {
+    const anchor = src.indexOf(`for="${id}"`);
+    const row = src.slice(src.lastIndexOf("<label", anchor), src.indexOf("</label>", anchor));
+    assert.match(row, /class="setting-row unavailable-row"/, `${id}: cả hàng phải được đánh dấu là chưa dùng được`);
+    assert.match(row, /Sắp có/, `${id}: phải có nhãn ngay trên hàng`);
+    assert.match(row, /title=[{"]/, `${id}: rê chuột phải giải thích vì sao không bấm được`);
+  }
+
+  assert.match(src, /\.unavailable-row \{[^}]*cursor: not-allowed/, "con trỏ phải báo không bấm được trên cả hàng, không chỉ cái công tắc");
+});

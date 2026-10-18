@@ -9,6 +9,7 @@
   let prefs = $state(readPetPreferences());
   let showPet = $state(false);
   let busy = $state(false);
+  const unavailableReason = "Chưa bật được: tính năng này chưa làm xong.";
   $effect(() => subscribePetPreferences(() => { prefs = readPetPreferences(); }));
   $effect(() => {
     if (!isTauri()) return;
@@ -57,19 +58,24 @@
       <input id="show-count" class="pet-switch" type="checkbox" role="switch" checked={prefs.count}
         onchange={event => save("count", event.currentTarget.checked)} />
     </label>
-    <label class="setting-row" for="show-chat">
+    <!-- Ba hàng dưới tắt có chủ ý: tính năng chưa có. Một công tắc xám trông y hệt một
+         công tắc đang tắt, nên mỗi hàng tự mang nhãn và lời giải thích khi rê chuột. -->
+    <label class="setting-row unavailable-row" for="show-chat" title={unavailableReason}>
       <span class="setting-label"><MessageSquare size={14} />Show chat on menu bar</span>
+      <span class="soon badge">Sắp có</span>
       <input id="show-chat" class="pet-switch" type="checkbox" role="switch" checked={prefs.chat} disabled aria-describedby="menu-unavailable" />
     </label>
-    <label class="setting-row" for="show-bubble">
+    <label class="setting-row unavailable-row" for="show-bubble" title={unavailableReason}>
       <span class="setting-label"><List size={14} />Show bubble on menu bar</span>
+      <span class="soon badge">Sắp có</span>
       <input id="show-bubble" class="pet-switch" type="checkbox" role="switch" checked={prefs.bubble} disabled aria-describedby="menu-unavailable" />
     </label>
-    <label class="setting-row" for="split-pet">
+    <label class="setting-row unavailable-row" for="split-pet" title={unavailableReason}>
       <span class="setting-label"><Columns2 size={14} />Split pet</span>
+      <span class="soon badge">Sắp có</span>
       <input id="split-pet" class="pet-switch" type="checkbox" role="switch" checked={prefs.split} disabled aria-describedby="menu-unavailable" />
     </label>
-    <p id="menu-unavailable" class="unavailable">Menu bar chat, menu bar bubbles and split pets are not available yet.</p>
+    <p id="menu-unavailable" class="unavailable">Chat, bong bóng trên thanh menu và tách đôi pet chưa làm xong, nên ba mục trên chưa bật được.</p>
     <div class="setting-row slider-row">
       <label class="setting-label" for="pet-size"><Maximize2 size={14} />Pet size</label>
       <div class="slider-control">
@@ -115,11 +121,17 @@
   .pet-switch:checked { border-color: var(--strong); background: var(--strong); }
   .pet-switch:checked::after { transform: translateX(12px); background: var(--on-strong); }
   .pet-switch:disabled { cursor: not-allowed; }
+  /* Mờ cả hàng, không chỉ cái công tắc: tắt-vì-chưa-có phải khác tắt-do-người-dùng. */
+  .unavailable-row { cursor: not-allowed; }
+  .unavailable-row .setting-label { opacity: .55; }
+  .unavailable-row .pet-switch { opacity: .45; }
+  .soon { margin-left: auto; margin-right: 6px; flex-shrink: 0; font-size: 9px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
   .slider-label { padding-left: 21px; }
   .slider-control { display: flex; align-items: center; gap: 7px; }
   input[type="range"] { width: 90px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--strong); }
   output { min-width: 23px; color: var(--muted); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
-  .unavailable { margin: 3px 0; color: var(--muted); font-size: 10px; line-height: 1.3; }
+  /* Lời giải thích duy nhất cho ba hàng bị khoá: 10px màu mờ là quá nhẹ để đọc. */
+  .unavailable { margin: 4px 0 6px; color: var(--ink); opacity: .72; font-size: 11px; line-height: 1.35; }
   input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .pet-switch::after { transition: none; } }
 </style>
