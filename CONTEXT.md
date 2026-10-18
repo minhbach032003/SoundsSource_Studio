@@ -22,6 +22,16 @@ _Avoid_: Content-area, card-body
 The background ambient glow and soft aurora lighting layer beneath windows and surfaces.
 _Avoid_: Wallpaper background, backdrop tint
 
+### Settings Hub
+
+**Settings Category**:
+One of the four top-level operational categories in the Settings Hub: Appearance (Giao diện & Atmosphere), Audio (Âm thanh & Voice AI), Gestures (Cử chỉ & Điều khiển Pingloom), and System (Hệ thống & Tài khoản).
+_Avoid_: Tab page, subview
+
+**Settings Search**:
+Instant keyword filtering across all settings controls and panels within the Settings Hub.
+_Avoid_: Query bar, filter popup
+
 ### Spotify Audio
 
 **Spotify Local Player**:
