@@ -304,12 +304,18 @@ export class PetRenderer {
     this.loop = this.loop.bind(this);
     this.reducedMotion?.addEventListener("change", this.onPlaybackChange);
     if (typeof document !== "undefined") document.addEventListener?.("visibilitychange", this.onPlaybackChange);
+    // Observe visibility for regular DOM flows, with safe fallback to prevent stalls on transparent/floating overlay windows
     if (typeof IntersectionObserver !== "undefined") {
       this.observer = new IntersectionObserver(entries => {
-        this.inView = entries[0]?.isIntersecting ?? true;
+        // If intersectionRatio is zero but element has natural client bounds, keep inView active (Tauri transparent window safeguard)
+        const entry = entries[0];
+        const isVisible = entry ? (entry.isIntersecting || entry.intersectionRatio > 0 || (canvas.offsetWidth > 0 && canvas.offsetHeight > 0)) : true;
+        this.inView = isVisible;
         this.refreshPreferences();
       });
-      this.observer.observe(canvas);
+      try {
+        this.observer.observe(canvas);
+      } catch {}
     }
     this.unsubscribe = subscribePetPreferences(() => this.refreshPreferences());
   }
@@ -383,9 +389,12 @@ export class PetRenderer {
   }
 
   private refreshPreferences() {
-    const animate = readPetPreferences().animate && !this.reducedMotion?.matches
-      && (typeof document === "undefined" || !document.hidden) && this.inView;
-    if (animate !== this.animate) this.lastTick = performance.now();
+    const isDocVisible = typeof document === "undefined" || !document.hidden;
+    const animate = readPetPreferences().animate && !this.reducedMotion?.matches && isDocVisible && this.inView;
+    if (animate !== this.animate) {
+      this.lastTick = performance.now();
+      this.lastRafTime = null;
+    }
     this.animate = animate;
     this.setState(this.state);
     if (!this.animate && this.animId !== null) {
@@ -409,7 +418,8 @@ export class PetRenderer {
     }
 
     const nowSec = t / 1000;
-    const dt = this.lastRafTime === null ? 0 : Math.min(Math.max(nowSec - this.lastRafTime, 0), 0.05);
+    // Bound dt between 0 and 100ms; avoid accumulator explosions or negative steps
+    const dt = this.lastRafTime === null ? 0.016 : Math.min(Math.max(nowSec - this.lastRafTime, 0), 0.1);
     this.lastRafTime = nowSec;
 
     // Continuous smooth phase integration (prevents clock jumps on pause/resume)
