@@ -46,9 +46,19 @@
   let petSlug = $state<string>("work-blue-cat");
   let petSize = $state(readPetPreferences().size);
   let splitEnabled = $state(readPetPreferences().split);
+  let motionEnabled = $state(readPetPreferences().animate);
+  let reduceMotion = $state(false);
+  $effect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => { reduceMotion = media.matches; };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  });
   $effect(() => subscribePetPreferences(() => {
     petSize = readPetPreferences().size;
     splitEnabled = readPetPreferences().split;
+    motionEnabled = readPetPreferences().animate;
   }));
   let resizeError = $state("");
   $effect(() => {
@@ -92,6 +102,13 @@
 
   let nextParticleId = 0;
   let celebrateTimer: ReturnType<typeof setTimeout> | null = null;
+  let pettingTimer: ReturnType<typeof setTimeout> | null = null;
+  const particleTimers = new Set<ReturnType<typeof setTimeout>>();
+  $effect(() => () => {
+    if (celebrateTimer !== null) clearTimeout(celebrateTimer);
+    if (pettingTimer !== null) clearTimeout(pettingTimer);
+    particleTimers.forEach(timer => clearTimeout(timer));
+  });
   const prevSessionStates = new Map<string, string>();
 
   $effect(() => {
@@ -185,6 +202,7 @@
   }
 
   function spawnParticles(type: "heart" | "sparkle", count: number = 6) {
+    if (!motionEnabled || reduceMotion || document.hidden) return;
     const newItems: OverlayParticle[] = [];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
@@ -209,9 +227,11 @@
       });
     }
     particles = [...particles, ...newItems];
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       particles = particles.filter((p) => !newItems.some((n) => n.id === p.id));
+      particleTimers.delete(timer);
     }, 1000);
+    particleTimers.add(timer);
   }
 
   // Periodic polling for real agentpet backend state
@@ -408,8 +428,10 @@
     if (isDesktop) {
       invoke("feed_pet_action", { action: "pet" }).catch(() => {});
     }
-    setTimeout(() => {
+    if (pettingTimer !== null) clearTimeout(pettingTimer);
+    pettingTimer = setTimeout(() => {
       isInteracting = false;
+      pettingTimer = null;
     }, 1200);
   }
 
@@ -468,7 +490,7 @@
       >
         <!-- Status Dot / Heart on petting -->
         {#if isInteracting}
-          <Heart size={12} class="w-3 h-3 text-rose-400 fill-rose-400 animate-bounce shrink-0" />
+          <Heart size={12} class="w-3 h-3 text-rose-400 fill-rose-400 shrink-0" />
         {:else}
           <span class="relative flex h-2 w-2 items-center justify-center shrink-0">
             <span
@@ -477,7 +499,7 @@
                 : displayedSession?.state === 'waiting'
                 ? 'bg-amber-500'
                 : isCelebrating
-                ? 'bg-amber-400 animate-ping'
+                ? `bg-amber-400 ${motionEnabled && !reduceMotion ? 'animate-ping' : ''}`
                 : 'bg-emerald-500'}"
             ></span>
           </span>
@@ -528,11 +550,11 @@
       <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-(--core) border border-(--input-line) shadow-md text-xs font-sans text-(--ink) max-w-72">
         <!-- Status Dot / Heart on petting -->
         {#if isInteracting}
-          <Heart size={14} class="w-3.5 h-3.5 text-rose-400 fill-rose-400 animate-bounce shrink-0" />
+          <Heart size={14} class="w-3.5 h-3.5 text-rose-400 fill-rose-400 shrink-0" />
         {:else}
           <span class="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
             <span
-              class="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping {mood === 'working'
+              class="absolute inline-flex h-full w-full rounded-full opacity-75 {motionEnabled && !reduceMotion ? 'animate-ping' : ''} {mood === 'working'
                 ? 'bg-rose-400'
                 : mood === 'waiting'
                 ? 'bg-amber-400'
@@ -616,15 +638,13 @@
 
   <!-- 2. Authentic Animated Pixel Pet Sprite & Floating Particles FX -->
   <div
-    class="relative z-10 flex items-center justify-center transition-transform duration-200 {isInteracting
-      ? 'scale-115 rotate-2'
-      : isCelebrating
-      ? 'scale-110'
-      : 'hover:scale-105'}"
+    class="pet-reaction relative z-10 flex items-center justify-center origin-bottom transition-transform duration-200 ease-out {motionEnabled && !reduceMotion
+      ? isInteracting ? 'scale-105' : isCelebrating ? 'scale-105' : 'hover:scale-105'
+      : ''}"
     title="AgentPet Desktop Companion (Click to pet, drag to move)"
   >
     <!-- Floating Particles FX (Hearts / Sparkles) -->
-    {#each particles as p (p.id)}
+    {#each (motionEnabled && !reduceMotion ? particles : []) as p (p.id)}
       <div
         class="pointer-events-none absolute z-30 transition-all duration-1000 ease-out"
         style="--px: {p.x}px; --py: {p.y}px; animation: petParticleFloat 1s ease-out forwards;"
@@ -640,6 +660,16 @@
     <div
       role="button"
       tabindex="0"
+      aria-label="Pet companion. Enter or Space to pet; Shift F10 for care actions."
+      onkeydown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handlePetClick();
+        } else if ((event.shiftKey && event.key === "F10") || event.key === "ContextMenu") {
+          event.preventDefault();
+          showActionMenu = !showActionMenu;
+        }
+      }}
       oncontextmenu={(e) => {
         e.preventDefault();
         if (isDesktop) {
@@ -776,6 +806,10 @@
 <ToastHost />
 
 <style>
+  @media (prefers-reduced-motion: reduce) {
+    .pet-reaction { transform: none; transition: none; }
+  }
+
   /* Follow each animated frame's alpha, not the rectangular sprite canvas.
      A light keyline and dark shadow stay visible over arbitrary desktop colors. */
   :global(.pet-silhouette canvas) {

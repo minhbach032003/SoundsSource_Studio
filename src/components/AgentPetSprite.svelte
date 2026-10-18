@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { PetRenderer } from "@/shared/lib/petRenderer";
+  import { PetRenderer, PET_MOTION } from "@/shared/lib/petRenderer";
 
   interface Props {
     slug: string;
@@ -55,18 +55,20 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
+<svelte:element
+  this={onclick ? "button" : "div"}
+  type={onclick ? "button" : undefined}
   {onclick}
+  role={onclick ? undefined : "img"}
+  aria-label={`${slug} — ${mood}${onclick ? ", pet companion" : ""}`}
   class={className}
-  style="width: {size}px; height: {size}px;"
+  style="width: {size}px; height: {size}px; padding: 0; border: 0; background: transparent;"
 >
   <canvas
     bind:this={canvas}
     width={size * 2}
     height={size * 2}
-    style="width: {size}px; height: {size}px; image-rendering: pixelated;"
+    style="width: {size}px; height: {size}px; image-rendering: {(PET_MOTION[slug]?.pixel ?? true) ? 'pixelated' : 'auto'};"
     class="cursor-pointer select-none"
   ></canvas>
-</div>
+</svelte:element>

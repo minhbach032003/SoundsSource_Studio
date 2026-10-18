@@ -34,10 +34,10 @@ function webview(storage = new Map()) {
   };
 }
 
-test('renderer freezes without RAF or frame progression, resumes, changes FPS and caps idle', () => {
+test('renderer freezes without RAF or frame progression, resumes, and respects authored idle timing', () => {
   const view = webview();
   view.run('renderer.setState("working")');
-  view.tick(90); assert.equal(view.context.renderer.frame, 1);
+  view.tick(100); assert.equal(view.context.renderer.frame, 1);
   view.run('writePetPreference("animate", false)');
   assert.equal(view.raf.size, 0);
   const drawCount = view.draws.length;
@@ -47,11 +47,11 @@ test('renderer freezes without RAF or frame progression, resumes, changes FPS an
   view.tick(1500); assert.equal(view.context.renderer.frame, 1);
   view.tick(2000); assert.equal(view.context.renderer.frame, 2);
   view.run('writePetPreference("fps", 12)');
-  view.tick(2090); assert.equal(view.context.renderer.frame, 3);
+  view.tick(2100); assert.equal(view.context.renderer.frame, 3);
   view.run('renderer.setState("idle")');
   view.tick(2200); assert.equal(view.context.renderer.frame, 0);
-  view.tick(2600); assert.equal(view.context.renderer.frame, 1);
-  assert.equal(view.context.renderer.fps, 2);
+  view.tick(2300); assert.equal(view.context.renderer.frame, 1);
+  assert.equal(view.context.renderer.fps, 6);
   view.run('renderer.destroy();writePetPreference("animate", false);writePetPreference("animate", true)');
   assert.equal(view.raf.size, 0, 'destroy removes storage subscription as well as RAF');
 });

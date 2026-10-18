@@ -14,6 +14,7 @@ test("PetAnimationPicker Svelte 5 component integrity", () => {
   // States: Idle, Working, Waiting, Done, Celebrate, Sleepy, Level up
   assert.ok(src.includes('"idle"'), "includes idle state");
   assert.ok(src.includes('"working"'), "includes working state");
+  assert.ok(src.includes('"reading"'), "includes reading state");
   assert.ok(src.includes('"waiting"'), "includes waiting state");
   assert.ok(src.includes('"done"'), "includes done state");
   assert.ok(src.includes('"celebrate"'), "includes celebrate state");
@@ -22,7 +23,7 @@ test("PetAnimationPicker Svelte 5 component integrity", () => {
 
   // UI copy
   assert.ok(src.includes("Animations"), "contains Animations header");
-  assert.ok(src.includes("Hover a clip to preview it."), "contains hover preview instruction text");
+  assert.ok(src.includes("Hover or focus a clip to preview it."), "contains hover preview instruction text");
   assert.ok(src.includes("Clip"), "renders clip label cards");
 
   // Persistence

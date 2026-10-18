@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { readPetPreferences, readPetBinding, subscribePetPreferences, writePetStorage } from "@/lib/petPreferences";
-  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, type Rect } from "@/shared/lib/petRenderer";
+  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, drawPetFrame, petAnimationFps, petFrameIndex, PET_MOTION, type Rect } from "@/shared/lib/petRenderer";
   import { Clapperboard } from "@lucide/svelte";
   import { toastState } from "@/lib/toast.svelte";
 
@@ -15,6 +15,7 @@
   const STATES = [
     { id: "idle", label: "Idle" },
     { id: "working", label: "Working" },
+    { id: "reading", label: "Reading" },
     { id: "waiting", label: "Waiting" },
     { id: "done", label: "Done" },
     { id: "celebrate", label: "Celebrate" },
@@ -30,8 +31,22 @@
   let loadError = $state(false);
   let clips = $state<Rect[][]>([]);
   let canvases = new Map<number, HTMLCanvasElement>();
+  const visibleClips = new Set<number>();
   let hoverTimer: number | null = null;
-  let hoverFrame = 0;
+  let hoverStart = 0;
+  let reducedMotion = $state(false);
+  let pageVisible = $state(true);
+  $effect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => { reducedMotion = media.matches; pageVisible = !document.hidden; };
+    update();
+    media.addEventListener("change", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      media.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  });
   let prefs = $state(readPetPreferences());
   let bindingVersion = $state(0);
   $effect(() => {
@@ -39,11 +54,13 @@
       prefs = readPetPreferences();
       bindingVersion = untrack(() => bindingVersion) + 1;
     });
-    return () => { unsubscribe(); if (hoverTimer !== null) clearInterval(hoverTimer); };
+    return () => { unsubscribe(); if (hoverTimer !== null) cancelAnimationFrame(hoverTimer); };
   });
   $effect(() => {
     void prefs;
     void selectedState;
+    void reducedMotion;
+    void pageVisible;
     untrack(() => handleClipHover(hoveredClip));
   });
 
@@ -65,7 +82,7 @@
     clips = [];
     loadError = false;
     hoveredClip = null;
-    if (hoverTimer !== null) clearInterval(hoverTimer);
+    if (hoverTimer !== null) cancelAnimationFrame(hoverTimer);
     hoverTimer = null;
 
     const img = new Image();
@@ -89,68 +106,25 @@
       active = false;
       img.onload = null;
       img.onerror = null;
-      if (hoverTimer !== null) clearInterval(hoverTimer);
+      if (hoverTimer !== null) cancelAnimationFrame(hoverTimer);
       hoverTimer = null;
     };
   });
 
-  // Render static frame on each canvas
   function renderStaticFrame(canvas: HTMLCanvasElement, clip: Rect[]) {
-    if (!loadedImage || !clip || clip.length === 0) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const r = clip[0]!;
-    const maxW = Math.max(...clip.map((x) => x.w));
-    const sc = Math.min(canvas.width / maxW, canvas.height / r.h);
-    const dw = Math.round(r.w * sc);
-    const dh = Math.round(r.h * sc);
-
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      loadedImage,
-      r.x,
-      r.y,
-      r.w,
-      r.h,
-      Math.round((canvas.width - dw) / 2),
-      Math.round(canvas.height - dh),
-      dw,
-      dh
-    );
+    renderAnimationFrame(canvas, clip, 0);
   }
 
   function renderAnimationFrame(canvas: HTMLCanvasElement, clip: Rect[], frame: number) {
-    if (!loadedImage || !clip || clip.length === 0) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const r = clip[frame % clip.length]!;
-    const maxW = Math.max(...clip.map((x) => x.w));
-    const sc = Math.min(canvas.width / maxW, canvas.height / r.h);
-    const dw = Math.round(r.w * sc);
-    const dh = Math.round(r.h * sc);
-
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      loadedImage,
-      r.x,
-      r.y,
-      r.w,
-      r.h,
-      Math.round((canvas.width - dw) / 2),
-      Math.round(canvas.height - dh),
-      dw,
-      dh
-    );
+    const r = clip[frame];
+    if (loadedImage && ctx && r) drawPetFrame(ctx, loadedImage, r, slug);
   }
 
   function handleClipHover(index: number | null) {
     hoveredClip = index;
-    if (hoverTimer) {
-      clearInterval(hoverTimer);
+    if (hoverTimer !== null) {
+      cancelAnimationFrame(hoverTimer);
       hoverTimer = null;
     }
 
@@ -165,12 +139,17 @@
 
     const cv = canvases.get(index);
     const c = clips[index];
-    if (cv && c && prefs.animate) {
-      hoverFrame = 0;
-      hoverTimer = window.setInterval(() => {
-        hoverFrame++;
-        renderAnimationFrame(cv, c, hoverFrame);
-      }, 1000 / (["idle", "sleepy"].includes(selectedState) ? Math.min(prefs.fps, 2) : prefs.fps));
+    if (cv && c && visibleClips.has(index) && prefs.animate && !reducedMotion && pageVisible) {
+      hoverStart = performance.now();
+      let lastFrame = -1;
+      const tick = (now: number) => {
+        const step = Math.floor((now - hoverStart) * petAnimationFps(slug, index, prefs.fps) / 1000);
+        const frame = petFrameIndex(slug, index, c.length, step);
+        if (frame !== lastFrame) renderAnimationFrame(cv, c, frame);
+        lastFrame = frame;
+        hoverTimer = requestAnimationFrame(tick);
+      };
+      hoverTimer = requestAnimationFrame(tick);
     }
   }
 
@@ -189,7 +168,17 @@
     canvases.set(index, el);
     const c = clips[index];
     if (c) renderStaticFrame(el, c);
-    return { destroy() { if (canvases.get(index) === el) canvases.delete(index); } };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) visibleClips.add(index);
+      else visibleClips.delete(index);
+      if (hoveredClip === index) handleClipHover(index);
+    });
+    observer.observe(el);
+    return { destroy() {
+      observer.disconnect();
+      visibleClips.delete(index);
+      if (canvases.get(index) === el) canvases.delete(index);
+    } };
   }
 
   $effect(() => {
@@ -237,7 +226,7 @@
 
   <!-- Hint -->
   <div class="text-[11px] text-(--muted) flex items-center justify-between">
-    <span>Hover a clip to preview it. Click to bind to <b>{selectedState}</b>.</span>
+    <span>Hover or focus a clip to preview it. Click to bind to <b>{selectedState}</b>.</span>
     <span class="font-mono text-[10px] text-(--accent-text)">
       {loadedSlug === slug ? clips.length : 0} Clips Available
     </span>
@@ -253,6 +242,8 @@
           onclick={() => bindClip(i)}
           onmouseenter={() => handleClipHover(i)}
           onmouseleave={() => handleClipHover(null)}
+          onfocus={() => handleClipHover(i)}
+          onblur={() => handleClipHover(null)}
           class="p-1.5 rounded-xl border flex flex-col items-center justify-between gap-1 transition-all group cursor-pointer relative {isCurrent
             ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/30'
             : 'bg-(--paper) border-(--line) hover:border-(--focus)'}"
@@ -264,7 +255,7 @@
               use:registerCanvas={i}
               width={108}
               height={88}
-              style="width: 54px; height: 44px; image-rendering: pixelated;"
+              style="width: 54px; height: 44px; image-rendering: {(PET_MOTION[slug]?.pixel ?? true) ? 'pixelated' : 'auto'};"
               class="pointer-events-none"
             ></canvas>
           </div>

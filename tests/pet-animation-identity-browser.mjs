@@ -126,6 +126,30 @@ try {
   });
   await browser('eval',`window.failSlug=null`);await equip('Cyber Coding Cat');await settle();
   await check('recovery after failure uses only selected pet',async()=>assert.deepEqual(await evaluate(identities),Array(9).fill('work-blue-cat')));
+  await check('keyboard preview pauses offscreen and under reduced motion, then resumes',async()=>{
+    await browser('eval',`localStorage.setItem('ap_animate_pets','1');window.dispatchEvent(new StorageEvent('storage',{key:'ap_animate_pets'}));document.querySelector('button[title="Clip 2"]').focus()`);
+    const count=`window.draws.filter(record=>record.rect[1]===window.lastDraw.get(document.querySelector('button[title="Clip 2"] canvas')).rect[1]).length`;
+    const before=await evaluate(count);
+    await browser('wait','--fn',`${count}>${before}`);
+    await browser('eval',`document.querySelector('button[title="Clip 2"]').style.transform='translateY(2000px)'`);
+    await settle(); const paused=await evaluate(count); await settle();
+    assert.equal(await evaluate(count),paused,'focused offscreen preview must stop drawing');
+    await browser('eval',`document.querySelector('button[title="Clip 2"]').style.transform=''`);
+    await browser('wait','--fn',`${count}>${paused}`);
+    await browser('set','media','dark','reduced-motion');
+    await settle(); const reduced=await evaluate(count); await settle();
+    assert.equal(await evaluate(count),reduced,'reduced motion must stop focused preview');
+    await browser('set','media','dark');
+    await browser('wait','--fn',`${count}>${reduced}`);
+    await browser('eval',`document.activeElement.blur();localStorage.setItem('ap_animate_pets','0');window.dispatchEvent(new StorageEvent('storage',{key:'ap_animate_pets'}))`);
+  });
+  await check('3D preview and desktop share smooth CSS sampling; pixel pets stay crisp',async()=>{
+    await equip('Sword & Shield Guardian');
+    await browser('wait','--fn',`${identities}.every(slug=>slug==='wode-daodun-3d') && ${clips}.length===9`);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('button[title="Clip 1"] canvas')).imageRendering`),'auto');
+    await equip('Cyber Coding Cat');await settle();
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('button[title="Clip 1"] canvas')).imageRendering`),'pixelated');
+  });
   await browser('tab','new',url+'/?mode=overlay');
   await browser('wait','--fn',`window.draws.length>0`);
   await check('desktop consumes current pet + active idle row through real cross-window storage',async()=>{
