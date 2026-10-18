@@ -68,7 +68,7 @@
     bind:this={canvas}
     width={size * 2}
     height={size * 2}
-    style="width: {size}px; height: {size}px; image-rendering: {(PET_MOTION[slug]?.pixel ?? true) ? 'pixelated' : 'auto'};"
+    style="width: {size}px; height: {size}px; {(PET_MOTION[slug]?.pixel ?? true) ? 'image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;' : 'image-rendering: auto;'}"
     class="cursor-pointer select-none"
   ></canvas>
 </svelte:element>

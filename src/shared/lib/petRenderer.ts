@@ -202,17 +202,20 @@ export function drawPetFrame(
   ctx.imageSmoothingEnabled = !pixel;
   ctx.clearRect(0, 0, width, height);
 
-  const { offsetY, rotationDeg, squashY } = dynamicsOffset;
-  const hasTransform = (offsetY !== 0 || rotationDeg !== 0 || squashY !== 1) && typeof ctx.save === "function";
+  // For crisp pixel art: keep pixels locked to integer boundaries, avoiding rotation blur or squashing
+  const effOffsetY = pixel ? Math.round(dynamicsOffset.offsetY) : dynamicsOffset.offsetY;
+  const effRotation = pixel ? 0 : dynamicsOffset.rotationDeg;
+  const effSquash = pixel ? 1 : dynamicsOffset.squashY;
+  const hasTransform = (effOffsetY !== 0 || effRotation !== 0 || effSquash !== 1) && typeof ctx.save === "function";
 
   if (hasTransform) {
     ctx.save();
     // Pivot around bottom center of sprite so ground contacts stay anchored
     const pivotX = width / 2;
     const pivotY = height;
-    if (typeof ctx.translate === "function") ctx.translate(pivotX, pivotY + offsetY);
-    if (rotationDeg !== 0 && typeof ctx.rotate === "function") ctx.rotate((rotationDeg * Math.PI) / 180);
-    if (squashY !== 1 && typeof ctx.scale === "function") ctx.scale(1 / Math.sqrt(squashY), squashY);
+    if (typeof ctx.translate === "function") ctx.translate(pivotX, pivotY + effOffsetY);
+    if (effRotation !== 0 && typeof ctx.rotate === "function") ctx.rotate((effRotation * Math.PI) / 180);
+    if (effSquash !== 1 && typeof ctx.scale === "function") ctx.scale(1 / Math.sqrt(effSquash), effSquash);
     if (typeof ctx.translate === "function") ctx.translate(-pivotX, -pivotY);
   }
 
@@ -222,7 +225,7 @@ export function drawPetFrame(
     ctx.restore();
   }
 
-  return { x, y: y + Math.round(offsetY), w, h };
+  return { x, y: y + Math.round(effOffsetY), w, h };
 }
 
 export function slice(img: HTMLImageElement): Rect[][] {

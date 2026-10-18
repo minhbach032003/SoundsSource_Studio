@@ -255,7 +255,7 @@
               use:registerCanvas={i}
               width={108}
               height={88}
-              style="width: 54px; height: 44px; image-rendering: {(PET_MOTION[slug]?.pixel ?? true) ? 'pixelated' : 'auto'};"
+              style="width: 54px; height: 44px; {(PET_MOTION[slug]?.pixel ?? true) ? 'image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;' : 'image-rendering: auto;'}"
               class="pointer-events-none"
             ></canvas>
           </div>

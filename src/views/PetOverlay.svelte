@@ -639,7 +639,7 @@
   <!-- 2. Authentic Animated Pixel Pet Sprite & Floating Particles FX -->
   <div
     class="pet-reaction relative z-10 flex items-center justify-center origin-bottom transition-transform duration-200 ease-out {motionEnabled && !reduceMotion
-      ? isInteracting ? 'scale-105' : isCelebrating ? 'scale-105' : 'hover:scale-105'
+      ? isInteracting ? '-translate-y-2' : isCelebrating ? '-translate-y-2' : 'hover:-translate-y-1'
       : ''}"
     title="AgentPet Desktop Companion (Click to pet, drag to move)"
   >
@@ -811,11 +811,14 @@
   }
 
   /* Follow each animated frame's alpha, not the rectangular sprite canvas.
-     A light keyline and dark shadow stay visible over arbitrary desktop colors. */
+     A light keyline and dark shadow stay visible over arbitrary desktop colors with 0-blur for ultra-crisp pixel art. */
   :global(.pet-silhouette canvas) {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
     filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
       drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
-      drop-shadow(0 2px 3px rgb(0 0 0 / 55%));
+      drop-shadow(0 1px 0 rgb(0 0 0 / 45%));
   }
 
   @keyframes petParticleFloat {
