@@ -47,6 +47,10 @@ export const DEFAULT_GEMINI_LIVE_MODEL: string = GEMINI_LIVE_MODELS[0].value;
  * khi khoá API chưa được cấp model mới. */
 const FALLBACK_GEMINI_LIVE_MODEL = "models/gemini-3.1-flash-live-preview";
 
+/** Ngôn ngữ người dùng thật sự nói, theo thứ tự ưu tiên. Gợi ý cho phần nhận dạng tiếng
+ * nói; thiếu nó thì Live API tự dò và hay đoán nhầm sang thứ tiếng chưa bao giờ xuất hiện. */
+export const SPOKEN_LANGUAGES = ["vi-VN", "en-US"] as const;
+
 /** Im lặng bao lâu thì Live API coi như người dùng đã nói xong. Thấp = trả lời sớm hơn,
  * nhưng ngập ngừng giữa câu dễ bị cắt lời. Người dùng chỉnh được trong Voice AI. */
 export const GEMINI_REPLY_DELAY_DEFAULT_MS = 400;
@@ -347,6 +351,9 @@ export class GeminiLiveService {
    * 0 = transcription + tools, 1 = tools only, 2 = plain audio session.
    */
   private setupDowngradeLevel = 0;
+  /// Model cũ có thể chưa biết `languageCodes`. Bỏ riêng nó trước, vì cái giá của việc
+  /// nhầm nó với một trường khác là tắt mất phụ đề của cả phiên.
+  private transcriptionHintBlocked = false;
   private reconnectAttempts = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private setupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -436,6 +443,7 @@ export class GeminiLiveService {
     this.callStartedAt = null;
     this.restoreTranscript = false;
     this.setupDowngradeLevel = 0;
+    this.transcriptionHintBlocked = false;
     this.reconnectAttempts = 0;
     this.notice = null;
     this.resumeHandle = null;
@@ -579,7 +587,15 @@ export class GeminiLiveService {
         // Audio-only responses carry no text, so transcription is what fills the
         // Dialogue Console for spoken turns on both sides.
         ...(withCaptions
-          ? { inputAudioTranscription: {}, outputAudioTranscription: {} }
+          ? {
+              // Để rỗng là bảo Live API tự dò ngôn ngữ, và một câu tiếng Việt ngắn hay bị
+              // nghe thành tiếng Tây Ban Nha — rồi Gemini trả lời bằng thứ tiếng đó. Gợi ý
+              // trước hai thứ tiếng người dùng thật sự nói.
+              inputAudioTranscription: this.transcriptionHintBlocked
+                ? {}
+                : { languageCodes: [...SPOKEN_LANGUAGES] },
+              outputAudioTranscription: {},
+            }
           : {}),
         ...(tools.length > 0 ? { tools } : {}),
         // Mặc định của Live API chờ im lặng khá lâu mới chốt lượt nói; đây là núm
@@ -752,6 +768,17 @@ export class GeminiLiveService {
     }
 
     if (wasConnecting && !fatalSetupError && (this.callStartedAt === null || unknownField)) {
+      // Gợi ý ngôn ngữ là trường mới nhất và rẻ nhất để bỏ: mất nó chỉ là quay về tự dò,
+      // trong khi bậc hạ cấp kế tiếp lấy mất phụ đề của cả phiên.
+      const hintRejected = /languagecodes|language_codes/i.test(reason);
+      if (unknownField && hintRejected && !this.transcriptionHintBlocked) {
+        this.transcriptionHintBlocked = true;
+        this.noticeClearsOnConnect = false;
+        this.notice = "Model không nhận gợi ý ngôn ngữ, đã kết nối lại với chế độ tự dò.";
+        await this.reconnect();
+        return;
+      }
+
       // The server named the field it rejects: shed exactly that (captions, then tools).
       if (unknownField && this.hasPendingSetupExtras()) {
         this.setupDowngradeLevel += 1;

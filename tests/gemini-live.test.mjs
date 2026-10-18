@@ -1645,3 +1645,28 @@ test("a bad key during setup is never retried, even with search declared", async
   assert.match(instance.error, /API Key không hợp lệ/);
   assert.equal(instance.lastClose.reason, "API key not valid. Please pass a valid API key.");
 });
+
+test("the microphone is told which languages to expect, and falls back without losing captions", async () => {
+  const { instance } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaLang" });
+  const first = MockWebSocket.instances[0];
+  first.onopen();
+
+  // Để rỗng là tự dò, và tự dò đã nghe tiếng Việt thành tiếng Tây Ban Nha.
+  const setup = JSON.parse(first.sent[0]).setup;
+  assert.deepEqual(setup.inputAudioTranscription.languageCodes, ["vi-VN", "en-US"]);
+
+  await first.onclose({
+    code: 1007,
+    reason: "Unknown name \"languageCodes\" at 'setup.input_audio_transcription'",
+    wasClean: true,
+  });
+
+  const retry = MockWebSocket.instances[1];
+  retry.onopen();
+  const retrySetup = JSON.parse(retry.sent[0]).setup;
+  assert.ok(retrySetup.inputAudioTranscription, "phụ đề phải còn, chỉ bỏ gợi ý ngôn ngữ");
+  assert.equal(retrySetup.inputAudioTranscription.languageCodes, undefined);
+  assert.ok(retrySetup.outputAudioTranscription, "phụ đề chiều ra cũng phải còn");
+  instance.disconnect();
+});
