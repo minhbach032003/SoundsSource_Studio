@@ -1,8 +1,18 @@
-# Rust Sound UI & Audio Context
+# SoundsSource Studio UI & Audio Context
 
-The frontend and tactical audio/visual desktop companion system powering rust-sound.
+The frontend and tactical audio/visual desktop companion system powering SoundsSource Studio.
 
 ## Language
+
+### Identity & Brandmark
+
+**SoundsSource Studio**:
+The official application brand name, representing the unified macOS CoreAudio DSP processing engine, hardware/process mixer, and tactical companion system.
+_Avoid_: rust-sound (internal crate/binary name only), SoundSource
+
+**Tactical Sonic Loom**:
+The official vector brandmark combining an acoustic calibration aperture, dynamic harmonic equalizer frequency bars, and a transverse resonant crest wave.
+_Avoid_: Equalizer icon, generic logo
 
 ### Surfaces & Styling
 

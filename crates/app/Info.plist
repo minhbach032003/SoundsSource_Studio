@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+  <key>CFBundleName</key>
+  <string>SoundsSource Studio</string>
+  <key>CFBundleDisplayName</key>
+  <string>SoundsSource Studio</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>rust-sound captures Spotify audio to apply bass and EQ without changing other apps.</string>
+  <string>SoundsSource Studio captures Spotify audio to apply bass and EQ without changing other apps.</string>
   <key>NSAppleEventsUsageDescription</key>
-  <string>rust-sound controls Spotify playback and reads the current song, artwork and progress.</string>
+  <string>SoundsSource Studio controls Spotify playback and reads the current song, artwork and progress.</string>
   <key>NSCameraUsageDescription</key>
-  <string>rust-sound uses the camera for Gemini Multimodal Live visual interactions.</string>
+  <string>SoundsSource Studio uses the camera for Gemini Multimodal Live visual interactions.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>rust-sound uses the microphone for real-time voice conversations with Gemini Live.</string>
+  <string>SoundsSource Studio uses the microphone for real-time voice conversations with Gemini Live.</string>
 </dict></plist>

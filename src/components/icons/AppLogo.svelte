@@ -14,10 +14,10 @@
   }: Props = $props();
 
   const SIZE_MAP = {
-    sm: { icon: "w-7 h-7", container: "w-7 h-7 p-1.5", text: "text-xs", badge: "text-[9px]" },
-    md: { icon: "w-9 h-9", container: "w-9 h-9 p-2", text: "text-sm", badge: "text-[10px]" },
-    lg: { icon: "w-11 h-11", container: "w-11 h-11 p-2.5", text: "text-base", badge: "text-[11px]" },
-    xl: { icon: "w-14 h-14", container: "w-14 h-14 p-3", text: "text-xl", badge: "text-xs" },
+    sm: { icon: "w-7 h-7", container: "w-7 h-7 p-1", text: "text-xs", badge: "text-[9px]" },
+    md: { icon: "w-9 h-9", container: "w-9 h-9 p-1.5", text: "text-sm", badge: "text-[10px]" },
+    lg: { icon: "w-11 h-11", container: "w-11 h-11 p-2", text: "text-base", badge: "text-[11px]" },
+    xl: { icon: "w-14 h-14", container: "w-14 h-14 p-2.5", text: "text-xl", badge: "text-xs" },
   };
 
   const config = $derived(SIZE_MAP[size]);
@@ -25,81 +25,117 @@
 
 {#snippet emblem()}
   <div
-    class="relative rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 select-none group shrink-0 bg-linear-to-b from-(--core) via-(--surface) to-(--paper) border border-(--line) shadow-sm hover:border-(--accent) hover:shadow-md hover:shadow-(--shadow) {config.container} {className}"
-    title="SoundsSource Rust"
+    class="relative rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 select-none group shrink-0 bg-linear-to-b from-(--core) via-(--surface) to-(--paper) border border-(--line) shadow-xs hover:border-(--accent) hover:shadow-md hover:shadow-(--shadow) {config.container} {className}"
+    title="SoundsSource Studio (Rust CoreAudio)"
   >
-    <!-- Subtle Specular Top Arc -->
-    <div class="absolute inset-x-0 top-0 h-[35%] bg-linear-to-b from-(--hi) to-transparent pointer-events-none"></div>
+    <!-- Specular Ambient Chamfer Arc -->
+    <div class="absolute inset-x-0 top-0 h-[40%] bg-linear-to-b from-(--hi) to-transparent opacity-60 pointer-events-none"></div>
 
-    <!-- Vector Brandmark SVG: 5 Minimalist Sound Wave Bars -->
+    <!-- Vector Brandmark: Tactical Sonic Loom (Acoustic Aperture + Equalizer Waves) -->
     <svg
       viewBox="0 0 36 36"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       class="w-full h-full relative z-10"
+      aria-hidden="true"
     >
       <defs>
-        <!-- Harmonic Studio Sound Gradient: Dynamic Theme Spectrum -->
+        <!-- Dynamic Studio Gradient: Strong -> Focus -> Accent -->
         <linearGradient id="appSonicGradient" x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="var(--strong)" style="stop-color: var(--strong);" />
           <stop offset="50%" stop-color="var(--focus)" style="stop-color: var(--focus);" />
           <stop offset="100%" stop-color="var(--accent)" style="stop-color: var(--accent);" />
         </linearGradient>
+
+        <linearGradient id="appSonicGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="transparent" />
+        </linearGradient>
       </defs>
 
-      <!-- 5 Clean Rhythmic Equalizer Sound Bars with Rounded Caps -->
+      <!-- Outer Tactical Calibration Aperture Ring -->
+      <circle
+        cx="18"
+        cy="18"
+        r="15"
+        stroke="var(--line)"
+        stroke-width="1"
+        stroke-dasharray="2 4"
+        opacity="0.75"
+      />
+
+      <!-- Cardinal Precision Crosshair Ticks -->
+      <line x1="18" y1="2" x2="18" y2="4.5" stroke="var(--focus)" stroke-width="1.2" stroke-linecap="round" />
+      <line x1="18" y1="31.5" x2="18" y2="34" stroke="var(--focus)" stroke-width="1.2" stroke-linecap="round" />
+      <line x1="2" y1="18" x2="4.5" y2="18" stroke="var(--focus)" stroke-width="1.2" stroke-linecap="round" />
+      <line x1="31.5" y1="18" x2="34" y2="18" stroke="var(--focus)" stroke-width="1.2" stroke-linecap="round" />
+
+      <!-- Center Ambient Core Glow -->
+      <circle cx="18" cy="18" r="9" fill="url(#appSonicGlow)" />
+
+      <!-- Rhythmic Studio Soundwave Bars (5 Frequency Bands with Rounded Caps) -->
       <rect
-        x="6.5"
+        x="7.5"
         y="13"
-        width="3.2"
+        width="2.8"
         height="10"
-        rx="1.6"
+        rx="1.4"
         fill="url(#appSonicGradient)"
-        opacity="0.8"
+        opacity="0.7"
         class={animated ? "animate-pulse" : ""}
-        style="animation-delay: 0.2s"
+        style="animation-delay: 0.3s"
       />
       <rect
-        x="11.8"
-        y="8"
-        width="3.2"
-        height="20"
-        rx="1.6"
+        x="12.2"
+        y="8.5"
+        width="2.8"
+        height="19"
+        rx="1.4"
         fill="url(#appSonicGradient)"
-        opacity="0.92"
+        opacity="0.9"
         class={animated ? "animate-pulse" : ""}
-        style="animation-delay: 0.1s"
+        style="animation-delay: 0.15s"
+      />
+      <!-- Dominant Center Harmonic Resonator -->
+      <rect
+        x="16.6"
+        y="5.5"
+        width="2.8"
+        height="25"
+        rx="1.4"
+        fill="url(#appSonicGradient)"
+        class={animated ? "animate-pulse" : ""}
       />
       <rect
-        x="17.1"
-        y="4.5"
-        width="3.2"
-        height="27"
-        rx="1.6"
+        x="21"
+        y="8.5"
+        width="2.8"
+        height="19"
+        rx="1.4"
         fill="url(#appSonicGradient)"
+        opacity="0.9"
         class={animated ? "animate-pulse" : ""}
+        style="animation-delay: 0.15s"
       />
       <rect
-        x="22.4"
-        y="8"
-        width="3.2"
-        height="20"
-        rx="1.6"
-        fill="url(#appSonicGradient)"
-        opacity="0.92"
-        class={animated ? "animate-pulse" : ""}
-        style="animation-delay: 0.1s"
-      />
-      <rect
-        x="27.7"
+        x="25.7"
         y="13"
-        width="3.2"
+        width="2.8"
         height="10"
-        rx="1.6"
+        rx="1.4"
         fill="url(#appSonicGradient)"
-        opacity="0.8"
+        opacity="0.7"
         class={animated ? "animate-pulse" : ""}
-        style="animation-delay: 0.2s"
+        style="animation-delay: 0.3s"
+      />
+
+      <!-- Transverse Harmonic Resonant Crest Curve -->
+      <path
+        d="M6 18C10 14 14 22 18 18C22 14 26 22 30 18"
+        stroke="var(--accent)"
+        stroke-width="1.2"
+        stroke-linecap="round"
+        stroke-opacity="0.85"
       />
     </svg>
   </div>
@@ -117,12 +153,13 @@
         </span>
         <span
           class="font-mono font-bold uppercase tracking-wider text-(--accent) bg-(--accent)/10 px-1.5 py-0.5 rounded border border-(--accent)/20 shrink-0 {config.badge}"
+          title="SoundsSource Studio (Rust Core)"
         >
-          RUST
+          STUDIO · RUST
         </span>
       </div>
       <span class="text-[10px] text-(--muted) font-medium tracking-normal mt-0.5 truncate">
-        macOS CoreAudio & AI Studio Hub
+        macOS CoreAudio DSP & Tactical Companion
       </span>
     </div>
   </div>

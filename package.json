@@ -8,7 +8,7 @@
     "dev:app": "pnpm tauri dev",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "build": "tsc && vite build",
-    "rebuild:app": "rm -rf dist target/release/bundle && pnpm tauri build --bundles app && rm -rf /Applications/rust-sound.app && cp -R target/release/bundle/macos/rust-sound.app /Applications/ && echo 'Successfully deployed /Applications/rust-sound.app'",
+    "rebuild:app": "rm -rf dist target/release/bundle && pnpm tauri build --bundles app && rm -rf \"/Applications/SoundsSource Studio.app\" /Applications/rust-sound.app && cp -R \"target/release/bundle/macos/SoundsSource Studio.app\" /Applications/ && ln -sf \"/Applications/SoundsSource Studio.app\" /Applications/rust-sound.app && echo 'Successfully deployed /Applications/SoundsSource Studio.app and linked /Applications/rust-sound.app'",
     "preview": "vite preview",
     "tauri": "TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=. tauri"
   },
