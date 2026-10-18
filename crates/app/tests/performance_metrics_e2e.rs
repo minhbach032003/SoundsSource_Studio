@@ -35,6 +35,7 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
     let state = AppState {
         router: std::sync::Arc::new(Mutex::new(router)),
         spotify: Default::default(),
+        app_tap: Default::default(),
         preset_store: Mutex::new(store),
         timer: Mutex::new(timer),
         auth,
