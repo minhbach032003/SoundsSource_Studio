@@ -22,7 +22,7 @@ test("last workspace restores only known routes and tolerates unavailable storag
   assert.doesNotThrow(() => vm.runInContext("rememberTab('spotify')", context));
 });
 
-test("music-first shell has one player outside routed views and collapsed diagnostics", () => {
+test("music-first shell has one player outside routed views and a library-only Spotify workspace", () => {
   const shell = readFileSync("src/App.svelte", "utf8");
   const music = readFileSync("src/views/SpotifyView.svelte", "utf8");
   const mixer = readFileSync("src/views/MixerView.svelte", "utf8");
@@ -31,7 +31,9 @@ test("music-first shell has one player outside routed views and collapsed diagno
   assert.ok(!mixer.includes("SpotifyPlayer"));
   assert.ok(shell.includes("rememberTab(activeTab)") && shell.includes("restoreTab()"));
   assert.ok(shell.includes('spotifyState.loginVersion > 0') && shell.includes('<SpotifyView />'));
-  assert.ok(music.includes('diagnosticsOpen = $state(false)') && music.includes('eqOpen = $state(false)'));
+  assert.ok(!/StudioEQInspector|diagnosticsOpen|eqOpen|set_master_eq|spotify-mobile-eq/.test(music));
+  assert.ok(mixer.includes('StudioEQInspector'), 'shared EQ stays in Mixer');
+  assert.ok(music.includes('title="Ngắt tài khoản Spotify?"'), 'logout still requires confirmation');
   assert.ok(!/onMount[\s\S]*?spotifyState\.(play|connect|control)\(/.test(music.slice(0, music.indexOf('</script>'))));
   assert.ok(!mixer.includes('1.8 ms') && !mixer.includes('54139'), "no fabricated diagnostics shelf");
 });

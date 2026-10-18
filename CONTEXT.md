@@ -44,6 +44,9 @@ _Avoid_: Query bar, filter popup
 
 ### Spotify Audio
 
+**App Audio Tap**:
+Routing one application's sound through rust-sound so its volume and EQ can be touched at all. macOS exposes no per-application output volume, so without this only applications that script their own volume — Spotify, Music, QuickTime — can be moved, and every other slider is decoration. One application at a time: a fault in the processing chain then silences that application rather than the whole machine. Quitting rust-sound returns the application to its normal output.
+
 **Spotify Local Player**:
 rust-sound tự là nguồn nhạc Spotify: phát không cần app Spotify trên máy. Loại trừ với Spotify DSP Connection — mỗi lúc chỉ một nguồn.
 _Avoid_: tap, remote device

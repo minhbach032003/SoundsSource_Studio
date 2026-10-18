@@ -190,6 +190,12 @@ pub struct SpotifySpectrum {
 }
 
 impl SpotifyIntegration {
+    /// Cùng một spectrum buffer cho mọi nguồn đi qua DSP, nên bảng phân tích không phải
+    /// biết tiếng đến từ Spotify hay từ một app được tap.
+    pub fn spectrum_handle(&self) -> std::sync::Arc<std::sync::Mutex<SpectrumBuffer>> {
+        self.spectrum.clone()
+    }
+
     fn spectrum(&self) -> SpotifySpectrum {
         let status = self.status.lock().unwrap().clone();
         // Local player bơm thẳng vào spectrum buffer nhưng để cờ tap ở false. Chỉ hỏi cờ
@@ -224,23 +230,43 @@ pub fn process_spotify_frame(
     rate: f32,
     apply_channel_gain: bool,
 ) {
+    process_app_frame(
+        router,
+        spectrum,
+        samples,
+        rate,
+        apply_channel_gain.then_some("com.spotify.client"),
+    );
+}
+
+/// Cùng một chuỗi xử lý cho bất kỳ ứng dụng nào được tap: âm lượng kênh của chính nó,
+/// rồi EQ của kênh, rồi EQ master. `channel` là None khi tiếng đã mang sẵn âm lượng
+/// của app (đường tap cũ của Spotify) và chỉ cần EQ.
+pub fn process_app_frame(
+    router: &Mutex<AudioRouter>,
+    spectrum: &Mutex<SpectrumBuffer>,
+    samples: &mut [f32],
+    rate: f32,
+    channel: Option<&str>,
+) {
     if samples.is_empty() || samples.len() % 2 != 0 || !rate.is_finite() || !sound_engine::spectrum::SUPPORTED_RATES.contains(&rate) {
         return;
     }
+    let bundle = channel.unwrap_or("com.spotify.client");
     if let Ok(mut router) = router.try_lock() {
-        if apply_channel_gain {
-            router.get_or_create_channel("com.spotify.client").process(samples);
+        if channel.is_some() {
+            router.get_or_create_channel(bundle).process(samples);
         }
         if router.master_eq().sample_rate != rate {
             let eq = router.master_eq_mut();
             eq.sample_rate = rate;
             eq.recalculate_all();
-            let eq = &mut router.get_or_create_channel("com.spotify.client").eq;
+            let eq = &mut router.get_or_create_channel(bundle).eq;
             eq.sample_rate = rate;
             eq.recalculate_all();
         }
-        router.get_or_create_channel("com.spotify.client").eq.process_interleaved_stereo(samples);
-        // This rack is fed only by Spotify (tap or local), not the system mix.
+        router.get_or_create_channel(bundle).eq.process_interleaved_stereo(samples);
+        // This rack is fed only by the tapped app, not the system mix.
         router.master_eq_mut().process_interleaved_stereo(samples);
     }
     for s in samples.iter_mut() {
@@ -317,7 +343,17 @@ pub fn spotify_playback_connected() -> bool {
 #[tauri::command]
 pub async fn spotify_control(action: String, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || if web.connected() { web.control(&action) } else { spotify::control(&action) }).await.map_err(|e| e.to_string())?
+    let player = state.spotify.player.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected = web.selected_device_id();
+        if player.controls_device(selected.as_deref()) {
+            player.control(&action)
+        } else if web.connected() {
+            web.control(&action)
+        } else {
+            spotify::control(&action)
+        }
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

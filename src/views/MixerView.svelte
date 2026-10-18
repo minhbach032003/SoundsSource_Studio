@@ -444,6 +444,27 @@
     }
   }
 
+  // macOS không cho chỉnh âm lượng riêng cho phần lớn app; đưa tiếng qua rust-sound là
+  // cách duy nhất chạm được vào nó. Mỗi lúc một app, để một lỗi DSP không làm câm cả máy.
+  let tappedBundle = $state<string | null>(null);
+  async function handleTapToggle(process: AudioProcess, on: boolean) {
+    if (!isDesktop) return;
+    try {
+      if (on) {
+        await invoke("tap_app", { bundleId: process.bundle_id });
+        tappedBundle = process.bundle_id;
+        toastState.info(`Tiếng ${displayName(process)} đang đi qua rust-sound`);
+      } else {
+        await invoke("untap_app");
+        tappedBundle = null;
+        toastState.info(`Đã trả ${displayName(process)} về đường phát thường`);
+      }
+    } catch (error) {
+      tappedBundle = null;
+      toastState.error(String(error));
+    }
+  }
+
   async function handleVolumeCommit(process: AudioProcess, vol: number) {
     if (onVolumeCommit) {
       await onVolumeCommit(process, vol);
@@ -734,6 +755,8 @@
                 initialVolume={state.volume}
                 isMuted={state.muted}
                 devices={activeDevices}
+                {tappedBundle}
+                onTapToggle={(on) => handleTapToggle(process, on)}
                 onVolumeCommit={(val) => handleVolumeCommit(process, val)}
                 onMuteToggle={(muted) => handleMuteToggle(process, muted)}
                 onRouteChange={(devUid) => onRouteChange?.(process, devUid)}

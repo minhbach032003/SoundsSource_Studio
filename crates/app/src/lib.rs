@@ -1,3 +1,4 @@
+pub mod app_tap;
 pub mod spotify;
 use spotify::{get_spotify_spectrum, get_spotify_status, connect_spotify_audio, spotify_local_player, spotify_control, spotify_account, spotify_login, spotify_logout, spotify_browse, spotify_devices, spotify_select_device, spotify_play_uri, spotify_play_tracks, spotify_set_shuffle, spotify_set_repeat, spotify_open_automation_settings, spotify_playback_login, spotify_playback_connected};
 pub use sound_core as core;
@@ -29,6 +30,8 @@ pub use engine::{
 pub struct AppState {
     pub router: Arc<Mutex<AudioRouter>>,
     pub spotify: spotify::SpotifyIntegration,
+    /// Đường đưa tiếng của một ứng dụng bất kỳ qua rust-sound.
+    pub app_tap: app_tap::AppTap,
     pub preset_store: Mutex<PresetStore>,
     pub timer: Mutex<BreakTimerManager>,
     pub auth: Arc<engine::auth::remote::RemoteAuth>,
@@ -1355,6 +1358,34 @@ async fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, AppStat
     Ok(())
 }
 
+/// Đưa tiếng của một ứng dụng qua rust-sound, để thanh trượt và EQ chạm được vào nó.
+/// Chỉ một app tại một thời điểm: app đang tap trước đó được trả về đường phát thường.
+#[tauri::command]
+async fn tap_app(bundle_id: String, state: State<'_, AppState>) -> Result<(), String> {
+    let ids: Vec<u32> = AudioProcess::enumerate_system_processes()
+        .into_iter()
+        .filter(|process| process.bundle_id == bundle_id && process.is_running_output)
+        .map(|process| process.object_id)
+        .collect();
+    state.app_tap.start(
+        bundle_id,
+        ids,
+        state.router.clone(),
+        state.spotify.spectrum_handle(),
+    )
+}
+
+#[tauri::command]
+fn untap_app(state: State<'_, AppState>) -> Result<(), String> {
+    state.app_tap.stop();
+    Ok(())
+}
+
+#[tauri::command]
+fn app_tap_status(state: State<'_, AppState>) -> app_tap::AppTapStatus {
+    state.app_tap.status()
+}
+
 #[tauri::command]
 async fn set_app_mute(bundle_id: String, muted: bool, state: State<'_, AppState>) -> Result<(), String> {
     let vol = if muted { 0.0 } else { state.router.lock().unwrap().get_or_create_channel(&bundle_id).volume };
@@ -1888,6 +1919,7 @@ pub fn run() {
     let state = AppState {
         router: Arc::new(Mutex::new(router)),
         spotify: spotify::SpotifyIntegration::default(),
+        app_tap: app_tap::AppTap::new(),
         preset_store: Mutex::new(preset_store),
         timer: Mutex::new(timer),
         auth,
@@ -1948,6 +1980,9 @@ pub fn run() {
             set_system_sounds_volume,
             set_app_volume,
             set_app_mute,
+            tap_app,
+            untap_app,
+            app_tap_status,
             set_app_eq_band,
             get_master_eq_bands,
             set_master_eq_band,

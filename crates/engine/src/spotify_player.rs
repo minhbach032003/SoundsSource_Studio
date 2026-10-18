@@ -29,6 +29,7 @@ fn connect_config() -> ConnectConfig {
 #[derive(Clone, Default, Serialize)]
 pub struct LocalPlayerState {
     pub running: bool,
+    pub device_id: String,
     pub playing: bool,
     pub error: Option<String>,
 }
@@ -58,6 +59,27 @@ impl LocalPlayer {
         self.state.lock().unwrap().clone()
     }
 
+    /// Use the Connect identity, not its display name: another device may share a name.
+    pub fn controls_device(&self, selected: Option<&str>) -> bool {
+        let state = self.state.lock().unwrap();
+        state.running && !state.device_id.is_empty() && selected == Some(state.device_id.as_str())
+    }
+
+    pub fn control(&self, action: &str) -> Result<(), String> {
+        if !matches!(action, "play_pause" | "previous" | "next") {
+            return Err("Invalid Spotify action".into());
+        }
+        let spirc = self.spirc.lock().unwrap();
+        let spirc = spirc.as_ref().ok_or("Bộ phát rust-sound chưa sẵn sàng. Chọn lại thiết bị phát rồi thử lại.")?;
+        let result = match action {
+            "play_pause" => spirc.play_pause(),
+            "previous" => spirc.prev(),
+            "next" => spirc.next(),
+            _ => unreachable!(),
+        };
+        result.map_err(|_| "Không gửi được lệnh đến bộ phát rust-sound. Chọn lại thiết bị phát rồi thử lại.".into())
+    }
+
     pub fn stop(&self) {
         if let Some(spirc) = self.spirc.lock().unwrap().take() {
             let _ = spirc.shutdown();
@@ -67,6 +89,7 @@ impl LocalPlayer {
         }
         let mut st = self.state.lock().unwrap();
         st.running = false;
+        st.device_id.clear();
         st.playing = false;
     }
 
@@ -94,6 +117,7 @@ impl LocalPlayer {
         rt.spawn(async move {
             let session = Session::new(SessionConfig::default(), None);
             let credentials = Credentials::with_access_token(token);
+            let device_id = session.device_id().to_string();
 
             // Spirc::new tự gọi session.connect sau khi đăng ký listener. Connect trước
             // ở đây làm Spirc hỏng với Unavailable/NotConnected.
@@ -127,6 +151,7 @@ impl LocalPlayer {
                     {
                         let mut st = state.lock().unwrap();
                         st.running = true;
+                        st.device_id = device_id;
                         st.error = None;
                     }
                     spirc_task.await;
@@ -230,6 +255,31 @@ pub fn playback_access_token() -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_transport_requires_the_selected_running_device() {
+        let player = LocalPlayer::new();
+        assert!(!player.controls_device(Some("local")));
+        {
+            let mut state = player.state.lock().unwrap();
+            state.running = true;
+            state.device_id = "local".into();
+        }
+        assert!(player.controls_device(Some("local")));
+        assert!(!player.controls_device(Some("phone")));
+        assert!(!player.controls_device(None));
+        player.stop();
+        assert!(!player.controls_device(Some("local")));
+    }
+
+    #[test]
+    fn local_transport_rejects_invalid_actions_and_unavailable_sessions() {
+        let player = LocalPlayer::new();
+        assert_eq!(player.control("next; injected").unwrap_err(), "Invalid Spotify action");
+        for action in ["next", "previous", "play_pause"] {
+            assert!(player.control(action).unwrap_err().contains("chưa sẵn sàng"));
+        }
+    }
 
     #[test]
     fn the_device_hands_over_audio_at_full_scale() {

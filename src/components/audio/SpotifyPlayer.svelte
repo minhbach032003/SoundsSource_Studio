@@ -51,11 +51,11 @@
   <div class="playback">
     <div class="transport">
       <button class="btn icon-button" type="button" aria-label="Trộn bài" title={status?.can_shuffle ? "Trộn bài" : "Trộn bài: áp dụng cho danh sách phát tiếp theo"} aria-pressed={spotifyState.shuffleOn} disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.setShuffle(!spotifyState.shuffleOn)}><Shuffle class="w-4 h-4" /></button>
-      <button class="btn icon-button" type="button" aria-label="Bài trước" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("previous")}><SkipBack class="w-4 h-4" /></button>
+      <button class="btn icon-button" type="button" aria-label="Bài trước" title={status?.can_previous === false ? "Spotify chưa cho phép quay lại bài trước trong phiên phát này" : "Bài trước"} disabled={!canControl || spotifyState.busy || status?.can_previous === false} onclick={() => spotifyState.control("previous")}><SkipBack class="w-4 h-4" /></button>
       <button class="btn btn-primary icon-button play-button" type="button" aria-label={status?.playing ? "Tạm dừng Spotify" : resuming ? `Phát tiếp ${title}` : "Phát Spotify"} disabled={!canControl || spotifyState.busy} onclick={() => resuming ? spotifyState.resumeLastTrack() : spotifyState.control("play_pause")}>
         {#if status?.playing}<Pause class="w-4 h-4" />{:else}<Play class="w-4 h-4" />{/if}
       </button>
-      <button class="btn icon-button" type="button" aria-label="Bài tiếp theo" disabled={!canControl || spotifyState.busy} onclick={() => spotifyState.control("next")}><SkipForward class="w-4 h-4" /></button>
+      <button class="btn icon-button" type="button" aria-label="Bài tiếp theo" title={status?.can_next === false ? "Spotify chưa cho phép chuyển bài tiếp theo trong phiên phát này" : "Bài tiếp theo"} disabled={!canControl || spotifyState.busy || status?.can_next === false} onclick={() => spotifyState.control("next")}><SkipForward class="w-4 h-4" /></button>
       <button class="btn icon-button" type="button" aria-label={status?.repeat === "track" ? "Đang lặp một bài" : status?.repeat === "context" ? "Đang lặp danh sách" : "Lặp lại"} title={status?.can_repeat ? "Lặp lại" : "Spotify không cho lặp danh sách bài rời. Phát một playlist thì dùng được."} aria-pressed={(status?.repeat ?? "off") !== "off"} disabled={!canControl || spotifyState.busy || !status?.can_repeat} onclick={() => spotifyState.cycleRepeat()}>
         {#if status?.repeat === "track"}<Repeat1 class="w-4 h-4" />{:else}<Repeat class="w-4 h-4" />{/if}
       </button>
@@ -74,8 +74,8 @@
     <input id="spotify-volume" aria-label="Âm lượng Spotify" type="range" min="0" max="100" step="1" bind:value={volume} disabled={!canControl || spotifyState.volumeBusy} onfocus={() => editingVolume = true} onblur={() => editingVolume = false} onchange={async () => { if (!await spotifyState.setVolume(volume / 100)) volume = Math.round(spotifyState.volume * 100); }} />
     <output for="spotify-volume">{spotifyState.muted ? "Tắt" : `${volume}%`}</output>
   </div>
-  {#if spotifyState.error || status?.playback_error}
-    <p class="player-error" role="alert">{spotifyState.error || status?.playback_error}</p>
+  {#if spotifyState.error || status?.local_error || status?.playback_error || status?.error}
+    <p class="player-error" role="alert">{spotifyState.error || status?.local_error || status?.playback_error || status?.error}</p>
   {/if}
 </footer>
 

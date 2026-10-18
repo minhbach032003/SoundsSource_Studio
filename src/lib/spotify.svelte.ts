@@ -30,6 +30,8 @@ export interface SpotifyStatus {
   shuffle: boolean;
   can_shuffle: boolean;
   can_repeat: boolean;
+  can_previous?: boolean;
+  can_next?: boolean;
   repeat: "off" | "context" | "track";
   title: string;
   artist: string;
@@ -416,13 +418,18 @@ class SpotifyState {
 
   async control(action: "play_pause" | "previous" | "next") {
     if (this.busy) return;
+    if ((action === "previous" && this.status?.can_previous === false) ||
+        (action === "next" && this.status?.can_next === false)) {
+      toastState.info(action === "previous" ? "Spotify chưa cho phép quay lại bài trước trong phiên phát này." : "Spotify chưa cho phép chuyển bài tiếp theo trong phiên phát này.");
+      return;
+    }
     this.busy = true;
     this.error = null;
     try {
       await invoke("spotify_control", { action });
       this.status = await invoke<SpotifyStatus>("get_spotify_status");
-      toastState.info(action === "next" ? "Đã chuyển bài tiếp theo" : action === "previous" ? "Đã chuyển bài trước" : "Đã gửi lệnh phát / tạm dừng Spotify");
-    } catch (e) { this.error = String(e); }
+      toastState.info(action === "next" ? "Đã gửi lệnh chuyển bài tiếp theo" : action === "previous" ? "Đã gửi lệnh chuyển bài trước" : "Đã gửi lệnh phát / tạm dừng Spotify");
+    } catch (e) { this.error = String(e); toastState.error(String(e)); }
     finally { this.busy = false; }
   }
 }

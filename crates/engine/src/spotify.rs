@@ -79,6 +79,10 @@ impl SpotifyWeb {
             device: Mutex::new(None),
         }
     }
+    pub fn selected_device_id(&self) -> Option<String> {
+        self.device.lock().unwrap().clone()
+    }
+
     pub fn connected(&self) -> bool {
         self.tokens.lock().unwrap().is_some()
     }
@@ -508,6 +512,10 @@ impl SpotifyWeb {
     }
     pub fn playback(&self) -> Result<sound_core::spotify::SpotifyPlayback, String> {
         let data = self.request(Method::GET, "me/player", &[], None)?;
+        self.parse_playback(data)
+    }
+
+    fn parse_playback(&self, data: Value) -> Result<sound_core::spotify::SpotifyPlayback, String> {
         // Do not display a phone/remote session as the Mac's DSP source.
         let selected = self.device.lock().unwrap().clone();
         let device_id = text(&data["device"], "id");
@@ -529,6 +537,8 @@ impl SpotifyWeb {
             device_name,
             shuffle: data["shuffle_state"].as_bool().unwrap_or(false),
             repeat: text(&data, "repeat_state"),
+            can_previous: !data["actions"]["disallows"]["skipping_prev"].as_bool().unwrap_or(false),
+            can_next: !data["actions"]["disallows"]["skipping_next"].as_bool().unwrap_or(false),
             can_shuffle: !data["actions"]["disallows"]["toggling_shuffle"]
                 .as_bool()
                 .unwrap_or(false),
@@ -737,7 +747,11 @@ fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> 
     if status == 403 && path.starts_with("playlists/") {
         return "Spotify không cho app xem bài trong playlist của người khác. Bạn vẫn phát được cả playlist này.".to_string();
     }
+    let restriction = serde_json::from_str::<Value>(body).ok().is_some_and(|data| {
+        data["error"]["message"].as_str().is_some_and(|message| message.contains("Restriction violated"))
+    });
     let base = match status {
+        403 if restriction => "Spotify không cho phép thao tác này trong phiên phát hiện tại. Chọn một bài trong danh sách rồi thử lại.".to_string(),
         401 => "Phiên Spotify hết hạn. Ngắt tài khoản rồi đăng nhập lại.".to_string(),
         403 => "Spotify không cho phép thao tác này. Kiểm tra Premium và User Management của Developer App.".to_string(),
         404 => "Không có thiết bị nào đang phát. Chọn một bài để bắt đầu, rồi dùng nút tiếp / lùi.".to_string(),
@@ -771,6 +785,26 @@ fn api_error(status: u16, body: &str, retry_after: Option<&str>, path: &str) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn playback_honors_skip_restrictions_for_the_selected_device() {
+        let web = SpotifyWeb::new("", "");
+        *web.device.lock().unwrap() = Some("local".into());
+        let mut data = json!({"device":{"id":"local"}, "actions":{"disallows":{"skipping_prev":true,"skipping_next":false}}});
+        let playback = web.parse_playback(data.clone()).unwrap();
+        assert!(!playback.can_previous);
+        assert!(playback.can_next);
+        data["actions"]["disallows"]["skipping_next"] = json!(true);
+        assert!(!web.parse_playback(data.clone()).unwrap().can_next);
+        data["device"]["id"] = json!("phone");
+        let other = web.parse_playback(data).unwrap();
+        assert!(!other.can_previous && !other.can_next);
+        let empty = web.parse_playback(Value::Null).unwrap();
+        assert!(!empty.can_previous && !empty.can_next);
+        let message = api_error(403, r#"{"error":{"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#, None, "me/player/previous");
+        assert!(!message.contains("Kiểm tra Premium"));
+        assert!(message.contains("hiện tại"));
+    }
+
     #[test]
     fn oauth_callback_and_library_boundaries() {
         assert_eq!(

@@ -222,3 +222,18 @@ test("App.svelte integrates MixerView on mixer tab", () => {
   );
   assert.equal(emojiRegex.test(src), false, "App.svelte must contain zero emojis");
 });
+
+test("an app macOS will not let us control offers a way through rust-sound", () => {
+  const card = readFileSync("src/components/audio/ProcessCard.svelte", "utf8");
+  const mixer = readFileSync("src/views/MixerView.svelte", "utf8");
+
+  // Thanh trượt chết là thứ tệ nhất: người dùng kéo, không đổi gì, tưởng tai mình hỏng.
+  assert.match(card, /canTap = \$derived\(/, "card phải biết app nào có lối thoát");
+  assert.match(card, /supports_volume === false && !isTapped/, "tap xong thì thanh trượt sống lại");
+  assert.match(card, /onTapToggle\?\.\(!isTapped\)/, "nút phải bật tắt được cả hai chiều");
+
+  // Một app tại một thời điểm: lỗi DSP chỉ làm câm một app, không phải cả máy.
+  assert.match(mixer, /invoke\("untap_app"\)/, "phải có đường trả app về đường phát thường");
+  assert.match(mixer, /tappedBundle = process\.bundle_id/, "nhớ app nào đang được tap");
+  assert.match(mixer, /tappedBundle = null;\s*\n\s*toastState\.error/, "tap hỏng thì không được nhớ nhầm là đang chạy");
+});

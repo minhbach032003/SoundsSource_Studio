@@ -71,6 +71,33 @@ test("Spotify login and playback errors clear busy state and never toast success
   assert.equal(h.feedback.length, 0);
 });
 
+test("restricted skips send no IPC, while command errors produce failure feedback", async () => {
+  const calls = [];
+  let fail = false;
+  const h = state(async (command) => {
+    calls.push(command);
+    if (fail) throw new Error("Spotify refused transport");
+    return { can_previous: true, can_next: true };
+  });
+  h.instance.status = { can_previous: false, can_next: false };
+  await h.instance.control("previous");
+  await h.instance.control("next");
+  assert.deepEqual(calls, []);
+  assert.equal(h.feedback.length, 2);
+  assert.ok(h.feedback.every(([kind]) => kind === "info"));
+  h.instance.status = { can_previous: true, can_next: true };
+  fail = true;
+  await h.instance.control("next");
+  assert.equal(h.instance.busy, false);
+  assert.match(h.instance.error, /refused transport/);
+  assert.equal(h.feedback.at(-1)[0], "error");
+  fail = false;
+  await h.instance.control("previous");
+  assert.equal(h.instance.error, null);
+  assert.equal(h.instance.busy, false);
+  assert.match(h.feedback.at(-1)[1], /bài trước/);
+});
+
 test("Spotify startup restores credentials without starting playback or opening OAuth", async () => {
   const calls = [];
   const h = state(async command => {

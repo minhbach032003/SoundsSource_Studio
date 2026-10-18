@@ -17,6 +17,8 @@ pub struct SpotifyPlayback {
     /// Spotify tự báo lệnh nào đang bị cấm. Danh sách bài rời không cho bật trộn hay
     /// lặp danh sách; bấm vào là nhận "Restriction violated".
     #[serde(default)] pub can_shuffle: bool,
+    #[serde(default)] pub can_previous: bool,
+    #[serde(default)] pub can_next: bool,
     #[serde(default)] pub can_repeat: bool,
     /// "off", "context" (lặp danh sách) hoặc "track" (lặp một bài).
     #[serde(default)] pub repeat: String,
@@ -61,7 +63,7 @@ pub fn playback() -> Result<SpotifyPlayback, String> {
 if (!s.running()) { JSON.stringify({running:false,playing:false}); }
 else {
  const state = {running:true,playing:s.playerState()==='playing'};
- try { const t=s.currentTrack(); Object.assign(state,{title:t.name(),artist:t.artist(),album:t.album(),artwork:t.artworkUrl(),duration:t.duration()/1000,position:s.playerPosition()}); } catch (_) {}
+ try { const t=s.currentTrack(); Object.assign(state,{can_previous:true,can_next:true,title:t.name(),artist:t.artist(),album:t.album(),artwork:t.artworkUrl(),duration:t.duration()/1000,position:s.playerPosition()}); } catch (_) {}
  JSON.stringify(state);
 }"#)?;
     serde_json::from_str(&json).map_err(|e| format!("Spotify trả về dữ liệu không hợp lệ: {e}"))

@@ -19,6 +19,9 @@
     isMuted?: boolean;
     devices?: AudioDevice[];
     targetDeviceUid?: string | null;
+    /** Bundle đang được đưa qua rust-sound, nếu có. */
+    tappedBundle?: string | null;
+    onTapToggle?: (tapped: boolean) => Promise<void> | void;
     onVolumeCommit?: (volume: number) => Promise<void> | void;
     onMuteToggle?: (muted: boolean) => Promise<void> | void;
     onRouteChange?: (deviceUid: string) => void;
@@ -32,6 +35,8 @@
     isMuted = false,
     devices = [],
     targetDeviceUid = null,
+    tappedBundle = null,
+    onTapToggle,
     onVolumeCommit,
     onMuteToggle,
     onRouteChange,
@@ -54,8 +59,14 @@
   const isDisabled = $derived(!process.bundle_id || isCommitting);
   // macOS has no per-process volume API; only apps that script their own volume
   // can be driven. Grey the control out rather than letting it pretend.
-  const volumeLocked = $derived(isDisabled || process.supports_volume === false);
-  const lockReason = "macOS không cho chỉnh âm lượng riêng cho app này. Dùng âm lượng trong chính app hoặc fader tổng.";
+  // Tap đưa tiếng app qua rust-sound, nên thanh trượt chạm được vào nó dù macOS không
+  // có API âm lượng riêng cho app đó.
+  const isTapped = $derived(Boolean(process.bundle_id) && tappedBundle === process.bundle_id);
+  const volumeLocked = $derived(isDisabled || (process.supports_volume === false && !isTapped));
+  const canTap = $derived(
+    Boolean(process.bundle_id) && process.supports_volume === false && process.is_running_output
+  );
+  const lockReason = "macOS không cho chỉnh âm lượng riêng cho app này. Đưa tiếng qua rust-sound để chỉnh được, hoặc dùng fader tổng.";
 
   const channelLvl = $derived(
     isMuted ? 0 : Math.round(liveAudioMetersState.levelL * (internalVol / 100))
@@ -146,6 +157,21 @@
         style="--level: {internalVol}%"
       />
     </div>
+
+    <!-- Lối thoát cho app macOS không cho chỉnh: đưa tiếng nó qua rust-sound. -->
+    {#if canTap}
+      <button
+        type="button"
+        class="btn text-[9px] px-1.5 py-0 font-semibold uppercase tracking-wide shrink-0"
+        aria-pressed={isTapped}
+        title={isTapped
+          ? `Tiếng ${name} đang đi qua rust-sound. Bấm để trả về đường phát thường.`
+          : `Đưa tiếng ${name} qua rust-sound để chỉnh được âm lượng và EQ.`}
+        onclick={() => onTapToggle?.(!isTapped)}
+      >
+        {isTapped ? "Đang qua rust-sound" : "Qua rust-sound"}
+      </button>
+    {/if}
 
     <!-- Numerical Readout -->
     <button

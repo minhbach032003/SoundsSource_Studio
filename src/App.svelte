@@ -76,7 +76,7 @@
   const VIEWS: Record<NavTab, { title: string; subtitle: string; icon: typeof SlidersHorizontal }> = {
     spotify: {
       title: "Spotify",
-      subtitle: "Thư viện nhạc · Spotify phát nền · bass / EQ riêng",
+      subtitle: "Thư viện nhạc · Playlist và bài đã thích",
       icon: Music2,
     },
     mixer: {
