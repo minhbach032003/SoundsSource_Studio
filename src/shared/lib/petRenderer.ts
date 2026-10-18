@@ -105,14 +105,61 @@ export interface Rect {
 
 // Frames are hand-authored, not interpolated: keep pixel art crisp and avoid ghosting.
 // The existing frame-rate slider remains an upper bound, not a global forced rate.
-export const PET_MOTION: Record<string, { rates: readonly number[]; restFrame: number; pixel: boolean }> = {
-  boba: { rates: [5, 9, 9, 7, 9, 5, 5, 8, 5], restFrame: 7, pixel: true },
-  eddy: { rates: [5, 10, 10, 8, 10, 6, 6, 9, 6], restFrame: 6, pixel: true },
-  "code-frenzy-cat": { rates: [6, 12, 12, 9, 11, 6, 7, 12, 7], restFrame: 5, pixel: true },
-  "work-blue-cat": { rates: [6, 10, 10, 8, 10, 6, 6, 11, 6], restFrame: 7, pixel: true },
-  "shinchan-3": { rates: [6, 11, 11, 9, 11, 6, 7, 10, 7], restFrame: 7, pixel: true },
-  "super-saiyan-goku": { rates: [6, 12, 12, 9, 12, 6, 7, 12, 7], restFrame: 6, pixel: true },
-  "wode-daodun-3d": { rates: [6, 10, 10, 8, 10, 6, 6, 10, 6], restFrame: 5, pixel: false },
+export const PET_MOTION: Record<string, {
+  rates: readonly number[];
+  restFrame: number;
+  pixel: boolean;
+  dynamics: {
+    idleBreathSpeed: number; // Hz (cycles/sec)
+    idleBreathHeight: number; // px at standard scale
+    workBobSpeed: number;
+    workBobHeight: number;
+    swayAngle: number; // degrees
+    glowPulse?: boolean;
+  };
+}> = {
+  boba: {
+    rates: [6, 10, 10, 8, 10, 5, 6, 9, 6],
+    restFrame: 7,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.2, idleBreathHeight: 2.2, workBobSpeed: 3.0, workBobHeight: 1.5, swayAngle: 1.2 },
+  },
+  eddy: {
+    rates: [6, 11, 11, 9, 11, 6, 7, 10, 7],
+    restFrame: 6,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.4, idleBreathHeight: 2.0, workBobSpeed: 3.8, workBobHeight: 2.0, swayAngle: 1.8 },
+  },
+  "code-frenzy-cat": {
+    rates: [7, 12, 12, 10, 12, 6, 8, 12, 8],
+    restFrame: 5,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.6, idleBreathHeight: 1.8, workBobSpeed: 5.5, workBobHeight: 2.6, swayAngle: 1.5 },
+  },
+  "work-blue-cat": {
+    rates: [6, 11, 11, 8, 11, 6, 7, 12, 7],
+    restFrame: 7,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.3, idleBreathHeight: 1.9, workBobSpeed: 4.8, workBobHeight: 2.2, swayAngle: 1.2 },
+  },
+  "shinchan-3": {
+    rates: [7, 12, 12, 10, 12, 6, 8, 11, 8],
+    restFrame: 7,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.8, idleBreathHeight: 2.5, workBobSpeed: 4.2, workBobHeight: 3.0, swayAngle: 2.5 },
+  },
+  "super-saiyan-goku": {
+    rates: [7, 12, 12, 10, 12, 6, 8, 12, 8],
+    restFrame: 6,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 1.5, idleBreathHeight: 2.0, workBobSpeed: 5.0, workBobHeight: 2.8, swayAngle: 1.0, glowPulse: true },
+  },
+  "wode-daodun-3d": {
+    rates: [6, 11, 11, 8, 11, 6, 7, 11, 7],
+    restFrame: 5,
+    pixel: false,
+    dynamics: { idleBreathSpeed: 1.1, idleBreathHeight: 2.4, workBobSpeed: 3.4, workBobHeight: 1.8, swayAngle: 1.6 },
+  },
 };
 
 export function petAnimationFps(slug: string, row: number, preference: number): number {
@@ -136,7 +183,14 @@ export function petFrameIndex(slug: string, row: number, count: number, step: nu
   return row === 0 ? Math.max(0, phase - hold) : Math.min(phase, count - 1);
 }
 
-export function drawPetFrame(ctx: CanvasRenderingContext2D, img: HTMLImageElement, r: Rect, slug: string, canvas = ctx.canvas): Rect {
+export function drawPetFrame(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  r: Rect,
+  slug: string,
+  canvas = ctx.canvas,
+  dynamicsOffset: { offsetY: number; rotationDeg: number; squashY: number } = { offsetY: 0, rotationDeg: 0, squashY: 1 }
+): Rect {
   const { width, height } = canvas;
   const scale = Math.min(width / r.w, height / r.h);
   // Nearest-neighbor sampling keeps pixel art crisp without whole-step size jumps
@@ -146,8 +200,28 @@ export function drawPetFrame(ctx: CanvasRenderingContext2D, img: HTMLImageElemen
   const x = Math.round((width - w) / 2), y = height - h;
   ctx.imageSmoothingEnabled = !pixel;
   ctx.clearRect(0, 0, width, height);
+
+  const { offsetY, rotationDeg, squashY } = dynamicsOffset;
+  const hasTransform = (offsetY !== 0 || rotationDeg !== 0 || squashY !== 1) && typeof ctx.save === "function";
+
+  if (hasTransform) {
+    ctx.save();
+    // Pivot around bottom center of sprite so ground contacts stay anchored
+    const pivotX = width / 2;
+    const pivotY = height;
+    if (typeof ctx.translate === "function") ctx.translate(pivotX, pivotY + offsetY);
+    if (rotationDeg !== 0 && typeof ctx.rotate === "function") ctx.rotate((rotationDeg * Math.PI) / 180);
+    if (squashY !== 1 && typeof ctx.scale === "function") ctx.scale(1 / Math.sqrt(squashY), squashY);
+    if (typeof ctx.translate === "function") ctx.translate(-pivotX, -pivotY);
+  }
+
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
-  return { x, y, w, h };
+
+  if (hasTransform) {
+    ctx.restore();
+  }
+
+  return { x, y: y + Math.round(offsetY), w, h };
 }
 
 export function slice(img: HTMLImageElement): Rect[][] {
@@ -200,6 +274,7 @@ export class PetRenderer {
   private row = 0;
   private lastTick = 0;
   private fps = 12;
+  private dynamicsTime = 0;
   private state = "idle";
   private animate = true;
   private unsubscribe: () => void;
@@ -320,6 +395,11 @@ export class PetRenderer {
   private loop(t: number) {
     this.animId = null;
     if (this.isDestroyed || !this.animate) return;
+
+    // Track smooth 60fps dynamics continuous clock
+    this.dynamicsTime = t / 1000;
+
+    let shouldRedraw = false;
     if (this.loaded && t - this.lastTick >= 1000 / this.fps) {
       const interval = 1000 / this.fps;
       // Retain the fractional remainder; never replay an unbounded background backlog.
@@ -328,9 +408,21 @@ export class PetRenderer {
       const count = this.currentClip()?.length || COLS;
       const previous = petFrameIndex(this.slug, this.row, count, this.frame);
       this.frame += steps;
-      if (previous !== petFrameIndex(this.slug, this.row, count, this.frame)) this.draw();
+      if (previous !== petFrameIndex(this.slug, this.row, count, this.frame)) shouldRedraw = true;
     }
+
+    // Always redraw at display refresh rate for silky smooth subpixel physics if animated
+    if (this.loaded && (shouldRedraw || this.hasContinuousDynamics())) {
+      this.draw();
+    }
+
     this.animId = requestAnimationFrame(this.loop);
+  }
+
+  private hasContinuousDynamics(): boolean {
+    if (!this.animate || this.reducedMotion?.matches) return false;
+    // States that feature continuous micro-dynamics
+    return ["idle", "working", "reading", "celebrate", "waiting"].includes(this.state);
   }
 
   public draw() {
@@ -354,8 +446,49 @@ export class PetRenderer {
       };
     }
 
-    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas);
+    // Compute subpixel procedural dynamics for ultra-smooth 60fps motion
+    const dynamicsOffset = this.computeDynamicsOffset();
+
+    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset);
     this.headroom = this.spriteRect.y / H;
+  }
+
+  private computeDynamicsOffset(): { offsetY: number; rotationDeg: number; squashY: number } {
+    if (!this.animate || this.reducedMotion?.matches || !this.hasContinuousDynamics()) {
+      return { offsetY: 0, rotationDeg: 0, squashY: 1 };
+    }
+
+    const dyn = PET_MOTION[this.slug]?.dynamics ?? PET_MOTION["work-blue-cat"]!.dynamics;
+    const time = this.dynamicsTime;
+
+    if (this.state === "idle" || this.state === "waiting") {
+      // Gentle sine-wave breathing curve
+      const breath = Math.sin(time * Math.PI * 2 * dyn.idleBreathSpeed);
+      const offsetY = breath * dyn.idleBreathHeight;
+      const sway = Math.sin(time * Math.PI * dyn.idleBreathSpeed * 0.5) * (dyn.swayAngle * 0.4);
+      const squashY = 1 + breath * 0.015;
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    if (this.state === "working" || this.state === "reading") {
+      // Typing bounce rhythm
+      const bob = Math.abs(Math.sin(time * Math.PI * 2 * dyn.workBobSpeed));
+      const offsetY = -bob * dyn.workBobHeight;
+      const sway = Math.sin(time * Math.PI * dyn.workBobSpeed * 0.5) * dyn.swayAngle;
+      const squashY = 1 + (bob - 0.5) * 0.02;
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    if (this.state === "celebrate") {
+      // Energetic celebratory bounce
+      const jump = Math.sin(time * Math.PI * 6);
+      const offsetY = jump * 3.5;
+      const sway = Math.cos(time * Math.PI * 3) * 2.5;
+      const squashY = 1 + (jump > 0 ? 0.04 : -0.04);
+      return { offsetY, rotationDeg: sway, squashY };
+    }
+
+    return { offsetY: 0, rotationDeg: 0, squashY: 1 };
   }
 
   destroy() {
