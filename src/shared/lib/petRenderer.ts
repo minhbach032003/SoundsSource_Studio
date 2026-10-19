@@ -218,16 +218,16 @@ export const ARCHETYPE_LIGHTING: Record<string, ArchetypeLighting> = {
     groundColor: "rgba(6, 182, 212, 0.35)",
   },
   "wode-daodun-3d": {
-    coreX: 0.46,
-    coreY: 0.52,
-    radiusRatio: 0.60,
+    coreX: 0.50,
+    coreY: 0.54,
+    radiusRatio: 0.62,
     stops: [
-      [0, "rgba(255, 255, 255, 0.45)"],
-      [0.38, "rgba(147, 197, 253, 0.32)"],
-      [0.75, "rgba(99, 102, 241, 0.20)"],
-      [1, "rgba(147, 197, 253, 0)"],
+      [0, "rgba(255, 255, 255, 0.40)"],
+      [0.35, "rgba(186, 230, 253, 0.28)"],
+      [0.70, "rgba(56, 189, 248, 0.16)"],
+      [1, "rgba(186, 230, 253, 0)"],
     ],
-    groundColor: "rgba(56, 189, 248, 0.35)",
+    groundColor: "rgba(14, 165, 233, 0.35)",
   },
   "work-blue-cat": {
     coreX: 0.48,
@@ -434,14 +434,25 @@ export function drawPetFrame(
     } else if (
       slug === "wode-daodun-3d" &&
       (isWorkOrRead || isCeleb) &&
-      typeof ctx.arc === "function"
+      typeof ctx.arc === "function" &&
+      typeof ctx.save === "function"
     ) {
-      const glintX = x + w * 0.36;
-      const glintY = y + h * 0.44;
-      const glintR = 2 + (dynamicsOffset.glow ?? 1) * 1.5;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      // Blade and shield dynamic shimmer
+      const pulse = dynamicsOffset.glow ?? 1;
+      const glintX = x + w * 0.35;
+      const glintY = y + h * 0.42;
+      const glintR = 2.5 + pulse * 1.5;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       ctx.beginPath();
       ctx.arc(glintX, glintY, glintR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Shield rim metallic gleam
+      const shieldX = x + w * 0.68;
+      const shieldY = y + h * 0.62;
+      ctx.fillStyle = `rgba(186, 230, 253, ${(0.35 * pulse).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(shieldX, shieldY, 4 * pulse, 0, Math.PI * 2);
       ctx.fill();
     }
 

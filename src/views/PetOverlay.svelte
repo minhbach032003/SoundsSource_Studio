@@ -660,6 +660,8 @@
             <Sparkles size={14} class="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           {:else if kind === "droid"}
             <Cpu size={14} class="w-3.5 h-3.5 text-purple-400 shrink-0" />
+          {:else if kind === "subagent"}
+            <Bot size={14} class="w-3.5 h-3.5 text-cyan-400 shrink-0" />
           {:else}
             <Activity size={14} class="w-3.5 h-3.5 text-rose-300 shrink-0" />
           {/if}
@@ -793,7 +795,7 @@
                 slug={sessionPet.id}
                 mood={sMood}
                 size={petSize}
-                class="pet-silhouette cursor-pointer"
+                class="{sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : 'pet-silhouette'} cursor-pointer"
               />
             </div>
           {/each}
@@ -832,7 +834,7 @@
             slug={petSlug}
             {mood}
             size={petSize}
-            class="pet-silhouette cursor-pointer"
+            class="{petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : 'pet-silhouette'} cursor-pointer"
           />
         </div>
       {/if}
@@ -1013,6 +1015,14 @@
     filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
       drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
       drop-shadow(0 1px 0 rgb(0 0 0 / 45%));
+  }
+
+  /* Shaded 3D / smooth pets (like wode-daodun-3d): Soft feathered ambient halo and elegant subtle depth shadow
+     instead of hard stair-stepped white pixel keylines. */
+  :global(.pet-smooth-aura canvas) {
+    image-rendering: auto;
+    filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent))
+      drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
   }
 
   @keyframes petParticleFloat {
