@@ -15,7 +15,14 @@
   import { navigateTo } from "@/lib/navigation";
   import { readPetPreferences, subscribePetPreferences } from "@/lib/petPreferences";
   import { INSTALLED_PETS, type AgentSessionDto } from "@/components/pet/types";
-  import { getPetForSession, getProjectName, setProjectPetBinding, getPetArchetype } from "@/lib/petMapping";
+  import {
+    getPetForSession,
+    getProjectName,
+    setProjectPetBinding,
+    getPetArchetype,
+    getFavoritePets,
+    setFavoritePetSlot,
+  } from "@/lib/petMapping";
   import { toastState } from "@/lib/toast.svelte";
   import { playPetSound } from "@/lib/petAudio";
   import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -27,11 +34,13 @@
     (typeof localStorage !== "undefined" && localStorage.getItem("rust_sound_pet_slug")) || "super-saiyan-goku"
   );
   let sessions = $state<AgentSessionDto[]>([]);
+  let favoritePets = $state<string[]>(getFavoritePets());
   let isTestingAudio = $state(false);
 
   $effect(() => {
     return subscribePetPreferences(() => {
       prefs = readPetPreferences();
+      favoritePets = getFavoritePets();
       const savedSlug = localStorage.getItem("rust_sound_pet_slug");
       if (savedSlug && savedSlug !== selectedPet) {
         selectedPet = savedSlug;
@@ -216,6 +225,67 @@
               <span>Test "Waiting"</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Favorite Trio Roster: Explicit 3 companions for Desktop Split Clustering -->
+      <div class="panel p-4 sm:p-5 shadow-xs space-y-3.5">
+        <div class="flex items-center justify-between border-b border-(--line) pb-2.5">
+          <div class="flex items-center gap-2">
+            <Sparkles size={15} class="text-(--accent-text)" />
+            <h3 class="text-xs font-bold text-(--ink) m-0">Bộ 3 Companion Yêu Thích (Desktop Roster)</h3>
+          </div>
+          <span class="text-[10px] font-mono text-(--muted)">3 Slots Ngoài Desktop</span>
+        </div>
+
+        <p class="text-[11px] text-(--muted) m-0 leading-relaxed">
+          Tùy chỉnh đích danh 3 chú pet xuất hiện ngoài desktop khi chạy 1 agent hoặc khi các subagent chạy song song.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {#each [0, 1, 2] as slotIdx}
+            {@const currentId = favoritePets[slotIdx] || (slotIdx === 0 ? selectedPet : slotIdx === 1 ? 'work-blue-cat' : 'boba')}
+            {@const petMeta = getPetArchetype(currentId)}
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between gap-2.5 shadow-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-(--surface) text-(--ink) border border-(--line)">
+                  {slotIdx === 0 ? "Slot 1 (Solo/Chính)" : slotIdx === 1 ? "Slot 2 (Subagent 1)" : "Slot 3 (Subagent 2)"}
+                </span>
+                <span class="w-2 h-2 rounded-full {slotIdx === 0 ? 'bg-amber-400' : slotIdx === 1 ? 'bg-cyan-400' : 'bg-emerald-400'}"></span>
+              </div>
+
+              <div class="flex items-center gap-2.5 min-w-0">
+                <img
+                  src={petMeta.avatarUrl}
+                  alt={petMeta.name}
+                  class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+                />
+                <div class="min-w-0 flex-1">
+                  <span class="font-bold text-[11px] text-(--ink) block truncate">{petMeta.name}</span>
+                  <span class="text-[9px] text-(--muted) block truncate">{petMeta.tag}</span>
+                </div>
+              </div>
+
+              <select
+                value={currentId}
+                onchange={(e) => {
+                  const newId = e.currentTarget.value;
+                  setFavoritePetSlot(slotIdx, newId);
+                  favoritePets = getFavoritePets();
+                  if (slotIdx === 0) {
+                    selectedPet = newId;
+                  }
+                  toastState.info(`Slot ${slotIdx + 1}: ${getPetArchetype(newId).name}`);
+                }}
+                class="field text-[11px] h-7 px-2 py-0 rounded-lg w-full text-(--ink) cursor-pointer"
+                title="Chọn pet cho Slot {slotIdx + 1}"
+              >
+                {#each INSTALLED_PETS as pet}
+                  <option value={pet.id}>{pet.name}</option>
+                {/each}
+              </select>
+            </div>
+          {/each}
         </div>
       </div>
 

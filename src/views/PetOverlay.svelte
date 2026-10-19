@@ -2,7 +2,8 @@
   import { untrack } from "svelte";
   import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
   import { petMoodFor, splitPetSessions } from "@/lib/petMood";
-  import { getPetForSession } from "@/lib/petMapping";
+  import { getPetForSession, setFavoritePetSlot, getPetArchetype } from "@/lib/petMapping";
+  import { INSTALLED_PETS } from "@/components/pet/types";
   import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
@@ -904,6 +905,26 @@
             <Activity size={12} class="text-indigo-400" />
             <span>Rest (+10)</span>
           </button>
+        </div>
+
+        <div class="pt-1 border-t border-(--line) flex items-center justify-between px-1 text-[10px] text-(--muted)">
+          <span>Switch Pet</span>
+          <select
+            value={petSlug}
+            onchange={(e) => {
+              const newPet = e.currentTarget.value;
+              setFavoritePetSlot(0, newPet);
+              petSlug = newPet;
+              toastState.info(`Companion: ${getPetArchetype(newPet).name}`);
+              showActionMenu = false;
+            }}
+            class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--ink) cursor-pointer"
+            title="Đổi nhanh chú pet chính"
+          >
+            {#each INSTALLED_PETS as p}
+              <option value={p.id}>{p.name}</option>
+            {/each}
+          </select>
         </div>
 
         <div class="pt-1 border-t border-(--line) flex items-center justify-between px-1 text-[10px] text-(--muted)">
