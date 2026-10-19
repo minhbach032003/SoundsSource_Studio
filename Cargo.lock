@@ -4592,6 +4592,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sound-auth"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "hmac",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sound-core",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "sound-core"
 version = "0.1.0"
 dependencies = [
@@ -4631,6 +4651,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "sound-auth",
  "sound-core",
  "sound-dsp",
  "subtle",

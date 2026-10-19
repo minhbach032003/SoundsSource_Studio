@@ -1,5 +1,5 @@
-use crate::auth::jwt::{JwtError, JwtManager};
-use crate::auth::keycloak::{KeycloakError, KeycloakVerifier};
+use crate::jwt::{JwtError, JwtManager};
+use crate::keycloak::{KeycloakError, KeycloakVerifier};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
