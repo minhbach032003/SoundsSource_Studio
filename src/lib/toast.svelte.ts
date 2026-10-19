@@ -25,7 +25,7 @@ export class ToastState {
     if (typeof setTimeout !== "undefined") {
       setTimeout(() => {
         this.remove(id);
-      }, 2800);
+      }, 2000);
     }
 
     return id;

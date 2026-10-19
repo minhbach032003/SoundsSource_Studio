@@ -36,7 +36,16 @@
     try {
       writePetPreference(key, value);
       if (key === "count" && isTauri()) await updatePetTrayCount();
-      toastState.info("AgentPet preferences saved");
+      const labels: Record<string, string> = {
+        count: "Menu bar count updated",
+        chat: value ? "Menu bar chatter on" : "Menu bar chatter off",
+        bubble: value ? "Menu bar bubble on" : "Menu bar bubble off",
+        split: value ? "Split pet enabled" : "Split pet disabled",
+        animate: value ? "Pet animation enabled" : "Pet animation paused",
+        fps: `Frame rate: ${value} FPS`,
+        size: `Pet size: ${value}px`,
+      };
+      toastState.info(labels[key] || "AgentPet preferences saved");
     } catch (error) {
       prefs = readPetPreferences();
       toastState.error(`Could not save AgentPet preferences: ${String(error)}`);

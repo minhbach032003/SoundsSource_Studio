@@ -496,6 +496,17 @@ export function slice(img: HTMLImageElement): Rect[][] {
   })));
 }
 
+export const CLOUDINARY_PETS_BASE = "https://res.cloudinary.com/mvvfpbof/image/upload/pets";
+
+export function resolvePetSpritesheetUrls(slugOrPath: string): { cdnUrl: string; localUrl: string } {
+  const match = slugOrPath.match(/^\/?pets\/([^/]+)\/spritesheet\.webp$/);
+  const slug = match ? match[1] : slugOrPath;
+  return {
+    cdnUrl: `${CLOUDINARY_PETS_BASE}/${slug}/spritesheet.webp`,
+    localUrl: `/pets/${slug}/spritesheet.webp`,
+  };
+}
+
 export class PetRenderer {
   private ctx: CanvasRenderingContext2D;
   private img = new Image();
@@ -568,34 +579,53 @@ export class PetRenderer {
     this.spriteRect = null;
     this.headroom = 0;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (!isCurrent()) return;
-      this.img = img;
-      this.clips = slice(img);
-      this.frame = 0;
-      this.lastTick = performance.now();
-      this.loaded = true;
-      this.draw();
-    };
 
-    img.onerror = () => {
-      if (!isCurrent()) return;
-      const plain = new Image();
-      plain.onload = () => {
+    const { cdnUrl, localUrl } = resolvePetSpritesheetUrls(
+      spritesheetUrl.startsWith("/pets/") ? spritesheetUrl : this.slug
+    );
+    const primaryUrl = spritesheetUrl.startsWith("http") ? spritesheetUrl : cdnUrl;
+    const fallbackUrl = spritesheetUrl.startsWith("http") ? undefined : localUrl;
+
+    const tryLoad = (url: string, nextFallback?: () => void) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
         if (!isCurrent()) return;
-        this.img = plain;
-        this.clips = [];
+        this.img = img;
+        this.clips = slice(img);
         this.frame = 0;
         this.lastTick = performance.now();
         this.loaded = true;
         this.draw();
       };
-      plain.src = spritesheetUrl;
+
+      img.onerror = () => {
+        if (!isCurrent()) return;
+        if (nextFallback) {
+          nextFallback();
+        } else {
+          const plain = new Image();
+          plain.onload = () => {
+            if (!isCurrent()) return;
+            this.img = plain;
+            this.clips = [];
+            this.frame = 0;
+            this.lastTick = performance.now();
+            this.loaded = true;
+            this.draw();
+          };
+          plain.src = url;
+        }
+      };
+
+      img.src = url;
     };
 
-    img.src = spritesheetUrl;
+    if (fallbackUrl && fallbackUrl !== primaryUrl) {
+      tryLoad(primaryUrl, () => tryLoad(fallbackUrl));
+    } else {
+      tryLoad(primaryUrl);
+    }
   }
 
   setState(state: string) {

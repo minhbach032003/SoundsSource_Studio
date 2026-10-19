@@ -9,6 +9,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "build": "tsc && vite build",
     "rebuild:app": "rm -rf dist target/release/bundle && pnpm tauri build --bundles app && codesign --force --deep --sign - \"target/release/bundle/macos/SoundsSource Studio.app\" && rm -rf \"/Applications/SoundsSource Studio.app\" /Applications/rust-sound.app && cp -R \"target/release/bundle/macos/SoundsSource Studio.app\" /Applications/ && echo 'Successfully deployed /Applications/SoundsSource Studio.app'",
+    "pets:upload": "node scripts/upload-pets-cloudinary.mjs",
     "preview": "vite preview",
     "tauri": "TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=. tauri"
   },

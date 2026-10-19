@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { readPetPreferences, readPetBinding, subscribePetPreferences, writePetStorage } from "@/lib/petPreferences";
-  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, drawPetFrame, petAnimationFps, petFrameIndex, PET_MOTION, type Rect } from "@/shared/lib/petRenderer";
+  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, drawPetFrame, petAnimationFps, petFrameIndex, PET_MOTION, resolvePetSpritesheetUrls, type Rect } from "@/shared/lib/petRenderer";
   import { Clapperboard } from "@lucide/svelte";
   import { toastState } from "@/lib/toast.svelte";
 
@@ -85,27 +85,43 @@
     if (hoverTimer !== null) cancelAnimationFrame(hoverTimer);
     hoverTimer = null;
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (!active || slug !== currentSlug) return;
-      const sliced = slice(img);
-      if (!sliced.length) {
-        loadError = true;
-        return;
-      }
-      loadedImage = img;
-      clips = sliced;
-      loadedSlug = currentSlug;
+    const { cdnUrl, localUrl } = resolvePetSpritesheetUrls(currentSlug);
+    let activeImg: HTMLImageElement | null = null;
+
+    const tryLoad = (url: string, onFallback?: () => void) => {
+      const img = new Image();
+      activeImg = img;
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        if (!active || slug !== currentSlug) return;
+        const sliced = slice(img);
+        if (!sliced.length) {
+          loadError = true;
+          return;
+        }
+        loadedImage = img;
+        clips = sliced;
+        loadedSlug = currentSlug;
+      };
+      img.onerror = () => {
+        if (!active || slug !== currentSlug) return;
+        if (onFallback) {
+          onFallback();
+        } else {
+          loadError = true;
+        }
+      };
+      img.src = url;
     };
-    img.onerror = () => {
-      if (active && slug === currentSlug) loadError = true;
-    };
-    img.src = `/pets/${currentSlug}/spritesheet.webp`;
+
+    tryLoad(cdnUrl, () => tryLoad(localUrl));
+
     return () => {
       active = false;
-      img.onload = null;
-      img.onerror = null;
+      if (activeImg) {
+        activeImg.onload = null;
+        activeImg.onerror = null;
+      }
       if (hoverTimer !== null) cancelAnimationFrame(hoverTimer);
       hoverTimer = null;
     };

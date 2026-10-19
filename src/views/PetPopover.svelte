@@ -221,7 +221,7 @@
   </footer>
 </div>
 
-<ToastHost />
+<ToastHost placement="popover" />
 
 <style>
   :global(body.pet-popover-window) {
@@ -242,6 +242,13 @@
   }
   :global(body.pet-popover-window *::-webkit-scrollbar-thumb:hover) {
     background: var(--input-line) !important;
+  }
+  :global(body.pet-popover-window [role="region"][aria-label="Notifications"]) {
+    bottom: 46px !important;
+    left: 14px !important;
+    right: 14px !important;
+    width: auto !important;
+    align-items: center !important;
   }
 
   .pet-popover {
