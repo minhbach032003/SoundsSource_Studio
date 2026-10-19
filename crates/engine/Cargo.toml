@@ -10,6 +10,7 @@ sound-dsp = { path = "../dsp" }
 sound-auth = { path = "../auth" }
 sound-pet = { path = "../pet" }
 sound-calendar = { path = "../calendar" }
+sound-spotify = { path = "../spotify" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"

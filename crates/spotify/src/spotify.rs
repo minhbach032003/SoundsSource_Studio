@@ -1,5 +1,5 @@
 //! Spotify Web API: PKCE on loopback, refresh tokens in the macOS Keychain.
-use crate::auth::Pkce;
+use sound_auth::Pkce;
 use reqwest::{Method, StatusCode, blocking::Client};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

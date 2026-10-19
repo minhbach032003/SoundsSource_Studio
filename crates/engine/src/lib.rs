@@ -4,9 +4,9 @@ pub use sound_auth as auth;
 pub use sound_pet as pet;
 pub use sound_calendar as google_calendar;
 pub use google_calendar as calendar;
+pub use sound_spotify::{spotify, spotify_player};
+pub use sound_spotify::*;
 pub mod router;
-pub mod spotify;
-pub mod spotify_player;
 pub mod timer;
 pub mod wheel;
 

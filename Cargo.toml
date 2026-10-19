@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/core", "crates/dsp", "crates/auth", "crates/pet", "crates/calendar", "crates/engine", "crates/app", "crates/pingloom"]
+members = ["crates/core", "crates/dsp", "crates/auth", "crates/pet", "crates/calendar", "crates/spotify", "crates/engine", "crates/app", "crates/pingloom"]
 resolver = "2"
 
 [patch.crates-io]

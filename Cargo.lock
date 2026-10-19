@@ -4670,6 +4670,7 @@ dependencies = [
  "sound-core",
  "sound-dsp",
  "sound-pet",
+ "sound-spotify",
  "subtle",
  "tempfile",
  "thiserror 2.0.21",
@@ -4689,6 +4690,26 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "sound-spotify"
+version = "0.1.0"
+dependencies = [
+ "librespot-connect",
+ "librespot-core",
+ "librespot-metadata",
+ "librespot-oauth",
+ "librespot-playback",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "sound-auth",
+ "sound-core",
+ "subtle",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
 ]
 
 [[package]]
