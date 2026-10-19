@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <!-- Background Gradient: Warm Indie Twilight -->
+    <radialGradient id="wbc-bg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="65%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </radialGradient>
+
+    <!-- Outer Ring Gradient -->
+    <linearGradient id="wbc-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+
+    <!-- Blue Cat Fur Gradient -->
+    <linearGradient id="wbc-fur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+
+    <!-- Sage Green Striped Hoodie Base -->
+    <linearGradient id="wbc-hoodie-base" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2d6a4f"/>
+      <stop offset="100%" stop-color="#1b4332"/>
+    </linearGradient>
+
+    <!-- Screen Luminescence Glow -->
+    <linearGradient id="wbc-screen-glow" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#38bdf8" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+
+    <clipPath id="wbc-clip">
+      <circle cx="64" cy="64" r="58"/>
+    </clipPath>
+  </defs>
+
+  <!-- Ambient Outer Ring -->
+  <circle cx="64" cy="64" r="61" stroke="url(#wbc-ring)" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <g clip-path="url(#wbc-clip)">
+    <!-- Backdrop -->
+    <circle cx="64" cy="64" r="58" fill="url(#wbc-bg)"/>
+
+    <!-- Warm Ambient Room Star / Glint -->
+    <circle cx="30" cy="30" r="1" fill="#fef08a" opacity="0.4"/>
+    <circle cx="96" cy="34" r="1.5" fill="#fef08a" opacity="0.3"/>
+    <path d="M22 45 Q26 40 30 45" stroke="#334155" stroke-width="0.75" fill="none" opacity="0.4"/>
+
+    <!-- Green Striped Hoodie Body -->
+    <path d="M30 118 C30 92 42 78 64 78 C86 78 98 92 98 118 Z" fill="url(#wbc-hoodie-base)"/>
+    <!-- Cable Knit / Horizontal Stripes -->
+    <path d="M34 88 C44 85 84 85 94 88" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+    <path d="M32 96 C44 93 84 93 96 96" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+    <path d="M31 104 C44 101 84 101 97 104" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+    <path d="M30 112 C44 109 84 109 98 112" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+
+    <!-- Hoodie Drawstrings -->
+    <path d="M52 80 C51 90 49 98 50 105" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <rect x="49" y="104" width="2" height="3" rx="0.5" fill="#94a3b8"/>
+    <path d="M76 80 C77 90 79 98 78 105" stroke="#f1f5f9" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    <rect x="77" y="104" width="2" height="3" rx="0.5" fill="#94a3b8"/>
+
+    <!-- Hoodie Back Arch / Outer Hood -->
+    <path d="M32 58 C32 32 46 22 64 22 C82 22 96 32 96 58 C96 74 86 82 64 82 C42 82 32 74 32 58 Z" fill="#2d6a4f"/>
+    <!-- Hood Inner Lining -->
+    <path d="M36 58 C36 36 48 27 64 27 C80 27 92 36 92 58 C92 72 82 78 64 78 C46 78 36 72 36 58 Z" fill="#1b4332"/>
+
+    <!-- Blue Cat Ears Poking Out of Hood -->
+    <!-- Left Ear -->
+    <path d="M40 42 L30 18 L52 28 Z" fill="url(#wbc-fur)"/>
+    <path d="M38 38 L34 24 L48 29 Z" fill="#f472b6" opacity="0.75"/>
+    <!-- Right Ear -->
+    <path d="M88 42 L98 18 L76 28 Z" fill="url(#wbc-fur)"/>
+    <path d="M90 38 L94 24 L80 29 Z" fill="#f472b6" opacity="0.75"/>
+
+    <!-- Blue Cat Head -->
+    <ellipse cx="64" cy="54" rx="23" ry="19" fill="url(#wbc-fur)"/>
+    <!-- Muzzle / Cheeks Light Accent -->
+    <ellipse cx="64" cy="60" rx="14" ry="9" fill="#bfdbfe" opacity="0.9"/>
+
+    <!-- Dual-Tier Amber Pupils -->
+    <!-- Left Eye Outer Socket -->
+    <ellipse cx="53" cy="51" rx="5.5" ry="6.5" fill="#0f172a"/>
+    <!-- Outer Amber Iris -->
+    <ellipse cx="53" cy="52" rx="4.5" ry="5.5" fill="#d97706"/>
+    <!-- Inner Glowing Amber Pupil Tier -->
+    <ellipse cx="53" cy="52.5" rx="3.5" ry="4.5" fill="#fbbf24"/>
+    <!-- Core Dark Slit & Specular Sparkle -->
+    <ellipse cx="53" cy="53" rx="1.8" ry="3.2" fill="#451a03"/>
+    <circle cx="51.5" cy="50" r="1.3" fill="#ffffff"/>
+    <circle cx="54.5" cy="54" r="0.6" fill="#fef08a"/>
+
+    <!-- Right Eye Outer Socket -->
+    <ellipse cx="75" cy="51" rx="5.5" ry="6.5" fill="#0f172a"/>
+    <!-- Outer Amber Iris -->
+    <ellipse cx="75" cy="52" rx="4.5" ry="5.5" fill="#d97706"/>
+    <!-- Inner Glowing Amber Pupil Tier -->
+    <ellipse cx="75" cy="52.5" rx="3.5" ry="4.5" fill="#fbbf24"/>
+    <!-- Core Dark Slit & Specular Sparkle -->
+    <ellipse cx="75" cy="53" rx="1.8" ry="3.2" fill="#451a03"/>
+    <circle cx="73.5" cy="50" r="1.3" fill="#ffffff"/>
+    <circle cx="76.5" cy="54" r="0.6" fill="#fef08a"/>
+
+    <!-- Nose & Mouth -->
+    <polygon points="62.5,58 65.5,58 64,60.5" fill="#f43f5e"/>
+    <path d="M60.5,62 Q64,64 67.5,62" stroke="#1e293b" stroke-width="0.9" fill="none"/>
+
+    <!-- Whiskers -->
+    <path d="M44 58 L24 57 M44 61 L22 63" stroke="#e2e8f0" stroke-width="0.75" stroke-opacity="0.8"/>
+    <path d="M84 58 L104 57 M84 61 L106 63" stroke="#e2e8f0" stroke-width="0.75" stroke-opacity="0.8"/>
+
+    <!-- Soft Screen Luminescence Overlay -->
+    <polygon points="36,76 20,122 108,122 92,76" fill="url(#wbc-screen-glow)"/>
+
+    <!-- Desk Surface -->
+    <rect x="10" y="116" width="108" height="12" fill="#1e1b2e" stroke="#334155" stroke-width="0.75"/>
+
+    <!-- Cozy Minimalist Laptop -->
+    <!-- Screen Bezel -->
+    <rect x="36" y="74" width="56" height="34" rx="2.5" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
+    <!-- Screen Interior (IDE / Code Editor) -->
+    <rect x="38" y="76" width="52" height="30" rx="1.5" fill="#090d16"/>
+    <!-- Code Editor Tabs / Bars -->
+    <rect x="40" y="78" width="12" height="2" rx="0.5" fill="#38bdf8"/>
+    <rect x="54" y="78" width="10" height="2" rx="0.5" fill="#64748b"/>
+    <!-- Code Lines Simulation -->
+    <rect x="41" y="83" width="18" height="1.5" rx="0.5" fill="#4ade80"/>
+    <rect x="61" y="83" width="14" height="1.5" rx="0.5" fill="#fbbf24"/>
+    <rect x="41" y="87" width="28" height="1.5" rx="0.5" fill="#38bdf8"/>
+    <rect x="43" y="91" width="14" height="1.5" rx="0.5" fill="#f472b6"/>
+    <rect x="59" y="91" width="22" height="1.5" rx="0.5" fill="#94a3b8"/>
+    <rect x="43" y="95" width="24" height="1.5" rx="0.5" fill="#4ade80"/>
+    <rect x="41" y="99" width="8" height="1.5" rx="0.5" fill="#38bdf8"/>
+
+    <!-- Laptop Base (Sleek Space Gray) -->
+    <polygon points="26,118 36,106 92,106 102,118" fill="#475569" stroke="#64748b" stroke-width="0.8"/>
+    <line x1="38" y1="110" x2="90" y2="110" stroke="#334155" stroke-width="0.6"/>
+    <line x1="34" y1="114" x2="94" y2="114" stroke="#334155" stroke-width="0.6"/>
+    <!-- Trackpad -->
+    <rect x="58" y="113" width="12" height="4" rx="0.5" fill="#334155"/>
+
+    <!-- Cozy Blue Paws Resting on Keyboard -->
+    <ellipse cx="46" cy="110" rx="6" ry="4" fill="url(#wbc-fur)"/>
+    <ellipse cx="46" cy="111" rx="4.5" ry="2.5" fill="#bfdbfe"/>
+    <ellipse cx="82" cy="110" rx="6" ry="4" fill="url(#wbc-fur)"/>
+    <ellipse cx="82" cy="111" rx="4.5" ry="2.5" fill="#bfdbfe"/>
+
+    <!-- Warm Coffee Mug on Desk Edge -->
+    <rect x="18" y="108" width="7" height="9" rx="1.5" fill="#f8fafc"/>
+    <path d="M25 110 C27 110 27 114 25 114" stroke="#f8fafc" stroke-width="1" fill="none"/>
+    <path d="M20 106 Q21 103 20 101" stroke="#94a3b8" stroke-width="0.6" stroke-linecap="round" fill="none" opacity="0.6"/>
+  </g>
+</svg>

@@ -1,1 +1,22 @@
-{"id":"wode-daodun-3d","displayName":"我的刀盾","description":"A goofy but determined meme-inspired dog-frog guardian with a code sword and tech shield.","spritesheetPath":"spritesheet.webp","category":"creature","source":"petdex","submittedBy":"freesnow520"}
+{
+  "id": "wode-daodun-3d",
+  "displayName": "Wode Daodun",
+  "tagline": "Armed with the sword of syntax and the shield of memory safety.",
+  "description": "A goofy yet fiercely determined guardian armed with a glowing code sword and high-tech defense shield. Standing sentinel over your repository to parry syntax errors and deflect runtime exceptions.",
+  "spritesheetPath": "spritesheet.webp",
+  "category": "Anime & Action Heroes",
+  "theme": {
+    "primaryColor": "#0EA5E9",
+    "aura": "cyber-shield",
+    "sparkleType": "shield-pulses"
+  },
+  "quotes": [
+    "Defensive shield raised against null pointers and segfaults!",
+    "Sword of static types swinging through the codebase.",
+    "Standing guard over your audio routing state.",
+    "No syntax errors shall pass this defensive perimeter!",
+    "Parrying race conditions with flawless lock-free concurrency!"
+  ],
+  "source": "petdex",
+  "submittedBy": "freesnow520"
+}

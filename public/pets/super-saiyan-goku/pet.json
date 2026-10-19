@@ -1,1 +1,22 @@
-{"id":"super-saiyan-goku","displayName":"超级赛亚人孙悟空","description":"A compact Codex digital pet inspired by a Super Saiyan martial artist with golden spiky hair, teal eyes, orange gi, and blue accessories.","spritesheetPath":"spritesheet.webp","category":"character","source":"petdex","submittedBy":"alienallen"}
+{
+  "id": "super-saiyan-goku",
+  "displayName": "Super Saiyan Goku",
+  "tagline": "Push past runtime limits with legendary Super Saiyan focus.",
+  "description": "A legendary Super Saiyan martial artist radiating golden ki energy and fearless determination. Goku stands vigilant beside your workspace, empowering you to break through compiler errors and power through complex refactors.",
+  "spritesheetPath": "spritesheet.webp",
+  "category": "Anime & Action Heroes",
+  "theme": {
+    "primaryColor": "#F59E0B",
+    "aura": "golden-ki",
+    "sparkleType": "electric-sparks"
+  },
+  "quotes": [
+    "Pushing past limits! Kaio-ken compilation speed!",
+    "Feel the power of clean code and zero runtime panics!",
+    "Train hard, refactor harder. Let's conquer this feature!",
+    "Even an impossible bug can be overcome with focused training!",
+    "Gathering energy from every CPU core for this release build!"
+  ],
+  "source": "petdex",
+  "submittedBy": "alienallen"
+}

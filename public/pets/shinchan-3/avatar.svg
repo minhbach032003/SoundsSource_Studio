@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <!-- Background Radial Gradient -->
+    <radialGradient id="shinBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFBEB"/>
+      <stop offset="65%" stop-color="#FEF3C7"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </radialGradient>
+
+    <!-- Warm Comic Aura -->
+    <radialGradient id="shinAura" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#F87171" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#FBBF24" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#FBBF24" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Skin Tones -->
+    <linearGradient id="shinSkin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF1E6"/>
+      <stop offset="70%" stop-color="#FED7AA"/>
+      <stop offset="100%" stop-color="#FDBA74"/>
+    </linearGradient>
+
+    <!-- Red T-Shirt Gradient -->
+    <linearGradient id="shinRedShirt" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F87171"/>
+      <stop offset="40%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#B91C1C"/>
+    </linearGradient>
+
+    <!-- Yellow Collar / Shorts Gradient -->
+    <linearGradient id="shinYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Circular Avatar Clip -->
+    <clipPath id="shinCircle">
+      <circle cx="64" cy="64" r="59"/>
+    </clipPath>
+  </defs>
+
+  <!-- Frame Circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#shinBg)" stroke="#EF4444" stroke-width="2" stroke-opacity="0.85"/>
+
+  <g clip-path="url(#shinCircle)">
+    <!-- Comic Energy Aura -->
+    <circle cx="64" cy="60" r="56" fill="url(#shinAura)"/>
+
+    <!-- Decorative Comic Sparkle Stars -->
+    <!-- Star Top-Right -->
+    <path d="M104 28 L106 34 L112 36 L106 38 L104 44 L102 38 L96 36 L102 34 Z" fill="#F59E0B" opacity="0.75"/>
+    <!-- Star Top-Left -->
+    <path d="M22 36 L23.5 40 L28 41.5 L23.5 43 L22 47.5 L20.5 43 L16 41.5 L20.5 40 Z" fill="#EF4444" opacity="0.6"/>
+    <!-- Small Diamond Left -->
+    <path d="M18 72 L21 76 L18 80 L15 76 Z" fill="#F59E0B" opacity="0.7"/>
+    <!-- Small Diamond Right -->
+    <path d="M110 68 L113 72 L110 76 L107 72 Z" fill="#EF4444" opacity="0.6"/>
+
+    <!-- Back Hair / Head Base (Short Black Hair) -->
+    <path d="M34 52 C32 30 50 18 68 18 C86 18 98 32 98 52 C98 58 96 66 92 72 L92 46 C92 34 82 24 66 24 C50 24 38 34 38 48 Z" fill="#18181B"/>
+
+    <!-- Torso: Iconic Bright Red T-Shirt -->
+    <path d="M20 128 L28 100 C34 94 48 92 64 92 C80 92 94 94 100 100 L108 128 Z" fill="url(#shinRedShirt)"/>
+    <!-- Yellow Crew Neck Collar Accent -->
+    <path d="M48 93 C52 97 60 99 64 99 C68 99 76 97 80 93 C76 96 68 97 64 97 C60 97 52 96 48 93 Z" fill="url(#shinYellow)" stroke="#D97706" stroke-width="0.8"/>
+    <!-- Yellow Shorts Hint at the very bottom -->
+    <path d="M38 124 L38 128 L90 128 L90 124 Z" fill="url(#shinYellow)"/>
+
+    <!-- Neck -->
+    <path d="M52 82 L52 94 C56 96 72 96 76 94 L76 82 Z" fill="#FED7AA"/>
+    <!-- Neck shadow -->
+    <path d="M52 83 C60 88 68 88 76 83 L76 88 C68 92 60 92 52 88 Z" fill="#FDBA74" opacity="0.5"/>
+
+    <!-- Head & Chubby Face Silhouette -->
+    <!-- Crayon Shin-chan head contour with asymmetric bulging left cheek -->
+    <path d="M38 44 C42 32 54 26 68 26 C82 26 94 34 94 48 C94 56 94 66 90 74 C86 82 78 88 64 88 C50 88 38 84 32 76 C26 68 28 58 34 50 C36 47 37 45 38 44 Z" fill="url(#shinSkin)" stroke="#78350F" stroke-width="1.8"/>
+
+    <!-- Cropped Black Hair Top Overlay -->
+    <path d="M38 44 C42 32 54 26 68 26 C82 26 94 34 94 44 C90 38 80 32 68 32 C54 32 44 38 38 44 Z" fill="#18181B"/>
+
+    <!-- Right Ear -->
+    <path d="M92 56 C96 56 98 62 96 66 C94 70 90 68 90 64 Z" fill="url(#shinSkin)" stroke="#78350F" stroke-width="1.5"/>
+    <path d="M92 60 C94 60 94 63 92 64 Z" fill="#FDBA74"/>
+
+    <!-- Rosy Cheek Blushes -->
+    <!-- Left Cheek Blush (On the chubby cheek) -->
+    <ellipse cx="38" cy="68" rx="7" ry="4.5" fill="#FB7185" opacity="0.45"/>
+    <!-- Right Cheek Blush -->
+    <ellipse cx="82" cy="66" rx="6" ry="4" fill="#FB7185" opacity="0.45"/>
+
+    <!-- Thick Iconic Caterpillar Eyebrows -->
+    <!-- Left Eyebrow (Large, bold, arched) -->
+    <path d="M38 46 C42 40 54 40 60 45 C56 48 44 49 38 46 Z" fill="#18181B"/>
+    <path d="M38 46 C42 40 54 40 60 45" stroke="#18181B" stroke-width="4.5" stroke-linecap="round"/>
+
+    <!-- Right Eyebrow (Matching bold arch) -->
+    <path d="M68 45 C74 40 86 40 90 46 C84 49 72 48 68 45 Z" fill="#18181B"/>
+    <path d="M68 45 C74 40 86 40 90 46" stroke="#18181B" stroke-width="4.5" stroke-linecap="round"/>
+
+    <!-- Big Expressive Shinchan Eyes -->
+    <!-- Left Eye Outer Contour & Pupil -->
+    <ellipse cx="48" cy="56" rx="6.5" ry="7.5" fill="#18181B"/>
+    <!-- Large White Glint Top-Right -->
+    <circle cx="50" cy="54" r="2.8" fill="#FFFFFF"/>
+    <!-- Small White Glint Bottom-Left -->
+    <circle cx="46.5" cy="58.5" r="1.2" fill="#FFFFFF"/>
+
+    <!-- Right Eye Outer Contour & Pupil -->
+    <ellipse cx="76" cy="56" rx="6.5" ry="7.5" fill="#18181B"/>
+    <!-- Large White Glint Top-Right -->
+    <circle cx="78" cy="54" r="2.8" fill="#FFFFFF"/>
+    <!-- Small White Glint Bottom-Left -->
+    <circle cx="74.5" cy="58.5" r="1.2" fill="#FFFFFF"/>
+
+    <!-- Cute Playful Nose (Tiny subtle dot/curve) -->
+    <path d="M62 62 C63 63 64 63 64 64" stroke="#78350F" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+
+    <!-- Mischievous Grinning Mouth -->
+    <!-- Open happy bean mouth -->
+    <path d="M52 69 C54 77 66 79 70 71 C65 73 57 73 52 69 Z" fill="#991B1B" stroke="#78350F" stroke-width="1.5" stroke-linejoin="round"/>
+    <!-- Pink Tongue inside mouth -->
+    <path d="M56 73 C60 76 66 76 68 72 C65 74 59 74 56 73 Z" fill="#FB7185"/>
+
+    <!-- Playful Cheek Dimple / Expression line -->
+    <path d="M33 62 C32 64 33 66 34 68" stroke="#78350F" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.5"/>
+
+    <!-- Border Glow Ring -->
+    <circle cx="64" cy="64" r="59" fill="none" stroke="#F59E0B" stroke-width="1" stroke-opacity="0.4"/>
+  </g>
+</svg>

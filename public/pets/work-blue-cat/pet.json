@@ -1,1 +1,22 @@
-{"id":"work-blue-cat","displayName":"coding cat","description":"一只穿绿色条纹衣服、快速敲打电脑的成年蓝猫.","spritesheetPath":"spritesheet.webp","category":"creature","source":"petdex","submittedBy":"tong w."}
+{
+  "id": "work-blue-cat",
+  "displayName": "Work Blue Cat",
+  "tagline": "Cozy indie feline in a sage hoodie deep in the zone",
+  "description": "An adult blue feline wearing a warm sage-green striped hoodie, locked in focused flow at a minimalist laptop with amber eyes and soft screen luminescence.",
+  "category": "creature",
+  "spritesheetPath": "spritesheet.webp",
+  "theme": {
+    "primaryColor": "#38bdf8",
+    "aura": "sage-knit-comfort",
+    "sparkleType": "soft-luminescence"
+  },
+  "quotes": [
+    "Cyber-link established. 10-band DSP parametric EQ aligned.",
+    "Neon buffer synchronized with active stream routing.",
+    "Focus aura at maximum throughput.",
+    "CoreAudio pipeline streaming with zero latency jitter.",
+    "Coding matrix locked. Compiling release binaries."
+  ],
+  "source": "petdex",
+  "submittedBy": "tong w."
+}

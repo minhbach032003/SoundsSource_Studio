@@ -1,1 +1,22 @@
-{"id":"code-frenzy-cat","displayName":"Code Frenzy Cat","description":"A cute minimal animated cat pet frantically typing code while working in Codex.","spritesheetPath":"spritesheet.webp","category":"creature","source":"petdex","submittedBy":"iquhe"}
+{
+  "id": "code-frenzy-cat",
+  "displayName": "Code Frenzy Cat",
+  "tagline": "Neon cyber hacker cat overclocking every build",
+  "description": "A high-octane cyber hacker cat frantically typing code on a glowing holographic terminal, turning caffeine and keystrokes into zero-warning Rust builds.",
+  "category": "creature",
+  "spritesheetPath": "spritesheet.webp",
+  "theme": {
+    "primaryColor": "#00f0ff",
+    "aura": "neon-cyan-pulse",
+    "sparkleType": "matrix-glitch"
+  },
+  "quotes": [
+    "Clacking away on these Rust traits! Purrrfect execution!",
+    "Zero compiler warnings, maximum runtime efficiency!",
+    "Remember to hydrate and stretch between compiler passes!",
+    "Brewing an espresso to optimize this audio DSP loop.",
+    "Tail is synchronizing to the rhythm of your music stream!"
+  ],
+  "source": "petdex",
+  "submittedBy": "iquhe"
+}

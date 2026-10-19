@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="gokuBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="70%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+
+    <!-- Ki Aura Glow -->
+    <radialGradient id="kiGlow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#FDE047" stop-opacity="0.65"/>
+      <stop offset="40%" stop-color="#F59E0B" stop-opacity="0.35"/>
+      <stop offset="75%" stop-color="#06B6D4" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Hair Golden Gradients -->
+    <linearGradient id="hairMain" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="35%" stop-color="#FACC15"/>
+      <stop offset="80%" stop-color="#EAB308"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+
+    <linearGradient id="hairHighlight" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FEFCE8"/>
+      <stop offset="50%" stop-color="#FEF08A"/>
+      <stop offset="100%" stop-color="#FACC15"/>
+    </linearGradient>
+
+    <linearGradient id="hairShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#CA8A04"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+
+    <!-- Face / Skin Gradient -->
+    <linearGradient id="skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFEDD5"/>
+      <stop offset="65%" stop-color="#FED7AA"/>
+      <stop offset="100%" stop-color="#FDBA74"/>
+    </linearGradient>
+
+    <linearGradient id="skinShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDBA74"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+
+    <!-- Gi Orange Gradient -->
+    <linearGradient id="giOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="50%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#9A3412"/>
+    </linearGradient>
+
+    <!-- Undershirt Navy Gradient -->
+    <linearGradient id="shirtBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="60%" stop-color="#1D4ED8"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+
+    <!-- Teal Eye Gradient -->
+    <linearGradient id="eyeTeal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="50%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#0E7490"/>
+    </linearGradient>
+
+    <clipPath id="avatarCircle">
+      <circle cx="64" cy="64" r="59"/>
+    </clipPath>
+  </defs>
+
+  <!-- Base Circle Frame -->
+  <circle cx="64" cy="64" r="60" fill="url(#gokuBg)" stroke="#F59E0B" stroke-width="2" stroke-opacity="0.8"/>
+
+  <g clip-path="url(#avatarCircle)">
+    <!-- Ambient Ki Radiance Aura -->
+    <circle cx="64" cy="60" r="56" fill="url(#kiGlow)"/>
+
+    <!-- Rising Ki Aura Flames (Background) -->
+    <path d="M26 128 C20 98 34 80 40 64 C46 76 42 98 48 128 Z" fill="#FDE047" opacity="0.3"/>
+    <path d="M102 128 C108 98 94 80 88 64 C82 76 86 98 80 128 Z" fill="#FDE047" opacity="0.3"/>
+    <path d="M46 128 C42 86 58 68 64 48 C70 68 86 86 82 128 Z" fill="#FEF08A" opacity="0.25"/>
+
+    <!-- Lightning / Ki Sparks -->
+    <path d="M22 62 L27 54 L24 52 L31 42" stroke="#67E8F9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.85"/>
+    <path d="M106 58 L101 50 L104 48 L98 38" stroke="#67E8F9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.85"/>
+    <path d="M38 34 L42 28 L40 26 L46 20" stroke="#FDE047" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8"/>
+    <path d="M90 32 L86 26 L88 24 L82 18" stroke="#FDE047" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8"/>
+
+    <!-- Back Hair Spikes (Deep Golden Shadows) -->
+    <path d="M16 48 L34 26 L42 42 L64 6 L86 42 L94 26 L112 48 L98 68 L102 78 L88 82 L84 94 L44 94 L40 82 L26 78 L30 68 Z" fill="url(#hairShadow)"/>
+
+    <!-- Mid Hair Layer (Spiky Silhouette) -->
+    <!-- Far-Left Spike -->
+    <path d="M38 52 L18 36 L34 68 Z" fill="url(#hairMain)"/>
+    <path d="M34 46 L18 36 L30 58 Z" fill="url(#hairHighlight)" opacity="0.6"/>
+
+    <!-- Left High Spike -->
+    <path d="M48 42 L32 16 L50 36 Z" fill="url(#hairMain)"/>
+    <path d="M44 38 L32 16 L42 34 Z" fill="url(#hairHighlight)" opacity="0.7"/>
+
+    <!-- Center High Spike -->
+    <path d="M50 36 L64 10 L78 36 Z" fill="url(#hairMain)"/>
+    <path d="M56 34 L64 10 L68 34 Z" fill="url(#hairHighlight)"/>
+
+    <!-- Right High Spike -->
+    <path d="M78 36 L96 16 L80 42 Z" fill="url(#hairMain)"/>
+    <path d="M86 34 L96 16 L84 38 Z" fill="url(#hairHighlight)" opacity="0.7"/>
+
+    <!-- Far-Right Spike -->
+    <path d="M90 52 L110 36 L94 68 Z" fill="url(#hairMain)"/>
+    <path d="M94 46 L110 36 L98 58 Z" fill="url(#hairHighlight)" opacity="0.6"/>
+
+    <!-- Lower Side Spikes -->
+    <path d="M36 66 L24 64 L38 78 Z" fill="url(#hairMain)"/>
+    <path d="M92 66 L104 64 L90 78 Z" fill="url(#hairMain)"/>
+
+    <!-- Torso: Neck & Shoulders -->
+    <!-- Muscular Neck -->
+    <path d="M52 80 L52 98 L76 98 L76 80 Z" fill="url(#skin)"/>
+    <!-- Chin Shadow on Neck -->
+    <path d="M52 82 C58 90 70 90 76 82 L76 89 C70 96 58 96 52 89 Z" fill="url(#skinShadow)" opacity="0.6"/>
+    <!-- Neck Muscle Lines -->
+    <path d="M58 88 L56 98 M70 88 L72 98" stroke="#EA580C" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+
+    <!-- Undershirt (Navy Blue V-Neck) -->
+    <path d="M48 98 L64 118 L80 98 Z" fill="url(#shirtBlue)"/>
+    <!-- Undershirt Shadow -->
+    <path d="M54 98 L64 112 L74 98 Z" fill="#1E3A8A" opacity="0.5"/>
+
+    <!-- Martial Arts Gi (Signature Orange) -->
+    <!-- Left Gi Chest -->
+    <path d="M12 128 L28 102 L50 96 L64 118 L50 128 Z" fill="url(#giOrange)"/>
+    <!-- Right Gi Chest -->
+    <path d="M116 128 L100 102 L78 96 L64 118 L78 128 Z" fill="url(#giOrange)"/>
+    <!-- Gi Collar Fold Highlights -->
+    <path d="M28 102 L50 96 L64 118" stroke="#FDBA74" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <path d="M100 102 L78 96 L64 118" stroke="#FDBA74" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <!-- Center Lapel Seam -->
+    <path d="M64 118 L64 128" stroke="#7C2D12" stroke-width="2"/>
+
+    <!-- Head / Face -->
+    <!-- Ears -->
+    <path d="M38 68 C34 68 34 78 39 80 Z" fill="url(#skin)"/>
+    <path d="M38 71 C36 71 36 76 39 77 Z" fill="#FDBA74"/>
+    <path d="M90 68 C94 68 94 78 89 80 Z" fill="url(#skin)"/>
+    <path d="M90 71 C92 71 92 76 89 77 Z" fill="#FDBA74"/>
+
+    <!-- Face Contour (Jawline) -->
+    <path d="M40 64 L42 74 C44 84 54 94 64 94 C74 94 84 84 86 74 L88 64 Z" fill="url(#skin)"/>
+
+    <!-- Facial Features -->
+    <!-- Eyebrows (Fierce Super Saiyan Gold) -->
+    <!-- Left Brow -->
+    <polygon points="44,63 59,67 59,70 47,67" fill="#EAB308"/>
+    <polygon points="45,63 58,66 58,68 47,66" fill="#FEF08A"/>
+    <line x1="44" y1="63" x2="59" y2="67" stroke="#CA8A04" stroke-width="0.8"/>
+    <!-- Right Brow -->
+    <polygon points="84,63 69,67 69,70 81,67" fill="#EAB308"/>
+    <polygon points="83,63 70,66 70,68 81,66" fill="#FEF08A"/>
+    <line x1="84" y1="63" x2="69" y2="67" stroke="#CA8A04" stroke-width="0.8"/>
+
+    <!-- Intense Forehead Brow Creases -->
+    <path d="M62 67 L64 70 L66 67" stroke="#EA580C" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+    <!-- Eyes (Teal Emerald Super Saiyan) -->
+    <!-- Left Eye -->
+    <polygon points="46,68 58,70 56,76 48,75" fill="#FFFFFF"/>
+    <path d="M46 68 L58 70" stroke="#0F172A" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M48 75 L56 76" stroke="#0F172A" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- Left Iris & Pupil -->
+    <ellipse cx="53" cy="72" rx="2.8" ry="3.2" fill="url(#eyeTeal)"/>
+    <ellipse cx="53" cy="72" rx="1.3" ry="1.6" fill="#020617"/>
+    <circle cx="54.2" cy="70.8" r="0.7" fill="#FFFFFF"/>
+
+    <!-- Right Eye -->
+    <polygon points="82,68 70,70 72,76 80,75" fill="#FFFFFF"/>
+    <path d="M82 68 L70 70" stroke="#0F172A" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M80 75 L72 76" stroke="#0F172A" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- Right Iris & Pupil -->
+    <ellipse cx="75" cy="72" rx="2.8" ry="3.2" fill="url(#eyeTeal)"/>
+    <ellipse cx="75" cy="72" rx="1.3" ry="1.6" fill="#020617"/>
+    <circle cx="76.2" cy="70.8" r="0.7" fill="#FFFFFF"/>
+
+    <!-- Anime Nose -->
+    <path d="M63 75 L65 79 L62 80" stroke="#C2410C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Confident Mouth / Grin -->
+    <path d="M56 86 C60 88 68 88 72 85" stroke="#7C2D12" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    <path d="M61 89 C63 90 65 90 67 89" stroke="#EA580C" stroke-width="1" stroke-linecap="round" fill="none"/>
+
+    <!-- Forehead Bangs (Front Hair Spikes Over Face) -->
+    <!-- Left Bang -->
+    <path d="M42 48 L48 68 L54 52 Z" fill="url(#hairMain)"/>
+    <path d="M44 48 L48 68 L50 52 Z" fill="url(#hairHighlight)" opacity="0.8"/>
+
+    <!-- Center-Left Major Bang -->
+    <path d="M50 46 L58 72 L64 50 Z" fill="url(#hairMain)"/>
+    <path d="M53 46 L58 72 L60 50 Z" fill="url(#hairHighlight)"/>
+    <path d="M58 72 L64 50 L63 56 Z" fill="url(#hairShadow)" opacity="0.4"/>
+
+    <!-- Center-Right Bang -->
+    <path d="M62 48 L68 70 L74 48 Z" fill="url(#hairMain)"/>
+    <path d="M64 48 L68 70 L70 48 Z" fill="url(#hairHighlight)"/>
+
+    <!-- Right Bang -->
+    <path d="M72 50 L78 66 L84 48 Z" fill="url(#hairMain)"/>
+    <path d="M74 50 L78 66 L80 48 Z" fill="url(#hairHighlight)" opacity="0.8"/>
+
+    <!-- Outer Golden Accent Glow on Avatar Border -->
+    <circle cx="64" cy="64" r="59" fill="none" stroke="#FDE047" stroke-width="1" stroke-opacity="0.4"/>
+  </g>
+</svg>

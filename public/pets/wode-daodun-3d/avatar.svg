@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <!-- Cyber Background Radial Gradient -->
+    <radialGradient id="cyberBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="60%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+
+    <!-- Tech Shield Aura Glow -->
+    <radialGradient id="shieldGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.5"/>
+      <stop offset="50%" stop-color="#0EA5E9" stop-opacity="0.25"/>
+      <stop offset="85%" stop-color="#6366F1" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Metallic Armor Gradients -->
+    <linearGradient id="armorSteel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#CBD5E1"/>
+      <stop offset="40%" stop-color="#94A3B8"/>
+      <stop offset="85%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <linearGradient id="armorHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#94A3B8"/>
+    </linearGradient>
+
+    <linearGradient id="guardianSkin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6EE7B7"/>
+      <stop offset="60%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Cyber Sword Laser Gradient -->
+    <linearGradient id="swordBlade" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#BAE6FD"/>
+      <stop offset="70%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+
+    <!-- Tech Shield Plate Gradient -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="45%" stop-color="#1E40AF"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <linearGradient id="shieldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#67E8F9"/>
+      <stop offset="50%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+
+    <!-- Avatar Circle Clip -->
+    <clipPath id="daodunCircle">
+      <circle cx="64" cy="64" r="59"/>
+    </clipPath>
+  </defs>
+
+  <!-- Frame Circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#cyberBg)" stroke="#0EA5E9" stroke-width="2" stroke-opacity="0.85"/>
+
+  <g clip-path="url(#daodunCircle)">
+    <!-- Defensive Shield Energy Field -->
+    <circle cx="64" cy="60" r="56" fill="url(#shieldGlow)"/>
+
+    <!-- Cyber Grid / Matrix Lines (Background) -->
+    <line x1="20" y1="44" x2="108" y2="44" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <line x1="16" y1="64" x2="112" y2="64" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <line x1="20" y1="84" x2="108" y2="84" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <line x1="44" y1="20" x2="44" y2="108" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <line x1="64" y1="16" x2="64" y2="112" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+    <line x1="84" y1="20" x2="84" y2="108" stroke="#0284C7" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- Digital Hex Sparks -->
+    <polygon points="26,30 29,28 32,30 32,34 29,36 26,34" fill="#38BDF8" opacity="0.6"/>
+    <polygon points="98,32 101,30 104,32 104,36 101,38 98,36" fill="#38BDF8" opacity="0.6"/>
+    <polygon points="106,74 108,72 110,74 110,77 108,79 106,77" fill="#67E8F9" opacity="0.5"/>
+
+    <!-- Guardian Torso & Armor (Center) -->
+    <!-- Shoulders & Pauldrons -->
+    <path d="M40 94 L30 114 L42 128 L86 128 L98 114 L88 94 Z" fill="url(#armorSteel)"/>
+    <path d="M46 98 L64 104 L82 98 L80 128 L48 128 Z" fill="#1E293B"/>
+
+    <!-- Chest Armor Plate with glowing blue power core -->
+    <polygon points="64,106 72,112 72,122 64,126 56,122 56,112" fill="#0F172A" stroke="#0EA5E9" stroke-width="1.2"/>
+    <circle cx="64" cy="117" r="3" fill="#38BDF8"/>
+    <circle cx="64" cy="117" r="1.5" fill="#FFFFFF"/>
+
+    <!-- Guardian Cute Head & Helmet -->
+    <!-- Floppy Guardian Ears (Behind Helmet) -->
+    <path d="M40 48 C32 46 26 56 30 66 C34 72 40 68 42 60 Z" fill="url(#guardianSkin)"/>
+    <path d="M88 48 C96 46 102 56 98 66 C94 72 88 68 86 60 Z" fill="url(#guardianSkin)"/>
+
+    <!-- Cute Round Face / Snout Base -->
+    <ellipse cx="64" cy="62" rx="26" ry="24" fill="url(#guardianSkin)"/>
+
+    <!-- Knight Helm / Guardian Visor Forehead Plate -->
+    <path d="M42 46 C42 32 52 24 64 24 C76 24 86 32 86 46 C78 48 72 48 64 48 C56 48 50 48 42 46 Z" fill="url(#armorSteel)" stroke="#334155" stroke-width="1"/>
+    <!-- Helm Crest Spike / Antenna -->
+    <polygon points="64,14 68,26 60,26" fill="url(#armorHighlight)"/>
+    <circle cx="64" cy="14" r="2" fill="#38BDF8"/>
+
+    <!-- Helmet Rim Highlight -->
+    <path d="M42 46 C50 49 57 50 64 50 C71 50 78 49 86 46" stroke="#E2E8F0" stroke-width="1.5" fill="none"/>
+
+    <!-- Eyes (Determined, Cute, Big Anime Pupils) -->
+    <!-- Left Eye -->
+    <ellipse cx="53" cy="56" rx="6" ry="7" fill="#0F172A"/>
+    <ellipse cx="53" cy="56" rx="4.5" ry="5.5" fill="#0284C7"/>
+    <circle cx="55" cy="54" r="2.2" fill="#FFFFFF"/>
+    <circle cx="51.5" cy="58" r="1" fill="#FFFFFF"/>
+
+    <!-- Right Eye -->
+    <ellipse cx="75" cy="56" rx="6" ry="7" fill="#0F172A"/>
+    <ellipse cx="75" cy="56" rx="4.5" ry="5.5" fill="#0284C7"/>
+    <circle cx="77" cy="54" r="2.2" fill="#FFFFFF"/>
+    <circle cx="73.5" cy="58" r="1" fill="#FFFFFF"/>
+
+    <!-- Cute Dog-Frog Snout / Cheeks -->
+    <ellipse cx="64" cy="69" rx="12" ry="7" fill="#A7F3D0" opacity="0.6"/>
+    <!-- Cute Triangle Nose -->
+    <polygon points="64,66 67,69 61,69" fill="#065F46"/>
+    <!-- Determined Mouth -->
+    <path d="M59 73 Q64 76 69 73" stroke="#065F46" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+
+    <!-- LEFT HAND: CODE SWORD (Angled up-left, glowing brightly) -->
+    <!-- Sword Blade Glow Aura -->
+    <path d="M25 18 L33 58 L25 60 L17 22 Z" fill="#38BDF8" opacity="0.35"/>
+    <!-- Sword Blade (Sharp Cyber Energy Katana) -->
+    <polygon points="25,16 30,56 22,58 17,20" fill="url(#swordBlade)" stroke="#38BDF8" stroke-width="0.8"/>
+    <!-- Sword Core Laser Beam -->
+    <line x1="21" y1="20" x2="26" y2="56" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round"/>
+    <!-- Code Bracket Rune on Blade `{` -->
+    <path d="M24 34 Q22 36 24 38 Q25 39 23 40 Q25 41 24 42 Q22 44 24 46" stroke="#0284C7" stroke-width="0.9" fill="none"/>
+    <!-- Crossguard (Metallic Gold/Steel) -->
+    <polygon points="14,58 36,54 34,60 16,64" fill="url(#armorHighlight)" stroke="#475569" stroke-width="0.8"/>
+    <!-- Sword Hilt & Pommel -->
+    <line x1="25" y1="59" x2="28" y2="72" stroke="#1E293B" stroke-width="3.5" stroke-linecap="round"/>
+    <circle cx="28.5" cy="73.5" r="2.2" fill="#38BDF8"/>
+    <!-- Guardian Left Paw Holding Sword -->
+    <ellipse cx="27" cy="66" rx="5" ry="4" fill="url(#guardianSkin)" stroke="#065F46" stroke-width="0.8"/>
+
+    <!-- RIGHT HAND: DEFENSIVE TECH SHIELD -->
+    <!-- Shield Outer Aura -->
+    <path d="M84 56 L108 52 L116 78 L100 106 L80 82 Z" fill="#0EA5E9" opacity="0.3"/>
+    <!-- Shield Main Body (Hex/Kite Tech Plate) -->
+    <polygon points="84,58 106,54 114,78 100,104 80,82" fill="url(#shieldGrad)" stroke="url(#shieldBorder)" stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Inner Shield Bevel Line -->
+    <polygon points="87,62 103,59 110,77 98,98 84,81" fill="#0F172A" stroke="#0284C7" stroke-width="1" opacity="0.8"/>
+
+    <!-- Code Terminal Prompt Glyph On Shield `>_` -->
+    <!-- The Chevron `>` -->
+    <path d="M91 72 L96 76 L91 80" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- The Underscore `_` Cursor -->
+    <line x1="99" y1="80" x2="105" y2="80" stroke="#67E8F9" stroke-width="2.2" stroke-linecap="round"/>
+
+    <!-- Shield Energy Nodes on Vertices -->
+    <circle cx="84" cy="58" r="1.8" fill="#67E8F9"/>
+    <circle cx="106" cy="54" r="1.8" fill="#67E8F9"/>
+    <circle cx="114" cy="78" r="1.8" fill="#67E8F9"/>
+    <circle cx="100" cy="104" r="1.8" fill="#67E8F9"/>
+    <circle cx="80" cy="82" r="1.8" fill="#67E8F9"/>
+
+    <!-- Guardian Right Paw Gripping Shield Edge -->
+    <ellipse cx="80" cy="76" rx="4.5" ry="5.5" fill="url(#guardianSkin)" stroke="#065F46" stroke-width="0.8"/>
+
+    <!-- Border Ring Accent -->
+    <circle cx="64" cy="64" r="59" fill="none" stroke="#38BDF8" stroke-width="1" stroke-opacity="0.4"/>
+  </g>
+</svg>

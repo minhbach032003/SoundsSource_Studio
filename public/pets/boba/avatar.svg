@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <!-- Background Gradient: Pastel Dusk Aurora -->
+    <radialGradient id="boba-bg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#2d1b4e"/>
+      <stop offset="60%" stop-color="#18132b"/>
+      <stop offset="100%" stop-color="#0c0a17"/>
+    </radialGradient>
+
+    <!-- Outer Pastel Ring Gradient -->
+    <linearGradient id="boba-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6"/>
+      <stop offset="50%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#fbcfe8"/>
+    </linearGradient>
+
+    <!-- Otter Fur Gradient -->
+    <linearGradient id="boba-fur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a16207"/>
+      <stop offset="50%" stop-color="#854d0e"/>
+      <stop offset="100%" stop-color="#713f12"/>
+    </linearGradient>
+
+    <!-- Cream Muzzle Gradient -->
+    <linearGradient id="boba-cream" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="100%" stop-color="#fef3c7"/>
+    </linearGradient>
+
+    <!-- Milk Tea Liquid Gradient -->
+    <linearGradient id="boba-tea" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fcd34d"/>
+      <stop offset="40%" stop-color="#fed7aa"/>
+      <stop offset="100%" stop-color="#f9a8d4"/>
+    </linearGradient>
+
+    <!-- Pearl Shimmer Gradient -->
+    <radialGradient id="boba-pearl" cx="35%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#090514"/>
+    </radialGradient>
+
+    <clipPath id="boba-clip">
+      <circle cx="64" cy="64" r="58"/>
+    </clipPath>
+
+    <!-- Cup Liquid Clip -->
+    <clipPath id="cup-liquid-clip">
+      <path d="M47 70 L52 110 C52 114 76 114 76 110 L81 70 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Ambient Outer Ring -->
+  <circle cx="64" cy="64" r="61" stroke="url(#boba-ring)" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <g clip-path="url(#boba-clip)">
+    <!-- Backdrop -->
+    <circle cx="64" cy="64" r="58" fill="url(#boba-bg)"/>
+
+    <!-- Floating Pastel Bubbles & Focus Glints in Ambient Background -->
+    <circle cx="24" cy="38" r="4" fill="#f472b6" opacity="0.25"/>
+    <circle cx="23" cy="37" r="1.2" fill="#ffffff" opacity="0.4"/>
+    <circle cx="102" cy="42" r="3.5" fill="#c084fc" opacity="0.25"/>
+    <circle cx="101" cy="41" r="1" fill="#ffffff" opacity="0.4"/>
+    <circle cx="32" cy="78" r="2.5" fill="#fbcfe8" opacity="0.2"/>
+    <circle cx="98" cy="82" r="2.5" fill="#fbcfe8" opacity="0.2"/>
+    <!-- Small star glints -->
+    <path d="M26 22 L27 25 L30 26 L27 27 L26 30 L25 27 L22 26 L25 25 Z" fill="#fbcfe8" opacity="0.4"/>
+    <path d="M98 26 L99 28 L101 29 L99 30 L98 32 L97 30 L95 29 L97 28 Z" fill="#fed7aa" opacity="0.4"/>
+
+    <!-- Otter Body & Shoulders -->
+    <path d="M36 118 C36 82 46 72 64 72 C82 72 92 82 92 118 Z" fill="url(#boba-fur)"/>
+    <!-- Cream Chest Patch -->
+    <path d="M46 118 C46 90 52 80 64 80 C76 80 82 90 82 118 Z" fill="url(#boba-cream)" opacity="0.95"/>
+
+    <!-- Otter Head -->
+    <!-- Rounded Otter Ears on Sides -->
+    <circle cx="35" cy="44" r="8" fill="url(#boba-fur)"/>
+    <circle cx="35" cy="44" r="4.5" fill="#713f12"/>
+    <circle cx="93" cy="44" r="8" fill="url(#boba-fur)"/>
+    <circle cx="93" cy="44" r="4.5" fill="#713f12"/>
+
+    <!-- Head Shape -->
+    <ellipse cx="64" cy="48" rx="28" ry="24" fill="url(#boba-fur)"/>
+
+    <!-- Cream Muzzle & Cheeks -->
+    <ellipse cx="64" cy="54" rx="18" ry="13" fill="url(#boba-cream)"/>
+
+    <!-- Cute Big Glossy Anime Eyes -->
+    <!-- Left Eye -->
+    <ellipse cx="51" cy="45" rx="6.5" ry="7.5" fill="#18132b"/>
+    <circle cx="49" cy="42.5" r="2.8" fill="#ffffff"/>
+    <circle cx="53.5" cy="47.5" r="1.4" fill="#ffffff"/>
+    <!-- Right Eye -->
+    <ellipse cx="77" cy="45" rx="6.5" ry="7.5" fill="#18132b"/>
+    <circle cx="75" cy="42.5" r="2.8" fill="#ffffff"/>
+    <circle cx="79.5" cy="47.5" r="1.4" fill="#ffffff"/>
+
+    <!-- Rosy Cheeks -->
+    <ellipse cx="43" cy="54" rx="5" ry="3" fill="#f472b6" opacity="0.45"/>
+    <ellipse cx="85" cy="54" rx="5" ry="3" fill="#f472b6" opacity="0.45"/>
+
+    <!-- Cute Otter Nose & Smile -->
+    <ellipse cx="64" cy="52" rx="4.5" ry="3.5" fill="#292524"/>
+    <ellipse cx="63" cy="51" rx="1.5" ry="0.8" fill="#ffffff" opacity="0.6"/>
+    <!-- Cat/Otter Style Mouth -->
+    <path d="M59 56 Q64 59 64 55 Q64 59 69 56" stroke="#451a03" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+
+    <!-- Tiny Otter Whiskers -->
+    <path d="M43 56 L31 54 M43 58 L29 60" stroke="#fde68a" stroke-width="0.75" stroke-linecap="round"/>
+    <path d="M85 56 L97 54 M85 58 L99 60" stroke="#fde68a" stroke-width="0.75" stroke-linecap="round"/>
+
+    <!-- Boba Straw (Behind Cup Front, Sticking Up) -->
+    <path d="M68 34 L62 90" stroke="#c084fc" stroke-width="5" stroke-linecap="round"/>
+    <path d="M67 36 L63 80" stroke="#f472b6" stroke-width="2" stroke-linecap="round"/>
+    <!-- Pearl Moving Up Straw -->
+    <circle cx="64" cy="62" r="2.2" fill="#0f172a"/>
+    <circle cx="63.5" cy="61.5" r="0.6" fill="#ffffff"/>
+
+    <!-- Boba Tea Cup -->
+    <!-- Cup Rim Dome Lid -->
+    <ellipse cx="64" cy="70" rx="17" ry="4" fill="#fbcfe8" stroke="#f472b6" stroke-width="1.2"/>
+
+    <!-- Cup Body Liquid (Clipped to cup path) -->
+    <g clip-path="url(#cup-liquid-clip)">
+      <!-- Liquid Background -->
+      <rect x="44" y="70" width="40" height="46" fill="url(#boba-tea)"/>
+      <!-- Liquid Cream Swirl Layer -->
+      <path d="M46 80 Q56 76 64 80 Q72 84 82 80 L82 114 L46 114 Z" fill="#fb923c" opacity="0.35"/>
+      <path d="M46 76 Q54 72 64 76 Q74 80 82 76" stroke="#ffffff" stroke-width="1.5" opacity="0.4" fill="none"/>
+
+      <!-- Tapioca Pearls Clustered at Bottom -->
+      <!-- Row 1 (Base) -->
+      <circle cx="56" cy="106" r="4" fill="url(#boba-pearl)"/>
+      <circle cx="55" cy="105" r="1" fill="#ffffff" opacity="0.8"/>
+      <circle cx="64" cy="107" r="4.2" fill="url(#boba-pearl)"/>
+      <circle cx="63" cy="106" r="1.2" fill="#ffffff" opacity="0.8"/>
+      <circle cx="72" cy="105" r="4" fill="url(#boba-pearl)"/>
+      <circle cx="71" cy="104" r="1" fill="#ffffff" opacity="0.8"/>
+
+      <!-- Row 2 (Middle) -->
+      <circle cx="53" cy="99" r="3.8" fill="url(#boba-pearl)"/>
+      <circle cx="52" cy="98" r="0.9" fill="#ffffff" opacity="0.8"/>
+      <circle cx="60" cy="100" r="4" fill="url(#boba-pearl)"/>
+      <circle cx="59" cy="99" r="1.1" fill="#ffffff" opacity="0.8"/>
+      <circle cx="68" cy="99" r="4" fill="url(#boba-pearl)"/>
+      <circle cx="67" cy="98" r="1" fill="#ffffff" opacity="0.8"/>
+      <circle cx="75" cy="98" r="3.6" fill="url(#boba-pearl)"/>
+      <circle cx="74" cy="97" r="0.9" fill="#ffffff" opacity="0.8"/>
+
+      <!-- Row 3 (Upper floating pearls) -->
+      <circle cx="57" cy="92" r="3.5" fill="url(#boba-pearl)"/>
+      <circle cx="56" cy="91" r="0.8" fill="#ffffff" opacity="0.8"/>
+      <circle cx="65" cy="92" r="3.8" fill="url(#boba-pearl)"/>
+      <circle cx="64" cy="91" r="0.9" fill="#ffffff" opacity="0.8"/>
+      <circle cx="72" cy="91" r="3.2" fill="url(#boba-pearl)"/>
+      <circle cx="71" cy="90" r="0.7" fill="#ffffff" opacity="0.8"/>
+    </g>
+
+    <!-- Translucent Cup Outline & Highlights -->
+    <path d="M47 70 L52 110 C52 114 76 114 76 110 L81 70" stroke="#fbcfe8" stroke-width="1.5" fill="none" opacity="0.8"/>
+    <!-- Specular Highlight Curve on Cup Glass -->
+    <path d="M50 74 L54 106" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" opacity="0.55"/>
+
+    <!-- Cute Otter Paws Hugging the Cup -->
+    <!-- Left Paw -->
+    <ellipse cx="48" cy="86" rx="6.5" ry="5.5" fill="url(#boba-fur)"/>
+    <ellipse cx="48" cy="86" rx="4.5" ry="3.5" fill="url(#boba-cream)"/>
+    <path d="M45 84 C46 83 48 83 49 84" stroke="#713f12" stroke-width="0.8"/>
+    <path d="M48 84 C49 83 51 83 52 84" stroke="#713f12" stroke-width="0.8"/>
+
+    <!-- Right Paw -->
+    <ellipse cx="80" cy="86" rx="6.5" ry="5.5" fill="url(#boba-fur)"/>
+    <ellipse cx="80" cy="86" rx="4.5" ry="3.5" fill="url(#boba-cream)"/>
+    <path d="M77 84 C78 83 80 83 81 84" stroke="#713f12" stroke-width="0.8"/>
+    <path d="M80 84 C81 83 83 83 84 84" stroke="#713f12" stroke-width="0.8"/>
+  </g>
+</svg>

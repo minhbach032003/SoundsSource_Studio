@@ -1,1 +1,22 @@
-{"id":"boba","displayName":"Boba","description":"A tiny otter sipping bubble tea while keeping you company in Codex.","spritesheetPath":"spritesheet.webp","category":"creature","source":"petdex","submittedBy":"railly"}
+{
+  "id": "boba",
+  "displayName": "Boba Otter",
+  "tagline": "Calm river companion serving sweet focus and fresh PRs",
+  "description": "A delightful river otter companion holding a chilled boba tea with dark tapioca pearls, keeping code reviews lighthearted and stress-free.",
+  "category": "creature",
+  "spritesheetPath": "spritesheet.webp",
+  "theme": {
+    "primaryColor": "#f472b6",
+    "aura": "taro-pearl-sweetness",
+    "sparkleType": "bubble-pop"
+  },
+  "quotes": [
+    "Sipping iced tea while reviewing your pull request diff.",
+    "Clean architecture detected! High readability score.",
+    "Focus level is at 100%, ready for the next coding milestone.",
+    "Watching the build pipeline turn green line by line.",
+    "Bubble tea refills fuel cleaner code refactors."
+  ],
+  "source": "petdex",
+  "submittedBy": "railly"
+}

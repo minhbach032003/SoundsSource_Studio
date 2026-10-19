@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="cfc-bg" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="70%" stop-color="#070a14"/>
+      <stop offset="100%" stop-color="#020408"/>
+    </radialGradient>
+    
+    <!-- Cyber Outer Ring -->
+    <linearGradient id="cfc-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#00ff88"/>
+    </linearGradient>
+
+    <!-- Cat Fur Gradient -->
+    <linearGradient id="cfc-fur" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#2a2e4a"/>
+      <stop offset="100%" stop-color="#141728"/>
+    </linearGradient>
+
+    <!-- Screen Terminal Glow -->
+    <linearGradient id="cfc-screen-glow" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#00f0ff" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Terminal Display Face -->
+    <linearGradient id="cfc-term-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#061826"/>
+      <stop offset="100%" stop-color="#020b12"/>
+    </linearGradient>
+
+    <!-- Cyber Cyan Accent -->
+    <linearGradient id="cfc-cyan-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="100%" stop-color="#00ff88"/>
+    </linearGradient>
+
+    <!-- Clip Path for Round Viewport -->
+    <clipPath id="cfc-clip">
+      <circle cx="64" cy="64" r="58"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer Ambient Ring -->
+  <circle cx="64" cy="64" r="61" stroke="url(#cfc-ring)" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <g clip-path="url(#cfc-clip)">
+    <!-- Backdrop -->
+    <circle cx="64" cy="64" r="58" fill="url(#cfc-bg)"/>
+
+    <!-- Subtle Cyber Grid / HUD Lines -->
+    <path d="M16 64 H112 M64 16 V112" stroke="#00f0ff" stroke-width="0.5" stroke-opacity="0.12" stroke-dasharray="2 4"/>
+    <circle cx="64" cy="64" r="42" stroke="#00f0ff" stroke-width="0.5" stroke-opacity="0.15" stroke-dasharray="3 5"/>
+
+    <!-- Matrix / Tech Code Bits Floating -->
+    <text x="22" y="32" font-family="monospace" font-size="5" fill="#00ff88" opacity="0.35">01</text>
+    <text x="98" y="36" font-family="monospace" font-size="5" fill="#00f0ff" opacity="0.35">&lt;/&gt;</text>
+    <text x="20" y="80" font-family="monospace" font-size="5" fill="#00f0ff" opacity="0.25">fn</text>
+
+    <!-- Cat Body & Cyber Jacket -->
+    <path d="M34 116 C34 94 44 82 64 82 C84 82 94 94 94 116 Z" fill="#141728"/>
+    <path d="M42 90 L64 116 L86 90" stroke="#00f0ff" stroke-width="1" stroke-opacity="0.4"/>
+    <!-- Jacket Neon Trim Lines -->
+    <path d="M46 96 L64 118 L82 96" stroke="#8b5cf6" stroke-width="0.75" stroke-opacity="0.5"/>
+
+    <!-- Cat Ears -->
+    <!-- Left Ear -->
+    <path d="M42 46 L30 18 L56 32 Z" fill="url(#cfc-fur)"/>
+    <path d="M40 42 L34 24 L52 32 Z" fill="#00f0ff" opacity="0.8"/>
+    <path d="M38 40 L36 28 L48 33 Z" fill="#061826"/>
+    <!-- Right Ear -->
+    <path d="M86 46 L98 18 L72 32 Z" fill="url(#cfc-fur)"/>
+    <path d="M88 42 L94 24 L76 32 Z" fill="#00f0ff" opacity="0.8"/>
+    <path d="M90 40 L92 28 L80 33 Z" fill="#061826"/>
+
+    <!-- Cat Head -->
+    <ellipse cx="64" cy="50" rx="26" ry="22" fill="url(#cfc-fur)"/>
+
+    <!-- Cyber Headset / Audio Node -->
+    <rect x="25" y="44" width="4" height="12" rx="2" fill="#00f0ff"/>
+    <circle cx="27" cy="50" r="1.5" fill="#ffffff"/>
+    <path d="M29 44 C34 32 46 26 64 26 C82 26 94 32 99 44" stroke="#00f0ff" stroke-width="1" stroke-opacity="0.4" fill="none"/>
+    <rect x="99" y="44" width="4" height="12" rx="2" fill="#00f0ff"/>
+    <circle cx="101" cy="50" r="1.5" fill="#ffffff"/>
+
+    <!-- Cyber Visor / Hacker Eyes -->
+    <ellipse cx="52" cy="48" rx="6" ry="7" fill="#040c18"/>
+    <ellipse cx="76" cy="48" rx="6" ry="7" fill="#040c18"/>
+    <!-- Glowing Iris / Visor Lines -->
+    <ellipse cx="52" cy="48" rx="4.5" ry="5.5" fill="#00f0ff"/>
+    <ellipse cx="76" cy="48" rx="4.5" ry="5.5" fill="#00f0ff"/>
+    <ellipse cx="52" cy="48" rx="2.5" ry="4" fill="#061826"/>
+    <ellipse cx="76" cy="48" rx="2.5" ry="4" fill="#061826"/>
+    <!-- Visor Scan Reflection -->
+    <path d="M47 45 L57 43" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M71 45 L81 43" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round"/>
+
+    <!-- Neon Whiskers -->
+    <path d="M42 53 L22 51 M42 56 L20 58 M42 59 L24 64" stroke="#00f0ff" stroke-width="0.8" stroke-opacity="0.7"/>
+    <path d="M86 53 L106 51 M86 56 L108 58 M86 59 L104 64" stroke="#00f0ff" stroke-width="0.8" stroke-opacity="0.7"/>
+
+    <!-- Cute Nose & Mouth -->
+    <polygon points="62,54 66,54 64,56.5" fill="#f43f5e"/>
+    <path d="M61 58 Q64 60 67 58" stroke="#38bdf8" stroke-width="0.8" fill="none"/>
+
+    <!-- Screen Glow Fan on Cat Face & Torso -->
+    <polygon points="34,68 18,118 110,118 94,68" fill="url(#cfc-screen-glow)"/>
+
+    <!-- Glowing Holographic Laptop Screen -->
+    <rect x="32" y="66" width="64" height="38" rx="3" fill="url(#cfc-term-bg)" stroke="#00f0ff" stroke-width="1.2"/>
+    <!-- Terminal Title Bar -->
+    <rect x="32" y="66" width="64" height="6" fill="#0b2438"/>
+    <circle cx="36" cy="69" r="1.2" fill="#f43f5e"/>
+    <circle cx="40" cy="69" r="1.2" fill="#fbbf24"/>
+    <circle cx="44" cy="69" r="1.2" fill="#00ff88"/>
+    <rect x="52" y="68" width="24" height="2" rx="1" fill="#00f0ff" opacity="0.4"/>
+
+    <!-- Terminal Code Text Simulation -->
+    <!-- Prompt & Line 1 -->
+    <text x="36" y="78" font-family="monospace" font-size="5" font-weight="bold" fill="#00ff88">&gt;_</text>
+    <rect x="44" y="75" width="24" height="2" rx="0.5" fill="#00f0ff"/>
+    <rect x="70" y="75" width="16" height="2" rx="0.5" fill="#f43f5e"/>
+    <!-- Line 2 -->
+    <rect x="38" y="81" width="14" height="2" rx="0.5" fill="#a855f7"/>
+    <rect x="54" y="81" width="30" height="2" rx="0.5" fill="#00ff88"/>
+    <!-- Line 3 -->
+    <rect x="38" y="87" width="20" height="2" rx="0.5" fill="#38bdf8"/>
+    <rect x="60" y="87" width="18" height="2" rx="0.5" fill="#fbbf24"/>
+    <rect x="80" y="87" width="10" height="2" rx="0.5" fill="#00f0ff"/>
+    <!-- Line 4 - Active build bar -->
+    <rect x="38" y="93" width="50" height="3" rx="1" fill="#082b3d"/>
+    <rect x="38" y="93" width="36" height="3" rx="1" fill="url(#cfc-cyan-accent)"/>
+    <text x="90" y="96" font-family="monospace" font-size="3.5" fill="#00ff88">OK</text>
+
+    <!-- Laptop Keyboard Base (Forward Angle) -->
+    <polygon points="20,122 32,102 96,102 108,122" fill="#091422" stroke="#00f0ff" stroke-width="1"/>
+    <!-- Keyboard Grid Lines -->
+    <line x1="36" y1="107" x2="92" y2="107" stroke="#00f0ff" stroke-width="0.6" stroke-opacity="0.4"/>
+    <line x1="32" y1="112" x2="96" y2="112" stroke="#00f0ff" stroke-width="0.6" stroke-opacity="0.4"/>
+    <line x1="26" y1="117" x2="102" y2="117" stroke="#00f0ff" stroke-width="0.6" stroke-opacity="0.4"/>
+    <!-- Trackpad -->
+    <rect x="56" y="115" width="16" height="5" rx="1" stroke="#00f0ff" stroke-width="0.6" stroke-opacity="0.6" fill="none"/>
+
+    <!-- Paws in Motion (Frenzy Typing) -->
+    <!-- Left Paw -->
+    <ellipse cx="44" cy="107" rx="6.5" ry="4.5" fill="#38bdf8"/>
+    <ellipse cx="44" cy="108" rx="5" ry="3" fill="#e0f2fe"/>
+    <!-- Left Paw Motion Sparks -->
+    <path d="M38 102 L38 98 M36 100 L40 100" stroke="#00ff88" stroke-width="0.8"/>
+    <!-- Right Paw -->
+    <ellipse cx="84" cy="106" rx="6.5" ry="4.5" fill="#38bdf8"/>
+    <ellipse cx="84" cy="107" rx="5" ry="3" fill="#e0f2fe"/>
+    <!-- Right Paw Motion Sparks -->
+    <path d="M89 101 L89 97 M87 99 L91 99" stroke="#00f0ff" stroke-width="0.8"/>
+  </g>
+</svg>

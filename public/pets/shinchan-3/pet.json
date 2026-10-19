@@ -1,1 +1,22 @@
-{"id":"shinchan","displayName":"小新","description":"A compact Codex digital pet inspired by the provided Crayon Shin-chan reference.","spritesheetPath":"spritesheet.webp","category":"character","source":"petdex","submittedBy":"皮特"}
+{
+  "id": "shinchan",
+  "displayName": "Shinchan",
+  "tagline": "Cheeky humor and fearless mischief to brighten your hardest debug sessions.",
+  "description": "The spirited and playful kindergarten hero Crayon Shin-chan. With his iconic thick eyebrows and cheerful red shirt, he keeps developer morale soaring and reminds you never to take bugs too seriously.",
+  "spritesheetPath": "spritesheet.webp",
+  "category": "Anime & Action Heroes",
+  "theme": {
+    "primaryColor": "#EF4444",
+    "aura": "playful-radiance",
+    "sparkleType": "comic-stars"
+  },
+  "quotes": [
+    "Checking every semicolon in the workspace!",
+    "Hero mode activated: Let's ship this audio hub update!",
+    "Energy is high, keeping the studio console active.",
+    "Action hero debugging in progress!",
+    "Nobody breaks the build while Action Shin-chan is on watch!"
+  ],
+  "source": "petdex",
+  "submittedBy": "皮特"
+}

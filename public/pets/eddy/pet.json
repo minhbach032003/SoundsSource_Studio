@@ -1,1 +1,22 @@
-{"id":"eddy","displayName":"Eddy","description":"A wise, calm adult-educator yellow bear in round glasses, green hoodie, blue sweatpants, and red sneakers.","spritesheetPath":"spritesheet.webp","category":"creature","source":"petdex","submittedBy":"Alex S."}
+{
+  "id": "eddy",
+  "displayName": "Eddy Educator Bear",
+  "tagline": "Thoughtful mentor bear guiding you through complex architectures",
+  "description": "A wise, calm educator yellow bear in round glasses and a cozy green hoodie, offering serene guidance through tough debugging sessions.",
+  "category": "creature",
+  "spritesheetPath": "spritesheet.webp",
+  "theme": {
+    "primaryColor": "#fbbf24",
+    "aura": "golden-amber-serenity",
+    "sparkleType": "warm-ember"
+  },
+  "quotes": [
+    "Patience and clarity. Every great codebase is built step by step.",
+    "Observing memory allocations with calm focus.",
+    "Reviewing test coverage metrics with serene satisfaction.",
+    "Take a breath before that big rebase. We will solve it together.",
+    "Good architecture emerges from steady, deliberate choices."
+  ],
+  "source": "petdex",
+  "submittedBy": "Alex S."
+}
