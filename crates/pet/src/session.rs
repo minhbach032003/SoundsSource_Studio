@@ -415,6 +415,38 @@ mod tests {
     }
 
     #[test]
+    fn parity_subagent_lifecycle_and_split() {
+        let mut store = SessionStore::new();
+
+        // 1. Parent session starts working
+        let mut parent = AgentEvent::new("pi-100", "pi", "UserPromptSubmit");
+        parent.project = Some("rust-sound".into());
+        store.apply(parent, 1000);
+        assert_eq!(store.to_display_list().len(), 1);
+
+        // 2. Parent launches subagent
+        let mut subagent = AgentEvent::new("pi-100/subagent-reviewer", "subagent", "SubagentStart");
+        subagent.message = Some("Subagent: Review PR #42".into());
+        subagent.tool_name = Some("subagent".into());
+        store.apply(subagent, 1001);
+
+        // Both are active concurrently!
+        let active = store.to_display_list();
+        assert_eq!(active.len(), 2);
+        assert!(active.iter().any(|s| s.id == "pi-100" && s.agent_kind == "pi" && s.state == AgentState::Working));
+        assert!(active.iter().any(|s| s.id == "pi-100/subagent-reviewer" && s.agent_kind == "subagent" && s.state == AgentState::Working));
+
+        // 3. Subagent stops and ends
+        store.apply(AgentEvent::new("pi-100/subagent-reviewer", "subagent", "SubagentStop"), 1002);
+        store.apply(AgentEvent::new("pi-100/subagent-reviewer", "subagent", "SessionEnd"), 1003);
+
+        // Subagent is cleaned up, parent remains active
+        assert!(store.get("pi-100/subagent-reviewer").is_none());
+        assert!(store.get("pi-100").is_some());
+        assert_eq!(store.to_display_list().len(), 1);
+    }
+
+    #[test]
     fn parity_legacy_fractional_timestamp() {
         let event: AgentEvent = serde_json::from_str(r#"{"sessionId":"legacy","agentKind":"claude","eventName":"Stop","timestamp":1792100000.125}"#).unwrap();
         assert_eq!(event.timestamp, Some(1792100000));
