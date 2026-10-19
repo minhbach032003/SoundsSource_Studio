@@ -15,6 +15,7 @@
   import { navigateTo } from "@/lib/navigation";
   import { readPetPreferences, subscribePetPreferences } from "@/lib/petPreferences";
   import { INSTALLED_PETS, type AgentSessionDto } from "@/components/pet/types";
+  import { getPetForSession, getProjectName, setProjectPetBinding, getPetArchetype } from "@/lib/petMapping";
   import { toastState } from "@/lib/toast.svelte";
   import { playPetSound } from "@/lib/petAudio";
   import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -248,14 +249,42 @@
           <div class="space-y-2">
             <span class="text-[10px] font-bold uppercase tracking-wider text-(--muted) block">Active Connected Sessions ({activeSessions.length})</span>
             <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {#each activeSessions as session (session.id)}
+              {#each activeSessions as session, idx (session.id)}
+                {@const sessionPet = getPetForSession(session, idx, selectedPet)}
+                {@const projName = getProjectName(session.project)}
                 <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-xs">
                   <div class="flex items-center gap-2 min-w-0">
-                    <span class="w-2 h-2 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'} shrink-0"></span>
-                    <span class="font-bold text-(--ink) uppercase text-[11px]">{session.agent_kind}</span>
-                    <span class="text-[10px] text-(--muted) font-mono truncate">{session.project || "workspace"}</span>
+                    <img
+                      src={sessionPet.avatarUrl}
+                      alt={sessionPet.name}
+                      class="w-6 h-6 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+                      title="{sessionPet.name} · {sessionPet.tagline}"
+                    />
+                    <div class="truncate min-w-0">
+                      <div class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'} shrink-0"></span>
+                        <span class="font-bold text-(--ink) text-xs">{projName}</span>
+                        <span class="badge text-[9px] px-1 py-0 uppercase">{session.agent_kind}</span>
+                      </div>
+                      <span class="text-[10px] text-(--accent-text) font-semibold block truncate">
+                        {sessionPet.name}
+                      </span>
+                    </div>
                   </div>
-                  <span class="badge text-[9px] px-1.5 py-0 capitalize shrink-0">{session.state}</span>
+
+                  <select
+                    value={sessionPet.id}
+                    onchange={(e) => {
+                      setProjectPetBinding(projName, e.currentTarget.value);
+                      toastState.info(`Assigned ${getPetArchetype(e.currentTarget.value).name} to ${projName}`);
+                    }}
+                    class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink) shrink-0"
+                    title="Assign companion to {projName}"
+                  >
+                    {#each INSTALLED_PETS as p}
+                      <option value={p.id}>{p.name}</option>
+                    {/each}
+                  </select>
                 </div>
               {/each}
             </div>
@@ -278,8 +307,17 @@
         </div>
 
         <div class="flex items-center justify-between gap-3">
+          <img
+            src={currentPetMeta.avatarUrl}
+            alt={currentPetMeta.name}
+            class="w-10 h-10 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+          />
           <div class="min-w-0 flex-1">
-            <span class="font-bold text-xs text-(--ink) block">{currentPetMeta.name}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-xs text-(--ink) block truncate">{currentPetMeta.name}</span>
+              <span class="badge text-[9px] px-1.5 py-0">{currentPetMeta.tag}</span>
+            </div>
+            <span class="text-[10px] text-(--accent-text) block truncate font-medium">{currentPetMeta.tagline}</span>
             <span class="text-[11px] text-(--muted) line-clamp-2 mt-0.5">{currentPetMeta.description}</span>
           </div>
 

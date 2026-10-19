@@ -9,7 +9,6 @@
     Sparkles,
     Check,
     Lock,
-    Bot,
   } from "@lucide/svelte";
 
   interface Props {
@@ -129,11 +128,17 @@
         {/if}
 
         <!-- Mini Sprite Preview using AgentPetSprite -->
-        <div class="w-14 h-14 flex items-center justify-center overflow-hidden shrink-0 mt-0.5">
+        <div class="relative w-14 h-14 flex items-center justify-center overflow-hidden shrink-0 mt-0.5">
           <AgentPetSprite
             slug={pet.id}
             mood={isSelected ? "working" : "idle"}
             size={56}
+          />
+          <img
+            src={pet.avatarUrl}
+            alt={pet.name}
+            class="absolute bottom-0 right-0 w-4 h-4 rounded-full border border-(--line) object-cover bg-(--surface) shadow-xs opacity-85 group-hover:opacity-100 transition-opacity"
+            title="{pet.name} Vector Avatar"
           />
         </div>
 
@@ -160,13 +165,16 @@
   <!-- Selected Pet Archetype Inspector Ribbon -->
   <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-3 text-xs">
     <div class="flex items-center gap-2.5 min-w-0">
-      <div class="w-6 h-6 rounded-lg bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent-text) shrink-0">
-        <Bot class="w-3.5 h-3.5" />
-      </div>
+      <img
+        src={currentPet.avatarUrl}
+        alt={currentPet.name}
+        class="w-8 h-8 rounded-full border border-(--line) shrink-0 object-cover bg-(--surface) shadow-xs"
+      />
       <div class="min-w-0">
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
           <span class="font-bold text-(--ink) text-xs truncate">{currentPet.name}</span>
           <span class="badge text-[9px] px-1.5 py-0">{currentPet.tag}</span>
+          <span class="text-[10px] text-(--accent-text) font-medium truncate">· {currentPet.tagline}</span>
         </div>
         <p class="text-[10px] text-(--muted) m-0 truncate mt-0.5">{currentPet.description}</p>
       </div>

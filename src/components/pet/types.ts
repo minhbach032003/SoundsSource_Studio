@@ -64,8 +64,15 @@ export interface PetArchetype {
   id: string;
   name: string;
   tag: string;
+  tagline: string;
   description: string;
   unlockLevel: number;
+  avatarUrl: string;
+  theme: {
+    primaryColor: string;
+    aura: string;
+    sparkleType: string;
+  };
 }
 
 export type PetMood = "idle" | "working" | "reading" | "waiting" | "done" | "celebrate" | "sleepy";
@@ -75,50 +82,99 @@ export const INSTALLED_PETS: PetArchetype[] = [
     id: "code-frenzy-cat",
     name: "Code Frenzy Cat",
     tag: "Creature",
-    description: "Animated cat frantically typing code on a neon laptop in Codex.",
+    tagline: "Neon cyber hacker cat overclocking every build",
+    description: "A high-octane cyber hacker cat frantically typing code on a glowing holographic terminal, turning caffeine and keystrokes into zero-warning Rust builds.",
     unlockLevel: 1,
+    avatarUrl: "/pets/code-frenzy-cat/avatar.svg",
+    theme: {
+      primaryColor: "cyan",
+      aura: "neon-cyan-pulse",
+      sparkleType: "matrix-glitch",
+    },
   },
   {
     id: "boba",
     name: "Boba Otter",
     tag: "Creature",
-    description: "Tiny otter sipping bubble tea while keeping you company.",
+    tagline: "Calm river companion serving sweet focus and fresh PRs",
+    description: "A delightful river otter companion holding a chilled boba tea with dark tapioca pearls, keeping code reviews lighthearted and stress-free.",
     unlockLevel: 1,
+    avatarUrl: "/pets/boba/avatar.svg",
+    theme: {
+      primaryColor: "pink",
+      aura: "taro-pearl-sweetness",
+      sparkleType: "bubble-pop",
+    },
   },
   {
     id: "shinchan-3",
     name: "Shinchan 3",
     tag: "Character",
-    description: "Action Hero Crayon Shin-chan checking every line of code.",
+    tagline: "Cheeky humor and fearless mischief to brighten your hardest debug sessions.",
+    description: "The spirited and playful kindergarten hero Crayon Shin-chan. With his iconic thick eyebrows and cheerful red shirt, he keeps developer morale soaring.",
     unlockLevel: 2,
+    avatarUrl: "/pets/shinchan-3/avatar.svg",
+    theme: {
+      primaryColor: "rose",
+      aura: "playful-radiance",
+      sparkleType: "comic-stars",
+    },
   },
   {
     id: "work-blue-cat",
     name: "Cyber Coding Cat",
     tag: "Creature",
-    description: "Adult blue cat in striped green hoodie typing at high speed.",
+    tagline: "Cozy indie feline in a sage hoodie deep in the zone",
+    description: "An adult blue feline wearing a warm sage-green striped hoodie, locked in focused flow at a minimalist laptop with amber eyes and soft screen luminescence.",
     unlockLevel: 3,
+    avatarUrl: "/pets/work-blue-cat/avatar.svg",
+    theme: {
+      primaryColor: "sky",
+      aura: "sage-knit-comfort",
+      sparkleType: "soft-luminescence",
+    },
   },
   {
     id: "super-saiyan-goku",
     name: "Super Saiyan Goku",
     tag: "Character",
-    description: "Super Saiyan martial artist with golden hair and teal eyes.",
+    tagline: "Push past runtime limits with legendary Super Saiyan focus.",
+    description: "A legendary Super Saiyan martial artist radiating golden ki energy and fearless determination. Goku stands vigilant beside your workspace.",
     unlockLevel: 5,
+    avatarUrl: "/pets/super-saiyan-goku/avatar.svg",
+    theme: {
+      primaryColor: "amber",
+      aura: "golden-ki",
+      sparkleType: "electric-sparks",
+    },
   },
   {
     id: "wode-daodun-3d",
     name: "Sword & Shield Guardian",
     tag: "Creature",
-    description: "Goofy guardian with code sword and defensive tech shield.",
+    tagline: "Armed with the sword of syntax and the shield of memory safety.",
+    description: "A goofy yet fiercely determined guardian armed with a glowing code sword and high-tech defense shield, standing sentinel over your repository.",
     unlockLevel: 8,
+    avatarUrl: "/pets/wode-daodun-3d/avatar.svg",
+    theme: {
+      primaryColor: "blue",
+      aura: "cyber-shield",
+      sparkleType: "shield-pulses",
+    },
   },
   {
     id: "eddy",
     name: "Eddy Educator Bear",
     tag: "Creature",
-    description: "Calm educator yellow bear in round glasses and green hoodie.",
+    tagline: "Thoughtful mentor bear guiding you through complex architectures",
+    description: "A wise, calm educator yellow bear in round glasses and a cozy green hoodie, offering serene guidance through tough debugging sessions.",
     unlockLevel: 10,
+    avatarUrl: "/pets/eddy/avatar.svg",
+    theme: {
+      primaryColor: "yellow",
+      aura: "golden-amber-serenity",
+      sparkleType: "warm-ember",
+    },
   },
 ];
 

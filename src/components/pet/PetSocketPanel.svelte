@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { AgentSessionDto, AgentIntegrationDto } from "./types";
+  import { INSTALLED_PETS, type AgentSessionDto, type AgentIntegrationDto } from "./types";
+  import { getPetForSession, getProjectName, setProjectPetBinding } from "@/lib/petMapping";
   import {
     Radio,
     CheckCircle2,
@@ -276,34 +277,59 @@
           </span>
         </div>
       {:else}
-        {#each agentSessions as sess (sess.id)}
+        {#each agentSessions as sess, idx (sess.id)}
+          {@const sessPet = getPetForSession(sess, idx)}
+          {@const projName = getProjectName(sess.project)}
           <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex items-start justify-between gap-2.5 text-xs transition-colors hover:border-(--focus)">
+            <img
+              src={sessPet.avatarUrl}
+              alt={sessPet.name}
+              class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs mt-0.5"
+              title="{sessPet.name}: {sessPet.tagline}"
+            />
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 mb-1">
-                {#if sess.agent_kind.toLowerCase() === "pi"}
-                  <Terminal class="w-3.5 h-3.5 text-(--success) shrink-0" />
-                {:else if sess.agent_kind.toLowerCase() === "claude"}
-                  <Bot class="w-3.5 h-3.5 text-(--warning) shrink-0" />
-                {:else if sess.agent_kind.toLowerCase() === "codex"}
-                  <Code2 class="w-3.5 h-3.5 text-(--success) shrink-0" />
-                {:else if sess.agent_kind.toLowerCase() === "cursor"}
-                  <MousePointer2 class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
-                {:else if sess.agent_kind.toLowerCase() === "gemini"}
-                  <Sparkles class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
-                {:else}
-                  <Cpu class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
-                {/if}
-                <span class="font-bold text-(--ink) text-xs capitalize">
-                  {sess.agent_kind}
-                </span>
-                <span class="badge {sess.state === 'working' ? 'badge-ok' : sess.state === 'waiting' ? 'badge-warn' : ''} text-[9px] uppercase font-bold px-1.5 py-0">
-                  {sess.state}
-                </span>
-                {#if sess.model}
-                  <span class="text-[10px] text-(--muted) font-mono truncate">
-                    {sess.model}
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  {#if sess.agent_kind.toLowerCase() === "pi"}
+                    <Terminal class="w-3.5 h-3.5 text-(--success) shrink-0" />
+                  {:else if sess.agent_kind.toLowerCase() === "claude"}
+                    <Bot class="w-3.5 h-3.5 text-(--warning) shrink-0" />
+                  {:else if sess.agent_kind.toLowerCase() === "codex"}
+                    <Code2 class="w-3.5 h-3.5 text-(--success) shrink-0" />
+                  {:else if sess.agent_kind.toLowerCase() === "cursor"}
+                    <MousePointer2 class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
+                  {:else if sess.agent_kind.toLowerCase() === "gemini"}
+                    <Sparkles class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
+                  {:else}
+                    <Cpu class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
+                  {/if}
+                  <span class="font-bold text-(--ink) text-xs capitalize truncate">
+                    {projName}
                   </span>
-                {/if}
+                  <span class="badge text-[9px] px-1.5 py-0 uppercase font-semibold">
+                    {sess.agent_kind}
+                  </span>
+                  <span class="badge {sess.state === 'working' ? 'badge-ok' : sess.state === 'waiting' ? 'badge-warn' : ''} text-[9px] uppercase font-bold px-1.5 py-0">
+                    {sess.state}
+                  </span>
+                </div>
+
+                <select
+                  value={sessPet.id}
+                  onchange={(e) => setProjectPetBinding(projName, e.currentTarget.value)}
+                  class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink) shrink-0"
+                  title="Assign companion to {projName}"
+                >
+                  {#each INSTALLED_PETS as p}
+                    <option value={p.id}>{p.name}</option>
+                  {/each}
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5 text-[10px] text-(--muted) mb-1 font-medium">
+                <span class="text-(--accent-text) font-semibold">{sessPet.name}</span>
+                <span>•</span>
+                <span class="truncate">{sessPet.tagline}</span>
               </div>
 
               {#if sess.project}

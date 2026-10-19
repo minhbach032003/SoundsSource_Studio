@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
   import { petMoodFor, splitPetSessions } from "@/lib/petMood";
+  import { getPetForSession } from "@/lib/petMapping";
   import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
@@ -755,24 +756,26 @@
       {#if splitPets.length > 1}
         <!-- Một con cho mỗi agent đang bận, mỗi con mang tâm trạng của phiên nó đại diện. -->
         <div class="flex items-end gap-3">
-          {#each splitPets as session (session.id)}
+          {#each splitPets as session, idx (session.id)}
+            {@const sessionPet = getPetForSession(session, idx, petSlug)}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
+            {@const sFx = PET_FX_THEMES[sessionPet.id] ?? petFx}
             <div class="relative flex items-center justify-center">
               {#if sMood === "working" || sMood === "reading" || sMood === "celebrate"}
                 <!-- Cozy ambient archetype backlight underneath pet -->
                 <div
-                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {petFx.backlightClass}"
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {sFx.backlightClass}"
                   style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px;"
                   aria-hidden="true"
                 ></div>
                 <!-- Cute typing micro-sparkles -->
                 {#if motionEnabled && !reduceMotion}
                   <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{petFx.sparkleColor2} drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{petFx.sparkleColor3} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{sFx.sparkleColor1} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{sFx.sparkleColor2} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{sFx.sparkleColor3} drop-shadow-sm" /></span>
                     {#if sMood === "working"}
-                      <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
+                      <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{sFx.sparkleColor1} drop-shadow-sm" /></span>
                     {:else if sMood === "celebrate"}
                       <span class="cozy-sparkle cozy-sparkle-4"><Heart size={10} class="text-rose-400 drop-shadow-sm" /></span>
                     {/if}
@@ -781,13 +784,13 @@
               {:else}
                 <!-- Subtle resting ambient floor glow -->
                 <div
-                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-sm opacity-35 bg-radial {petFx.ambientClass}"
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-sm opacity-35 bg-radial {sFx.ambientClass}"
                   style="width: {Math.round(petSize * 0.55)}px; height: {Math.round(petSize * 0.16)}px;"
                   aria-hidden="true"
                 ></div>
               {/if}
               <AgentPetSprite
-                slug={petSlug}
+                slug={sessionPet.id}
                 mood={sMood}
                 size={petSize}
                 class="pet-silhouette cursor-pointer"

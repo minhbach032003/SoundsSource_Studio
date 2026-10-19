@@ -29,6 +29,12 @@
     type PetMood,
   } from "@/components/pet/types";
   import {
+    getPetForSession,
+    getProjectName,
+    setProjectPetBinding,
+    getPetArchetype,
+  } from "@/lib/petMapping";
+  import {
     Sparkles,
     Heart,
     Zap,
@@ -138,6 +144,7 @@
 
   // Selected Pet & Vitals
   let selectedPet = $state<string>("code-frenzy-cat");
+  const currentArchetype = $derived(getPetArchetype(selectedPet));
   let petEnergy = $state<number>(88);
   let petMood = $state<number>(94);
   let petFocus = $state<number>(92);
@@ -712,6 +719,11 @@
           <!-- Top Row: Pet Selector Dropdown & Switcher -->
           <div class="flex items-center justify-between w-full mb-1 gap-2 relative z-10 shrink-0">
             <div class="flex items-center gap-2 min-w-0 flex-1">
+              <img
+                src={currentArchetype.avatarUrl}
+                alt={currentArchetype.name}
+                class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+              />
               <select
                 bind:value={selectedPet}
                 onchange={() => {
@@ -719,7 +731,7 @@
                     localStorage.setItem("rust_sound_pet_slug", selectedPet);
                     window.dispatchEvent(new Event("storage"));
                   } catch {}
-                  toastState.info(`Switched active companion to ${selectedPet}`);
+                  toastState.info(`Switched active companion to ${currentArchetype.name}`);
                 }}
                 class="field text-xs h-8.5 rounded-lg max-w-60"
               >
@@ -1057,22 +1069,59 @@
             </div>
           {:else}
             <div class="space-y-2">
-              {#each agentSessions as session (session.id)}
-                <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-xs">
-                  <div class="min-w-0 flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-ping' : session.state === 'waiting' ? 'bg-amber-400' : 'bg-slate-400'}"></span>
-                    <div class="truncate">
-                      <span class="font-bold text-(--ink)">{session.agent_kind.toUpperCase()}</span>
-                      <span class="text-[10px] text-(--muted) ml-1 font-mono">{session.project || "workspace"}</span>
+              {#each agentSessions as session, idx (session.id)}
+                {@const sessionPet = getPetForSession(session, idx, selectedPet)}
+                {@const projName = getProjectName(session.project)}
+                <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-2.5 text-xs">
+                  <div class="min-w-0 flex items-center gap-2.5 flex-1">
+                    <img
+                      src={sessionPet.avatarUrl}
+                      alt={sessionPet.name}
+                      class="w-7 h-7 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+                      title="{sessionPet.name} · {sessionPet.tagline}"
+                    />
+                    <div class="truncate min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="w-1.5 h-1.5 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : session.state === 'waiting' ? 'bg-amber-400' : 'bg-slate-400'} shrink-0"></span>
+                        <span class="font-bold text-(--ink) text-xs">{projName}</span>
+                        <span class="badge text-[9px] px-1 py-0 uppercase">{session.agent_kind}</span>
+                        <span class="text-[10px] text-(--accent-text) font-semibold ml-auto sm:ml-0">
+                          {sessionPet.name}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-(--muted)">
+                        <span class="capitalize">{session.state}</span>
+                        {#if session.tool_name}
+                          <span>•</span>
+                          <span class="font-mono truncate">{session.tool_name}</span>
+                        {/if}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onclick={() => handleDismissSession(session.id)}
-                    class="btn btn-ghost h-6 text-[10px] px-1.5 text-(--muted) hover:text-(--ink)"
-                  >
-                    Dismiss
-                  </button>
+
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <select
+                      value={sessionPet.id}
+                      onchange={(e) => {
+                        setProjectPetBinding(projName, e.currentTarget.value);
+                        toastState.info(`Assigned ${getPetArchetype(e.currentTarget.value).name} to ${projName}`);
+                      }}
+                      class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink)"
+                      title="Assign companion to {projName}"
+                    >
+                      {#each INSTALLED_PETS as p}
+                        <option value={p.id}>{p.name}</option>
+                      {/each}
+                    </select>
+
+                    <button
+                      type="button"
+                      onclick={() => handleDismissSession(session.id)}
+                      class="btn btn-ghost h-6 text-[10px] px-1.5 text-(--muted) hover:text-(--ink)"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               {/each}
             </div>

@@ -9,6 +9,7 @@
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import type { AgentSessionDto, PetCareStateDto } from "@/components/pet/types";
   import { xpToReach, getInternalLevel } from "@/components/pet/types";
+  import { getPetForSession } from "@/lib/petMapping";
   import {
     PawPrint,
     Settings,
@@ -192,14 +193,21 @@
         <p class="empty-agents">Nothing running right now.</p>
       {:else}
         <ul class="session-list" aria-label="Active agent sessions">
-          {#each activeAgents as agent (agent.id)}
+          {#each activeAgents as agent, idx (agent.id)}
+            {@const agentPet = getPetForSession(agent, idx, petSlug)}
             <li class="session">
               <span class="session-dot" class:working={agent.state === "working"} class:waiting={agent.state === "waiting"}></span>
+              <img
+                src={agentPet.avatarUrl}
+                alt={agentPet.name}
+                class="w-4.5 h-4.5 rounded-full border border-(--line) shrink-0 object-cover bg-(--surface)"
+                title="{agentPet.name} · {agentPet.tagline}"
+              />
               <div class="session-details">
                 <span class="session-project" title={agent.project || agent.agent_kind}>
                   {agent.project ? agent.project.split('/').filter(Boolean).pop() : agent.agent_kind}
                 </span>
-                <span class="session-state">{agent.state}</span>
+                <span class="session-state">{agent.state} · {agentPet.name}</span>
               </div>
               <span class="elapsed">{formatElapsed(agent.started_at, agent.last_event_at)}</span>
               <button type="button" onclick={() => handleDismiss(agent.id)} class="dismiss-session" aria-label="Dismiss {agent.project ? agent.project.split('/').filter(Boolean).pop() : agent.agent_kind} session" title="Dismiss session">
