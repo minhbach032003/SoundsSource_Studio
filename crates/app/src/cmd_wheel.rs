@@ -140,32 +140,28 @@ pub fn resolve_pingloom_assets_dir() -> Option<PathBuf> {
         }
     }
 
-    let candidates = [
-        PathBuf::from("public/pingloom"),
-        PathBuf::from("assets/pingloom"),
-        PathBuf::from("../public/pingloom"),
-        PathBuf::from("../assets/pingloom"),
-        PathBuf::from("../../public/pingloom"),
-        PathBuf::from("../../assets/pingloom"),
+    const BASES: &[&str] = &[
+        "public/pingloom",
+        "assets/pingloom",
+        "../public/pingloom",
+        "../assets/pingloom",
+        "../../public/pingloom",
+        "../../assets/pingloom",
     ];
-    for cand in &candidates {
-        if cand.is_dir() && cand.join("sounds").is_dir() {
-            return Some(cand.clone());
+
+    for base in BASES {
+        let p = PathBuf::from(base);
+        if p.is_dir() && p.join("sounds").is_dir() {
+            return Some(p);
         }
     }
 
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
-            let exe_candidates = [
-                parent.join("../Resources/pingloom"),
-                parent.join("../Resources/public/pingloom"),
-                parent.join("../Resources/assets/pingloom"),
-                parent.join("public/pingloom"),
-                parent.join("assets/pingloom"),
-            ];
-            for cand in &exe_candidates {
-                if cand.is_dir() && cand.join("sounds").is_dir() {
-                    return Some(cand.clone());
+            for sub in &["../Resources/pingloom", "../Resources/public/pingloom", "../Resources/assets/pingloom", "public/pingloom", "assets/pingloom"] {
+                let p = parent.join(sub);
+                if p.is_dir() && p.join("sounds").is_dir() {
+                    return Some(p);
                 }
             }
         }
@@ -184,18 +180,18 @@ pub fn resolve_pingloom_asset_path(subpath: &str) -> Option<PathBuf> {
         }
     }
 
-    // Direct check from current dir
-    let cwd_candidates = [
-        PathBuf::from("public/pingloom").join(sub),
-        PathBuf::from("assets/pingloom").join(sub),
-        PathBuf::from("../public/pingloom").join(sub),
-        PathBuf::from("../assets/pingloom").join(sub),
-        PathBuf::from("../../public/pingloom").join(sub),
-        PathBuf::from("../../assets/pingloom").join(sub),
+    const BASES: &[&str] = &[
+        "public/pingloom",
+        "assets/pingloom",
+        "../public/pingloom",
+        "../assets/pingloom",
+        "../../public/pingloom",
+        "../../assets/pingloom",
     ];
-    for cand in &cwd_candidates {
-        if cand.is_file() {
-            return Some(cand.clone());
+    for base in BASES {
+        let full = PathBuf::from(base).join(sub);
+        if full.is_file() {
+            return Some(full);
         }
     }
 

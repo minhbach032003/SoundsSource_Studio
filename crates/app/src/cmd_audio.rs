@@ -109,7 +109,7 @@ pub fn set_master_mute(muted: bool) -> Result<(), String> {
 
 #[tauri::command]
 pub fn set_default_output_device(device_uid: String) -> Result<(), String> {
-    AudioDevice::set_default_output_device_by_uid(&device_uid)
+    AudioDevice::set_default_device(&device_uid)
         .map_err(|e| format!("Failed to set default output device: {e}"))
 }
 
@@ -120,7 +120,7 @@ pub fn get_audio_input_devices() -> Vec<AudioDevice> {
 
 #[tauri::command]
 pub fn set_default_input_device(device_uid: String) -> Result<(), String> {
-    AudioDevice::set_default_input_device_by_uid(&device_uid)
+    AudioDevice::set_default_input_device(&device_uid)
         .map_err(|e| format!("Failed to set default input device: {e}"))
 }
 

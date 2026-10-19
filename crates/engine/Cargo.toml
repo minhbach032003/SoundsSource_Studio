@@ -13,22 +13,10 @@ sound-calendar = { path = "../calendar" }
 sound-spotify = { path = "../spotify" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-sha2 = "0.10"
-hmac = "0.12"
-base64 = "0.22"
-subtle = "2.5"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 thiserror = "2.0"
 tempfile = "3"
-reqwest = { version = "0.13", features = ["blocking", "json", "form", "query"] }
-url = "2.5"
-librespot-core = { version = "0.8.0", default-features = false, features = ["native-tls"] }
-librespot-connect = { version = "0.8.0", default-features = false }
-librespot-playback = { version = "0.8.0", default-features = false }
-librespot-metadata = { version = "0.8.0", default-features = false }
-librespot-oauth = { version = "0.8.0", default-features = false }
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

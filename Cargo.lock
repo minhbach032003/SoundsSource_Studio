@@ -4652,30 +4652,18 @@ dependencies = [
 name = "sound-engine"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
  "chrono",
- "hmac",
  "libc",
- "librespot-connect",
- "librespot-core",
- "librespot-metadata",
- "librespot-oauth",
- "librespot-playback",
- "reqwest 0.13.5",
  "serde",
  "serde_json",
- "sha2",
  "sound-auth",
  "sound-calendar",
  "sound-core",
  "sound-dsp",
  "sound-pet",
  "sound-spotify",
- "subtle",
  "tempfile",
  "thiserror 2.0.21",
- "tokio",
- "url",
  "uuid",
 ]
 

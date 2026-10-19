@@ -88,16 +88,8 @@ impl AudioDevice {
         crate::platform::current::set_default_device(uid)
     }
 
-    pub fn set_default_output_device_by_uid(uid: &str) -> Result<(), i32> {
-        Self::set_default_device(uid).map_err(|_| -1)
-    }
-
     /// Switch default system input device by UID.
     pub fn set_default_input_device(uid: &str) -> Result<(), String> {
         crate::platform::current::set_default_input_device(uid)
-    }
-
-    pub fn set_default_input_device_by_uid(uid: &str) -> Result<(), i32> {
-        Self::set_default_input_device(uid).map_err(|_| -1)
     }
 }

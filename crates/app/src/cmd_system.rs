@@ -129,13 +129,9 @@ pub fn get_performance_metrics(state: State<'_, AppState>) -> AppPerformanceMetr
     }
 }
 
-pub fn benchmark_latency(client_timestamp_ms: f64) -> f64 {
-    client_timestamp_ms
-}
-
 #[tauri::command]
 pub fn benchmark_ipc_latency(client_timestamp_ms: f64) -> f64 {
-    benchmark_latency(client_timestamp_ms)
+    client_timestamp_ms
 }
 
 #[tauri::command]
