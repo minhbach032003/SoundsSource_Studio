@@ -26,10 +26,10 @@
 
   let sessions = $state<AgentSessionDto[]>([]);
   let care = $state<PetCareStateDto | null>(null);
-  let petSlug = $state<string>("work-blue-cat");
+  let petSlug = $state<string>("super-saiyan-goku");
 
   $effect(() => subscribePetPreferences(() => {
-    petSlug = localStorage.getItem("rust_sound_pet_slug") || "work-blue-cat";
+    petSlug = localStorage.getItem("rust_sound_pet_slug") || "super-saiyan-goku";
   }));
 
   // This is a separate, reusable webview: keep its canvas clear and theme current.

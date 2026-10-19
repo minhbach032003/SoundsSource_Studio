@@ -112,7 +112,7 @@
     (isTauri() ||
       !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
 
-  let petSlug = $state<string>("work-blue-cat");
+  let petSlug = $state<string>("super-saiyan-goku");
   let petSize = $state(readPetPreferences().size);
   let splitEnabled = $state(readPetPreferences().split);
   let motionEnabled = $state(readPetPreferences().animate);

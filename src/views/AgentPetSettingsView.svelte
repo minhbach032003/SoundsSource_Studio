@@ -24,7 +24,7 @@
   // Reactive preferences for live preview
   let prefs = $state(readPetPreferences());
   let selectedPet = $state(
-    (typeof localStorage !== "undefined" && localStorage.getItem("rust_sound_pet_slug")) || "work-blue-cat"
+    (typeof localStorage !== "undefined" && localStorage.getItem("rust_sound_pet_slug")) || "super-saiyan-goku"
   );
   let sessions = $state<AgentSessionDto[]>([]);
   let isTestingAudio = $state(false);

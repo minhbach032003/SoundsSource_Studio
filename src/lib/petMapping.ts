@@ -40,7 +40,7 @@ export function getPetArchetype(id?: string | null): PetArchetype {
 export function getPetForSession(
   session: { project?: string | null; agent_kind?: string; id?: string } | null | undefined,
   index: number = 0,
-  equippedSlug: string = "work-blue-cat"
+  equippedSlug: string = "super-saiyan-goku"
 ): PetArchetype {
   const projectName = getProjectName(session?.project);
   const explicit = getProjectPetBinding(projectName);
