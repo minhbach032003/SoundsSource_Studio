@@ -2,78 +2,110 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Read `README.md` first — it has the commands and crate layout. This file only covers what it doesn't, plus where it's stale.
+Read `README.md` first — it has high-level commands and design principles. This file covers architecture, operational rules, and development details.
 
 ## Commands
 
-Everything runs from the repo root (see README for the full list). Notes:
+Everything runs from the repository root:
 
-- `pnpm tauri ...` is the only correct entry point for Tauri — the script sets `TAURI_APP_PATH=crates/app` and `TAURI_FRONTEND_PATH=.`; bare `tauri` from root fails.
-- Single Rust test: `cargo test -p sound-engine jwt`, or by file: `cargo test -p rust-sound --test pipeline_e2e`.
-- Frontend has no lint/test tooling. `pnpm build` (runs `tsc` then Vite) is the only frontend check.
-- macOS-only: `sound-core` is CoreAudio/CoreFoundation FFI, so nothing in the workspace builds or tests off macOS 14.2+.
+- `pnpm dev`: Starts the Vite frontend dev server (port 1420 default).
+- `pnpm tauri dev`: Runs the full desktop app in Tauri dev mode (`TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=.`).
+- `pnpm check`: Svelte 5 and TypeScript check (`svelte-check --tsconfig ./tsconfig.json`).
+- `pnpm build`: Full frontend production bundle compilation (`tsc && vite build`).
+- `pnpm rebuild:app`: Rebuilds the production macOS app, applies ad-hoc codesign, and deploys directly to `/Applications/SoundsSource Studio.app`.
+- Single Rust crate test:
+  - `cargo test -p sound-dsp`
+  - `cargo test -p sound-auth`
+  - `cargo test -p sound-pet`
+  - `cargo test -p sound-calendar`
+  - `cargo test -p sound-spotify`
+  - `cargo test -p sound-engine`
+  - `cargo test -p rust-sound`
+- Full test suites:
+  - `cargo test --workspace` (Rust workspace unit + integration tests)
+  - `node --test tests/*.test.mjs` (203+ Node unit tests for frontend,IPC, integration)
+  - `node --test tests/*-browser.mjs` (8 browser test suites via agent-browser)
+- macOS-only: `sound-core` depends on CoreAudio / CoreFoundation FFI, requiring macOS 14.2+.
 
-## Architecture
+## Modular Workspace Architecture
 
-Deps: `app → engine → core`, app also uses core directly, core never references engine. `rust_sound_lib` re-exports both as `::core` and `::engine`.
+The workspace follows strict downward-only dependency boundaries:
+```
+app -> engine (thin coordinator) -> {dsp, spotify, auth, pet, calendar} -> core
+                                                                        ↗
+                                                               pingloom (standalone)
+```
 
-**One IPC boundary, three edits per feature.** All state lives in `AppState` (`crates/app/src/lib.rs`): `Mutex<AudioRouter>`, `Mutex<PresetStore>`, `Mutex<BreakTimerManager>`, `AuthService`. Every frontend capability is a `#[tauri::command]` fn in that same file, so adding one means: write the command, register it in `generate_handler!`, add the typed wrapper in `src/audio.ts`. Commands stay thin — DSP goes in `engine/router.rs` + `engine/eq.rs`, CoreAudio calls in `core/device.rs` + `core/process.rs`.
+- **`crates/core`**: Low-level macOS audio hardware FFI, CoreAudio process taps, high-performance ring buffer, volume/mute hardware control.
+- **`crates/dsp` (`sound-dsp`)**: Pure audio DSP math: Parametric EQ (`eq.rs`), dynamic filters & noise gate (`filter.rs`), spectrum analyzer (`spectrum.rs`), PCM sample queue (`pcm_queue.rs`), presets (`preset.rs`). Pure computation; zero network, zero async.
+- **`crates/auth` (`sound-auth`)**: JWT HMAC-SHA256, PKCE S256, Google OAuth verifier, Keycloak RS256, DualAuth validator, Neon Postgres user repo (`db.rs`).
+- **`crates/pet` (`sound-pet`)**: AgentPet companion engine: care progression, XP/hunger vitals, activity themes, session tracking, hook manager, UNIX domain socket server (`/tmp/rust-sound-agent-pet.sock`). Zero internal dependencies.
+- **`crates/calendar` (`sound-calendar`)**: Google Calendar OAuth PKCE, event parsing, today's schedule sync, token storage. Depends on `sound-core` (Keychain) and `sound-auth` (PKCE).
+- **`crates/spotify` (`sound-spotify`)**: Spotify Web API, OAuth PKCE, and embedded Librespot local connect player. Depends on `sound-core` and `sound-auth`.
+- **`crates/engine` (`sound-engine`)**: Thin coordinator crate. Keeps `router.rs` (wires DSP channels + Spotify spectrum), `timer.rs` (Pomodoro break timer with audio ducking), and `wheel/`. Re-exports all domain crates so all `sound_engine::*` imports across the codebase remain 100% backward-compatible.
+- **`crates/pingloom`**: Native macOS `CGEventTap` gesture listener and radial wheel event processor.
+- **`crates/app` (`rust-sound`)**: Tauri desktop shell. Application state lives in `AppState` (`crates/app/src/lib.rs`). Tauri commands are partitioned into 7 focused domain modules:
+  - `cmd_audio.rs`: Volume, mute, balance, devices, EQ bands, audio filters, virtual audio, presets, app audio tap.
+  - `cmd_spotify.rs` / `spotify.rs`: 18 Spotify Web API and local playback commands.
+  - `cmd_auth.rs`: Google OAuth login, session restore, logout, Gemini API key storage.
+  - `cmd_calendar.rs`: Google Calendar login, status, sync, disconnect.
+  - `cmd_pet.rs`: AgentPet care, feed, reset, sessions, hooks, desktop overlay, popover, notifications.
+  - `cmd_timer.rs`: Pomodoro break timer, screen lock overlays, timeboxed todos.
+  - `cmd_wheel.rs`: Pingloom overlay, mouse/keyboard gestures, wheel settings, assets catalog, audio pings.
+  - `cmd_system.rs`: Performance metrics, memory trim, screen capture permissions, dock icon, window/quit.
+- **Frontend**: Svelte 5 (runes `$state`, `$derived`, `$effect`) + Tailwind CSS v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`, `src/lib/`).
 
-**Gemini Live voice call** is frontend-only: `src/lib/geminiLive.svelte.ts` holds the WebSocket session (v1beta endpoint, `gemini-3.8-live` default — Google's low-latency voice model, with a one-shot automatic fallback to `gemini-3.1-flash-live-preview` when a key cannot use it, and no fallback for a model the user picked themselves; 16 kHz PCM via `realtimeInput.audio`, 24 kHz downlink, 1 fps JPEG of camera *or* shared screen via `realtimeInput.video`; audio transcription fills the transcript; `sessionResumption` handles keep context across persona switch/reconnect). `inputAudioTranscription.languageCodes` names the languages actually spoken (`vi-VN`, `en-US`): left empty the Live API auto-detects, and a short Vietnamese sentence came back transcribed as Spanish, which the model then answered in. A 1007 that names that field drops only the hint — shedding captions instead would cost the whole session's transcript. The Live API rejects bad setups by *closing* the socket (clean 1007/1008), not with an `error` frame, and closes 1007 on the deprecated `mediaChunks` — keep both in mind when touching the protocol. Free-tier keys get a clean 1011 "exceeded your current quota" at setup when `googleSearch` is declared on `gemini-3.1-flash-live-preview` (2.5 native audio accepts it); the service drops search for that model and retries. Screen share in the desktop app does **not** use `getDisplayMedia`: WKWebView hands this app an all-black stream even with the Screen Recording grant in place (verified: TCC record `auth_value=2`, cdhash matching the installed bundle). Frames come from `capture_screen_jpeg` (`/usr/sbin/screencapture` of the main display, inherits the app's TCC grant) and are drawn through the same canvas as the camera path; `nativeScreenFrame` is also what the stage previews, at the 1 fps uplink rate. `getDisplayMedia` and the black-frame detector remain for the browser path. The TCC grant is still required and still checked first via `check_screen_capture_permission` / `request_screen_capture_permission` / `open_screen_capture_settings` (CoreGraphics FFI in `crates/app/src/lib.rs`). Note the bundle is ad-hoc linker-signed with no sealed resources, so `Entitlements.plist` is not applied and every rebuild changes the cdhash — a Screen Recording grant has to be re-given after some rebuilds. A re-open (persona switch, setup fallback, goAway) swaps only the WebSocket and keeps mic, camera, screen and AudioContexts alive — re-acquiring them is what left WebKit with a silent mic. `ws.onerror` must not decide status; `onclose` does (WebKit can fire `error` before a clean 1011). The in-app "Chẩn đoán" panel (`diagnosticsReport()`) is the way to get evidence from the real WKWebView. Turn-taking is configured, not default: `setup.realtimeInputConfig.automaticActivityDetection` carries the user's Reply Delay (the "Phản hồi" chip, persisted in `localStorage`), and note Google's open bug where `silenceDurationMs` is ignored on the legacy `gemini-3.1-flash-live-preview` but honored on 2.5 native audio, which is part of why the default moved off it — `diagnosticsReport()` prints the setting next to the measured end-of-speech → first-audio latency, which is how to tell whether it took effect. Video frames yield to speech on the shared socket: a frame is skipped while the mic is above threshold or `ws.bufferedAmount` is backed up, and one forced frame is sent the instant speech ends. Frames are also deduplicated against a 32x18 luma signature of the last one sent (heartbeat every 10s), since at 258 tokens a frame an unchanged screen at 1 fps was the main thing inflating the context — and `contextWindowCompression` now names its own `triggerTokens`/`targetTokens` instead of letting it default to 80% of the model's window, which is what made long calls get slower and slower. Long calls compact themselves like the CLI does: at `COMPACT_AT_TOKENS` the older turns are summarized by a cheap REST text model (the session's own key), the socket re-opens with no resumption handle, and the replay sends that summary plus the last `COMPACT_KEEP_TURNS` turns verbatim — the on-screen transcript is never touched, only what Gemini is given. A failed summary falls back to the old behavior (replay the text history, capped at 24k characters). `src/lib/geminiAudioTools.ts` is its function-calling layer — Gemini's tool calls are executed against existing mixer commands (`set_app_volume`, `set_master_eq_band`, …), never new ones, and are gated by the Agent Control toggle in `src/views/VoiceAiView.svelte`. The Rust side only stores the API key (`get_gemini_api_key` / `set_gemini_api_key`).
+## Gemini Live Voice Call
 
-`AuthService` (`crates/engine/src/auth/`) composes four verifiers behind one facade: internal HS256 JWT (`jwt.rs`), Google ID tokens (`google.rs`), Keycloak (`keycloak.rs`), either-of-the-two (`dual_auth.rs`), plus PKCE S256 (`pkce.rs`) and a Neon Postgres repo (`db.rs`). Frontend side is `src/lib/googleAuth.svelte.ts`.
-
-**README is out of date on two points:** Frontend is Svelte 5 + Tailwind v4 + Vite (`src/main.ts`, `src/App.svelte`, `src/views/`, `src/components/`); and `engine` also holds `timer.rs` (break/focus timer) and `auth/`.
-
-Its "Trạng thái thực tế" section is accurate and important: for system audio routing, there is no system-wide live capture → DSP → output pipeline; volume/mute/EQ commands mutate router state. However, Spotify features a dedicated live audio pipeline: both via CoreAudio process tap and via the embedded librespot local player with EQ and spectrum processing out to hardware. The rest of the mixer remains state-only; the `*_e2e` tests assert on synthetic buffers and system queries, not real audio. Don't describe audio changes as verified end-to-end without physical listening verification.
-
-System volume/mute/device commands bypass the router entirely and drive CoreAudio (and AppleScript for per-app media volume) directly.
+Frontend-only integration in `src/lib/geminiLive.svelte.ts`:
+- WebSocket session (v1beta endpoint, `gemini-3.8-live` default with automatic fallback to `gemini-3.1-flash-live-preview`).
+- 16 kHz PCM uplink via `realtimeInput.audio`, 24 kHz downlink audio.
+- 1 fps JPEG of camera or shared screen via `realtimeInput.video`.
+- Screen share in the desktop app does **not** use `getDisplayMedia` (which returns black frames in macOS WKWebView); it uses `capture_screen_jpeg` (`/usr/sbin/screencapture` of main display).
+- Function calling layer in `src/lib/geminiAudioTools.ts` executes against existing mixer commands, gated by the Agent Control toggle.
+- Rust side only stores the API key (`get_gemini_api_key` / `set_gemini_api_key` in `cmd_auth.rs`).
 
 ## openspec/
 
-Spec-driven workflow. `openspec/specs/<capability>/spec.md` are the live requirements (SHALL + WHEN/THEN scenarios); `openspec/changes/<name>/` holds in-flight proposals (`proposal.md`, `design.md`, `tasks.md`) that get archived into specs when done. When changing behavior a spec covers, update the spec too.
+Spec-driven workflow:
+- `openspec/specs/<capability>/spec.md`: Current live requirements (SHALL + WHEN/THEN scenarios).
+- `openspec/changes/<name>/`: In-flight proposals (`proposal.md`, `design.md`, `tasks.md`).
+- When changing behavior a spec covers, update the spec too.
 
-## Required env vars
+## Required Environment Variables
 
-`AuthService` is built from `RUST_SOUND_JWT_SECRET` and `RUST_SOUND_NEON_URL` (`env_secret` in `crates/app/src/lib.rs`), and the app panics at startup if either is missing. Export both before `pnpm tauri dev`. The live-DB test in `crates/app/tests/auth_integration_test.rs` skips itself when `RUST_SOUND_NEON_URL` is unset.
+- `RUST_SOUND_JWT_SECRET` and `RUST_SOUND_NEON_URL` can be provided for live Neon DB authentication.
+- `GEMINI_API_KEY`: Google Gemini API key for Live audio calls and vision tools.
+- `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`: (Optional) for uploading pet spritesheets to CDN via `pnpm pets:upload`. Never commit secrets to git.
 
-## Git workflow & Automated Rebuild Rule
+## Git Workflow & Automated Post-Work App Rebuild Rule
 
-Whenever finishing a self-contained piece of work, feature, or bug fix (**step 1 is macOS-only — see "Cloud / Linux sessions" below**):
-1. Automatically rebuild the production macOS desktop app into `/Applications/rust-sound.app` so the user's installed application is immediately up-to-date:
+Whenever completing any feature, bug fix, UI enhancement, or requested modification (**step 1 is macOS-only**):
+1. **MANDATORY REBUILD & DEPLOYMENT**: Rebuild the production macOS desktop app and deploy to `/Applications/SoundsSource Studio.app`:
    ```bash
    pnpm rebuild:app
    ```
-2. Then commit and push to `origin` without asking:
+2. Verify all tests pass:
    ```bash
-   git add -A && git commit -m "feat/fix: <what changed>" && git push
+   cargo check --workspace
+   cargo test --workspace
+   node --test tests/*.test.mjs
+   pnpm build
+   ```
+3. Commit and push to `origin` without asking:
+   ```bash
+   git add <staged files> && git commit -m "type(scope): description" && git push
    ```
 
-Commit messages follow the conventional prefixes already in the history (`feat:`, `fix:`, `refactor:`). Work happens directly on `main` — don't branch unless asked. Push once per finished unit of work, not per file edit.
+## Cloud / Linux Sessions
 
-## Cloud / Linux sessions
+Claude Code cloud sessions run on **Ubuntu 24.04 x86_64** without macOS CoreAudio/CoreGraphics:
+- **Skip `pnpm rebuild:app` entirely** on Linux/CI (no macOS SDK).
+- `cargo test -p sound-dsp`, `cargo test -p sound-auth`, `cargo test -p sound-pet`, `cargo test -p sound-calendar` can build and test on Linux.
+- Frontend checks (`pnpm build`, `node --test tests/*.test.mjs`) work cross-platform.
+- Hand desktop app verification back to a macOS machine.
 
-Claude Code cloud sessions run on **Ubuntu 24.04 x86_64**; the base image cannot be swapped. Three of the four crates cannot build there, so on any non-macOS host:
+## UI Conventions & Strict Zero Emoji Standard
 
-- **Skip `pnpm rebuild:app` entirely.** There is no macOS SDK and no `/Applications`. Finish at the commit-and-push step.
-- **Never run `cargo test --workspace` or `cargo build` at the root.** `sound-core` is CoreAudio FFI, `rust-sound` is a macOS Tauri app, `pingloom` is CGEventTap.
-- **Do not claim an audio change works.** Verifying this project's DSP needs real CoreAudio devices, process taps and a running Spotify. None of that exists in a container. Say what you could not verify.
-
-What a Linux session can legitimately build, run and verify:
-
-```bash
-cargo test -p sound-engine          # 16 files, zero macOS cfgs: eq, filter, preset,
-                                    # router, spectrum, spotify (Web API), timer, auth/*
-pnpm install --frozen-lockfile
-pnpm build                          # tsc + vite over all of src/
-for f in tests/*.test.mjs; do node "$f"; done
-npx @fission-ai/openspec validate --specs
-```
-
-Anything touching `crates/core`, `crates/app` or `crates/pingloom` is read-only work in the cloud: review, refactor proposals, specs and docs. Hand the build and the listening test back to a macOS machine.
-
-## UI conventions & Vector Icon Standard
-
-**STRICT RULE — NO UNICODE EMOJIS AS ICONS:**
-Never use unicode emoji characters (e.g. 💖, 🐝, 😡, 👍, 💯, 💪, 💀, 🎙️, ⚠️, 🎯, etc.) as UI icons, labels, badges, data tables, commit messages, or console output. Always use `@lucide/svelte` (bundled in dependencies) or clean inline SVG components with theme-aware styling. All previous emoji violations in `src/lib/pingloom.ts`, `src/components/AudioBuses.tsx`, and `src/views/AgentPetView.tsx` have been eliminated and must never be reintroduced.
-
+- **ZERO EMOJIS AS ICONS**: Never use unicode emoji characters (e.g. 💖, 🐝, 😡, 👍, 💯, 💪, 💀, 🎙️, ⚠️, 🎯, etc.) as UI icons, labels, badges, data tables, or visual elements.
+- **ALWAYS USE VECTOR ICONS**: Use `@lucide/svelte` or clean inline SVG components with dynamic theme color classes (`text-(--accent)`, `text-(--ink)`, `text-(--muted)`).
