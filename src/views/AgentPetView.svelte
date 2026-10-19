@@ -595,7 +595,7 @@
     <button
       type="button"
       onclick={() => (activeViewTab = "cockpit")}
-      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'cockpit'
+      class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'cockpit'
         ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
         : 'text-(--muted) hover:text-(--ink)'}"
     >
@@ -604,35 +604,15 @@
     </button>
     <button
       type="button"
-      onclick={() => (activeViewTab = "gallery")}
-      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'gallery'
-        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
-        : 'text-(--muted) hover:text-(--ink)'}"
-    >
-      <Sparkles class="w-3.5 h-3.5 text-(--warning)" />
-      Pet Gallery (7)
-    </button>
-    <button
-      type="button"
-      onclick={() => (activeViewTab = "animations")}
-      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'animations'
-        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
-        : 'text-(--muted) hover:text-(--ink)'}"
-    >
-      <Award class="w-3.5 h-3.5 text-(--accent-text)" />
-      Animation Bindings
-    </button>
-    <button
-      type="button"
       onclick={() => (activeViewTab = "stream")}
-      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'stream'
+      class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'stream'
         ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
         : 'text-(--muted) hover:text-(--ink)'}"
     >
       <Terminal class="w-3.5 h-3.5 text-(--success)" />
       Activity Stream
       {#if events.length > 0}
-        <span class="text-[9px] px-1.5 py-0 rounded bg-(--surface) border border-(--line) text-(--muted)">
+        <span class="text-[9px] px-1.5 py-0 rounded bg-(--surface) border border-(--line) text-(--muted) font-mono">
           {events.length}
         </span>
       {/if}
@@ -640,14 +620,14 @@
     <button
       type="button"
       onclick={() => (activeViewTab = "socket")}
-      class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'socket'
+      class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'socket'
         ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
         : 'text-(--muted) hover:text-(--ink)'}"
     >
       <Radio class="w-3.5 h-3.5 text-(--accent-text)" />
-      Socket & Sessions
+      Socket & Sessions Bridge
       {#if agentSessions.length > 0}
-        <span class="w-4 h-4 rounded-full bg-(--surface) text-(--success) text-[9px] flex items-center justify-center font-bold border border-(--line)">
+        <span class="w-4 h-4 rounded-full bg-(--surface) text-(--success) text-[9px] flex items-center justify-center font-bold border border-(--line) font-mono">
           {agentSessions.length}
         </span>
       {/if}
@@ -739,13 +719,6 @@
                   <option value={pet.id}>{pet.name} ({pet.tag})</option>
                 {/each}
               </select>
-              <button
-                type="button"
-                onclick={() => (activeViewTab = "gallery")}
-                class="btn btn-ghost h-8 text-[11px] px-2 text-(--accent-text) border border-(--line)"
-              >
-                Gallery…
-              </button>
             </div>
 
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--paper) border border-(--line) text-(--warning) text-xs font-semibold shadow-xs">
