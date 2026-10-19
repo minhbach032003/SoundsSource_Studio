@@ -4654,11 +4654,25 @@ dependencies = [
  "sound-auth",
  "sound-core",
  "sound-dsp",
+ "sound-pet",
  "subtle",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "url",
+ "uuid",
+]
+
+[[package]]
+name = "sound-pet"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "libc",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
  "uuid",
 ]
 

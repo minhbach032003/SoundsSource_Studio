@@ -1,8 +1,8 @@
-use crate::pet::care::PetCareStore;
-use crate::pet::event::{AgentEvent, AgentState};
-use crate::pet::question::QuestionDetector;
-use crate::pet::session::SessionStore;
-use crate::pet::transcript::TranscriptReader;
+use crate::care::PetCareStore;
+use crate::event::{AgentEvent, AgentState};
+use crate::question::QuestionDetector;
+use crate::session::SessionStore;
+use crate::transcript::TranscriptReader;
 use chrono::Utc;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -384,9 +384,9 @@ mod review_tests {
         let mut stream = std::os::unix::net::UnixStream::connect(&socket).unwrap();
         writeln!(stream, "{}", serde_json::json!({"session_id":"race", "agent_kind":"claude", "event_name":"SessionStart", "sequence":7, "transcript_path":fifo})).unwrap();
         drop(stream);
-        while sessions.lock().unwrap().get("race").map(|s| s.state) != Some(crate::pet::event::AgentState::Registered)
+        while sessions.lock().unwrap().get("race").map(|s| s.state) != Some(crate::event::AgentState::Registered)
             && std::time::Instant::now() < deadline { thread::sleep(Duration::from_millis(10)); }
-        assert_eq!(sessions.lock().unwrap().get("race").map(|s| s.state), Some(crate::pet::event::AgentState::Registered));
+        assert_eq!(sessions.lock().unwrap().get("race").map(|s| s.state), Some(crate::event::AgentState::Registered));
         server.stop();
     }
 

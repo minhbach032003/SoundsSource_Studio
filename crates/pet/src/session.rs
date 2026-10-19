@@ -1,7 +1,7 @@
-use crate::pet::activity::{ActivityFormatter, ActivityTheme};
-use crate::pet::event::{AgentEvent, AgentState, PetMood};
-use crate::pet::question::QuestionDetector;
-use crate::pet::statemap::{is_session_end, map_event_to_state};
+use crate::activity::{ActivityFormatter, ActivityTheme};
+use crate::event::{AgentEvent, AgentState, PetMood};
+use crate::question::QuestionDetector;
+use crate::statemap::{is_session_end, map_event_to_state};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -1,7 +1,7 @@
 pub use sound_core::device;
 pub use sound_dsp::{eq, filter, pcm_queue, preset, spectrum};
 pub use sound_auth as auth;
-pub mod pet;
+pub use sound_pet as pet;
 pub mod router;
 pub mod spotify;
 pub mod spotify_player;

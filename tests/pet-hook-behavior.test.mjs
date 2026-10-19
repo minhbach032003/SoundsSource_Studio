@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, mkdirSync, symlinkSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -8,7 +8,8 @@ import { spawn } from 'node:child_process';
 import ts from 'typescript';
 import vm from 'node:vm';
 
-const hooks = readFileSync('crates/engine/src/pet/hooks.rs', 'utf8');
+const hooksPath = existsSync('crates/pet/src/hooks.rs') ? 'crates/pet/src/hooks.rs' : 'crates/engine/src/pet/hooks.rs';
+const hooks = readFileSync(hooksPath, 'utf8');
 const script = hooks.match(/let script = r#"([\s\S]*?)"#;/)[1];
 const code = hooks.match(/let code = r#"([\s\S]*?)"#;/)[1];
 

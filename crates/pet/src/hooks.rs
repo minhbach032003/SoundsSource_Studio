@@ -572,7 +572,7 @@ export default function (pi: any) {
 
 #[cfg(test)]
 mod parity_tests {
-    use crate::pet::{AgentEvent, AgentState, SessionStore};
+    use crate::{AgentEvent, AgentState, SessionStore};
 
     #[test]
     fn generated_pi_payloads_reach_real_session_store() {
