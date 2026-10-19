@@ -426,12 +426,11 @@ fn run_listener_loop(
     engine: Arc<Mutex<GestureEngine>>,
     callback: ActionCallback,
 ) {
-    // Poll for accessibility permissions without spamming prompt dialogs
+    // Poll for accessibility permissions quietly without popping modal dialogs on startup
     let mut logged_untrusted = false;
     while !is_accessibility_trusted(false) {
         if !logged_untrusted {
-            eprintln!("[Pingloom] Process is NOT trusted for Accessibility! Prompting user & polling...");
-            let _ = is_accessibility_trusted(true);
+            eprintln!("[Pingloom] Process waiting for Accessibility permission.");
             logged_untrusted = true;
         }
         if !running.load(Ordering::Acquire) {
