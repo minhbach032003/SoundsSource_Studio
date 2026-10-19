@@ -593,7 +593,7 @@
         : 'text-(--muted) hover:text-(--ink)'}"
     >
       <Bot class="w-3.5 h-3.5 text-(--accent-text)" />
-      Companion
+      Companion Cockpit
     </button>
     <button
       type="button"
@@ -845,6 +845,21 @@
             </button>
           </div>
         </div>
+
+        <!-- Embedded Pet Gallery Showcase -->
+        <PetGallery
+          bind:selectedPet
+          {careState}
+          onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
+        />
+
+        <!-- Interactive Animations Clip Inspector & Binding Panel -->
+        <PetAnimationPicker
+          slug={selectedPet}
+          onBindingChange={(state, clipIdx) =>
+            toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`)
+          }
+        />
 
         <!-- Compact Progression & Vitals Panel -->
         <div class="panel p-4 sm:p-5 shadow-sm space-y-3.5">

@@ -184,6 +184,101 @@ export function petFrameIndex(slug: string, row: number, count: number, step: nu
   return Math.min(phase, count - 1);
 }
 
+export interface ArchetypeLighting {
+  coreX: number;
+  coreY: number;
+  radiusRatio: number;
+  stops: readonly [number, string][];
+  groundColor: string;
+}
+
+export const ARCHETYPE_LIGHTING: Record<string, ArchetypeLighting> = {
+  "super-saiyan-goku": {
+    coreX: 0.50,
+    coreY: 0.46,
+    radiusRatio: 0.65,
+    stops: [
+      [0, "rgba(254, 240, 138, 0.45)"],
+      [0.35, "rgba(250, 204, 21, 0.30)"],
+      [0.72, "rgba(103, 232, 249, 0.22)"],
+      [1, "rgba(254, 240, 138, 0)"],
+    ],
+    groundColor: "rgba(250, 204, 21, 0.35)",
+  },
+  "code-frenzy-cat": {
+    coreX: 0.50,
+    coreY: 0.72,
+    radiusRatio: 0.55,
+    stops: [
+      [0, "rgba(103, 232, 249, 0.42)"],
+      [0.40, "rgba(56, 189, 248, 0.28)"],
+      [0.75, "rgba(244, 114, 182, 0.20)"],
+      [1, "rgba(103, 232, 249, 0)"],
+    ],
+    groundColor: "rgba(6, 182, 212, 0.35)",
+  },
+  "wode-daodun-3d": {
+    coreX: 0.46,
+    coreY: 0.52,
+    radiusRatio: 0.60,
+    stops: [
+      [0, "rgba(255, 255, 255, 0.45)"],
+      [0.38, "rgba(147, 197, 253, 0.32)"],
+      [0.75, "rgba(99, 102, 241, 0.20)"],
+      [1, "rgba(147, 197, 253, 0)"],
+    ],
+    groundColor: "rgba(56, 189, 248, 0.35)",
+  },
+  "work-blue-cat": {
+    coreX: 0.48,
+    coreY: 0.70,
+    radiusRatio: 0.48,
+    stops: [
+      [0, "rgba(254, 240, 199, 0.32)"],
+      [0.35, "rgba(251, 211, 141, 0.22)"],
+      [0.70, "rgba(167, 243, 208, 0.16)"],
+      [1, "rgba(254, 240, 199, 0)"],
+    ],
+    groundColor: "rgba(245, 158, 11, 0.30)",
+  },
+  boba: {
+    coreX: 0.50,
+    coreY: 0.50,
+    radiusRatio: 0.55,
+    stops: [
+      [0, "rgba(254, 205, 211, 0.40)"],
+      [0.45, "rgba(254, 215, 170, 0.26)"],
+      [0.80, "rgba(233, 213, 255, 0.18)"],
+      [1, "rgba(254, 205, 211, 0)"],
+    ],
+    groundColor: "rgba(244, 114, 182, 0.32)",
+  },
+  "shinchan-3": {
+    coreX: 0.50,
+    coreY: 0.46,
+    radiusRatio: 0.58,
+    stops: [
+      [0, "rgba(254, 240, 138, 0.42)"],
+      [0.45, "rgba(251, 146, 60, 0.26)"],
+      [0.80, "rgba(248, 113, 113, 0.16)"],
+      [1, "rgba(254, 240, 138, 0)"],
+    ],
+    groundColor: "rgba(250, 204, 21, 0.32)",
+  },
+  eddy: {
+    coreX: 0.50,
+    coreY: 0.50,
+    radiusRatio: 0.58,
+    stops: [
+      [0, "rgba(216, 180, 254, 0.42)"],
+      [0.45, "rgba(165, 180, 252, 0.28)"],
+      [0.80, "rgba(103, 232, 249, 0.18)"],
+      [1, "rgba(216, 180, 254, 0)"],
+    ],
+    groundColor: "rgba(168, 85, 247, 0.32)",
+  },
+};
+
 export function drawPetFrame(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -202,6 +297,43 @@ export function drawPetFrame(
   const x = Math.round((width - w) / 2), y = height - h;
   ctx.imageSmoothingEnabled = !pixel;
   ctx.clearRect(0, 0, width, height);
+
+  const lighting = ARCHETYPE_LIGHTING[slug] ?? ARCHETYPE_LIGHTING["work-blue-cat"];
+  const sheetRow = img.naturalHeight ? Math.floor((r.y + 1) / (img.naturalHeight / ROWS)) : -1;
+  const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
+  const isCeleb = state === "celebrate" || state === "done";
+
+  // Atmospheric ground reflection aura underneath the character's feet
+  if (
+    lighting &&
+    typeof ctx.save === "function" &&
+    typeof ctx.createRadialGradient === "function" &&
+    typeof ctx.beginPath === "function" &&
+    typeof ctx.arc === "function" &&
+    typeof ctx.fill === "function" &&
+    typeof ctx.scale === "function" &&
+    typeof ctx.translate === "function"
+  ) {
+    ctx.save();
+    const isAct = isWorkOrRead || isCeleb;
+    const baseGroundAlpha = isCeleb ? 0.95 : isAct ? 0.75 : 0.45;
+    const gMult = (dynamicsOffset.glow ?? 1) * baseGroundAlpha;
+    const gX = width / 2;
+    const gY = height - Math.max(2, Math.round(h * 0.04));
+    const rx = Math.max(12, Math.round(w * 0.44));
+    const ry = Math.max(4, Math.round(rx * 0.28));
+    ctx.translate(gX, gY);
+    ctx.scale(1, ry / rx);
+    const gGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    gGrad.addColorStop(0, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.45 * gMult).toFixed(3)})`));
+    gGrad.addColorStop(0.55, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.20 * gMult).toFixed(3)})`));
+    gGrad.addColorStop(1, lighting.groundColor.replace(/[\d.]+\)$/, "0)"));
+    ctx.fillStyle = gGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // For crisp pixel art: keep pixels locked to integer boundaries, avoiding rotation blur or squashing
   const effOffsetY = pixel ? Math.round(dynamicsOffset.offsetY) : dynamicsOffset.offsetY;
@@ -222,12 +354,9 @@ export function drawPetFrame(
 
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
 
-  // Subtle warm screen glow on paws/face for work-blue-cat in working/reading state
-  const sheetRow = img.naturalHeight ? Math.floor((r.y + 1) / (img.naturalHeight / ROWS)) : -1;
-  const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
+  // Archetype lighting and screen reflections composite (source-atop preserves sprite silhouette)
   if (
-    slug === "work-blue-cat" &&
-    isWorkOrRead &&
+    lighting &&
     typeof ctx.save === "function" &&
     typeof ctx.createRadialGradient === "function" &&
     typeof ctx.beginPath === "function" &&
@@ -236,25 +365,86 @@ export function drawPetFrame(
   ) {
     ctx.save();
     const glowMult = dynamicsOffset.glow ?? 1;
-    const screenX = x + w * 0.48;
-    const screenY = y + h * 0.70;
-    const glowRadius = Math.max(w, h) * 0.45;
+    const stateAlpha = isCeleb ? 1.35 : (state === "working" || sheetRow === 7) ? 1.0 : isWorkOrRead ? 0.8 : 0.42;
+    const effGlow = glowMult * stateAlpha;
 
-    const grad = ctx.createRadialGradient(screenX, screenY, 2, screenX, screenY - h * 0.12, glowRadius);
-    const alphaBase = (state === "working" || sheetRow === 7) ? 0.24 : 0.18;
-    const alpha = alphaBase * glowMult;
-    grad.addColorStop(0, `rgba(254, 240, 199, ${alpha.toFixed(3)})`);
-    grad.addColorStop(0.35, `rgba(251, 211, 141, ${(alpha * 0.7).toFixed(3)})`);
-    grad.addColorStop(0.7, `rgba(167, 243, 208, ${(alpha * 0.35).toFixed(3)})`);
-    grad.addColorStop(1, "rgba(254, 240, 199, 0)");
+    const screenX = x + w * lighting.coreX;
+    const screenY = y + h * lighting.coreY;
+    const glowRadius = Math.max(w, h) * lighting.radiusRatio;
+
+    const grad = ctx.createRadialGradient(screenX, screenY, 2, screenX, screenY - h * 0.08, glowRadius);
+    for (const [pos, col] of lighting.stops) {
+      if (pos === 1) {
+        grad.addColorStop(1, col);
+      } else {
+        const match = col.match(/^rgba\(([\d\s,]+),\s*([\d.]+)\)$/);
+        if (match) {
+          const rgb = match[1];
+          const a = (parseFloat(match[2]!) * effGlow).toFixed(3);
+          grad.addColorStop(pos, `rgba(${rgb}, ${a})`);
+        } else {
+          grad.addColorStop(pos, col);
+        }
+      }
+    }
 
     if (typeof ctx.globalCompositeOperation === "string") {
       ctx.globalCompositeOperation = "source-atop";
     }
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(screenX, screenY - h * 0.08, glowRadius, 0, Math.PI * 2);
+    ctx.arc(screenX, screenY - h * 0.06, glowRadius, 0, Math.PI * 2);
     ctx.fill();
+
+    // Archetype special micro-effects on character silhouette
+    if (
+      slug === "super-saiyan-goku" &&
+      (isWorkOrRead || isCeleb) &&
+      typeof ctx.moveTo === "function" &&
+      typeof ctx.lineTo === "function" &&
+      typeof ctx.stroke === "function"
+    ) {
+      ctx.strokeStyle = (dynamicsOffset.glow ?? 1) > 0.85 ? "rgba(103, 232, 249, 0.85)" : "rgba(254, 240, 138, 0.75)";
+      ctx.lineWidth = 1.5;
+      const sparkPhase = (dynamicsOffset.glow ?? 1) * 12;
+      const sparkX1 = x + w * 0.35 + Math.sin(sparkPhase) * 3;
+      const sparkY1 = y + h * 0.22;
+      ctx.beginPath();
+      ctx.moveTo(sparkX1, sparkY1);
+      ctx.lineTo(sparkX1 + 3, sparkY1 + 4);
+      ctx.lineTo(sparkX1 - 2, sparkY1 + 8);
+      ctx.stroke();
+
+      const sparkX2 = x + w * 0.65 + Math.cos(sparkPhase) * 3;
+      const sparkY2 = y + h * 0.26;
+      ctx.beginPath();
+      ctx.moveTo(sparkX2, sparkY2);
+      ctx.lineTo(sparkX2 - 3, sparkY2 + 4);
+      ctx.lineTo(sparkX2 + 2, sparkY2 + 8);
+      ctx.stroke();
+    } else if (
+      slug === "code-frenzy-cat" &&
+      (isWorkOrRead || isCeleb) &&
+      typeof ctx.fillRect === "function"
+    ) {
+      const pulse = dynamicsOffset.glow ?? 1;
+      ctx.fillStyle = `rgba(103, 232, 249, ${(0.28 * pulse).toFixed(3)})`;
+      const scanY = y + h * 0.68 + (pulse * 6) % 10;
+      ctx.fillRect(x + w * 0.28, scanY, w * 0.44, 1.5);
+    } else if (
+      slug === "wode-daodun-3d" &&
+      (isWorkOrRead || isCeleb) &&
+      typeof ctx.arc === "function"
+    ) {
+      const glintX = x + w * 0.36;
+      const glintY = y + h * 0.44;
+      const glintR = 2 + (dynamicsOffset.glow ?? 1) * 1.5;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.beginPath();
+      ctx.arc(glintX, glintY, glintR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 

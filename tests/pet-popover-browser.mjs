@@ -118,13 +118,12 @@ try {
   assert.equal(await evaluate(`document.querySelector('.empty-agents').textContent`),'Nothing running right now.');
   assert.equal(await evaluate(`document.querySelector('footer button[disabled]').title`),'Update checking is not available');
 
-  // Unimplemented capabilities are truthful and preserve existing saved values.
+  // Implemented capabilities are live and persist changes.
   for (const [id,key] of [['show-chat','ap_show_chat'],['show-bubble','ap_show_bubble'],['split-pet','ap_split_pet']]) {
     await browser('eval',`localStorage.setItem('${key}','1');window.dispatchEvent(new StorageEvent('storage',{key:'${key}'}));`);
-    assert.ok(await evaluate(`document.getElementById('${id}').disabled && document.getElementById('${id}').checked`));
-    assert.ok(await evaluate(`document.getElementById(document.getElementById('${id}').getAttribute('aria-describedby')).textContent.includes('not available yet')`));
+    assert.ok(await evaluate(`!document.getElementById('${id}').disabled && document.getElementById('${id}').checked`));
     await browser('eval',`document.getElementById('${id}').click()`);
-    assert.equal(await evaluate(`localStorage.getItem('${key}')`),'1');
+    assert.equal(await evaluate(`localStorage.getItem('${key}')`),'0');
   }
   // Working preferences persist; conditional FPS and slider endpoints work.
   for(const [id,key,expected] of [['show-count','ap_show_count','0']]) {

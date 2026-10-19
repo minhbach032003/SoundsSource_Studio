@@ -72,12 +72,29 @@
       <input id="split-pet" class="pet-switch" type="checkbox" role="switch" checked={prefs.split}
         onchange={event => save("split", event.currentTarget.checked)} />
     </label>
-    <div class="setting-row slider-row">
-      <label class="setting-label" for="pet-size"><Maximize2 size={14} />Pet size</label>
-      <div class="slider-control">
-        <input id="pet-size" type="range" min="80" max="300" value={prefs.size}
-          onchange={event => save("size", Number(event.currentTarget.value))} />
-        <output for="pet-size">{prefs.size}<span class="sr-only"> pixels</span></output>
+    <div class="setting-row slider-row flex-col sm:flex-row items-stretch sm:items-center py-1.5 gap-2">
+      <div class="flex items-center justify-between w-full sm:w-auto">
+        <label class="setting-label" for="pet-size"><Maximize2 size={14} />Pet size</label>
+        <span class="sm:hidden text-xs font-mono font-semibold text-(--ink)">{prefs.size}px</span>
+      </div>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 justify-end">
+        <div class="slider-control">
+          <input id="pet-size" type="range" min="80" max="300" value={prefs.size}
+            oninput={event => { prefs.size = Number(event.currentTarget.value); }}
+            onchange={event => save("size", Number(event.currentTarget.value))} />
+          <output for="pet-size">{prefs.size}<span class="sr-only"> pixels</span></output>
+        </div>
+        <div class="flex items-center gap-1">
+          {#each [100, 160, 220, 300] as s}
+            <button
+              type="button"
+              class="px-1.5 py-0.5 rounded text-[10px] font-mono border transition-all cursor-pointer {prefs.size === s ? 'bg-(--accent) text-(--accent-ink) border-(--accent)' : 'bg-(--surface) text-(--muted) border-(--line) hover:text-(--ink)'}"
+              onclick={() => { prefs.size = s; save("size", s); }}
+            >
+              {s}
+            </button>
+          {/each}
+        </div>
       </div>
     </div>
   </div>
@@ -95,6 +112,7 @@
         <label for="animation-fps" class="setting-label slider-label">Frame rate</label>
         <div class="slider-control">
           <input id="animation-fps" type="range" min="1" max="12" value={prefs.fps}
+            oninput={event => { prefs.fps = Number(event.currentTarget.value); }}
             onchange={event => save("fps", Number(event.currentTarget.value))} />
           <output for="animation-fps">{prefs.fps}<span class="sr-only"> frames per second</span></output>
         </div>
@@ -105,22 +123,78 @@
 
 <style>
   .preferences { padding-top: 8px; }
-  h2 { margin: 0 0 5px 2px; color: var(--muted); font-family: inherit; font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
-  .settings-group { border: 1px solid var(--line); border-radius: 9px; background: var(--paper); padding: 0 8px; }
-  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+  h2 { margin: 0 0 5px 2px; color: var(--muted); font-family: inherit; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .settings-group {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--paper);
+    padding: 0 8px;
+  }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 29px; }
   .setting-row + .setting-row { border-top: 1px solid var(--line); }
   label.setting-row { cursor: pointer; }
-  .setting-label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11px; }
+  .setting-label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11px; font-weight: 500; }
   .setting-label :global(svg) { flex-shrink: 0; color: var(--muted); }
-  .pet-switch { appearance: none; position: relative; width: 30px; height: 18px; flex-shrink: 0; margin: 0; border: 1px solid var(--input-line); border-radius: 10px; background: var(--track); cursor: pointer; }
-  .pet-switch::after { content: ""; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; border-radius: 50%; background: var(--muted); transition: transform 120ms ease; }
+  .pet-switch {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    width: 30px;
+    height: 18px;
+    flex-shrink: 0;
+    margin: 0;
+    border: 1px solid var(--input-line);
+    border-radius: 10px;
+    background: var(--track);
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+  .pet-switch::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 2px;
+    top: 2px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 150ms cubic-bezier(.34, 1.56, .64, 1), background 150ms ease;
+  }
   .pet-switch:checked { border-color: var(--strong); background: var(--strong); }
   .pet-switch:checked::after { transform: translateX(12px); background: var(--on-strong); }
-  .pet-switch:disabled { cursor: not-allowed; }
+  .pet-switch:disabled { cursor: not-allowed; opacity: 0.6; }
   .slider-label { padding-left: 21px; }
   .slider-control { display: flex; align-items: center; gap: 7px; }
-  input[type="range"] { width: 90px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--strong); }
-  output { min-width: 23px; color: var(--muted); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 86px;
+    height: 4px;
+    margin: 0;
+    border-radius: 2px;
+    background: var(--track);
+    cursor: pointer;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--strong);
+    border: 1.5px solid var(--on-strong);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    transition: transform 120ms ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  output { min-width: 24px; color: var(--muted); font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
   input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { .pet-switch::after { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .pet-switch::after, input[type="range"]::-webkit-slider-thumb { transition: none; }
+  }
 </style>

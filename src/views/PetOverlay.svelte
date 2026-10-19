@@ -37,6 +37,74 @@
     color: string;
   }
 
+  interface PetFxTheme {
+    backlightClass: string;
+    ambientClass: string;
+    sparkleColor1: string;
+    sparkleColor2: string;
+    sparkleColor3: string;
+    particleColors: string[];
+  }
+
+  const PET_FX_THEMES: Record<string, PetFxTheme> = {
+    "super-saiyan-goku": {
+      backlightClass: "from-amber-400/70 via-yellow-500/40 via-cyan-400/20 to-transparent",
+      ambientClass: "from-amber-400/35 via-yellow-500/20 to-transparent",
+      sparkleColor1: "text-amber-300",
+      sparkleColor2: "text-cyan-300",
+      sparkleColor3: "text-yellow-200",
+      particleColors: ["text-amber-300", "text-yellow-400", "text-cyan-300", "text-amber-100"],
+    },
+    "code-frenzy-cat": {
+      backlightClass: "from-cyan-400/65 via-teal-500/35 via-fuchsia-500/20 to-transparent",
+      ambientClass: "from-cyan-400/35 via-teal-500/20 to-transparent",
+      sparkleColor1: "text-cyan-300",
+      sparkleColor2: "text-emerald-300",
+      sparkleColor3: "text-fuchsia-300",
+      particleColors: ["text-cyan-300", "text-emerald-400", "text-fuchsia-300", "text-teal-200"],
+    },
+    "wode-daodun-3d": {
+      backlightClass: "from-sky-400/65 via-blue-500/40 via-indigo-500/20 to-transparent",
+      ambientClass: "from-sky-400/35 via-blue-500/20 to-transparent",
+      sparkleColor1: "text-sky-300",
+      sparkleColor2: "text-indigo-300",
+      sparkleColor3: "text-blue-200",
+      particleColors: ["text-sky-300", "text-blue-400", "text-indigo-300", "text-white"],
+    },
+    "work-blue-cat": {
+      backlightClass: "from-amber-400/55 via-amber-500/30 via-emerald-400/20 to-transparent",
+      ambientClass: "from-amber-400/30 via-amber-500/15 to-transparent",
+      sparkleColor1: "text-amber-300",
+      sparkleColor2: "text-teal-300",
+      sparkleColor3: "text-amber-200",
+      particleColors: ["text-amber-300", "text-emerald-300", "text-amber-400", "text-yellow-200"],
+    },
+    boba: {
+      backlightClass: "from-rose-400/60 via-pink-400/35 via-amber-300/20 to-transparent",
+      ambientClass: "from-rose-400/30 via-pink-400/15 to-transparent",
+      sparkleColor1: "text-rose-300",
+      sparkleColor2: "text-pink-300",
+      sparkleColor3: "text-amber-200",
+      particleColors: ["text-rose-300", "text-pink-400", "text-amber-200", "text-purple-300"],
+    },
+    "shinchan-3": {
+      backlightClass: "from-yellow-400/65 via-amber-500/35 via-rose-500/20 to-transparent",
+      ambientClass: "from-yellow-400/35 via-amber-500/15 to-transparent",
+      sparkleColor1: "text-yellow-300",
+      sparkleColor2: "text-amber-300",
+      sparkleColor3: "text-rose-300",
+      particleColors: ["text-yellow-300", "text-amber-400", "text-red-400", "text-yellow-100"],
+    },
+    eddy: {
+      backlightClass: "from-purple-400/65 via-violet-500/35 via-cyan-400/20 to-transparent",
+      ambientClass: "from-purple-400/35 via-violet-500/20 to-transparent",
+      sparkleColor1: "text-purple-300",
+      sparkleColor2: "text-cyan-300",
+      sparkleColor3: "text-violet-200",
+      particleColors: ["text-purple-300", "text-violet-400", "text-cyan-300", "text-pink-300"],
+    },
+  };
+
 
   const isDesktop =
     typeof window !== "undefined" &&
@@ -204,6 +272,7 @@
   function spawnParticles(type: "heart" | "sparkle", count: number = 6) {
     if (!motionEnabled || reduceMotion || document.hidden) return;
     const newItems: OverlayParticle[] = [];
+    const theme = PET_FX_THEMES[petSlug] ?? PET_FX_THEMES["work-blue-cat"]!;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
       const dist = 24 + Math.random() * 36;
@@ -212,10 +281,8 @@
       const size = 12 + Math.floor(Math.random() * 6);
       const color =
         type === "heart"
-          ? ["text-rose-400", "text-pink-400", "text-red-400"][Math.floor(Math.random() * 3)]
-          : ["text-amber-300", "text-yellow-400", "text-emerald-300", "text-cyan-300"][
-              Math.floor(Math.random() * 4)
-            ];
+          ? ["text-rose-400", "text-pink-400", "text-red-400"][Math.floor(Math.random() * 3)]!
+          : theme.particleColors[Math.floor(Math.random() * theme.particleColors.length)]!;
 
       newItems.push({
         id: ++nextParticleId,
@@ -378,6 +445,7 @@
   );
 
   const multiplier = $derived(Math.max(1, sessions.length || 1));
+  const petFx = $derived(PET_FX_THEMES[petSlug] ?? PET_FX_THEMES["work-blue-cat"]!);
 
   const activityText = $derived.by(() => {
     if (isInteracting) return "Purring happily! (+15 XP)";
@@ -690,21 +758,33 @@
           {#each splitPets as session (session.id)}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
             <div class="relative flex items-center justify-center">
-              {#if sMood === "working" || sMood === "reading"}
-                <!-- Cozy ambient warm backlight underneath laptop -->
+              {#if sMood === "working" || sMood === "reading" || sMood === "celebrate"}
+                <!-- Cozy ambient archetype backlight underneath pet -->
                 <div
-                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-60 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial from-amber-400/50 via-amber-500/25 to-transparent"
-                  style="width: {Math.round(petSize * 0.7)}px; height: {Math.round(petSize * 0.22)}px;"
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {petFx.backlightClass}"
+                  style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px;"
                   aria-hidden="true"
                 ></div>
                 <!-- Cute typing micro-sparkles -->
                 {#if motionEnabled && !reduceMotion}
                   <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={10} class="text-amber-300 drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-2"><Sparkles size={8} class="text-teal-300 drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="text-amber-200 drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{petFx.sparkleColor2} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{petFx.sparkleColor3} drop-shadow-sm" /></span>
+                    {#if sMood === "working"}
+                      <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
+                    {:else if sMood === "celebrate"}
+                      <span class="cozy-sparkle cozy-sparkle-4"><Heart size={10} class="text-rose-400 drop-shadow-sm" /></span>
+                    {/if}
                   </div>
                 {/if}
+              {:else}
+                <!-- Subtle resting ambient floor glow -->
+                <div
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-sm opacity-35 bg-radial {petFx.ambientClass}"
+                  style="width: {Math.round(petSize * 0.55)}px; height: {Math.round(petSize * 0.16)}px;"
+                  aria-hidden="true"
+                ></div>
               {/if}
               <AgentPetSprite
                 slug={petSlug}
@@ -717,21 +797,33 @@
         </div>
       {:else}
         <div class="relative flex items-center justify-center">
-          {#if mood === "working" || mood === "reading"}
-            <!-- Cozy ambient warm backlight underneath laptop -->
+          {#if mood === "working" || mood === "reading" || mood === "celebrate"}
+            <!-- Cozy ambient archetype backlight underneath pet -->
             <div
-              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-60 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial from-amber-400/50 via-amber-500/25 to-transparent"
-              style="width: {Math.round(petSize * 0.7)}px; height: {Math.round(petSize * 0.22)}px;"
+              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {petFx.backlightClass}"
+              style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px;"
               aria-hidden="true"
             ></div>
             <!-- Cute typing micro-sparkles -->
             {#if motionEnabled && !reduceMotion}
               <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={10} class="text-amber-300 drop-shadow-sm" /></span>
-                <span class="cozy-sparkle cozy-sparkle-2"><Sparkles size={8} class="text-teal-300 drop-shadow-sm" /></span>
-                <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="text-amber-200 drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{petFx.sparkleColor2} drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{petFx.sparkleColor3} drop-shadow-sm" /></span>
+                {#if mood === "working"}
+                  <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
+                {:else if mood === "celebrate"}
+                  <span class="cozy-sparkle cozy-sparkle-4"><Heart size={10} class="text-rose-400 drop-shadow-sm" /></span>
+                {/if}
               </div>
             {/if}
+          {:else}
+            <!-- Subtle resting ambient floor glow -->
+            <div
+              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-sm opacity-35 bg-radial {petFx.ambientClass}"
+              style="width: {Math.round(petSize * 0.55)}px; height: {Math.round(petSize * 0.16)}px;"
+              aria-hidden="true"
+            ></div>
           {/if}
           <AgentPetSprite
             slug={petSlug}
@@ -871,21 +963,27 @@
   }
 
   .cozy-sparkle-1 {
-    left: 44%;
+    left: 42%;
     bottom: 24%;
     animation: cozySparkleTwinkle 1.8s ease-in-out infinite;
   }
 
   .cozy-sparkle-2 {
-    left: 54%;
-    bottom: 26%;
-    animation: cozySparkleTwinkle 2.1s ease-in-out infinite 0.7s;
+    left: 56%;
+    bottom: 27%;
+    animation: cozySparkleTwinkle 2.1s ease-in-out infinite 0.6s;
   }
 
   .cozy-sparkle-3 {
-    left: 49%;
-    bottom: 28%;
-    animation: cozySparkleTwinkle 1.9s ease-in-out infinite 1.3s;
+    left: 48%;
+    bottom: 30%;
+    animation: cozySparkleTwinkle 1.9s ease-in-out infinite 1.2s;
+  }
+
+  .cozy-sparkle-4 {
+    left: 36%;
+    bottom: 20%;
+    animation: cozySparkleTwinkle 2.3s ease-in-out infinite 0.3s;
   }
 
   @keyframes cozySparkleTwinkle {
