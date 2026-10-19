@@ -4606,6 +4606,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sound-dsp"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sound-core",
+]
+
+[[package]]
 name = "sound-engine"
 version = "0.1.0"
 dependencies = [
@@ -4623,6 +4632,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sound-core",
+ "sound-dsp",
  "subtle",
  "tempfile",
  "thiserror 2.0.21",
