@@ -9,6 +9,17 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import crypto from "node:crypto";
 
+// Auto-load .env if env vars are not set in the shell
+if ((!process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) && existsSync(".env")) {
+  const envContent = readFileSync(".env", "utf8");
+  for (const line of envContent.split("\n")) {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match && !process.env[match[1]]) {
+      process.env[match[1]] = match[2].trim().replace(/^['"](.*)['"]$/, "$1");
+    }
+  }
+}
+
 const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "mvvfpbof";
 const API_KEY = process.env.CLOUDINARY_API_KEY;
 const API_SECRET = process.env.CLOUDINARY_API_SECRET;
