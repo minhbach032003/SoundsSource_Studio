@@ -2,11 +2,11 @@ pub use sound_core::device;
 pub use sound_dsp::{eq, filter, pcm_queue, preset, spectrum};
 pub use sound_auth as auth;
 pub use sound_pet as pet;
+pub use sound_calendar as google_calendar;
+pub use google_calendar as calendar;
 pub mod router;
 pub mod spotify;
 pub mod spotify_player;
-pub mod google_calendar;
-pub use google_calendar as calendar;
 pub mod timer;
 pub mod wheel;
 

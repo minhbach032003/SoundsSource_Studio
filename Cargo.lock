@@ -4612,6 +4612,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sound-calendar"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "reqwest 0.13.5",
+ "serde",
+ "serde_json",
+ "sound-auth",
+ "sound-core",
+ "thiserror 2.0.21",
+ "url",
+]
+
+[[package]]
 name = "sound-core"
 version = "0.1.0"
 dependencies = [
@@ -4652,6 +4666,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sound-auth",
+ "sound-calendar",
  "sound-core",
  "sound-dsp",
  "sound-pet",
