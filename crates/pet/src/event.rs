@@ -15,6 +15,7 @@ pub enum AgentKind {
     Pi,
     Grok,
     Jcode,
+    Subagent,
     Unknown,
 }
 
@@ -33,6 +34,7 @@ impl AgentKind {
             "pi" => Self::Pi,
             "grok" => Self::Grok,
             "jcode" => Self::Jcode,
+            "subagent" => Self::Subagent,
             _ => Self::Unknown,
         }
     }
@@ -51,6 +53,7 @@ impl AgentKind {
             Self::Pi => "Pi",
             Self::Grok => "Grok Build",
             Self::Jcode => "jcode",
+            Self::Subagent => "Subagent Worker",
             Self::Unknown => "Custom Agent",
         }
     }

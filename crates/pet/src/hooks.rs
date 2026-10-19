@@ -310,7 +310,25 @@ out = {
     "timestamp": int(time.time()),
     "sequence": time.time_ns() // 1000
 }
-msg = json.dumps(out) + "\n"
+messages = [json.dumps(out) + "\n"]
+
+# Subagent lifecycle integration for Claude / Task tools
+tool_lower = str(tool_name).lower() if tool_name else ""
+if tool_lower in ["agent", "task", "subagent", "workflow"]:
+    sub_id = f"{session_id}/subagent-{tool_lower}"
+    sub_event = "SubagentStart" if event in ["PreToolUse", "UserPromptSubmit"] else "SessionEnd"
+    sub_out = {
+        "session_id": sub_id,
+        "agent_kind": "subagent",
+        "event_name": sub_event,
+        "project": str(project),
+        "message": f"Subagent: {tool_summary or tool_name}",
+        "tool_name": str(tool_name),
+        "tool_summary": str(tool_summary) if tool_summary else None,
+        "timestamp": int(time.time()),
+        "sequence": (time.time_ns() // 1000) + 1
+    }
+    messages.append(json.dumps(sub_out) + "\n")
 
 home = os.environ.get("HOME", "")
 seen = set()
@@ -322,7 +340,8 @@ for sock_path in [f"{home}/.agentpet/agentpet.sock", f"{home}/.rust-sound/pet.so
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(sock_path)
-        s.sendall(msg.encode())
+        for m in messages:
+            s.sendall(m.encode())
         s.close()
     except:
         pass
@@ -366,10 +385,10 @@ export default function (pi: any) {
   const home = process.env.HOME || "";
   const sockPaths = [`${home}/.agentpet/agentpet.sock`, `${home}/.rust-sound/pet.sock`];
   let sequence = 0;
-  const send = (eventName: string, message?: string, toolName?: string) => {
+  const send = (eventName: string, message?: string, toolName?: string, customSessionId?: string, isSubagent?: boolean) => {
     const payload = JSON.stringify({
-      sessionId: `pi-${process.pid}`,
-      agentKind: "pi",
+      sessionId: customSessionId || `pi-${process.pid}`,
+      agentKind: isSubagent ? "subagent" : "pi",
       eventName,
       project: process.cwd(),
       message,
@@ -393,11 +412,81 @@ export default function (pi: any) {
     }
   };
 
+  const activeSubagents = new Map<string, string[]>();
+
   pi.on("session_start", () => send("SessionStart"));
   pi.on("agent_start", () => send("UserPromptSubmit"));
-  pi.on("tool_call", (e: any) => send("PreToolUse", e?.toolName, e?.toolName));
-  pi.on("agent_settled", () => send("Stop"));
-  pi.on("session_shutdown", () => send("SessionEnd"));
+  pi.on("tool_call", (e: any) => {
+    send("PreToolUse", e?.toolName, e?.toolName);
+    const tn = String(e?.toolName || "").toLowerCase();
+    if (tn === "subagent" || tn === "workflow") {
+      const toolCallId = String(e?.toolCallId || Date.now());
+      const args = e?.args || e?.arguments || e?.input || {};
+      const subagentIds: string[] = [];
+
+      if (args?.agent) {
+        const childId = `pi-${process.pid}/subagent-${args.agent}`;
+        const taskSummary = args?.task ? String(args.task).slice(0, 50) : String(args.agent);
+        send("SubagentStart", `Subagent: ${taskSummary}`, e.toolName, childId, true);
+        subagentIds.push(childId);
+      } else if (args?.workflow === "parallel" && Array.isArray(args?.args?.tasks)) {
+        args.args.tasks.forEach((t: any, idx: number) => {
+          const childName = t?.agent || `worker-${idx + 1}`;
+          const childId = `pi-${process.pid}/subagent-${childName}`;
+          const taskSummary = t?.task ? String(t.task).slice(0, 50) : childName;
+          send("SubagentStart", `Subagent: ${taskSummary}`, e.toolName, childId, true);
+          subagentIds.push(childId);
+        });
+      } else {
+        const childId = `pi-${process.pid}/subagent-worker`;
+        send("SubagentStart", "Subagent worker active", e.toolName, childId, true);
+        subagentIds.push(childId);
+      }
+      activeSubagents.set(toolCallId, subagentIds);
+    }
+  });
+
+  pi.on("tool_execution_end", (e: any) => {
+    const tn = String(e?.toolName || "").toLowerCase();
+    if (tn === "subagent" || tn === "workflow") {
+      const toolCallId = String(e?.toolCallId || "");
+      const childIds = activeSubagents.get(toolCallId) || [];
+      if (childIds.length > 0) {
+        for (const childId of childIds) {
+          send("SubagentStop", "Subagent finished", e?.toolName, childId, true);
+          send("SessionEnd", undefined, undefined, childId, true);
+        }
+        activeSubagents.delete(toolCallId);
+      } else {
+        for (const [_, list] of activeSubagents.entries()) {
+          for (const childId of list) {
+            send("SubagentStop", "Subagent finished", e?.toolName, childId, true);
+            send("SessionEnd", undefined, undefined, childId, true);
+          }
+        }
+        activeSubagents.clear();
+      }
+    }
+  });
+
+  pi.on("agent_settled", () => {
+    send("Stop");
+    for (const [_, list] of activeSubagents.entries()) {
+      for (const childId of list) {
+        send("SessionEnd", undefined, undefined, childId, true);
+      }
+    }
+    activeSubagents.clear();
+  });
+  pi.on("session_shutdown", () => {
+    send("SessionEnd");
+    for (const [_, list] of activeSubagents.entries()) {
+      for (const childId of list) {
+        send("SessionEnd", undefined, undefined, childId, true);
+      }
+    }
+    activeSubagents.clear();
+  });
 }
 "#;
                 if path.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()) {

@@ -264,10 +264,10 @@
                       <div class="flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'} shrink-0"></span>
                         <span class="font-bold text-(--ink) text-xs">{projName}</span>
-                        <span class="badge text-[9px] px-1 py-0 uppercase">{session.agent_kind}</span>
+                        <span class="badge text-[9px] px-1 py-0 uppercase {session.agent_kind === 'subagent' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : ''}">{session.agent_kind}</span>
                       </div>
                       <span class="text-[10px] text-(--accent-text) font-semibold block truncate">
-                        {sessionPet.name}
+                        {session.message && session.agent_kind === 'subagent' ? session.message : sessionPet.name}
                       </span>
                     </div>
                   </div>

@@ -105,6 +105,14 @@ pub fn map_event_to_state(agent_kind: &str, event_name: &str) -> Option<AgentSta
             "turn_end" => Some(AgentState::Done),
             _ => None,
         },
+        "subagent" => match event_name {
+            "SubagentStart" | "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "working" => {
+                Some(AgentState::Working)
+            }
+            "SubagentStop" | "Stop" | "done" => Some(AgentState::Done),
+            "Notification" | "PermissionRequest" | "waiting" => Some(AgentState::Waiting),
+            _ => None,
+        },
         _ => None,
     }
 }
@@ -112,7 +120,7 @@ pub fn map_event_to_state(agent_kind: &str, event_name: &str) -> Option<AgentSta
 pub fn is_session_end(agent_kind: &str, event_name: &str) -> bool {
     let k = agent_kind.to_ascii_lowercase();
     match k.as_str() {
-        "claude" | "claudecode" | "gemini" | "droid" | "pi" => event_name == "SessionEnd" || event_name == "session_shutdown",
+        "claude" | "claudecode" | "gemini" | "droid" | "pi" | "subagent" => event_name == "SessionEnd" || event_name == "session_shutdown",
         "cursor" => event_name == "sessionEnd",
         "grok" => event_name == "session_end",
         _ => false,
