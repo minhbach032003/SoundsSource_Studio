@@ -66,6 +66,7 @@ pub struct SpotifyWeb {
     restored: AtomicBool,
     logging_in: AtomicBool,
     device: Mutex<Option<String>>,
+    rate_limited_until: Mutex<Option<Instant>>,
 }
 impl SpotifyWeb {
     pub fn new(client_id: &str, client_secret: &str) -> Self {
@@ -77,6 +78,7 @@ impl SpotifyWeb {
             restored: AtomicBool::new(false),
             logging_in: AtomicBool::new(false),
             device: Mutex::new(None),
+            rate_limited_until: Mutex::new(None),
         }
     }
     pub fn selected_device_id(&self) -> Option<String> {
@@ -277,6 +279,19 @@ impl SpotifyWeb {
         query: &[(&str, String)],
         body: Option<Value>,
     ) -> Result<Value, String> {
+        // Fast fail if currently rate limited by Spotify (HTTP 429) to avoid hammering the API
+        if let Some(until) = *self.rate_limited_until.lock().unwrap() {
+            if Instant::now() < until {
+                let remaining_secs = (until - Instant::now()).as_secs().max(1);
+                return Err(format!(
+                    "Spotify giới hạn số yêu cầu. Thử lại sau {} giây. [{}]",
+                    remaining_secs, path
+                ));
+            } else {
+                *self.rate_limited_until.lock().unwrap() = None;
+            }
+        }
+
         // Paths are constructed internally. Never accept a URL supplied by the webview.
         for attempt in 0..3 {
             let token = self.access_token(attempt > 0)?;
@@ -307,6 +322,17 @@ impl SpotifyWeb {
                     .get("retry-after")
                     .and_then(|v| v.to_str().ok())
                     .map(str::to_owned);
+
+                if status == StatusCode::TOO_MANY_REQUESTS {
+                    let wait_secs = retry_after
+                        .as_deref()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(30)
+                        .min(3600); // cap wait at 1 hour max in memory
+                    *self.rate_limited_until.lock().unwrap() =
+                        Some(Instant::now() + Duration::from_secs(wait_secs));
+                }
+
                 // Spotify nói rõ lý do trong thân phản hồi; đoán hộ nó thì mất luôn manh mối.
                 let mut body = Vec::new();
                 let _ = response.take(4096).read_to_end(&mut body);

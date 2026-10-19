@@ -4,6 +4,7 @@ use crate::{AudioRouter, AppState};
 use serde::Serialize;
 use sound_core::spotify::{self, SpotifyPlayback};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
+use std::time::{Duration, Instant};
 use std::thread::JoinHandle;
 use tauri::State;
 use sound_engine::spectrum::{SpectrumBuffer, SpectrumReading};
@@ -93,8 +94,45 @@ impl SpotifyIntegration {
             let mut previous_frames = 0;
             let mut stalled = 0;
             let mut route_error = None;
+            let mut last_playback_query = Instant::now() - Duration::from_secs(10);
+            let mut cached_playback = Ok(sound_core::spotify::SpotifyPlayback::default());
+
             while !stop.load(Ordering::Acquire) {
-                let playback = if web.connected() { web.playback() } else { spotify::playback() };
+                // Rate limit playback queries to Spotify Web API to avoid HTTP 429 QUOTA_EXCEEDED (me/player)
+                let playback = if web.connected() {
+                    if last_playback_query.elapsed() >= Duration::from_millis(3500) {
+                        last_playback_query = Instant::now();
+                        let res = web.playback();
+                        // If rate-limited or transient failure, fallback to native local AppleScript playback
+                        match res {
+                            Ok(p) => {
+                                cached_playback = Ok(p.clone());
+                                Ok(p)
+                            }
+                            Err(ref e) if e.contains("429") || e.contains("QUOTA_EXCEEDED") || e.contains("giới hạn số yêu cầu") => {
+                                // Fallback to local native AppleScript playback so player never blocks or shows annoying 429
+                                if let Ok(local_p) = spotify::playback() {
+                                    if local_p.running && !local_p.title.is_empty() {
+                                        cached_playback = Ok(local_p.clone());
+                                        Ok(local_p)
+                                    } else {
+                                        cached_playback.clone()
+                                    }
+                                } else {
+                                    cached_playback.clone()
+                                }
+                            }
+                            Err(e) => {
+                                cached_playback = Err(e.clone());
+                                Err(e)
+                            }
+                        }
+                    } else {
+                        cached_playback.clone()
+                    }
+                } else {
+                    spotify::playback()
+                };
                 let mut ids = spotify::process_ids();
                 ids.sort_unstable(); ids.dedup();
                 let current = (ids, spotify::default_output());
