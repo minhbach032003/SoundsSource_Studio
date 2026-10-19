@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 const source = ['src/lib/petPreferences.ts','src/lib/petAudio.ts'].map(path => readFileSync(path,'utf8').replace(/^import .*;\n/gm,'').replaceAll('export ','')).join('\n');
@@ -72,7 +72,7 @@ test('blocked autoplay resume fails actionably instead of leaving preview pendin
   await assert.rejects(f.run('playPetSound("done",true)'),/Audio is blocked/);
 });
 test('native commands restrict window labels, validate inputs and never authorize from send',()=>{
-  const app=readFileSync('crates/app/src/lib.rs','utf8'),native=readFileSync('crates/core/src/pet_notifications.rs','utf8');
+  const app=existsSync('crates/app/src/cmd_pet.rs') ? readFileSync('crates/app/src/cmd_pet.rs','utf8') : readFileSync('crates/app/src/lib.rs','utf8'),native=readFileSync('crates/core/src/pet_notifications.rs','utf8');
   assert.match(app,/window.label\(\) == "main"/);assert.match(app,/!request && window.label\(\) == "pet-overlay"/);
   assert.match(app,/title.chars\(\).count\(\) > 200/);assert.match(app,/body.chars\(\).count\(\) > 1000/);
   assert.ok(!native.includes('setSound('));assert.ok(!native.slice(native.indexOf('pub async fn send')).includes('requestAuthorization'));

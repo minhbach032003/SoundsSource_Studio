@@ -67,7 +67,7 @@ test("main.ts routes PetPopover window", () => {
 });
 
 test("Rust backend exposes popover and tray commands", () => {
-  const src = readFileSync("crates/app/src/lib.rs", "utf8");
+  const src = readFileSync("crates/app/src/lib.rs", "utf8") + (existsSync("crates/app/src/cmd_pet.rs") ? readFileSync("crates/app/src/cmd_pet.rs", "utf8") : "");
   assert.ok(src.includes("fn open_pet_popover"), "implements open_pet_popover");
   assert.ok(src.includes("fn close_pet_popover"), "implements close_pet_popover");
   assert.ok(src.includes("fn toggle_pet_popover"), "implements toggle_pet_popover");

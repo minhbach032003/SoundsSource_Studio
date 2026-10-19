@@ -156,7 +156,8 @@ test("geminiAudioTools exposes only mixer commands the app already owns", () => 
   }
 
   // Every backing command must exist in the Tauri handler list.
-  const rust = readFileSync("crates/app/src/lib.rs", "utf8");
+  const cmdAudio = existsSync("crates/app/src/cmd_audio.rs") ? readFileSync("crates/app/src/cmd_audio.rs", "utf8") : "";
+  const rust = readFileSync("crates/app/src/lib.rs", "utf8") + cmdAudio;
   for (const command of [
     "get_audio_processes",
     "set_app_volume",
@@ -176,7 +177,8 @@ test("geminiAudioTools exposes only mixer commands the app already owns", () => 
   }
 
   // Band table mirrors the engine's own EQ frequencies.
-  const eq = readFileSync("crates/engine/src/eq.rs", "utf8");
+  const eqPath = existsSync("crates/dsp/src/eq.rs") ? "crates/dsp/src/eq.rs" : "crates/engine/src/eq.rs";
+  const eq = readFileSync(eqPath, "utf8");
   const engineBands = eq
     .slice(eq.indexOf("DEFAULT_EQ_FREQUENCIES"))
     .match(/\[([^\]]+)\]/)[1]
@@ -222,7 +224,8 @@ test("VoiceAiView handles general questions, web search and black screen shares"
 test("screen share asks macOS for Screen Recording before opening a black stream", () => {
   const view = readFileSync("src/views/VoiceAiView.svelte", "utf8");
   const audio = readFileSync("src/audio.ts", "utf8");
-  const rust = readFileSync("crates/app/src/lib.rs", "utf8");
+  const cmdSystem = existsSync("crates/app/src/cmd_system.rs") ? readFileSync("crates/app/src/cmd_system.rs", "utf8") : "";
+  const rust = readFileSync("crates/app/src/lib.rs", "utf8") + cmdSystem;
 
   for (const cmd of [
     "check_screen_capture_permission",

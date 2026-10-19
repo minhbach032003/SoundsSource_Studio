@@ -24,7 +24,7 @@ test("theme.svelte.ts triggers syncDockIconToTheme on theme update", () => {
 });
 
 test("Rust backend exposes update_dock_icon Tauri IPC command", () => {
-  const src = readFileSync("crates/app/src/lib.rs", "utf8");
+  const src = readFileSync("crates/app/src/lib.rs", "utf8") + (existsSync("crates/app/src/cmd_system.rs") ? readFileSync("crates/app/src/cmd_system.rs", "utf8") : "");
 
   assert.ok(src.includes("fn update_dock_icon"), "implements update_dock_icon command");
   assert.ok(src.includes("setApplicationIconImage"), "calls macOS NSApplication setApplicationIconImage");
