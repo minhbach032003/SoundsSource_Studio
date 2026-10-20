@@ -21,12 +21,12 @@ pingloom = { path = "../pingloom" }
 rodio = "0.22"
 librespot-playback = { version = "0.8.0", default-features = false }
 sysinfo = "0.36.1"
+base64 = "0.22"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage", "NSEvent", "NSWindow", "NSColor"] }
 objc2-foundation = { version = "0.3", features = ["NSData"] }
-base64 = "0.22"
 block2 = "0.6"
 
 [dev-dependencies]

@@ -298,6 +298,7 @@ impl AgentPetServer {
                                 }
                                 if let Ok(event) = serde_json::from_str::<AgentEvent>(&line) {
                                     let now_ts = Utc::now().timestamp();
+                                    let tokens = event.tokens.unwrap_or(0);
                                     let mut sess_guard = sessions_clone.lock().unwrap();
                                     let (applied, is_meal) = sess_guard.apply(event, now_ts);
                                     drop(sess_guard);
@@ -308,7 +309,6 @@ impl AgentPetServer {
                                     if is_meal {
                                         state.record_meal(now_ts);
                                     }
-                                    let tokens = event.tokens.unwrap_or(0);
                                     if tokens > 0 {
                                         state.feed_tokens(tokens, now_ts);
                                     }
