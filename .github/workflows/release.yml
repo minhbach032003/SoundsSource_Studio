@@ -73,6 +73,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'SoundsSource Rust ${{ github.ref_name }}'
           releaseBody: 'Automated release build for SoundsSource Rust.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
