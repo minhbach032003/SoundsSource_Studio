@@ -29,7 +29,7 @@ export interface GeminiToolResult {
 }
 
 /** Master EQ centre frequencies, mirroring `DEFAULT_EQ_FREQUENCIES` in `crates/engine/src/eq.rs`. */
-export const EQ_BANDS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
+export const EQ_BANDS_HZ = [40, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] as const;
 
 /** Gain window the mixer UI itself offers, narrower than the backend's ±24 dB guard. */
 export const EQ_GAIN_LIMIT_DB = 12;

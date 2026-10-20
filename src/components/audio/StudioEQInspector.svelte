@@ -23,7 +23,7 @@
   }
 
   export const DEFAULT_BANDS: EQBandState[] = [
-    { frequency: 32, gain: 0 },
+    { frequency: 40, gain: 0 },
     { frequency: 64, gain: 0 },
     { frequency: 125, gain: 0 },
     { frequency: 250, gain: 0 },

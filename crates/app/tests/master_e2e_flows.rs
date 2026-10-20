@@ -56,7 +56,7 @@ fn test_flow_1_audio_pipeline_routing_and_dsp_filters() {
 
     // 4. Master 10-Band Linear Phase Parametric EQ
     assert_eq!(router.master_eq().bands().len(), 10);
-    router.set_master_eq_band(0, 5.5); // Bass boost 32 Hz
+    router.set_master_eq_band(0, 5.5); // Bass boost 40 Hz
     router.set_master_eq_band(1, 4.0); // Bass boost 64 Hz
     assert_eq!(router.master_eq().bands()[0].gain, 5.5);
     assert_eq!(router.master_eq().bands()[1].gain, 4.0);

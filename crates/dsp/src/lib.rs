@@ -4,7 +4,7 @@ pub mod pcm_queue;
 pub mod preset;
 pub mod spectrum;
 
-pub use eq::{EQBandConfig, ParametricEQ, DEFAULT_EQ_FREQUENCIES};
+pub use eq::{soft_clip, EQBandConfig, ParametricEQ, DEFAULT_EQ_FREQUENCIES};
 pub use filter::{
     AudioFilterEngine, AudioFilterSettings, FilterProcessingStats, MicFilterConfig,
     OutputFilterConfig,

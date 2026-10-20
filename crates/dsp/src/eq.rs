@@ -2,8 +2,26 @@ use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 
 pub const DEFAULT_EQ_FREQUENCIES: [f32; 10] = [
-    32.0, 64.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
+    40.0, 64.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
 ];
+
+/// Smooth soft-knee saturation curve to prevent harsh digital clipping ("rè")
+/// when EQ boosts audio above full-scale (0 dBFS / ±1.0 amplitude).
+/// - Transparent linear passthrough for `|x| <= 0.8`.
+/// - Smooth hyperbolic tangent compression for `|x| > 0.8`, strictly bounded within `(-1.0, 1.0)`.
+#[inline]
+pub fn soft_clip(x: f32) -> f32 {
+    if !x.is_finite() {
+        return 0.0;
+    }
+    if x.abs() <= 0.8 {
+        x
+    } else if x > 0.8 {
+        0.8 + 0.2 * ((x - 0.8) / 0.2).tanh()
+    } else {
+        -0.8 + 0.2 * ((x + 0.8) / 0.2).tanh()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct EQBandConfig {

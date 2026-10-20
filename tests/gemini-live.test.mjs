@@ -833,7 +833,7 @@ test("mixer tool helpers resolve apps and EQ bands the way users describe them",
   assert.equal(context.resolveEqBandIndex(2500), 6, "2.5kHz snaps to the nearest band on a log scale");
   assert.equal(context.resolveEqBandIndex(5000), 7, "5kHz snaps to 4kHz");
   assert.equal(context.resolveEqBandIndex(2.5), 6, "a bare 2.5 is read as kHz");
-  assert.equal(context.resolveEqBandIndex(0), 0, "index 0 stays the 32Hz band");
+  assert.equal(context.resolveEqBandIndex(0), 0, "index 0 stays the 40Hz band");
   assert.equal(context.resolveEqBandIndex("not a number"), null, "garbage is rejected");
 
   assert.equal(context.resolveAudioApp(MOCK_PROCESSES, "Spotify").bundle_id, "com.spotify.client");

@@ -1,7 +1,7 @@
 // Real-Time Web Audio API DSP Graph & Sub-Bass Synthesizer
 
 export const EQ_FREQUENCIES = [
-  32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000,
+  40, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000,
 ];
 
 class AudioDspChainManager {

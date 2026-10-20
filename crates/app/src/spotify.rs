@@ -308,7 +308,7 @@ pub fn process_app_frame(
         router.master_eq_mut().process_interleaved_stereo(samples);
     }
     for s in samples.iter_mut() {
-        *s = if s.is_finite() { s.clamp(-1.0, 1.0) } else { 0.0 };
+        *s = sound_engine::soft_clip(*s);
     }
     if let Ok(mut spectrum) = spectrum.try_lock() {
         spectrum.push_stereo(samples, rate);
