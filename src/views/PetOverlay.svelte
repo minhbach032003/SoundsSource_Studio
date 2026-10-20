@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
   import { petMoodFor, splitPetSessions } from "@/lib/petMood";
-  import { getPetForSession, setFavoritePetSlot, getPetArchetype } from "@/lib/petMapping";
+  import { getPetForSession, setFavoritePetSlot, getPetArchetype, getActivePets } from "@/lib/petMapping";
   import { INSTALLED_PETS } from "@/components/pet/types";
   import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
@@ -921,7 +921,7 @@
             class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--ink) cursor-pointer"
             title="Đổi nhanh chú pet chính"
           >
-            {#each INSTALLED_PETS as p}
+            {#each getActivePets() as p}
               <option value={p.id}>{p.name}</option>
             {/each}
           </select>

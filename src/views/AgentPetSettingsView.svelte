@@ -22,6 +22,7 @@
     getPetArchetype,
     getFavoritePets,
     setFavoritePetSlot,
+    getActivePets,
   } from "@/lib/petMapping";
   import { toastState } from "@/lib/toast.svelte";
   import { playPetSound } from "@/lib/petAudio";
@@ -73,7 +74,7 @@
   );
 
   const currentPetMeta = $derived(
-    INSTALLED_PETS.find((p) => p.id === selectedPet) || INSTALLED_PETS[3] || INSTALLED_PETS[0]!
+    getActivePets().find((p) => p.id === selectedPet) || getActivePets()[0] || INSTALLED_PETS[0]!
   );
 
   function selectCompanion(slug: string) {
@@ -280,7 +281,7 @@
                 class="field text-[11px] h-7 px-2 py-0 rounded-lg w-full text-(--ink) cursor-pointer"
                 title="Chọn pet cho Slot {slotIdx + 1}"
               >
-                {#each INSTALLED_PETS as pet}
+                {#each getActivePets() as pet}
                   <option value={pet.id}>{pet.name}</option>
                 {/each}
               </select>
@@ -351,7 +352,7 @@
                     class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink) shrink-0"
                     title="Assign companion to {projName}"
                   >
-                    {#each INSTALLED_PETS as p}
+                    {#each getActivePets() as p}
                       <option value={p.id}>{p.name}</option>
                     {/each}
                   </select>
@@ -397,7 +398,7 @@
             class="field text-xs h-8 rounded-lg max-w-44 text-[11px] shrink-0"
             title="Switch companion skin"
           >
-            {#each INSTALLED_PETS as pet}
+            {#each getActivePets() as pet}
               <option value={pet.id}>{pet.name}</option>
             {/each}
           </select>

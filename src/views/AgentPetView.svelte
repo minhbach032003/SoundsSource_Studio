@@ -33,6 +33,7 @@
     getProjectName,
     setProjectPetBinding,
     getPetArchetype,
+    getActivePets,
   } from "@/lib/petMapping";
   import {
     Sparkles,
@@ -168,9 +169,12 @@
   // Read saved pet slug from localStorage on mount
   $effect(() => {
     try {
+      const active = getActivePets();
       const saved = localStorage.getItem("rust_sound_pet_slug");
-      if (saved && INSTALLED_PETS.some((p) => p.id === saved)) {
+      if (saved && active.some((p) => p.id === saved)) {
         selectedPet = saved;
+      } else if (active[0]) {
+        selectedPet = active[0].id;
       }
     } catch {}
   });
@@ -715,7 +719,7 @@
                 }}
                 class="field text-xs h-8.5 rounded-lg max-w-60"
               >
-                {#each INSTALLED_PETS as pet}
+                {#each getActivePets() as pet}
                   <option value={pet.id}>{pet.name} ({pet.tag})</option>
                 {/each}
               </select>
@@ -1082,7 +1086,7 @@
                       class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink)"
                       title="Assign companion to {projName}"
                     >
-                      {#each INSTALLED_PETS as p}
+                      {#each getActivePets() as p}
                         <option value={p.id}>{p.name}</option>
                       {/each}
                     </select>

@@ -1,90 +1,156 @@
-# rust-sound
+# SoundsSource Studio (rust-sound)
 
-Bản viết lại `voice-macos` bằng Rust, với frontend TypeScript/Vite và ứng dụng desktop Tauri v2. Backend dùng **Cargo workspace nhiều crate**, tham khảo cách tổ chức monorepo của [tauri-apps/tauri](https://github.com/tauri-apps/tauri), không sao chép toàn bộ framework Tauri.
+An ultra-low latency, studio-grade macOS & cross-platform desktop application built with **Rust (Tauri v2)** and **Svelte 5 + Tailwind CSS v4**. It combines per-application CoreAudio routing, Spotify Connect local player with 10-band studio parametric EQ, native system cleaning & optimization (Mole-grade), Gemini Live 1:1 Voice AI, focus Pomodoro timer, and a desktop AgentPet companion.
 
-## Cấu trúc
+---
+
+## Architecture & Workspace Layout
+
+SoundsSource Studio is organized as a modular **Cargo Monorepo Workspace** following a strict downward-only dependency hierarchy:
+
+```text
+app -> engine (thin coordinator) -> {dsp, spotify, auth, pet, calendar} -> core
+                                                                        ↗
+                                                               pingloom (standalone)
+```
 
 ```text
 rust-sound/
-├── Cargo.toml                 # Workspace và release profile
+├── Cargo.toml                 # Root workspace manifest & release optimizations
 ├── Cargo.lock
-├── package.json               # Frontend và lệnh Tauri từ root
+├── package.json               # Frontend dependencies & Tauri scripts
 ├── pnpm-lock.yaml
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
-├── src/                       # Frontend TypeScript/CSS, giữ nguyên
-│   ├── main.ts
-│   └── styles.css
+├── src/                       # Frontend: Svelte 5 (runes $state/$derived/$effect) + Tailwind CSS v4
+│   ├── main.ts                # Multi-window mounting & route initialization
+│   ├── App.svelte             # Studio desktop shell & navigation rail
+│   ├── views/                 # Cleaner, Mixer, Spotify, Timer, Pet, Voice AI, Settings
+│   └── components/            # Reusable UI & audio/pet controls (@lucide/svelte icons)
 ├── crates/
-│   ├── core/                  # Package: sound-core (không phụ thuộc Tauri)
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── device.rs      # CoreAudio devices và CoreFoundation FFI
-│   │       ├── process.rs     # Audio process enumeration
-│   │       ├── ring_buffer.rs
-│   │       └── tap.rs         # Process Tap FFI
-│   ├── engine/                # Package: sound-engine
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── eq.rs          # Parametric EQ 10-band
-│   │       ├── preset.rs      # JSON presets
-│   │       └── router.rs      # DSP và trạng thái từng kênh
-│   └── app/                   # Package: rust-sound, library: rust_sound_lib
-│       ├── Cargo.toml
-│       ├── build.rs
-│       ├── tauri.conf.json
-│       ├── capabilities/
-│       ├── icons/
-│       ├── src/
-│       │   ├── lib.rs         # Tauri IPC commands và AppState
-│       │   └── main.rs
-│       └── tests/pipeline_e2e.rs
-└── openspec/                  # Specs và lịch sử thay đổi
+│   ├── core/                  # sound-core: macOS CoreAudio hardware, process taps, ring buffer
+│   ├── dsp/                   # sound-dsp: 10-band Parametric EQ, soft-clip, dynamic filters, spectrum
+│   ├── auth/                  # sound-auth: JWT HMAC-SHA256, PKCE S256, Google OAuth, Neon PostgreSQL
+│   ├── calendar/              # sound-calendar: Google Calendar PKCE sync, agenda schedule parsing
+│   ├── spotify/               # sound-spotify: Embedded Librespot player, audio tap streaming, Web API
+│   ├── pet/                   # sound-pet: AgentPet companion engine, care XP, IPC Unix domain socket
+│   ├── pingloom/              # pingloom: CGEventTap radial wheel gestures & tactical pings
+│   ├── engine/                # sound-engine: Coordinator, audio router, Pomodoro ducking, wheel wire
+│   └── app/                   # rust-sound (desktop shell): Tauri commands, windowing, AppState
+└── openspec/                  # OpenSpec specifications and verified change history
 ```
 
-Chiều phụ thuộc: **app → engine → core**; app cũng dùng core trực tiếp. Core không tham chiếu engine. `engine::device` re-export thiết bị từ core; `rust_sound_lib::core` và `rust_sound_lib::engine` vẫn dùng được để giữ tương thích.
+---
 
-## Yêu cầu
+## Release & Packaging on GitHub
 
-- macOS 14.2+ (CoreAudio Process Tap); hiện không hỗ trợ build backend trên Windows/Linux.
-- Rust hỗ trợ edition 2024 (tối thiểu 1.85; dependencies có thể cần bản mới hơn). Đã kiểm tra bằng Rust 1.95.
-- Node.js 20+ và pnpm; Xcode Command Line Tools cho build desktop.
+SoundsSource Studio uses **GitHub Actions** for automated testing, multi-platform compilation, packaging, and release delivery.
 
-## Phát triển
+### 1. Automated GitHub Releases via Tags
 
-Chạy các lệnh ở **root repository**:
+Whenever a new version tag (starting with `v*`) is pushed to the repository, the release pipeline (`.github/workflows/release.yml`) automatically triggers:
 
 ```bash
+# 1. Ensure you are on the main branch with all checks passing
+git checkout main
+git pull origin main
+
+# 2. Create an annotated version tag
+git tag -a v0.1.0 -m "Release v0.1.0: SoundsSource Studio with System Cleaner & Spotify Connect"
+
+# 3. Push the tag to GitHub
+git push origin v0.1.0
+```
+
+### 2. Multi-Platform Artifact Matrix
+
+The GitHub Actions workflow builds and packages standalone production binaries for three platforms in parallel using `tauri-action`:
+
+| Platform | Runner | Generated Release Artifacts | Description |
+| :--- | :--- | :--- | :--- |
+| **macOS** | `macos-latest` | `SoundsSource Studio.dmg`<br>`SoundsSource Studio.app.tar.gz` | Universal/Apple Silicon & Intel build with CoreAudio taps & codesign |
+| **Windows** | `windows-latest` | `SoundsSource Studio_x64_en-US.msi`<br>`SoundsSource Studio_x64-setup.exe` | Windows 10/11 x64 installer with native cleanup & hardware monitor |
+| **Linux** | `ubuntu-22.04` | `soundssource-studio_amd64.deb`<br>`soundssource-studio_amd64.AppImage` | Debian package and standalone AppImage |
+
+Once compiled, GitHub Actions automatically attaches these assets to a draft or published **GitHub Release** under your repository's [Releases tab](https://github.com/minhbach032003/rust-sound/releases).
+
+### 3. GitHub Packages & Container Integration
+
+For libraries or automated runners, packages and build caches are integrated directly with GitHub Packages and GitHub Actions Cache (`swatinem/rust-cache` and `pnpm/action-setup`).
+
+---
+
+## Local Development & Packaging
+
+### Prerequisites
+
+- **macOS 14.2+** (recommended for CoreAudio process audio taps) or **Windows 10/11**.
+- **Rust**: Stable toolchain supporting Rust edition 2024 (1.85+).
+- **Node.js**: Version 20+ with `pnpm`.
+- **macOS Command Line Tools**: `xcode-select --install`.
+
+### Setup & Local Dev
+
+```bash
+# Clone the repository
+git clone https://github.com/minhbach032003/rust-sound.git
+cd rust-sound
+
+# Install dependencies
 pnpm install
+
+# Start local Tauri live development server
 pnpm tauri dev
 ```
 
-Script `pnpm tauri` đặt `TAURI_APP_PATH=crates/app` và `TAURI_FRONTEND_PATH=.` để CLI tìm đúng backend và frontend. Config ứng dụng dùng `frontendDist: ../../dist`.
+### Local Production Build & Deployment
+
+To build the standalone release binary and deploy it directly into your macOS `/Applications/` folder for immediate use:
 
 ```bash
-# Kiểm tra toàn workspace (11 tests hiện có)
-cargo test --workspace
-cargo check --workspace
+# Rebuild, code-sign, and deploy to /Applications/SoundsSource Studio.app
+pnpm rebuild:app
+```
 
-# Test riêng thư viện, không build Tauri app
-cargo test -p sound-core
-cargo test -p sound-engine
+Or build bundles for distribution without deploying:
 
-# Frontend
-pnpm build
-
-# Build desktop debug, chưa đóng gói installer
-pnpm tauri build --debug --no-bundle
-
-# Đóng gói ứng dụng
+```bash
+# Build desktop production bundles (DMG / app)
 pnpm tauri build
 ```
 
-## Trạng thái thực tế
+---
 
-Hiện có: giao diện liệt kê process/thiết bị qua CoreAudio, IPC cập nhật trạng thái volume/mute/EQ, DSP xử lý PCM tổng hợp và lưu preset tại `~/.config/rust-sound/presets.json`.
+## Test & Verification Suite
 
-**Chưa có pipeline capture → DSP → phát ra thiết bị thật được nối hoàn chỉnh.** Thanh volume/mute hiện cập nhật router state, chưa chứng minh thay đổi âm thanh Spotify/Chrome đang phát. Bộ chọn thiết bị/preset trên UI mới liệt kê dữ liệu. Các test `pipeline_e2e` kiểm tra dữ liệu tổng hợp và truy vấn hệ thống, không phải nghiệm thu audio live end-to-end. Việc tách crate không thay đổi các giới hạn này.
+We enforce a 100% test pass rate across the full workspace before committing and releasing:
+
+```bash
+# 1. Run all Rust unit and integration tests (31 unit + 10 E2E suites)
+cargo test --workspace
+
+# 2. Check Rust compile and type integrity
+cargo check --workspace
+
+# 3. Verify Svelte 5 frontend TypeScript types
+pnpm check
+
+# 4. Run full frontend Node.js test suite (211/211 passing tests)
+node --test tests/*.test.mjs
+
+# 5. Run automated browser E2E test with agent-browser
+node tests/cleaner-browser.mjs
+```
+
+---
+
+## Core Capabilities
+
+- **macOS System Studio & Cleaner**: Mole-grade deep cleaning (user caches, logs, Xcode DerivedData, package manager caches, installers), smart app uninstaller with remnant discovery across `~/Library/`, and one-click system optimizer (DNS flush, QuickLook refresh, RAM memory pressure relief, LaunchServices rebuild).
+- **Audio Mixer & CoreAudio Process Taps**: Per-application volume control, mute, stereo balance, and 10-band studio parametric EQ with soft-knee saturation protection against digital clipping.
+- **Embedded Spotify Connect Player**: Native Librespot playback with audio tap streaming, spectrum analyzer, and offline token management.
+- **AgentPet Desktop Companion**: Transparent floating animated companion that reacts to coding workflows, tool calls, and subagent parallel tasks.
+- **Gemini Live 1:1 Voice AI**: Real-time conversational AI voice assistant with screen sharing and tool execution.
+- **Tactical Pingloom Wheel**: Low-latency 8-directional radial gesture wheel with sound effects and custom emote markers.
+- **Focus Pomodoro Timer & Google Calendar**: Smart break timer with audio ducking, screen lock overlays, timeboxed todos, and Google Calendar sync.

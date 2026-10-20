@@ -2,12 +2,91 @@ import { INSTALLED_PETS, type PetArchetype } from "../components/pet/types.ts";
 
 const STORAGE_KEY_PREFIX = "rust_sound_project_pet_";
 export const FAVORITE_PETS_KEY = "rust_sound_favorite_pets";
+export const DELETED_PETS_KEY = "rust_sound_deleted_pets";
 
 export const DEFAULT_FAVORITE_PETS = [
   "super-saiyan-goku",
   "work-blue-cat",
   "boba",
 ] as const;
+
+/** Get list of pet IDs hidden/deleted by the user */
+export function getDeletedPetIds(): string[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(DELETED_PETS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((id): id is string => typeof id === "string" && INSTALLED_PETS.some((p) => p.id === id));
+      }
+    }
+  } catch {}
+  return [];
+}
+
+/** Get user's active, non-deleted pet archetypes */
+export function getActivePets(): PetArchetype[] {
+  const deleted = getDeletedPetIds();
+  const active = INSTALLED_PETS.filter((p) => !deleted.includes(p.id));
+  return active.length > 0 ? active : [INSTALLED_PETS[0]!];
+}
+
+/** Delete / hide a pet from the active roster. Returns false if attempting to delete the last pet. */
+export function deletePet(id: string): boolean {
+  if (typeof localStorage === "undefined") return false;
+  const active = getActivePets();
+  if (active.length <= 1) {
+    return false;
+  }
+  if (!active.some((p) => p.id === id)) {
+    return false;
+  }
+  const deleted = Array.from(new Set([...getDeletedPetIds(), id]));
+  localStorage.setItem(DELETED_PETS_KEY, JSON.stringify(deleted));
+
+  // Sanitize favorite pets if deleted pet was assigned
+  const remainingActive = INSTALLED_PETS.filter((p) => !deleted.includes(p.id));
+  const fallbackPet = remainingActive[0]?.id || "code-frenzy-cat";
+  const currentFavorites = getFavoritePets();
+  if (currentFavorites.includes(id)) {
+    const updatedFavorites = currentFavorites.map((f) => (f === id ? fallbackPet : f));
+    setFavoritePets(updatedFavorites);
+  }
+
+  // Update equipped slug if deleted
+  const currentSlug = localStorage.getItem("rust_sound_pet_slug");
+  if (currentSlug === id) {
+    localStorage.setItem("rust_sound_pet_slug", fallbackPet);
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("deleted-pets-changed", { detail: { id, deleted } }));
+    window.dispatchEvent(new Event("storage"));
+  }
+  return true;
+}
+
+/** Restore a previously deleted pet */
+export function restorePet(id: string): void {
+  if (typeof localStorage === "undefined") return;
+  const deleted = getDeletedPetIds().filter((d) => d !== id);
+  localStorage.setItem(DELETED_PETS_KEY, JSON.stringify(deleted));
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("deleted-pets-changed", { detail: { restored: id, deleted } }));
+    window.dispatchEvent(new Event("storage"));
+  }
+}
+
+/** Restore all deleted pets to the active roster */
+export function restoreAllPets(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(DELETED_PETS_KEY);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("deleted-pets-changed", { detail: { deleted: [] } }));
+    window.dispatchEvent(new Event("storage"));
+  }
+}
 
 /** Extract clean short project name from path (e.g. "/Users/mac/Documents/Ui/ClaimsUI" -> "ClaimsUI") */
 export function getProjectName(projectPath?: string | null): string {
@@ -34,7 +113,8 @@ export function setProjectPetBinding(projectName: string, petId: string): void {
 
 /** Look up archetype by ID, with fallback */
 export function getPetArchetype(id?: string | null): PetArchetype {
-  return INSTALLED_PETS.find((p) => p.id === id) || INSTALLED_PETS[3] || INSTALLED_PETS[0]!;
+  const active = getActivePets();
+  return active.find((p) => p.id === id) || INSTALLED_PETS.find((p) => p.id === id) || active[0] || INSTALLED_PETS[0]!;
 }
 
 /** Get the user's active 3 favorite companions for desktop split clustering */
@@ -108,6 +188,6 @@ export function getPetForSession(
     return getPetArchetype(equippedSlug);
   }
 
-  const otherPets = INSTALLED_PETS.filter((p) => p.id !== equippedSlug);
-  return otherPets[(index - 1) % otherPets.length] || INSTALLED_PETS[0]!;
+  const otherPets = getActivePets().filter((p) => p.id !== equippedSlug);
+  return otherPets[(index - 1) % otherPets.length] || getActivePets()[0] || INSTALLED_PETS[0]!;
 }
