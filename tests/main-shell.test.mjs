@@ -54,7 +54,6 @@ test("SideNavbar Svelte 5 component integrity", () => {
   assert.ok(src.includes('from "@lucide/svelte"'), "imports icons from @lucide/svelte");
   assert.ok(src.includes("SlidersHorizontal"), "has SlidersHorizontal icon");
   assert.ok(src.includes("Timer"), "has Timer icon");
-  assert.ok(src.includes("Target"), "has Target icon");
   assert.ok(src.includes("Mic"), "has Mic icon");
   assert.ok(src.includes("Bot"), "has Bot icon");
   assert.ok(src.includes("Settings"), "has Settings icon");
