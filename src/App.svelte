@@ -20,6 +20,7 @@
   import TimerView from "@/views/TimerView.svelte";
   import AgentPetView from "@/views/AgentPetView.svelte";
   import AgentPetSettingsView from "@/views/AgentPetSettingsView.svelte";
+import CleanerView from "@/views/CleanerView.svelte";
   import GoogleLoginModal from "@/components/GoogleLoginModal.svelte";
   import { wallpaperState } from "@/lib/wallpaper.svelte";
   import { themeState } from "@/lib/theme.svelte";
@@ -33,6 +34,7 @@
     Target,
     Mic,
     Bot,
+    Sparkles,
     Settings,
     User,
     RefreshCw,
@@ -83,6 +85,11 @@
       title: "Audio Mixer",
       subtitle: "Per-application CoreAudio stream routing & volume control",
       icon: SlidersHorizontal,
+    },
+    cleaner: {
+      title: "macOS System Cleaner",
+      subtitle: "Deep cleaning, smart app uninstallation, and system optimization",
+      icon: Sparkles,
     },
     timer: {
       title: "Focus Timer",
@@ -230,6 +237,8 @@
         <SpotifyView />
       {:else if activeTab === "mixer"}
         <MixerView />
+      {:else if activeTab === "cleaner"}
+        <CleanerView />
       {:else if activeTab === "timer"}
         <TimerView
           user={googleAuthState.user}

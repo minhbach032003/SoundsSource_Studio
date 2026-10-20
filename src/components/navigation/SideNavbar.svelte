@@ -12,6 +12,7 @@
     Timer,
     Mic,
     Bot,
+    Sparkles,
     Settings,
     User,
   } from "@lucide/svelte";
@@ -34,6 +35,7 @@
   const NAV_ITEMS = [
     { id: "spotify" as const, label: "Spotify", icon: Music2 },
     { id: "mixer" as const, label: "Mixer", icon: SlidersHorizontal },
+    { id: "cleaner" as const, label: "Cleaner", icon: Sparkles },
     { id: "timer" as const, label: "Focus", icon: Timer },
     { id: "voice" as const, label: "Voice AI", icon: Mic },
     { id: "pet" as const, label: "Agent Pet", icon: Bot },

@@ -20,6 +20,7 @@ sound-engine = { path = "../engine" }
 pingloom = { path = "../pingloom" }
 rodio = "0.22"
 librespot-playback = { version = "0.8.0", default-features = false }
+sysinfo = "0.36.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

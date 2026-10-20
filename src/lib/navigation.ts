@@ -1,4 +1,4 @@
-export const NAV_TABS = ["spotify", "mixer", "timer", "pings", "voice", "pet", "pet-settings", "settings"] as const;
+export const NAV_TABS = ["spotify", "mixer", "cleaner", "timer", "pings", "voice", "pet", "pet-settings", "settings"] as const;
 export type NavTab = typeof NAV_TABS[number];
 
 export function restoreTab(): NavTab {

@@ -2,6 +2,7 @@ pub mod app_tap;
 pub mod cmd_audio;
 pub mod cmd_auth;
 pub mod cmd_calendar;
+pub mod cmd_cleaner;
 pub mod cmd_pet;
 pub mod cmd_system;
 pub mod cmd_timer;
@@ -12,6 +13,7 @@ pub mod spotify_sink;
 pub use cmd_audio::*;
 pub use cmd_auth::*;
 pub use cmd_calendar::*;
+pub use cmd_cleaner::*;
 pub use cmd_pet::*;
 pub use cmd_system::*;
 pub use cmd_timer::*;
@@ -217,6 +219,14 @@ pub fn run() {
             get_performance_metrics,
             benchmark_ipc_latency,
             trim_memory,
+            cleaner_scan_system,
+            cleaner_execute_clean,
+            cleaner_scan_apps,
+            cleaner_uninstall_app,
+            cleaner_scan_projects,
+            cleaner_purge_projects,
+            cleaner_optimize_task,
+            cleaner_get_hardware_metrics,
             set_background_mode,
             auth_google_login,
             auth_google_cancel,

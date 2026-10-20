@@ -50,7 +50,7 @@
     onToggleHook,
   }: Props = $props();
 
-  let filterKind = $state<string>("all");
+  let isSimulating = $state(false);
 
   const activeSessionsCount = $derived(
     agentSessions.filter((s) => s.state === "working" || s.state === "waiting").length
@@ -110,7 +110,12 @@
           {#if onSimulatePing}
             <button
               type="button"
-              onclick={onSimulatePing}
+              onclick={() => {
+                isSimulating = true;
+                onSimulatePing?.();
+                setTimeout(() => { isSimulating = false; }, 300);
+              }}
+              disabled={isSimulating}
               class="btn btn-ghost h-7 text-[10px] px-2 text-(--accent-text) border border-(--line)"
               title="Send test pulse event to pet"
             >

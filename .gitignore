@@ -14,3 +14,5 @@ app.log
 /openspec/
 /.pi/prompts/opsx-*.md
 /.pi/openspec-cli/
+Mole/
+mole/

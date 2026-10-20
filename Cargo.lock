@@ -4024,6 +4024,7 @@ dependencies = [
  "serde_json",
  "sound-core",
  "sound-engine",
+ "sysinfo",
  "tauri",
  "tauri-build",
  "uuid",
