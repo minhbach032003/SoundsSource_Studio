@@ -100,6 +100,15 @@ try {
       if (name === 'cleaner_optimize_task') {
         return { task_id: args.taskId, task_name: 'DNS Flush', success: true, message: 'DNS cache cleared', duration_ms: 12 };
       }
+      if (name === 'cleaner_get_platform_info') {
+        return {
+          os: 'macos',
+          is_windows: false,
+          is_macos: true,
+          hostname: 'Developer-Mac',
+          default_disk_label: 'Macintosh HD',
+        };
+      }
       if (name === 'cleaner_get_hardware_metrics') {
         return {
           cpu_usage_percent: 24.5,

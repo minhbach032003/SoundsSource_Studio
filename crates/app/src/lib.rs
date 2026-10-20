@@ -227,6 +227,7 @@ pub fn run() {
             cleaner_purge_projects,
             cleaner_optimize_task,
             cleaner_get_hardware_metrics,
+            cleaner_get_platform_info,
             set_background_mode,
             auth_google_login,
             auth_google_cancel,

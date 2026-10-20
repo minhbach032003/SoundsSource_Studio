@@ -1,5 +1,13 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+export interface PlatformInfo {
+  os: string;
+  is_windows: boolean;
+  is_macos: boolean;
+  hostname: string;
+  default_disk_label: string;
+}
+
 export interface CleanCategory {
   id: string;
   name: string;
@@ -15,6 +23,7 @@ export interface CleanScanResult {
   total_size_bytes: number;
   total_item_count: number;
   scanned_at_secs: number;
+  platform?: string;
 }
 
 export interface CleanExecutionResult {
@@ -261,4 +270,18 @@ export async function getHardwareMetrics(): Promise<SystemHardwareMetrics> {
     };
   }
   return invoke<SystemHardwareMetrics>("cleaner_get_hardware_metrics");
+}
+
+export async function getPlatformInfo(): Promise<PlatformInfo> {
+  if (!isTauri()) {
+    const isWin = typeof navigator !== "undefined" && navigator.userAgent.toLowerCase().includes("windows");
+    return {
+      os: isWin ? "windows" : "macos",
+      is_windows: isWin,
+      is_macos: !isWin,
+      hostname: "Developer-PC",
+      default_disk_label: isWin ? "Local Disk (C:)" : "Macintosh HD",
+    };
+  }
+  return invoke<PlatformInfo>("cleaner_get_platform_info");
 }

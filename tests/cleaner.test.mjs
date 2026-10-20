@@ -29,6 +29,7 @@ test("Cleaner TypeScript client and byte formatting integrity", () => {
   assert.ok(src.includes("uninstallApp"), "exports uninstallApp");
   assert.ok(src.includes("runOptimizationTask"), "exports runOptimizationTask");
   assert.ok(src.includes("getHardwareMetrics"), "exports getHardwareMetrics");
+  assert.ok(src.includes("getPlatformInfo"), "exports getPlatformInfo");
 });
 
 test("CleanerView Svelte 5 component integrity and zero emojis", () => {

@@ -26,15 +26,20 @@
     uninstallApp,
     runOptimizationTask,
     getHardwareMetrics,
+    getPlatformInfo,
     formatBytes,
     type CleanScanResult,
     type InstalledAppInfo,
     type SystemHardwareMetrics,
+    type PlatformInfo,
   } from "@/lib/cleaner";
 
   type ActiveCleanerTab = "clean" | "uninstall" | "optimize" | "status";
 
   let activeTab = $state<ActiveCleanerTab>("clean");
+
+  // Platform detection state
+  let platformInfo = $state<PlatformInfo | null>(null);
 
   // Deep Clean state
   let isScanningClean = $state(false);
@@ -61,6 +66,9 @@
 
   // Initial load
   $effect(() => {
+    getPlatformInfo().then((info) => {
+      platformInfo = info;
+    });
     handleScanClean();
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 3000);
@@ -222,8 +230,14 @@
         <Sparkles size={16} />
       </div>
       <div>
-        <h2 class="text-sm font-bold text-(--ink) m-0">macOS System Studio & Cleaner</h2>
-        <p class="text-[11px] text-(--muted) m-0">Mole-grade deep cleaning, app uninstallation, and system optimization</p>
+        <h2 class="text-sm font-bold text-(--ink) m-0">
+          {platformInfo?.is_windows ? "Windows System Studio & Cleaner" : "macOS System Studio & Cleaner"}
+        </h2>
+        <p class="text-[11px] text-(--muted) m-0">
+          {platformInfo?.is_windows
+            ? "Mole-grade Windows deep cleaning, app uninstallation, and system maintenance"
+            : "Mole-grade deep cleaning, app uninstallation, and system optimization"}
+        </p>
       </div>
     </div>
 
@@ -567,11 +581,15 @@
       <div class="panel p-4 sm:p-5 shadow-xs space-y-3 flex flex-col justify-between">
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-(--ink)">DNS & mDNS Cache Flush</span>
+            <span class="text-xs font-bold text-(--ink)">
+              {platformInfo?.is_windows ? "Windows DNS Resolver Cache Flush" : "DNS & mDNS Cache Flush"}
+            </span>
             <span class="badge badge-ok text-[9px] px-1.5 py-0">Safe</span>
           </div>
           <p class="text-[11px] text-(--muted) m-0 leading-relaxed">
-            Flushes stale domain name resolution caches and restarts mDNSResponder to fix network timeout and routing issues.
+            {platformInfo?.is_windows
+              ? "Runs ipconfig /flushdns to clear Windows DNS resolver cache and solve connection drops."
+              : "Flushes stale domain name resolution caches and restarts mDNSResponder to fix network timeout and routing issues."}
           </p>
         </div>
 
@@ -582,7 +600,7 @@
           class="btn btn-ghost text-xs flex items-center justify-center gap-1.5 py-1.5 border border-(--line) w-full hover:border-(--focus)"
         >
           <RefreshCw size={12} class={activeOptimizingTasks.has("dns_flush") ? "animate-spin" : "text-(--accent-text)"} />
-          <span>{activeOptimizingTasks.has("dns_flush") ? "Flushing DNS…" : "Flush DNS Cache"}</span>
+          <span>{activeOptimizingTasks.has("dns_flush") ? "Flushing DNS…" : (platformInfo?.is_windows ? "Run ipconfig /flushdns" : "Flush DNS Cache")}</span>
         </button>
       </div>
 
@@ -590,11 +608,15 @@
       <div class="panel p-4 sm:p-5 shadow-xs space-y-3 flex flex-col justify-between">
         <div class="space-y-1.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-(--ink)">QuickLook & Thumbnail Refresh</span>
+            <span class="text-xs font-bold text-(--ink)">
+              {platformInfo?.is_windows ? "Windows Icon & Explorer Cache Reset" : "QuickLook & Thumbnail Refresh"}
+            </span>
             <span class="badge badge-ok text-[9px] px-1.5 py-0">Safe</span>
           </div>
           <p class="text-[11px] text-(--muted) m-0 leading-relaxed">
-            Resets corrupt thumbnail caches and restarts icon services for Finder and QuickLook preview windows.
+            {platformInfo?.is_windows
+              ? "Resets IconCache.db database in %LOCALAPPDATA% to fix blank or corrupted desktop icons."
+              : "Resets corrupt thumbnail caches and restarts icon services for Finder and QuickLook preview windows."}
           </p>
         </div>
 
@@ -605,7 +627,7 @@
           class="btn btn-ghost text-xs flex items-center justify-center gap-1.5 py-1.5 border border-(--line) w-full hover:border-(--focus)"
         >
           <RotateCcw size={12} class={activeOptimizingTasks.has("quicklook_reset") ? "animate-spin" : "text-amber-400"} />
-          <span>{activeOptimizingTasks.has("quicklook_reset") ? "Resetting…" : "Reset QuickLook Caches"}</span>
+          <span>{activeOptimizingTasks.has("quicklook_reset") ? "Resetting…" : (platformInfo?.is_windows ? "Reset Icon Cache" : "Reset QuickLook Caches")}</span>
         </button>
       </div>
 
@@ -706,7 +728,7 @@
             <div class="flex items-center justify-between text-xs">
               <span class="text-(--muted) flex items-center gap-1.5 font-medium">
                 <HardDrive size={14} class="text-amber-400" />
-                Macintosh HD
+                {platformInfo?.default_disk_label ?? "System Drive"}
               </span>
               <span class="font-bold text-(--ink) font-mono">{hardwareMetrics.disk_used_percent.toFixed(1)}%</span>
             </div>
