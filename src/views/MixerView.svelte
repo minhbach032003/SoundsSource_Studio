@@ -277,13 +277,40 @@
 
     loadAudioData();
 
-    // Background process polling
+    // Background process and hardware device polling (detects newly plugged Bluetooth / USB devices)
     const pollId = setInterval(async () => {
       if (typeof document !== "undefined" && document.hidden) return;
       try {
-        const procs = await invoke<AudioProcess[]>("get_audio_processes");
+        const [procs, devs, inDevs] = await Promise.all([
+          invoke<AudioProcess[]>("get_audio_processes"),
+          invoke<AudioDevice[]>("get_audio_devices").catch(() => null),
+          invoke<AudioDevice[]>("get_audio_input_devices").catch(() => null),
+        ]);
         if (isMounted) {
           internalProcesses = groupProcesses(procs);
+
+          if (devs && Array.isArray(devs)) {
+            internalDevices = devs;
+            // Neu thiet bi dang chon bi ngat ket noi khoi he thong, fallback ve default device
+            if (internalSelectedDevice && !devs.some((d) => d.uid === internalSelectedDevice)) {
+              const def = devs.find((d) => d.is_default);
+              if (def) internalSelectedDevice = def.uid;
+            } else if (!internalSelectedDevice) {
+              const def = devs.find((d) => d.is_default);
+              if (def) internalSelectedDevice = def.uid;
+            }
+          }
+
+          if (inDevs && Array.isArray(inDevs)) {
+            internalInputDevices = inDevs;
+            if (internalSelectedInputDevice && !inDevs.some((d) => d.uid === internalSelectedInputDevice)) {
+              const def = inDevs.find((d) => d.is_default);
+              if (def) internalSelectedInputDevice = def.uid;
+            } else if (!internalSelectedInputDevice) {
+              const def = inDevs.find((d) => d.is_default);
+              if (def) internalSelectedInputDevice = def.uid;
+            }
+          }
         }
       } catch {
         // ignore background poll errors
@@ -526,10 +553,28 @@
     if (onRefresh) {
       onRefresh();
     } else if (isDesktop) {
-      invoke<AudioProcess[]>("get_audio_processes")
-        .then((procs) => {
+      Promise.all([
+        invoke<AudioProcess[]>("get_audio_processes").catch(() => []),
+        invoke<AudioDevice[]>("get_audio_devices").catch(() => []),
+        invoke<AudioDevice[]>("get_audio_input_devices").catch(() => []),
+      ])
+        .then(([procs, devs, inDevs]) => {
           internalProcesses = groupProcesses(procs);
-          toastState.info("Refreshed audio processes");
+          if (devs && devs.length > 0) {
+            internalDevices = devs;
+            if (internalSelectedDevice && !devs.some((d) => d.uid === internalSelectedDevice)) {
+              const def = devs.find((d) => d.is_default);
+              if (def) internalSelectedDevice = def.uid;
+            }
+          }
+          if (inDevs && inDevs.length > 0) {
+            internalInputDevices = inDevs;
+            if (internalSelectedInputDevice && !inDevs.some((d) => d.uid === internalSelectedInputDevice)) {
+              const def = inDevs.find((d) => d.is_default);
+              if (def) internalSelectedInputDevice = def.uid;
+            }
+          }
+          toastState.info("Refreshed audio processes and hardware devices");
         })
         .catch(() => {});
     }

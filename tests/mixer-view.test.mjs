@@ -237,3 +237,22 @@ test("an app macOS will not let us control offers a way through rust-sound", () 
   assert.match(mixer, /tappedBundle = process\.bundle_id/, "nhớ app nào đang được tap");
   assert.match(mixer, /tappedBundle = null;\s*\n\s*toastState\.error/, "tap hỏng thì không được nhớ nhầm là đang chạy");
 });
+
+test("MixerView polls and dynamically updates audio devices on hardware changes", () => {
+  const mixer = readFileSync("src/views/MixerView.svelte", "utf8");
+
+  // Đảm bảo background interval định kỳ lấy cả devices và input devices để nhận tai nghe Bluetooth / USB mới cắm
+  assert.match(
+    mixer,
+    /get_audio_devices[\s\S]*?get_audio_input_devices/,
+    "MixerView background poll phải tự động làm mới output và input devices"
+  );
+
+  // Đảm bảo handleTriggerRefresh làm mới cả audio processes và devices
+  assert.match(
+    mixer,
+    /handleTriggerRefresh[\s\S]*?get_audio_devices/,
+    "handleTriggerRefresh phải nạp lại danh sách thiết bị âm thanh phần cứng"
+  );
+});
+
