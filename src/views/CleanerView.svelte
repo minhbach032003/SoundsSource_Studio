@@ -450,7 +450,8 @@
             type="text"
             bind:value={appSearchQuery}
             placeholder="Search installed applications…"
-            class="field text-xs h-8.5 pl-9 pr-3 rounded-xl w-full"
+            class="field text-xs h-8.5 pr-3 rounded-xl w-full"
+            style="padding-left: 2.25rem;"
           />
         </div>
 
