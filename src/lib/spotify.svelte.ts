@@ -236,8 +236,16 @@ class SpotifyState {
     try {
       await invoke("spotify_play_uri", { uri, positionMs: positionMs ?? null });
       toastState.info("Đã gửi bài đến Spotify");
-    } catch (e) { this.error = String(e); }
-    finally { this.busy = false; }
+    } catch (e) {
+      const err = String(e);
+      this.error = err;
+      // Nếu thiết bị cũ bị mất hoặc đổi ID, tự động làm mới danh sách thiết bị
+      if (err.includes("Thiết bị không còn khả dụng")) {
+        void this.refreshDevices();
+      }
+    } finally {
+      this.busy = false;
+    }
   }
 
   /// Trộn bài là lựa chọn của rust-sound, không phải của Spotify. Một danh sách bài rời

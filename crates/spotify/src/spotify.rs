@@ -426,30 +426,53 @@ impl SpotifyWeb {
     }
     /// Đánh thức một thiết bị Connect. Thiết bị đang nằm chờ vẫn nhận lệnh phát,
     /// nhưng Spotify không gửi nhạc tới cho đến khi phát được chuyển hẳn sang nó.
-    fn ensure_active(&self, id: &str) -> Result<(), String> {
+    /// Trả về ID thiết bị thực tế đang được kích hoạt.
+    fn ensure_active(&self, id: &str) -> Result<String, String> {
         let devices = self.devices()?;
-        let Some(device) = devices.iter().find(|d| d.id == id) else {
-            return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
+        let device = if let Some(d) = devices.iter().find(|d| d.id == id) {
+            d
+        } else {
+            // Thiết bị có thể đã đổi ID sau khi sleep/reconnect (như rust-sound local player).
+            // Tự động fallback về default_device thay vì báo lỗi thiết bị không còn khả dụng.
+            let local_name = std::process::Command::new("/usr/sbin/scutil")
+                .args(["--get", "ComputerName"])
+                .output()
+                .ok()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
+                .unwrap_or_default();
+            if let Some(fallback) = default_device(&devices, &local_name) {
+                *self.device.lock().unwrap() = Some(fallback.id.clone());
+                fallback
+            } else {
+                return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
+            }
         };
+        let active_id = device.id.clone();
         if device.is_active {
-            return Ok(());
+            return Ok(active_id);
         }
         self.request_user(
             Method::PUT,
             "me/player",
             &[],
-            Some(json!({ "device_ids": [id] })),
+            Some(json!({ "device_ids": [&active_id] })),
         )
-        .map(|_| ())
+        .map(|_| active_id)
     }
     pub fn select_device(&self, id: &str) -> Result<(), String> {
-        if !self.devices()?.iter().any(|d| d.id == id) {
-            return Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into());
+        let devices = self.devices()?;
+        if let Some(target) = devices.iter().find(|d| d.id == id) {
+            *self.device.lock().unwrap() = Some(target.id.clone());
+            Ok(())
+        } else {
+            // Thử tìm thiết bị trùng tên nếu id đổi (ví dụ rust-sound sau khi restart)
+            if let Some(target) = devices.iter().find(|d| d.name.eq_ignore_ascii_case(crate::spotify_player::LOCAL_DEVICE_NAME)) {
+                *self.device.lock().unwrap() = Some(target.id.clone());
+                Ok(())
+            } else {
+                Err("Thiết bị không còn khả dụng. Làm mới danh sách thiết bị.".into())
+            }
         }
-        // Chọn thiết bị chỉ là lựa chọn cục bộ cho lệnh phát tiếp theo. Không đánh thức
-        // ở đây: mở app lên mà nhạc đang chạy trên điện thoại thì nó sẽ bị cướp mất.
-        *self.device.lock().unwrap() = Some(id.into());
-        Ok(())
     }
     fn device_id(&self) -> Result<String, String> {
         if self.device.lock().unwrap().is_none() {
@@ -493,11 +516,11 @@ impl SpotifyWeb {
             body["position_ms"] = json!(position);
         }
         let device = self.device_id()?;
-        self.ensure_active(&device)?;
+        let target_device = self.ensure_active(&device)?;
         self.request_user(
             Method::PUT,
             "me/player/play",
-            &[("device_id", device)],
+            &[("device_id", target_device)],
             Some(body),
         )
         .map(|_| ())
@@ -512,11 +535,11 @@ impl SpotifyWeb {
     ) -> Result<(), String> {
         let body = play_queue_body(uris, start, position_ms)?;
         let device = self.device_id()?;
-        self.ensure_active(&device)?;
+        let target_device = self.ensure_active(&device)?;
         self.request_user(
             Method::PUT,
             "me/player/play",
-            &[("device_id", device)],
+            &[("device_id", target_device)],
             Some(body),
         )
         .map(|_| ())
@@ -553,11 +576,11 @@ impl SpotifyWeb {
     /// năng riêng của ứng dụng Spotify, không có endpoint nào cho bên thứ ba.
     pub fn set_shuffle(&self, on: bool) -> Result<(), String> {
         let device = self.device_id()?;
-        self.ensure_active(&device)?;
+        let target_device = self.ensure_active(&device)?;
         self.request_user(
             Method::PUT,
             "me/player/shuffle",
-            &[("device_id", device), ("state", on.to_string())],
+            &[("device_id", target_device), ("state", on.to_string())],
             None,
         )
         .map(|_| ())
@@ -567,11 +590,11 @@ impl SpotifyWeb {
             return Err("Chế độ lặp không hợp lệ.".into());
         }
         let device = self.device_id()?;
-        self.ensure_active(&device)?;
+        let target_device = self.ensure_active(&device)?;
         self.request_user(
             Method::PUT,
             "me/player/repeat",
-            &[("device_id", device), ("state", mode.to_string())],
+            &[("device_id", target_device), ("state", mode.to_string())],
             None,
         )
         .map(|_| ())
