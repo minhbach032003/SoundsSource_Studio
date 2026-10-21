@@ -98,6 +98,9 @@ export const GEMINI_VIDEO_UPLINK_FPS = 1;
 /** Longest edge of an uplinked frame: camera stays small, screen keeps text legible. */
 const CAMERA_FRAME_MAX_WIDTH = 640;
 const SCREEN_FRAME_MAX_WIDTH = 1280;
+/// Screen text needs more JPEG quality than a face does.
+const SCREEN_FRAME_QUALITY = 0.8;
+const CAMERA_FRAME_QUALITY = 0.7;
 
 /** Mic uplink rate required by the Live API, and the rate it speaks back at. */
 export const GEMINI_INPUT_SAMPLE_RATE = 16000;
@@ -339,6 +342,9 @@ export class GeminiLiveService {
   nativeScreenFrame = $state<string | null>(null);
   private nativeScreenImage: HTMLImageElement | null = null;
   private nativeScreenPending = false;
+  /// Rust already encoded this frame at the size and quality the uplink sends, so it can
+  /// go out as-is instead of being re-encoded from the canvas.
+  private nativeScreenBase64: string | null = null;
   private canvasElement: HTMLCanvasElement | null = null;
   private videoCaptureInterval: number | null = null;
 
@@ -1620,6 +1626,7 @@ export class GeminiLiveService {
       this.screenVideoElement.srcObject = null;
     }
     this.nativeScreenFrame = null;
+    this.nativeScreenBase64 = null;
     this.isScreenSharing = false;
     this.resetScreenDiagnostics();
     this.syncFrameCapture();
@@ -1755,7 +1762,12 @@ export class GeminiLiveService {
     if (this.nativeScreenPending) return null;
     this.nativeScreenPending = true;
     try {
-      const base64Jpeg = await invoke<string>("capture_screen_jpeg");
+      // Ask for exactly what the uplink sends. The native side scales while it encodes,
+      // so a Retina display never crosses IPC at full resolution.
+      const base64Jpeg = await invoke<string>("capture_screen_jpeg", {
+        maxEdge: SCREEN_FRAME_MAX_WIDTH,
+        quality: SCREEN_FRAME_QUALITY,
+      });
       const dataUrl = `data:image/jpeg;base64,${base64Jpeg}`;
       const img = this.nativeScreenImage ?? (this.nativeScreenImage = new Image());
       await new Promise<void>((resolve, reject) => {
@@ -1764,10 +1776,12 @@ export class GeminiLiveService {
         img.src = dataUrl;
       });
       this.nativeScreenFrame = dataUrl;
+      this.nativeScreenBase64 = base64Jpeg;
       this.screenShareIssue = null;
       return img;
     } catch (err) {
       this.logDiag(`native screen capture failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.nativeScreenBase64 = null;
       this.screenShareIssue = "no-frames";
       return null;
     } finally {
@@ -1832,11 +1846,21 @@ export class GeminiLiveService {
     this.lastFrameSignature = signature;
     this.lastFrameSentAt = Date.now();
 
-    // Screen text needs more JPEG quality than a face does.
-    const dataUrl = this.canvasElement.toDataURL("image/jpeg", sharing ? 0.8 : 0.7);
-    const commaIdx = dataUrl.indexOf(",");
-    if (commaIdx === -1) return;
-    const base64Jpeg = dataUrl.substring(commaIdx + 1);
+    // A native frame arrives already encoded at this size and quality, so re-encoding it
+    // from the canvas would run a 1280px JPEG encode on the UI thread every second for a
+    // byte-for-byte equivalent result.
+    let base64Jpeg: string;
+    if (nativeFrame && this.nativeScreenBase64 && width === srcWidth && height === srcHeight) {
+      base64Jpeg = this.nativeScreenBase64;
+    } else {
+      const dataUrl = this.canvasElement.toDataURL(
+        "image/jpeg",
+        sharing ? SCREEN_FRAME_QUALITY : CAMERA_FRAME_QUALITY
+      );
+      const commaIdx = dataUrl.indexOf(",");
+      if (commaIdx === -1) return;
+      base64Jpeg = dataUrl.substring(commaIdx + 1);
+    }
 
     const payload = {
       realtimeInput: {

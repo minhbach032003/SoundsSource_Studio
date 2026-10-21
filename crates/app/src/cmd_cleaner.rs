@@ -1568,31 +1568,30 @@ pub async fn cleaner_optimize_task(task_id: String) -> Result<OptimizationTaskRe
 
 #[tauri::command]
 pub fn cleaner_get_hardware_metrics() -> Result<SystemHardwareMetrics, String> {
-    use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, RefreshKind, System};
+    use sysinfo::{CpuRefreshKind, Disks, RefreshKind, System};
 
+    // Memory comes from sound_core::memory below, so this only samples the CPU.
     let mut sys = System::new_with_specifics(
-        RefreshKind::nothing()
-            .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
-            .with_memory(MemoryRefreshKind::nothing().with_ram()),
+        RefreshKind::nothing().with_cpu(CpuRefreshKind::nothing().with_cpu_usage()),
     );
     std::thread::sleep(std::time::Duration::from_millis(50));
     sys.refresh_cpu_usage();
-    sys.refresh_memory();
 
     let cpu_usage_percent = sys.global_cpu_usage() as f64;
     let cpu_core_count = sys.cpus().len();
 
-    let memory_total_bytes = sys.total_memory();
-    let memory_used_bytes = sys.used_memory();
-    let memory_free_bytes = sys.free_memory();
-    let memory_used_percent = if memory_total_bytes > 0 {
-        ((memory_used_bytes as f64 / memory_total_bytes as f64) * 100.0).min(100.0)
-    } else {
-        0.0
-    };
+    // One definition of "memory in use" for the whole app. `sys.used_memory()` counts
+    // only active + wired + compressed, while the Memory panel reports total minus what
+    // the OS says it can still hand out. Reading both put two different percentages for
+    // the same machine on the same screen.
+    let memory = sound_core::memory::snapshot();
+    let memory_total_bytes = memory.total_bytes;
+    let memory_used_bytes = memory.used_bytes;
+    let memory_free_bytes = memory.available_bytes;
+    let memory_used_percent = memory.used_percent.min(100.0);
 
-    let swap_total_bytes = sys.total_swap();
-    let swap_used_bytes = sys.used_swap();
+    let swap_total_bytes = memory.swap_total_bytes;
+    let swap_used_bytes = memory.swap_used_bytes;
 
     let disks = Disks::new_with_refreshed_list();
     let is_windows = cfg!(target_os = "windows");

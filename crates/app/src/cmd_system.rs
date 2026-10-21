@@ -60,34 +60,46 @@ pub async fn open_screen_capture_settings() -> Result<(), String> {
     }
 }
 
-/// One JPEG of the main display, base64-encoded.
-pub fn capture_main_display_jpeg() -> Result<String, String> {
+/// One JPEG of the main display, base64-encoded and already scaled to `max_edge`.
+///
+/// This used to spawn `/usr/sbin/screencapture` once a second, write a full-resolution
+/// JPEG to /tmp, read it back and base64 the lot across IPC — megabytes a second to
+/// produce a frame the webview immediately scaled down anyway. ImageIO scales while it
+/// encodes, so the oversized original never exists as bytes, and the TCC check lands on
+/// this app instead of on a child process.
+pub fn capture_main_display_jpeg(max_edge: usize, quality: f64) -> Result<String, String> {
     use base64::engine::general_purpose::STANDARD;
     use base64::Engine;
 
-    let path = std::env::temp_dir().join(format!("rust-sound-screen-{}.jpg", std::process::id()));
-    let ok = std::process::Command::new("/usr/sbin/screencapture")
-        .args(["-x", "-t", "jpg", "-D", "1"])
-        .arg(&path)
-        .status()
-        .map_err(|e| format!("Không chạy được screencapture: {}", e))?
-        .success();
-    if !ok {
-        return Err("screencapture không chụp được màn hình".to_string());
-    }
-    let bytes = std::fs::read(&path).map_err(|e| format!("Không đọc được khung hình: {}", e))?;
-    let _ = std::fs::remove_file(&path);
-    if bytes.is_empty() {
-        return Err("Khung hình chụp được rỗng".to_string());
-    }
+    let bytes = sound_core::screen::capture_main_display_jpeg(max_edge, quality)?;
     Ok(STANDARD.encode(bytes))
 }
 
+/// `max_edge` and `quality` come from the uplink, so the encode matches what it sends.
 #[tauri::command]
-pub async fn capture_screen_jpeg() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(capture_main_display_jpeg)
+pub async fn capture_screen_jpeg(
+    max_edge: Option<usize>,
+    quality: Option<f64>,
+) -> Result<String, String> {
+    let max_edge = max_edge
+        .filter(|value| *value > 0)
+        .unwrap_or(sound_core::screen::DEFAULT_MAX_EDGE)
+        .clamp(160, 4096);
+    let quality = quality
+        .filter(|value| value.is_finite())
+        .unwrap_or(sound_core::screen::DEFAULT_QUALITY)
+        .clamp(0.1, 1.0);
+    tauri::async_runtime::spawn_blocking(move || capture_main_display_jpeg(max_edge, quality))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// How macOS identifies this build, and therefore whether the permissions granted to it
+/// survive the next rebuild. Read once and cached: `codesign` is a process spawn.
+#[tauri::command]
+pub fn app_signing_identity() -> sound_core::SigningIdentity {
+    static CACHED: std::sync::OnceLock<sound_core::SigningIdentity> = std::sync::OnceLock::new();
+    CACHED.get_or_init(sound_core::screen::signing_identity).clone()
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
