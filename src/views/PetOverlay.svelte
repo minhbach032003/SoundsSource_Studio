@@ -3,7 +3,6 @@
   import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
   import { petMoodFor, splitPetSessions } from "@/lib/petMood";
   import { getPetForSession, setFavoritePetSlot, getPetArchetype, getActivePets } from "@/lib/petMapping";
-  import { INSTALLED_PETS } from "@/components/pet/types";
   import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";

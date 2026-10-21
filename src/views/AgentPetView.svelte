@@ -16,7 +16,6 @@
     shouldTriggerPetAlert,
   } from "@/lib/petAudio";
   import {
-    INSTALLED_PETS,
     ACHIEVEMENTS_METADATA,
     SPEECH_QUOTES,
     INITIAL_EVENTS,
