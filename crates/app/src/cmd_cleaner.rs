@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +20,7 @@ pub struct PlatformInfo {
     pub default_disk_label: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CleanCategory {
     pub id: String,
     pub name: String,
@@ -27,6 +29,12 @@ pub struct CleanCategory {
     pub size_bytes: u64,
     pub item_count: usize,
     pub paths: Vec<String>,
+    /// "safe" | "review". Filled in by `classify`, never by the scan blocks.
+    #[serde(default)]
+    pub risk: String,
+    /// Why a "review" category is not pre-selected.
+    #[serde(default)]
+    pub risk_note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,13 +44,32 @@ pub struct CleanScanResult {
     pub total_item_count: usize,
     pub scanned_at_secs: u64,
     pub platform: String,
+    /// True when the walk was stopped early, so the totals are a floor, not a total.
+    #[serde(default)]
+    pub cancelled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CleanCategoryOutcome {
+    pub id: String,
+    pub name: String,
+    pub bytes_reclaimed: u64,
+    pub items_removed: usize,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CleanExecutionResult {
     pub bytes_reclaimed: u64,
     pub items_removed: usize,
     pub errors: Vec<String>,
+    /// What each selected category actually gave back. Without this a clean can only
+    /// report one number, and a partial failure looks like a small disk.
+    #[serde(default)]
+    pub categories: Vec<CleanCategoryOutcome>,
+    /// Categories the caller asked for that the reviewed scan does not contain.
+    #[serde(default)]
+    pub skipped: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,12 +302,83 @@ pub fn is_safe_deletion_target(path: &Path) -> bool {
 }
 
 // ============================================================================
+// Scan progress, cancellation and the reviewed-scan cache
+// ============================================================================
+
+/// A scan walks tens of thousands of directories. Polling these beats plumbing an
+/// AppHandle through every scan block, and it keeps the walk free of IPC.
+static SCAN_RUNNING: AtomicBool = AtomicBool::new(false);
+static SCAN_CANCEL: AtomicBool = AtomicBool::new(false);
+static SCAN_BYTES: AtomicU64 = AtomicU64::new(0);
+static SCAN_FILES: AtomicUsize = AtomicUsize::new(0);
+static SCAN_STAGE: Mutex<String> = Mutex::new(String::new());
+
+/// The scan the user is looking at. `cleaner_execute_clean` deletes from this rather than
+/// from a fresh scan: re-scanning cost a second full walk and, worse, could delete a path
+/// that appeared after the list was reviewed.
+static REVIEWED_SCAN: Mutex<Option<CleanScanResult>> = Mutex::new(None);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CleanScanProgress {
+    pub running: bool,
+    pub cancelled: bool,
+    /// Which part of the system the walk is in, for the "what is it doing" question.
+    pub stage: String,
+    pub bytes_seen: u64,
+    pub files_seen: usize,
+}
+
+/// The walk aborts only while a scan the user cancelled is still running. `safe_remove_path`
+/// measures with the same walk during a clean, so a flag left set by an earlier cancelled
+/// scan would make the clean report zero bytes for files it really did delete.
+fn scan_cancelled() -> bool {
+    SCAN_RUNNING.load(Ordering::Relaxed) && SCAN_CANCEL.load(Ordering::Relaxed)
+}
+
+fn scan_stage(stage: &str) {
+    if let Ok(mut current) = SCAN_STAGE.lock() {
+        *current = stage.to_string();
+    }
+}
+
+#[tauri::command]
+pub fn cleaner_scan_progress() -> CleanScanProgress {
+    CleanScanProgress {
+        running: SCAN_RUNNING.load(Ordering::Acquire),
+        cancelled: SCAN_CANCEL.load(Ordering::Acquire),
+        stage: SCAN_STAGE.lock().map(|s| s.clone()).unwrap_or_default(),
+        bytes_seen: SCAN_BYTES.load(Ordering::Relaxed),
+        files_seen: SCAN_FILES.load(Ordering::Relaxed),
+    }
+}
+
+/// Stops the walk at the next directory. The partial result is still returned and marked
+/// `cancelled`, so the user gets what was found rather than nothing.
+#[tauri::command]
+pub fn cleaner_cancel_scan() {
+    SCAN_CANCEL.store(true, Ordering::Release);
+}
+
+/// Attaches a risk rating to every category the scan produced. Kept out of the scan
+/// blocks so a new category cannot ship without one.
+fn classify(mut categories: Vec<CleanCategory>) -> Vec<CleanCategory> {
+    for category in &mut categories {
+        category.risk = sound_core::cleaner_policy::risk_for(&category.id)
+            .as_str()
+            .to_string();
+        category.risk_note =
+            sound_core::cleaner_policy::risk_note(&category.id).map(str::to_string);
+    }
+    categories
+}
+
+// ============================================================================
 // File & Directory Utilities
 // ============================================================================
 
 /// Fast recursive directory size and file count calculator with bounded recursion depth.
 pub fn calculate_dir_size(path: &Path, max_depth: usize) -> (u64, usize) {
-    if max_depth == 0 {
+    if max_depth == 0 || scan_cancelled() {
         return (0, 0);
     }
 
@@ -305,6 +403,9 @@ pub fn calculate_dir_size(path: &Path, max_depth: usize) -> (u64, usize) {
 
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
+            if scan_cancelled() {
+                break;
+            }
             let entry_path = entry.path();
             if let Ok(m) = entry.metadata() {
                 if m.is_dir() {
@@ -318,6 +419,11 @@ pub fn calculate_dir_size(path: &Path, max_depth: usize) -> (u64, usize) {
             }
         }
     }
+
+    // Counted once per directory rather than per file: enough for a live total, cheap
+    // enough not to slow the walk it is measuring.
+    SCAN_BYTES.fetch_add(total_bytes, Ordering::Relaxed);
+    SCAN_FILES.fetch_add(total_files, Ordering::Relaxed);
 
     (total_bytes, total_files)
 }
@@ -351,9 +457,34 @@ pub fn safe_remove_path(path: &Path) -> Result<(u64, usize), String> {
 
 #[tauri::command]
 pub async fn cleaner_scan_system() -> Result<CleanScanResult, String> {
-    tauri::async_runtime::spawn_blocking(perform_system_scan)
-        .await
-        .map_err(|e| format!("Scan task panicked: {}", e))
+    if SCAN_RUNNING.swap(true, Ordering::AcqRel) {
+        return Err("A scan is already running".into());
+    }
+    SCAN_CANCEL.store(false, Ordering::Release);
+    SCAN_BYTES.store(0, Ordering::Relaxed);
+    SCAN_FILES.store(0, Ordering::Relaxed);
+    scan_stage("Starting");
+
+    let outcome = tauri::async_runtime::spawn_blocking(|| {
+        let mut scan = perform_system_scan();
+        scan.categories = classify(scan.categories);
+        scan.cancelled = SCAN_CANCEL.load(Ordering::Acquire);
+        scan
+    })
+    .await;
+
+    // Clear the flag with the run: it must not outlive the scan that set it.
+    let was_cancelled = SCAN_CANCEL.swap(false, Ordering::AcqRel);
+    SCAN_RUNNING.store(false, Ordering::Release);
+    scan_stage(if was_cancelled { "Cancelled" } else { "Done" });
+
+    let scan = outcome.map_err(|e| format!("Scan task panicked: {}", e))?;
+    // Remember exactly what the user is about to review, so the clean deletes that and
+    // not whatever a second walk happens to find.
+    if let Ok(mut reviewed) = REVIEWED_SCAN.lock() {
+        *reviewed = Some(scan.clone());
+    }
+    Ok(scan)
 }
 
 fn perform_system_scan() -> CleanScanResult {
@@ -369,6 +500,7 @@ fn perform_system_scan() -> CleanScanResult {
         let roaming_appdata = get_roaming_appdata_dir().unwrap_or_else(|| home.join("AppData/Roaming"));
 
         // 1. User & System Temp
+        scan_stage("Temporary files");
         let mut temp_paths = Vec::new();
         let mut temp_b = 0u64;
         let mut temp_c = 0usize;
@@ -403,10 +535,12 @@ fn perform_system_scan() -> CleanScanResult {
                 size_bytes: temp_b,
                 item_count: temp_c,
                 paths: temp_paths,
+                ..Default::default()
             });
         }
 
         // 2. Windows Logs & Crash Dumps
+        scan_stage("Logs and crash dumps");
         let win_log_targets = [
             ("win_crash_dumps", "Application Crash Dumps", "Memory crash dump files in %LOCALAPPDATA%\\CrashDumps", local_appdata.join("CrashDumps")),
             ("win_wer", "Windows Error Reporting", "Queue and archive error report logs", local_appdata.join("Microsoft/Windows/WER")),
@@ -424,12 +558,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 3. Windows Browser Caches
+        scan_stage("Browser caches");
         let win_browser_targets = [
             ("chrome_cache", "Google Chrome Cache", "Web data and page caches", local_appdata.join("Google/Chrome/User Data/Default/Cache")),
             ("edge_cache", "Microsoft Edge Cache", "Web data and GPU shader caches", local_appdata.join("Microsoft/Edge/User Data/Default/Cache")),
@@ -448,12 +584,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 4. Windows Developer Caches (Cargo, npm, pnpm, NuGet, pip, Gradle)
+        scan_stage("Developer caches");
         let win_dev_targets = [
             ("cargo_cache", "Rust / Cargo Caches", "Cargo crate registry cache (.cargo/registry/cache)", home.join(".cargo/registry/cache")),
             ("npm_cache", "npm Cache", "npm module tarball cache in %APPDATA%\\npm-cache", roaming_appdata.join("npm-cache")),
@@ -474,12 +612,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 5. Downloaded Installers (.exe, .msi, .iso)
+        scan_stage("Downloaded installers");
         let downloads_dir = home.join("Downloads");
         if downloads_dir.is_dir() {
             let mut inst_b = 0u64;
@@ -511,6 +651,7 @@ fn perform_system_scan() -> CleanScanResult {
                     size_bytes: inst_b,
                     item_count: inst_c,
                     paths: inst_paths,
+                    ..Default::default()
                 });
             }
         }
@@ -520,6 +661,7 @@ fn perform_system_scan() -> CleanScanResult {
         // ==========================================
 
         // 1. User Caches (~/Library/Caches)
+        scan_stage("User caches");
         let user_caches = home.join("Library/Caches");
         if user_caches.is_dir() {
             let mut total_b = 0u64;
@@ -551,11 +693,13 @@ fn perform_system_scan() -> CleanScanResult {
                     size_bytes: total_b,
                     item_count: total_c,
                     paths,
+                    ..Default::default()
                 });
             }
         }
 
         // 2. System & User Logs
+        scan_stage("Logs and diagnostics");
         let log_dirs = [
             home.join("Library/Logs"),
             home.join("Library/Logs/DiagnosticReports"),
@@ -589,10 +733,12 @@ fn perform_system_scan() -> CleanScanResult {
                 size_bytes: logs_b,
                 item_count: logs_c,
                 paths: log_paths,
+                ..Default::default()
             });
         }
 
         // 3. Xcode & Simulator Developer Artifacts
+        scan_stage("Xcode and simulators");
         let xcode_targets = [
             (
                 "xcode_derived_data",
@@ -626,12 +772,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 4. Package Manager Caches (Homebrew, Cargo, npm, pnpm, Gradle, pip)
+        scan_stage("Package manager caches");
         let pm_targets = [
             (
                 "homebrew_cache",
@@ -683,12 +831,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 5. Web Browser Caches
+        scan_stage("Browser caches");
         let browser_targets = [
             (
                 "chrome_cache",
@@ -734,12 +884,14 @@ fn perform_system_scan() -> CleanScanResult {
                         size_bytes: b,
                         item_count: c,
                         paths: vec![dir.to_string_lossy().to_string()],
+                        ..Default::default()
                     });
                 }
             }
         }
 
         // 6. Installer Files (.dmg, .pkg, .iso)
+        scan_stage("Installer files");
         let downloads_dir = home.join("Downloads");
         if downloads_dir.is_dir() {
             let mut inst_b = 0u64;
@@ -771,11 +923,13 @@ fn perform_system_scan() -> CleanScanResult {
                     size_bytes: inst_b,
                     item_count: inst_c,
                     paths: inst_paths,
+                    ..Default::default()
                 });
             }
         }
 
         // 7. System Trash (~/.Trash)
+        scan_stage("Trash");
         let trash_dir = home.join(".Trash");
         if trash_dir.is_dir() {
             let (b, c) = calculate_dir_size(&trash_dir, 10);
@@ -788,6 +942,7 @@ fn perform_system_scan() -> CleanScanResult {
                     size_bytes: b,
                     item_count: c,
                     paths: vec![trash_dir.to_string_lossy().to_string()],
+                    ..Default::default()
                 });
             }
         }
@@ -801,6 +956,7 @@ fn perform_system_scan() -> CleanScanResult {
         .unwrap_or(0);
 
     CleanScanResult {
+        cancelled: false,
         categories,
         total_size_bytes,
         total_item_count,
@@ -809,60 +965,75 @@ fn perform_system_scan() -> CleanScanResult {
     }
 }
 
+/// Deletes from the scan the user reviewed. It used to re-scan first, which paid for a
+/// second full walk and meant the paths deleted were not necessarily the ones shown.
 #[tauri::command]
 pub async fn cleaner_execute_clean(category_ids: Vec<String>) -> Result<CleanExecutionResult, String> {
+    let reviewed = REVIEWED_SCAN
+        .lock()
+        .ok()
+        .and_then(|scan| scan.clone())
+        .ok_or("Scan the system before cleaning so you can see what will be deleted")?;
+
     tauri::async_runtime::spawn_blocking(move || {
-        let scan = perform_system_scan();
         let target_set: HashSet<String> = category_ids.into_iter().collect();
+        let mut result = CleanExecutionResult::default();
+        let mut matched: HashSet<String> = HashSet::new();
 
-        let mut bytes_reclaimed = 0u64;
-        let mut items_removed = 0usize;
-        let mut errors = Vec::new();
+        for cat in reviewed.categories {
+            if !target_set.contains(&cat.id) {
+                continue;
+            }
+            matched.insert(cat.id.clone());
+            let mut outcome = CleanCategoryOutcome {
+                id: cat.id.clone(),
+                name: cat.name.clone(),
+                bytes_reclaimed: 0,
+                items_removed: 0,
+                errors: Vec::new(),
+            };
 
-        for cat in scan.categories {
-            if target_set.contains(&cat.id) {
-                for path_str in cat.paths {
-                    let path = Path::new(&path_str);
-                    if path.is_dir() {
-                        if cat.id == "system_trash" || cat.id == "win_temp" {
-                            if let Ok(entries) = fs::read_dir(path) {
-                                for entry in entries.flatten() {
-                                    match safe_remove_path(&entry.path()) {
-                                        Ok((b, c)) => {
-                                            bytes_reclaimed = bytes_reclaimed.saturating_add(b);
-                                            items_removed += c;
-                                        }
-                                        Err(e) => errors.push(e),
-                                    }
-                                }
-                            }
-                        } else {
-                            match safe_remove_path(path) {
-                                Ok((b, c)) => {
-                                    bytes_reclaimed = bytes_reclaimed.saturating_add(b);
-                                    items_removed += c;
-                                }
-                                Err(e) => errors.push(e),
-                            }
+            for path_str in cat.paths {
+                let path = Path::new(&path_str);
+                // The Trash and the temp directories are containers: empty them rather
+                // than deleting the directory the OS expects to exist.
+                let targets: Vec<PathBuf> = if path.is_dir()
+                    && (cat.id == "system_trash" || cat.id == "win_temp")
+                {
+                    fs::read_dir(path)
+                        .map(|entries| entries.flatten().map(|e| e.path()).collect())
+                        .unwrap_or_default()
+                } else if path.exists() {
+                    vec![path.to_path_buf()]
+                } else {
+                    Vec::new()
+                };
+
+                for target in targets {
+                    match safe_remove_path(&target) {
+                        Ok((bytes, count)) => {
+                            outcome.bytes_reclaimed = outcome.bytes_reclaimed.saturating_add(bytes);
+                            outcome.items_removed += count;
                         }
-                    } else if path.is_file() {
-                        match safe_remove_path(path) {
-                            Ok((b, c)) => {
-                                bytes_reclaimed = bytes_reclaimed.saturating_add(b);
-                                items_removed += c;
-                            }
-                            Err(e) => errors.push(e),
-                        }
+                        Err(error) => outcome.errors.push(error),
                     }
                 }
             }
+
+            result.bytes_reclaimed = result.bytes_reclaimed.saturating_add(outcome.bytes_reclaimed);
+            result.items_removed += outcome.items_removed;
+            result.errors.extend(outcome.errors.iter().cloned());
+            result.categories.push(outcome);
         }
 
-        CleanExecutionResult {
-            bytes_reclaimed,
-            items_removed,
-            errors,
-        }
+        // A category the caller asked for but the reviewed scan no longer holds is said
+        // out loud, not quietly dropped from the total.
+        result.skipped = target_set
+            .into_iter()
+            .filter(|id| !matched.contains(id))
+            .collect();
+        result.skipped.sort();
+        result
     })
     .await
     .map_err(|e| format!("Clean task panicked: {}", e))
@@ -1240,26 +1411,45 @@ pub async fn cleaner_purge_projects(paths: Vec<String>) -> Result<CleanExecution
         let mut items_removed = 0usize;
         let mut errors = Vec::new();
 
+        let mut categories = Vec::new();
+
         for p_str in paths {
             let path = Path::new(&p_str);
             let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            let mut outcome = CleanCategoryOutcome {
+                id: p_str.clone(),
+                name: name.to_string(),
+                bytes_reclaimed: 0,
+                items_removed: 0,
+                errors: Vec::new(),
+            };
             if ["node_modules", "target", ".gradle", "build", "dist", ".venv", "venv", "DerivedData", "bin", "obj"].contains(&name) {
                 match safe_remove_path(path) {
                     Ok((b, c)) => {
                         bytes_reclaimed = bytes_reclaimed.saturating_add(b);
                         items_removed += c;
+                        outcome.bytes_reclaimed = b;
+                        outcome.items_removed = c;
                     }
-                    Err(e) => errors.push(e),
+                    Err(e) => {
+                        errors.push(e.clone());
+                        outcome.errors.push(e);
+                    }
                 }
             } else {
-                errors.push(format!("Rejected non-artifact path: {}", path.display()));
+                let message = format!("Rejected non-artifact path: {}", path.display());
+                errors.push(message.clone());
+                outcome.errors.push(message);
             }
+            categories.push(outcome);
         }
 
         CleanExecutionResult {
             bytes_reclaimed,
             items_removed,
             errors,
+            categories,
+            skipped: Vec::new(),
         }
     })
     .await
