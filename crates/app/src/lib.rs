@@ -252,6 +252,7 @@ pub fn run() {
             request_screen_capture_permission,
             open_screen_capture_settings,
             capture_screen_jpeg,
+            app_signing_identity,
             memory_snapshot,
             memory_areas,
             memory_clean,
@@ -547,10 +548,32 @@ mod pet_tray_tests {
         use base64::engine::general_purpose::STANDARD;
         use base64::Engine;
 
-        let base64_jpeg = super::capture_main_display_jpeg().expect("capture failed");
+        let base64_jpeg = super::capture_main_display_jpeg(
+            sound_core::screen::DEFAULT_MAX_EDGE,
+            sound_core::screen::DEFAULT_QUALITY,
+        )
+        .expect("capture failed");
         let bytes = STANDARD.decode(base64_jpeg).expect("not valid base64");
         assert!(bytes.len() > 1024, "frame too small: {} bytes", bytes.len());
         assert_eq!(&bytes[..3], &[0xFF, 0xD8, 0xFF], "not a JPEG");
+        // Scaled at the source: a full Retina frame is megabytes, and the uplink would
+        // only shrink it again.
+        assert!(
+            bytes.len() < 2 * 1024 * 1024,
+            "frame should arrive already scaled, got {} bytes",
+            bytes.len()
+        );
+    }
+
+    /// An ad-hoc build is why Screen Recording has to be granted again after every
+    /// rebuild, so the app has to be able to say which kind of build it is.
+    #[test]
+    fn the_app_can_report_whether_its_permissions_survive_a_rebuild() {
+        let identity = super::app_signing_identity();
+        assert!(!identity.explanation.is_empty());
+        if identity.kind == sound_core::SigningKind::AdHoc {
+            assert!(identity.permissions_reset_on_rebuild);
+        }
     }
 
     #[test]

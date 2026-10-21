@@ -12,7 +12,18 @@ Everything runs from the repository root:
 - `pnpm tauri dev`: Runs the full desktop app in Tauri dev mode (`TAURI_APP_PATH=crates/app TAURI_FRONTEND_PATH=.`).
 - `pnpm check`: Svelte 5 and TypeScript check (`svelte-check --tsconfig ./tsconfig.json`).
 - `pnpm build`: Full frontend production bundle compilation (`tsc && vite build`).
-- `pnpm rebuild:app`: Rebuilds the production macOS app, applies ad-hoc codesign, and deploys directly to `/Applications/SoundsSource Studio.app`.
+- `pnpm rebuild:app`: Rebuilds the production macOS app, signs it, and deploys to `/Applications/SoundsSource Studio.app` (`scripts/rebuild-app.sh`).
+- `pnpm sign:identity`: Creates, once, a local code-signing certificate. Run this before the first `rebuild:app`.
+
+### Why signing matters here
+
+macOS keys TCC grants (Screen Recording, Accessibility, Microphone) to the app's code
+signing requirement. An ad-hoc signature (`codesign --sign -`) has no certificate, so the
+requirement falls back to the exact binary hash: every rebuild looks like a brand new app,
+the grant no longer matches, and the user is prompted again while stale duplicates pile up
+in System Settings. `rebuild:app` therefore prefers the certificate from `sign:identity`
+and only falls back to ad-hoc with a warning. `app_signing_identity` exposes which kind of
+build is running so the UI can explain a permission that keeps resetting.
 - Single Rust crate test:
   - `cargo test -p sound-dsp`
   - `cargo test -p sound-auth`

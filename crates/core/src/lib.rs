@@ -16,6 +16,7 @@ pub use input_blocker::{
     KEYCODE_M, KEYCODE_Q, KEYCODE_TAB, KEYCODE_W, MASK_COMMAND, MASK_SHIFT,
 };
 pub mod ring_buffer;
+pub mod screen;
 pub mod tap;
 
 pub use memory::{
@@ -26,6 +27,7 @@ pub use memory_cleaner::{MemoryAutoStatus, MemoryCleaner, MemoryRunRecord};
 pub use metrics::{get_memory_info, trim_memory_cache, ProcessMemoryInfo};
 pub use process::AudioProcess;
 pub use ring_buffer::{RingBuffer, SharedRingBuffer};
+pub use screen::{SigningIdentity, SigningKind};
 pub use tap::{AudioStreamBasicDescription, ProcessTap};
 
 #[cfg(test)]

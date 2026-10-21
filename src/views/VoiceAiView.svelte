@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toastState } from "@/lib/toast.svelte";
+  import { getSigningIdentity, rebuildPermissionHint, type SigningIdentity } from "@/lib/appIdentity";
   import { googleAuthState } from "@/lib/googleAuth.svelte";
   import GoogleIcon from "@/components/icons/GoogleIcon.svelte";
   import Modal from "@/components/ui/Modal.svelte";
@@ -72,6 +73,15 @@
       googleAuthState.isLoginModalOpen = true;
     },
   }: Props = $props();
+
+  /// An ad-hoc build is identified by its exact binary, so a rebuild loses every
+  /// permission the user granted. Read it once so the help panel can say so.
+  let signingIdentity = $state<SigningIdentity | null>(null);
+  $effect(() => {
+    getSigningIdentity().then((identity) => {
+      signingIdentity = identity;
+    });
+  });
 
   const GEMINI_PERSONAS = [
     { label: "Aoede (Tự nhiên, trong trẻo)", value: "Aoede" },
@@ -961,6 +971,20 @@
                 </li>
                 <li>Thoát hẳn app bằng Cmd+Q rồi mở lại. macOS chỉ áp dụng quyền này sau khi khởi động lại.</li>
               </ol>
+
+              {#if rebuildPermissionHint(signingIdentity)}
+                <!-- Quyền đã cấp rồi mà vẫn bị hỏi lại sau mỗi lần build: nguyên nhân là
+                     chữ ký ad-hoc, không phải người dùng bấm sai. Nói thẳng ra. -->
+                <div class="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 space-y-1">
+                  <span class="text-[11px] font-semibold text-amber-200 block">
+                    Đã cấp quyền rồi mà build lại vẫn bị hỏi?
+                  </span>
+                  <p class="text-[11px] text-stone-300 m-0">{signingIdentity?.explanation}</p>
+                  <p class="text-[11px] text-stone-400 m-0 font-mono break-all">
+                    {rebuildPermissionHint(signingIdentity)}
+                  </p>
+                </div>
+              {/if}
               <div class="flex items-center gap-2 pt-1">
                 <button
                   type="button"
