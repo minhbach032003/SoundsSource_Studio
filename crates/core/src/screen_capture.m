@@ -12,16 +12,21 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <ImageIO/ImageIO.h>
+#include <dlfcn.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
-// CGDisplayCreateImage is deprecated in favour of ScreenCaptureKit, which is an async
-// ObjC API and a much larger change for a 1 fps still. It still works, and it still
-// honours the Screen Recording grant, so the deprecation is silenced rather than worked
-// around badly.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+typedef CGImageRef (*rs_CGDisplayCreateImageFunc)(CGDirectDisplayID);
+
+static CGImageRef rs_create_display_image(CGDirectDisplayID display_id) {
+    static rs_CGDisplayCreateImageFunc func = NULL;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        func = (rs_CGDisplayCreateImageFunc)dlsym(RTLD_DEFAULT, "CGDisplayCreateImage");
+    });
+    return func ? func(display_id) : NULL;
+}
 
 // Returns malloc'd JPEG bytes and writes the length to out_len, or NULL on failure.
 // The caller owns the buffer and must pass it to rs_screen_free.
@@ -35,7 +40,7 @@ unsigned char *rs_capture_main_display_jpeg(size_t max_pixel_size,
 
     // Returns NULL when Screen Recording has not been granted, which is the same signal
     // as any other failure here; the Rust side turns it into an error the UI explains.
-    CGImageRef image = CGDisplayCreateImage(CGMainDisplayID());
+    CGImageRef image = rs_create_display_image(CGMainDisplayID());
     if (image == NULL) {
         return NULL;
     }
@@ -117,5 +122,3 @@ void rs_screen_free(unsigned char *ptr) {
         free(ptr);
     }
 }
-
-#pragma clang diagnostic pop
