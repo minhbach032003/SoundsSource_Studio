@@ -10,7 +10,7 @@ function state(invoke) {
   const feedback = [];
   const saved = new Map();
   const context = vm.createContext({
-    invoke, isTauri: () => true, $state: value => value,
+    invoke, isTauri: () => true, $state: value => value, setTimeout, clearTimeout, setInterval, clearInterval,
     toastState: Object.fromEntries(["info", "success", "error"].map(kind => [kind, message => feedback.push([kind, message])])),
     localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) },
   });
@@ -77,7 +77,7 @@ test("restricted skips send no IPC, while command errors produce failure feedbac
   const h = state(async (command) => {
     calls.push(command);
     if (fail) throw new Error("Spotify refused transport");
-    return { can_previous: true, can_next: true };
+    return { can_previous: true, can_next: true, uri: "spotify:track:next" };
   });
   h.instance.status = { can_previous: false, can_next: false };
   await h.instance.control("previous");
@@ -88,14 +88,58 @@ test("restricted skips send no IPC, while command errors produce failure feedbac
   h.instance.status = { can_previous: true, can_next: true };
   fail = true;
   await h.instance.control("next");
-  assert.equal(h.instance.busy, false);
+  await h.instance.statusSettled;
+  assert.equal(h.instance.controlBusy, false);
   assert.match(h.instance.error, /refused transport/);
   assert.equal(h.feedback.at(-1)[0], "error");
+  assert.deepEqual(calls, ["spotify_control"], "a failed command must not chase the status");
   fail = false;
   await h.instance.control("previous");
   assert.equal(h.instance.error, null);
-  assert.equal(h.instance.busy, false);
+  assert.equal(h.instance.controlBusy, false);
   assert.match(h.feedback.at(-1)[1], /bài trước/);
+  await h.instance.statusSettled;
+});
+
+test("transport stays usable while an unrelated Spotify operation holds the busy flag", async () => {
+  const calls = [];
+  const h = state(async (command) => {
+    calls.push(command);
+    return { can_previous: true, can_next: true, uri: "spotify:track:next" };
+  });
+  h.instance.status = { can_previous: true, can_next: true, uri: "spotify:track:current" };
+  // Starting the local player holds `busy` for seconds while it hunts for the device.
+  // Sharing that flag is what made every click in that window disappear.
+  h.instance.busy = true;
+  await h.instance.control("next");
+  await h.instance.statusSettled;
+  assert.ok(calls.includes("spotify_control"), "a skip must not be swallowed by an unrelated operation");
+});
+
+test("a skip releases the button before chasing the new track", async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const statuses = [
+    { can_previous: true, can_next: true, uri: "spotify:track:current" },
+    { can_previous: true, can_next: true, uri: "spotify:track:after" },
+  ];
+  let reads = 0;
+  const h = state(async (command) => {
+    if (command === "spotify_control") { await gate; return null; }
+    if (command === "get_spotify_status") return statuses[Math.min(reads++, 1)];
+    assert.fail(command);
+  });
+  h.instance.status = statuses[0];
+  const pressed = h.instance.control("next");
+  assert.equal(h.instance.controlBusy, true, "the button is held only while the command is in flight");
+  release();
+  await pressed;
+  assert.equal(h.instance.controlBusy, false);
+  await h.instance.statusSettled;
+  // Rust serves a cached snapshot, so the first read can still be the old track; the
+  // state must keep asking until it moves instead of showing the old one for a full poll.
+  assert.equal(h.instance.status.uri, "spotify:track:after");
+  assert.ok(reads >= 2, `expected a retry, got ${reads} read(s)`);
 });
 
 test("Spotify startup restores credentials without starting playback or opening OAuth", async () => {

@@ -272,6 +272,7 @@ impl SpotifyWeb {
         }
         Ok(tokens.as_ref().unwrap().access.clone())
     }
+    /// Nền: thăm dò định kỳ. Người dùng vừa bấm một nút thì không phải loại này.
     fn request(
         &self,
         method: Method,
@@ -279,16 +280,54 @@ impl SpotifyWeb {
         query: &[(&str, String)],
         body: Option<Value>,
     ) -> Result<Value, String> {
-        // Fast fail if currently rate limited by Spotify (HTTP 429) to avoid hammering the API
-        if let Some(until) = *self.rate_limited_until.lock().unwrap() {
-            if Instant::now() < until {
-                let remaining_secs = (until - Instant::now()).as_secs().max(1);
+        self.send(method, path, query, body, false)
+    }
+
+    /// Một cú bấm nút là một yêu cầu duy nhất, không phải vòng thăm dò. Nó vẫn đi qua
+    /// ngay cả khi vòng thăm dò vừa ăn 429, nếu không thì một lần quá hạn của `me/player`
+    /// làm chết nút next trong suốt thời gian chờ.
+    fn request_user(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(&str, String)],
+        body: Option<Value>,
+    ) -> Result<Value, String> {
+        self.send(method, path, query, body, true)
+    }
+
+    fn send(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(&str, String)],
+        body: Option<Value>,
+        user_initiated: bool,
+    ) -> Result<Value, String> {
+        // Fast fail if currently rate limited by Spotify (HTTP 429) to avoid hammering the API.
+        //
+        // Take the decision under one lock. `if let Some(x) = *mutex.lock().unwrap()` keeps
+        // the guard alive for the whole body, so clearing an expired cooldown inside that
+        // body re-locks a std Mutex that is already held and wedges the caller forever —
+        // which is the polling thread, so the first 429 froze Spotify until a restart.
+        let cooling_for = {
+            let mut cooldown = self.rate_limited_until.lock().unwrap();
+            match *cooldown {
+                Some(until) if Instant::now() < until => Some(until - Instant::now()),
+                Some(_) => {
+                    *cooldown = None;
+                    None
+                }
+                None => None,
+            }
+        };
+        if let Some(remaining) = cooling_for {
+            if !user_initiated {
                 return Err(format!(
                     "Spotify giới hạn số yêu cầu. Thử lại sau {} giây. [{}]",
-                    remaining_secs, path
+                    remaining.as_secs().max(1),
+                    path
                 ));
-            } else {
-                *self.rate_limited_until.lock().unwrap() = None;
             }
         }
 
@@ -324,11 +363,14 @@ impl SpotifyWeb {
                     .map(str::to_owned);
 
                 if status == StatusCode::TOO_MANY_REQUESTS {
+                    // Honour Retry-After, but cap the local cooldown: a long header would
+                    // otherwise silence polling for the rest of the session, and the user
+                    // reads that as the app being broken.
                     let wait_secs = retry_after
                         .as_deref()
                         .and_then(|s| s.parse::<u64>().ok())
                         .unwrap_or(30)
-                        .min(3600); // cap wait at 1 hour max in memory
+                        .clamp(1, 60);
                     *self.rate_limited_until.lock().unwrap() =
                         Some(Instant::now() + Duration::from_secs(wait_secs));
                 }
@@ -392,7 +434,7 @@ impl SpotifyWeb {
         if device.is_active {
             return Ok(());
         }
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player",
             &[],
@@ -452,7 +494,7 @@ impl SpotifyWeb {
         }
         let device = self.device_id()?;
         self.ensure_active(&device)?;
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player/play",
             &[("device_id", device)],
@@ -471,13 +513,21 @@ impl SpotifyWeb {
         let body = play_queue_body(uris, start, position_ms)?;
         let device = self.device_id()?;
         self.ensure_active(&device)?;
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player/play",
             &[("device_id", device)],
             Some(body),
         )
         .map(|_| ())
+    }
+    /// Play / pause when the caller already knows what is playing. `control` has to ask
+    /// Spotify first, which doubles both the latency of the button and the request count
+    /// against a quota the poller is already spending.
+    pub fn set_playing(&self, play: bool) -> Result<(), String> {
+        let path = if play { "me/player/play" } else { "me/player/pause" };
+        self.request_user(Method::PUT, path, &[("device_id", self.device_id()?)], None)
+            .map(|_| ())
     }
     pub fn control(&self, action: &str) -> Result<(), String> {
         let (method, path) = match action {
@@ -496,7 +546,7 @@ impl SpotifyWeb {
             "previous" => (Method::POST, "me/player/previous"),
             _ => return Err("Invalid Spotify action".into()),
         };
-        self.request(method, path, &[("device_id", self.device_id()?)], None)
+        self.request_user(method, path, &[("device_id", self.device_id()?)], None)
             .map(|_| ())
     }
     /// Trộn bài. Spotify chỉ mở API cho trộn ngẫu nhiên thường; Smart Shuffle là tính
@@ -504,7 +554,7 @@ impl SpotifyWeb {
     pub fn set_shuffle(&self, on: bool) -> Result<(), String> {
         let device = self.device_id()?;
         self.ensure_active(&device)?;
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player/shuffle",
             &[("device_id", device), ("state", on.to_string())],
@@ -518,7 +568,7 @@ impl SpotifyWeb {
         }
         let device = self.device_id()?;
         self.ensure_active(&device)?;
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player/repeat",
             &[("device_id", device), ("state", mode.to_string())],
@@ -530,7 +580,7 @@ impl SpotifyWeb {
         if !volume.is_finite() || !(0.0..=1.0).contains(&volume) {
             return Err("Volume must be between 0 and 1".into());
         }
-        self.request(
+        self.request_user(
             Method::PUT,
             "me/player/volume",
             &[
@@ -551,6 +601,15 @@ impl SpotifyWeb {
         let selected = self.device.lock().unwrap().clone();
         let device_id = text(&data["device"], "id");
         let device_name = text(&data["device"], "name");
+        // `actions.disallows` describes the session, not the DSP route, and Spotify omits a
+        // key when the action is allowed. Read it before any early return: a session playing
+        // on another device still accepts next / previous, and defaulting these to false is
+        // what left the transport buttons greyed out while music was audibly playing.
+        let disallows = &data["actions"]["disallows"];
+        let can_previous = !disallows["skipping_prev"].as_bool().unwrap_or(false);
+        let can_next = !disallows["skipping_next"].as_bool().unwrap_or(false);
+        let can_shuffle = !disallows["toggling_shuffle"].as_bool().unwrap_or(false);
+        let can_repeat = !disallows["toggling_repeat_context"].as_bool().unwrap_or(false);
         if data.is_null() || selected.as_deref() != data["device"]["id"].as_str() {
             // Bài hát thì không nhận, vì đó không phải nguồn đi qua DSP của máy này.
             // Nhưng thiết bị thì phải nói ra, nếu không app không biết nhạc đã sang chỗ khác.
@@ -558,6 +617,12 @@ impl SpotifyWeb {
                 running: true,
                 device_id,
                 device_name,
+                // No session at all (a null body) allows nothing; a session elsewhere does.
+                can_previous: !data.is_null() && can_previous,
+                can_next: !data.is_null() && can_next,
+                // Whether the session is playing is also about the session, not the route.
+                // Without it the play/pause button on a remote device always sends play.
+                playing: data["is_playing"].as_bool().unwrap_or(false),
                 ..Default::default()
             });
         }
@@ -568,14 +633,10 @@ impl SpotifyWeb {
             device_name,
             shuffle: data["shuffle_state"].as_bool().unwrap_or(false),
             repeat: text(&data, "repeat_state"),
-            can_previous: !data["actions"]["disallows"]["skipping_prev"].as_bool().unwrap_or(false),
-            can_next: !data["actions"]["disallows"]["skipping_next"].as_bool().unwrap_or(false),
-            can_shuffle: !data["actions"]["disallows"]["toggling_shuffle"]
-                .as_bool()
-                .unwrap_or(false),
-            can_repeat: !data["actions"]["disallows"]["toggling_repeat_context"]
-                .as_bool()
-                .unwrap_or(false),
+            can_previous,
+            can_next,
+            can_shuffle,
+            can_repeat,
             playing: data["is_playing"].as_bool().unwrap_or(false),
             uri: text(item, "uri"),
             title: text(item, "name"),
@@ -827,14 +888,52 @@ mod tests {
         assert!(playback.can_next);
         data["actions"]["disallows"]["skipping_next"] = json!(true);
         assert!(!web.parse_playback(data.clone()).unwrap().can_next);
+        // Music moved to another device: the track is not ours to show, but the session
+        // still takes next / previous, so the transport buttons must stay usable.
         data["device"]["id"] = json!("phone");
-        let other = web.parse_playback(data).unwrap();
-        assert!(!other.can_previous && !other.can_next);
+        let blocked = web.parse_playback(data.clone()).unwrap();
+        assert_eq!(blocked.device_name, "");
+        assert!(!blocked.can_previous && !blocked.can_next, "Spotify said both skips are disallowed");
+        data["actions"]["disallows"] = json!({});
+        data["device"]["name"] = json!("iPhone");
+        data["is_playing"] = json!(true);
+        let elsewhere = web.parse_playback(data).unwrap();
+        assert_eq!(elsewhere.device_name, "iPhone");
+        assert!(elsewhere.can_previous && elsewhere.can_next, "a session elsewhere still skips");
+        assert!(elsewhere.playing, "play/pause must know a remote session is playing");
+        assert_eq!(elsewhere.title, "", "another device is not this Mac's DSP source");
+        // No session at all allows nothing.
         let empty = web.parse_playback(Value::Null).unwrap();
         assert!(!empty.can_previous && !empty.can_next);
         let message = api_error(403, r#"{"error":{"message":"Player command failed: Restriction violated","reason":"UNKNOWN"}}"#, None, "me/player/previous");
         assert!(!message.contains("Kiểm tra Premium"));
         assert!(message.contains("hiện tại"));
+    }
+
+    #[test]
+    fn a_rate_limited_poll_does_not_disable_user_commands() {
+        let web = SpotifyWeb::new("", "");
+        *web.rate_limited_until.lock().unwrap() = Some(Instant::now() + Duration::from_secs(30));
+
+        let polled = web.request(Method::GET, "me/player", &[], None).unwrap_err();
+        assert!(polled.contains("giới hạn số yêu cầu"), "{polled}");
+
+        // A button press must not be stopped by a cooldown the poller earned. With no
+        // tokens it fails on sign-in instead, which proves it got past the gate rather
+        // than being turned away by it.
+        let pressed = web
+            .request_user(Method::POST, "me/player/next", &[], None)
+            .unwrap_err();
+        assert!(!pressed.contains("giới hạn số yêu cầu"), "{pressed}");
+        assert!(pressed.contains("Đăng nhập Spotify"), "{pressed}");
+
+        // An expired cooldown clears itself for the poller too. Clearing it used to
+        // re-lock a mutex the `if let` scrutinee still held, so this call never returned
+        // and took the polling thread with it: the first 429 froze Spotify until restart.
+        *web.rate_limited_until.lock().unwrap() = Some(Instant::now() - Duration::from_secs(1));
+        let after = web.request(Method::GET, "me/player", &[], None).unwrap_err();
+        assert!(!after.contains("giới hạn số yêu cầu"), "{after}");
+        assert!(web.rate_limited_until.lock().unwrap().is_none());
     }
 
     #[test]

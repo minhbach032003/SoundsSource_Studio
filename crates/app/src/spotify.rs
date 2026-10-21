@@ -36,6 +36,9 @@ pub struct SpotifyIntegration {
     enabled: Arc<AtomicBool>,
     local_enabled: Arc<AtomicBool>,
     stop: Arc<AtomicBool>,
+    /// Set when the user just changed playback, so the next loop tick re-reads Spotify
+    /// instead of serving a snapshot up to the poll interval old.
+    force_playback: Arc<AtomicBool>,
     worker: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -49,12 +52,20 @@ impl Default for SpotifyIntegration {
             enabled: Default::default(),
             local_enabled: Default::default(),
             stop: Default::default(),
+            force_playback: Default::default(),
             worker: Default::default(),
         }
     }
 }
 
 impl SpotifyIntegration {
+    /// A transport command leaves the cached playback a track behind until the next poll.
+    /// Commands mark it stale through this handle, which they can carry into
+    /// `spawn_blocking` without holding `State` across the await.
+    pub fn playback_invalidator(&self) -> Arc<AtomicBool> {
+        self.force_playback.clone()
+    }
+
     pub fn local_enabled(&self) -> bool {
         self.local_enabled.load(Ordering::Acquire)
     }
@@ -82,6 +93,7 @@ impl SpotifyIntegration {
         let spectrum = self.spectrum.clone();
         let enabled = self.enabled.clone();
         let stop = self.stop.clone();
+        let force_playback = self.force_playback.clone();
         let player = self.player.clone();
         let _local_enabled = self.local_enabled.clone();
         let mut worker = self.worker.lock().unwrap();
@@ -99,8 +111,9 @@ impl SpotifyIntegration {
 
             while !stop.load(Ordering::Acquire) {
                 // Rate limit playback queries to Spotify Web API to avoid HTTP 429 QUOTA_EXCEEDED (me/player)
+                let forced = force_playback.swap(false, Ordering::AcqRel);
                 let playback = if web.connected() {
-                    if last_playback_query.elapsed() >= Duration::from_millis(3500) {
+                    if forced || last_playback_query.elapsed() >= Duration::from_millis(3500) {
                         last_playback_query = Instant::now();
                         let res = web.playback();
                         // If rate-limited or transient failure, fallback to native local AppleScript playback
@@ -189,8 +202,10 @@ impl SpotifyIntegration {
                     Err(e) => next.playback_error = Some(e),
                 }
                 *status.lock().unwrap() = next;
+                // Wake early when a button press invalidates the cache, so the track the
+                // user just skipped to shows up in about a tick instead of a poll interval.
                 for _ in 0..20 {
-                    if stop.load(Ordering::Acquire) { break; }
+                    if stop.load(Ordering::Acquire) || force_playback.load(Ordering::Acquire) { break; }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
@@ -382,15 +397,24 @@ pub fn spotify_playback_connected() -> bool {
 pub async fn spotify_control(action: String, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
     let player = state.spotify.player.clone();
+    let refresh = state.spotify.playback_invalidator();
+    // The poller already knows what is playing, so play/pause does not have to ask again.
+    let playing = state.spotify.status.lock().unwrap().playback.playing;
     tauri::async_runtime::spawn_blocking(move || {
         let selected = web.selected_device_id();
-        if player.controls_device(selected.as_deref()) {
+        let result = if player.controls_device(selected.as_deref()) {
             player.control(&action)
         } else if web.connected() {
-            web.control(&action)
+            if action == "play_pause" {
+                web.set_playing(!playing)
+            } else {
+                web.control(&action)
+            }
         } else {
             spotify::control(&action)
-        }
+        };
+        refresh.store(true, Ordering::Release);
+        result
     }).await.map_err(|e| e.to_string())?
 }
 
@@ -430,7 +454,12 @@ pub async fn spotify_devices(state: State<'_, AppState>) -> Result<Vec<sound_eng
 #[tauri::command]
 pub async fn spotify_select_device(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.select_device(&id)).await.map_err(|e| e.to_string())?
+    let refresh = state.spotify.playback_invalidator();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = web.select_device(&id);
+        refresh.store(true, Ordering::Release);
+        result
+    }).await.map_err(|e| e.to_string())?
 }
 #[tauri::command]
 pub async fn spotify_play_uri(
@@ -439,9 +468,14 @@ pub async fn spotify_play_uri(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.play_uri(&uri, position_ms))
-        .await
-        .map_err(|e| e.to_string())?
+    let refresh = state.spotify.playback_invalidator();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = web.play_uri(&uri, position_ms);
+        refresh.store(true, Ordering::Release);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -452,25 +486,40 @@ pub async fn spotify_play_tracks(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.play_tracks(&uris, &start, position_ms))
-        .await
-        .map_err(|e| e.to_string())?
+    let refresh = state.spotify.playback_invalidator();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = web.play_tracks(&uris, &start, position_ms);
+        refresh.store(true, Ordering::Release);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn spotify_set_shuffle(on: bool, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.set_shuffle(on))
-        .await
-        .map_err(|e| e.to_string())?
+    let refresh = state.spotify.playback_invalidator();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = web.set_shuffle(on);
+        refresh.store(true, Ordering::Release);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
 pub async fn spotify_set_repeat(mode: String, state: State<'_, AppState>) -> Result<(), String> {
     let web = state.spotify.web.clone();
-    tauri::async_runtime::spawn_blocking(move || web.set_repeat(&mode))
-        .await
-        .map_err(|e| e.to_string())?
+    let refresh = state.spotify.playback_invalidator();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = web.set_repeat(&mode);
+        refresh.store(true, Ordering::Release);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

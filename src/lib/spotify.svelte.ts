@@ -61,6 +61,11 @@ export type SpotifyLibraryKind = "playlists" | "saved" | "search" | "playlist";
 class SpotifyState {
   status = $state<SpotifyStatus | null>(null);
   busy = $state(false);
+  /// Nút tua / phát phải có cờ riêng. Dùng chung `busy` thì mỗi lần app tự bật bộ phát
+  /// nội bộ lúc khởi động (mất vài giây dò thiết bị) là mọi cú bấm rơi vào im lặng.
+  controlBusy = $state(false);
+  /// Phần đuổi kịp trạng thái chạy sau khi nút đã nhả ra. Giữ lại để kiểm thử chờ được.
+  statusSettled: Promise<void> = Promise.resolve();
   error = $state<string | null>(null);
   account = $state<SpotifyAccount | null>(null);
   authBusy = $state(false);
@@ -246,35 +251,35 @@ class SpotifyState {
   }
 
   async setShuffle(on: boolean) {
-    if (this.busy) return;
+    if (this.controlBusy) return;
     this.shuffleOn = on;
     try { localStorage.setItem(this.shuffleKey, String(on)); } catch { }
     if (!this.status?.can_shuffle) {
       toastState.info(on ? "Trộn bài: áp dụng cho danh sách phát tiếp theo" : "Đã tắt trộn bài");
       return;
     }
-    this.busy = true;
+    this.controlBusy = true;
     this.error = null;
     try {
       await invoke("spotify_set_shuffle", { on });
-      this.status = await invoke<SpotifyStatus>("get_spotify_status");
       toastState.info(on ? "Đã bật trộn bài" : "Đã tắt trộn bài");
-    } catch (e) { this.error = String(e); toastState.error(String(e)); }
-    finally { this.busy = false; }
+    } catch (e) { this.error = String(e); toastState.error(String(e)); return; }
+    finally { this.controlBusy = false; }
+    this.statusSettled = this.settleStatus((status) => status.shuffle === on);
   }
 
   /// Vòng qua ba chế độ Spotify có: không lặp → lặp danh sách → lặp một bài.
   async cycleRepeat() {
-    if (this.busy) return;
+    if (this.controlBusy) return;
     const mode = this.status?.repeat === "off" ? "context" : this.status?.repeat === "context" ? "track" : "off";
-    this.busy = true;
+    this.controlBusy = true;
     this.error = null;
     try {
       await invoke("spotify_set_repeat", { mode });
-      this.status = await invoke<SpotifyStatus>("get_spotify_status");
       toastState.info(mode === "off" ? "Đã tắt lặp lại" : mode === "context" ? "Lặp lại danh sách" : "Lặp lại một bài");
-    } catch (e) { this.error = String(e); toastState.error(String(e)); }
-    finally { this.busy = false; }
+    } catch (e) { this.error = String(e); toastState.error(String(e)); return; }
+    finally { this.controlBusy = false; }
+    this.statusSettled = this.settleStatus((status) => status.repeat === mode);
   }
 
   /// Phát một bài kèm cả danh sách đang xem, nếu không hết bài là Spotify dừng hẳn
@@ -372,7 +377,7 @@ class SpotifyState {
           this.status = status;
           this.rememberTrack(status);
           // Spotify nắm quyền trộn khi ngữ cảnh cho phép; lúc đó nó là nguồn đúng.
-          if (status.can_shuffle && status.shuffle !== this.shuffleOn && !this.busy) {
+          if (status.can_shuffle && status.shuffle !== this.shuffleOn && !this.controlBusy) {
             this.shuffleOn = status.shuffle;
           }
         }
@@ -399,9 +404,11 @@ class SpotifyState {
     const timer = setInterval(poll, 1000);
     // Thiết bị đến và đi ngoài tầm app: mở Spotify trên điện thoại, rút tai nghe, tắt máy
     // khác. Hỏi lại định kỳ để danh sách không nói sai, nhưng thưa hơn nhịp trạng thái.
+    // Mỗi lần hỏi là một yêu cầu Web API thật; hỏi 5 giây một lần cộng với vòng thăm dò
+    // trạng thái là đủ để Spotify trả 429, và lúc đó cả app trông như bị đơ.
     const devicesTimer = setInterval(() => {
       if (alive && this.account?.connected && !this.devicesBusy && !this.busy) void this.refreshDevices(true);
-    }, 5000);
+    }, 15000);
     return () => { alive = false; clearInterval(timer); clearInterval(devicesTimer); };
   }
 
@@ -416,21 +423,38 @@ class SpotifyState {
     finally { this.busy = false; }
   }
 
+  /// Rust chỉ hỏi Spotify theo nhịp, nên ngay sau một lệnh thì ảnh chụp trạng thái vẫn
+  /// là của bài cũ. Lệnh đã đánh dấu cache hết hạn; ở đây hỏi lại vài nhịp ngắn cho đến
+  /// khi nó thật sự đổi, thay vì đọc một lần rồi hiển thị sai suốt một vòng poll.
+  private async settleStatus(changed: (status: SpotifyStatus) => boolean) {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 200 + attempt * 200));
+      let status: SpotifyStatus;
+      try { status = await invoke<SpotifyStatus>("get_spotify_status"); } catch { return; }
+      this.status = status;
+      if (changed(status)) return;
+    }
+  }
+
   async control(action: "play_pause" | "previous" | "next") {
-    if (this.busy) return;
+    if (this.controlBusy) return;
     if ((action === "previous" && this.status?.can_previous === false) ||
         (action === "next" && this.status?.can_next === false)) {
       toastState.info(action === "previous" ? "Spotify chưa cho phép quay lại bài trước trong phiên phát này." : "Spotify chưa cho phép chuyển bài tiếp theo trong phiên phát này.");
       return;
     }
-    this.busy = true;
+    const before = this.status;
+    this.controlBusy = true;
     this.error = null;
     try {
       await invoke("spotify_control", { action });
-      this.status = await invoke<SpotifyStatus>("get_spotify_status");
       toastState.info(action === "next" ? "Đã gửi lệnh chuyển bài tiếp theo" : action === "previous" ? "Đã gửi lệnh chuyển bài trước" : "Đã gửi lệnh phát / tạm dừng Spotify");
-    } catch (e) { this.error = String(e); toastState.error(String(e)); }
-    finally { this.busy = false; }
+    } catch (e) { this.error = String(e); toastState.error(String(e)); return; }
+    finally { this.controlBusy = false; }
+    // Nút nhả ra ngay; phần đuổi kịp trạng thái chạy nền.
+    this.statusSettled = this.settleStatus(action === "play_pause"
+      ? (status) => status.playing !== before?.playing
+      : (status) => status.uri !== before?.uri);
   }
 }
 
