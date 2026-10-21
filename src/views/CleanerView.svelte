@@ -16,8 +16,10 @@
     ChevronRight,
     AppWindow,
     FileText,
+    MemoryStick,
   } from "@lucide/svelte";
   import Modal from "@/components/ui/Modal.svelte";
+  import MemoryPanel from "@/components/cleaner/MemoryPanel.svelte";
   import { toastState } from "@/lib/toast.svelte";
   import {
     scanSystemClean,
@@ -34,7 +36,7 @@
     type PlatformInfo,
   } from "@/lib/cleaner";
 
-  type ActiveCleanerTab = "clean" | "uninstall" | "optimize" | "status";
+  type ActiveCleanerTab = "clean" | "memory" | "uninstall" | "optimize" | "status";
 
   let activeTab = $state<ActiveCleanerTab>("clean");
 
@@ -279,6 +281,22 @@
 
     <button
       type="button"
+      onclick={() => (activeTab = "memory")}
+      class="flex-1 min-w-32 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 {activeTab === 'memory'
+        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
+        : 'text-(--muted) hover:text-(--ink)'}"
+    >
+      <MemoryStick size={14} class="text-(--accent-text)" />
+      <span>Memory</span>
+      {#if hardwareMetrics}
+        <span class="text-[10px] font-mono px-1.5 py-0 rounded bg-(--paper) border border-(--line) text-(--muted)">
+          {Math.round(hardwareMetrics.memory_used_percent)}%
+        </span>
+      {/if}
+    </button>
+
+    <button
+      type="button"
       onclick={() => {
         activeTab = "uninstall";
         if (installedApps.length === 0) handleScanApps();
@@ -454,6 +472,9 @@
     </div>
 
   <!-- TAB 2: APP UNINSTALLER -->
+  {:else if activeTab === "memory"}
+    <MemoryPanel />
+
   {:else if activeTab === "uninstall"}
     <div class="space-y-4">
       <!-- Search & Header Bar -->

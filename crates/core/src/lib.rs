@@ -1,5 +1,7 @@
 pub mod device;
 pub mod input_blocker;
+pub mod memory;
+pub mod memory_cleaner;
 pub mod metrics;
 pub mod pet_notifications;
 pub mod platform;
@@ -14,6 +16,11 @@ pub use input_blocker::{
 pub mod ring_buffer;
 pub mod tap;
 
+pub use memory::{
+    AutoCleanDecision, AutoCleanPolicy, AutoCleanTrigger, MemoryArea, MemoryAreaOutcome,
+    MemoryCleanReport, MemorySegment, MemorySnapshot,
+};
+pub use memory_cleaner::{MemoryAutoStatus, MemoryCleaner, MemoryRunRecord};
 pub use metrics::{get_memory_info, trim_memory_cache, ProcessMemoryInfo};
 pub use process::AudioProcess;
 pub use ring_buffer::{RingBuffer, SharedRingBuffer};

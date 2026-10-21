@@ -3,6 +3,7 @@ pub mod cmd_audio;
 pub mod cmd_auth;
 pub mod cmd_calendar;
 pub mod cmd_cleaner;
+pub mod cmd_memory;
 pub mod cmd_pet;
 pub mod cmd_system;
 pub mod cmd_timer;
@@ -14,6 +15,7 @@ pub use cmd_audio::*;
 pub use cmd_auth::*;
 pub use cmd_calendar::*;
 pub use cmd_cleaner::*;
+pub use cmd_memory::*;
 pub use cmd_pet::*;
 pub use cmd_system::*;
 pub use cmd_timer::*;
@@ -54,6 +56,8 @@ pub struct AppState {
     pub timer: Mutex<BreakTimerManager>,
     pub auth: Arc<engine::auth::remote::RemoteAuth>,
     pub pet: PetManager,
+    /// Memory reporting plus the unattended reclaim scheduler.
+    pub memory: Arc<sound_core::MemoryCleaner>,
     pub wheel_settings: Mutex<PingloomSettings>,
     pub gesture_engine: Mutex<GestureEngine>,
     pub start_time: Instant,
@@ -126,6 +130,11 @@ pub fn run() {
     let auth = Arc::new(engine::auth::remote::RemoteAuth::new(option_env!("RUST_SOUND_AUTH_URL").unwrap_or("")));
     let pet = PetManager::new();
     pet.start_daemon();
+    let memory = Arc::new(sound_core::MemoryCleaner::new(
+        sound_core::MemoryCleaner::default_config_path(),
+    ));
+    // The stored policy decides whether anything happens; the loop itself is idle work.
+    memory.start();
     let input_blocker = InputBlocker::new();
 
     let state = AppState {
@@ -136,6 +145,7 @@ pub fn run() {
         timer: Mutex::new(timer),
         auth,
         pet,
+        memory,
         wheel_settings: Mutex::new(PingloomSettings::default()),
         gesture_engine: Mutex::new(GestureEngine::default()),
         start_time: Instant::now(),
@@ -240,6 +250,13 @@ pub fn run() {
             request_screen_capture_permission,
             open_screen_capture_settings,
             capture_screen_jpeg,
+            memory_snapshot,
+            memory_areas,
+            memory_clean,
+            memory_auto_policy,
+            memory_set_auto_policy,
+            memory_auto_status,
+            memory_run_history,
             get_pet_care_state,
             get_pet_bridge_status,
             get_pet_activity_theme,
@@ -501,6 +518,7 @@ pub fn run() {
             if let Some(state) = app_handle.try_state::<AppState>() {
                 state.spotify.stop();
                 state.pet.stop_daemon();
+                state.memory.stop();
                 state.input_blocker.uninstall();
                 #[cfg(target_os = "macos")]
                 if let Ok(mut guard) = state.gesture_listener.lock() {
