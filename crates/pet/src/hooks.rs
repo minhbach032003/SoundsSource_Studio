@@ -354,6 +354,7 @@ if tool_lower in ["agent", "task", "subagent", "workflow"]:
 
 home = os.environ.get("HOME", "")
 seen = set()
+delivered = False
 for sock_path in [f"{home}/.agentpet/agentpet.sock", f"{home}/.rust-sound/pet.sock"]:
     target = os.path.realpath(sock_path)
     if target in seen:
@@ -365,6 +366,29 @@ for sock_path in [f"{home}/.agentpet/agentpet.sock", f"{home}/.rust-sound/pet.so
         for m in messages:
             s.sendall(m.encode())
         s.close()
+        delivered = True
+    except Exception:
+        pass
+
+# No listener means the app is closed. Spool the event so the next launch replays it
+# instead of losing every session that ran while the app was down.
+if not delivered:
+    try:
+        qdir = os.path.join(home, ".agentpet", "queue")
+        os.makedirs(qdir, exist_ok=True)
+        stale = sorted(f for f in os.listdir(qdir) if f.endswith(".json") and not f.startswith("."))
+        for name in stale[: max(0, len(stale) + len(messages) - 500)]:
+            try:
+                os.remove(os.path.join(qdir, name))
+            except Exception:
+                pass
+        for i, m in enumerate(messages):
+            # Zero padded so a lexical sort replays in the dispatcher sequence order.
+            leaf = "%020d-%06d-%d.json" % (out["sequence"], os.getpid() % 1000000, i)
+            tmp = os.path.join(qdir, "." + leaf)
+            with open(tmp, "w") as fh:
+                fh.write(m)
+            os.replace(tmp, os.path.join(qdir, leaf))
     except Exception:
         pass
 '
@@ -431,12 +455,32 @@ exit 0
             HookFormat::PiExtension => {
                 let code = r#"// Rust Sound Pi Coding Agent Extension
 import { createConnection } from "node:net";
-import { realpathSync } from "node:fs";
+import { mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 export default function (pi: any) {
   const home = process.env.HOME || "";
   const sockPaths = [`${home}/.agentpet/agentpet.sock`, `${home}/.rust-sound/pet.sock`];
+  const queueDir = `${home}/.agentpet/queue`;
   let sequence = 0;
+  let spooled = 0;
+
+  // No listener means the app is closed. Spool the event so the next launch replays it
+  // instead of losing every session that ran while the app was down.
+  const spool = (payload: string, seq: number) => {
+    try {
+      mkdirSync(queueDir, { recursive: true });
+      const existing = readdirSync(queueDir).filter((f) => f.endsWith(".json") && !f.startsWith(".")).sort();
+      for (const name of existing.slice(0, Math.max(0, existing.length + 1 - 500))) {
+        try { unlinkSync(`${queueDir}/${name}`); } catch {}
+      }
+      // Zero padded so a lexical sort replays in the dispatcher sequence order.
+      const leaf = `${String(seq).padStart(20, "0")}-${String(process.pid % 1000000).padStart(6, "0")}-${spooled++}.json`;
+      writeFileSync(`${queueDir}/.${leaf}`, payload);
+      renameSync(`${queueDir}/.${leaf}`, `${queueDir}/${leaf}`);
+    } catch {}
+  };
+
   const send = (eventName: string, message?: string, toolName?: string, customSessionId?: string, isSubagent?: boolean) => {
+    const seq = sequence = Math.max(sequence + 1, Date.now() * 1000);
     const payload = JSON.stringify({
       sessionId: customSessionId || `pi-${process.pid}`,
       agentKind: isSubagent ? "subagent" : "pi",
@@ -445,21 +489,43 @@ export default function (pi: any) {
       message,
       toolName,
       timestamp: Math.floor(Date.now() / 1000),
-      sequence: sequence = Math.max(sequence + 1, Date.now() * 1000)
+      sequence: seq
     }) + "\n";
 
+    // A missing socket throws in realpathSync; still count it as an attempt so a
+    // fully closed app ends in the spool rather than in silence.
     const seen = new Set<string>();
+    const targets: string[] = [];
     for (const socketPath of sockPaths) {
+      let target = socketPath;
+      try { target = realpathSync(socketPath); } catch {}
+      if (seen.has(target)) continue;
+      seen.add(target);
+      targets.push(socketPath);
+    }
+
+    let pending = targets.length;
+    let delivered = false;
+    if (pending === 0) { spool(payload, seq); return; }
+
+    for (const socketPath of targets) {
+      let settled = false;
+      const settle = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        if (ok) delivered = true;
+        if (--pending === 0 && !delivered) spool(payload, seq);
+      };
       try {
-        const target = realpathSync(socketPath);
-        if (seen.has(target)) continue;
-        seen.add(target);
         const client = createConnection(socketPath, () => {
           client.write(payload);
           client.end();
+          settle(true);
         });
-        client.on("error", () => {});
-      } catch {}
+        client.on("error", () => settle(false));
+      } catch {
+        settle(false);
+      }
     }
   };
 

@@ -105,8 +105,21 @@ test("PetSocketPanel Svelte 5 component integrity", () => {
   assert.ok(src.includes("$props()"), "uses $props()");
   assert.ok(src.includes("$state<") || src.includes("$state("), "uses $state");
 
-  // Socket IPC status with specified path
-  assert.ok(src.includes("/tmp/rust-sound-agent-pet.sock"), "references /tmp/rust-sound-agent-pet.sock");
+  // Socket IPC status must come from the Rust listener, never from a hardcoded label.
+  assert.ok(src.includes("bridgeStatus"), "renders the live bridge status from the backend");
+  assert.ok(src.includes("socket_path"), "shows the socket path the listener actually bound");
+  assert.ok(src.includes("queued_events"), "shows the offline spool depth");
+  assert.ok(src.includes("last_error"), "surfaces a failed bind instead of hiding it");
+  assert.equal(
+    src.includes("/tmp/rust-sound-agent-pet.sock"),
+    false,
+    "must not hardcode a socket path the app never binds"
+  );
+  assert.equal(
+    src.includes("Connected (1.2 ms)"),
+    false,
+    "must not claim a connection it did not measure"
+  );
 
   // Active sessions, simulator, connection state
   assert.ok(src.includes("agentSessions"), "displays active agent sessions");

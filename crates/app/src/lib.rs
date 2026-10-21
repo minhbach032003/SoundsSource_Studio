@@ -241,6 +241,7 @@ pub fn run() {
             open_screen_capture_settings,
             capture_screen_jpeg,
             get_pet_care_state,
+            get_pet_bridge_status,
             get_pet_activity_theme,
             set_pet_activity_theme,
             format_tool_activity,

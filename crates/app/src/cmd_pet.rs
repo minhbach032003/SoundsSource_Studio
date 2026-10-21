@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use tauri::State;
 use crate::{AppState, PetCareStateDto};
-use sound_engine::{ActivityFormatter, ActivityTheme, AgentIntegrationInfo, AgentSession};
+use sound_engine::{ActivityFormatter, ActivityTheme, AgentIntegrationInfo, AgentSession, BridgeStatus};
 
 // MARK: - AgentPet Companion Commands
 
@@ -100,6 +100,12 @@ pub fn dismiss_agent_session(id: String, state: State<'_, AppState>) {
 pub fn clear_agent_sessions(state: State<'_, AppState>) -> Result<bool, String> {
     state.pet.clear_sessions();
     Ok(true)
+}
+
+/// The Socket Bridge panel reports this verbatim; it must never be inferred client side.
+#[tauri::command]
+pub fn get_pet_bridge_status(state: State<'_, AppState>) -> BridgeStatus {
+    state.pet.bridge_status()
 }
 
 #[tauri::command]

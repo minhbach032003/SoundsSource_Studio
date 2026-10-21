@@ -17,7 +17,7 @@ pub use event::{AgentEvent, AgentKind, AgentState, PetMood};
 pub use hooks::{AgentIntegrationInfo, HookManager};
 pub use pricing::ModelPricing;
 pub use question::QuestionDetector;
-pub use server::AgentPetServer;
+pub use server::{AgentPetServer, BridgeStatus};
 pub use session::{AgentSession, SessionStore};
 pub use transcript::{TranscriptReader, UsageDelta};
 
@@ -28,6 +28,8 @@ pub struct PetManager {
     care_store: Arc<Mutex<PetCareStore>>,
     sessions: Arc<Mutex<SessionStore>>,
     server: Arc<AgentPetServer>,
+    /// Stops a pending listener retry from resurrecting the bridge during shutdown.
+    shutting_down: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl PetManager {
@@ -46,6 +48,7 @@ impl PetManager {
             care_store,
             sessions,
             server,
+            shutting_down: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 
@@ -58,18 +61,53 @@ impl PetManager {
             care_store,
             sessions,
             server,
+            shutting_down: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }
     }
 
     pub fn start_daemon(&self) {
+        self.shutting_down.store(false, std::sync::atomic::Ordering::SeqCst);
         let _ = HookManager::ensure_agentpet_cli();
         HookManager::auto_heal_installed_hooks();
         if let Err(error) = self.server.start(self.sessions.clone(), self.care_store.clone()) {
             eprintln!("AgentPet activity listener failed to start: {error}");
+            self.retry_daemon();
         }
     }
 
+    /// Relaunching while the previous process still holds both socket paths used to leave
+    /// the app running with no bridge for the rest of its life, silently. Keep trying while
+    /// the old instance finishes shutting down.
+    fn retry_daemon(&self) {
+        let server = self.server.clone();
+        let sessions = self.sessions.clone();
+        let care_store = self.care_store.clone();
+        let shutting_down = self.shutting_down.clone();
+        std::thread::spawn(move || {
+            for attempt in 1..=12u32 {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                if shutting_down.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                match server.start(sessions.clone(), care_store.clone()) {
+                    Ok(()) => {
+                        eprintln!("AgentPet activity listener recovered on attempt {attempt}");
+                        return;
+                    }
+                    Err(error) => {
+                        eprintln!("AgentPet listener retry {attempt} failed: {error}");
+                    }
+                }
+            }
+        });
+    }
+
+    pub fn bridge_status(&self) -> BridgeStatus {
+        self.server.status()
+    }
+
     pub fn stop_daemon(&self) {
+        self.shutting_down.store(true, std::sync::atomic::Ordering::SeqCst);
         self.server.stop();
     }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AgentSessionDto, AgentIntegrationDto } from "./types";
+  import type { AgentSessionDto, AgentIntegrationDto, PetBridgeStatusDto } from "./types";
   import { getPetForSession, getProjectName } from "@/lib/petMapping";
   import {
     Radio,
@@ -16,11 +16,14 @@
     Send,
     Trash2,
     Plug,
+    Inbox,
+    TriangleAlert,
   } from "@lucide/svelte";
 
   interface Props {
     agentSessions: AgentSessionDto[];
     agentIntegrations: AgentIntegrationDto[];
+    bridgeStatus?: PetBridgeStatusDto | null;
     showDesktopOverlay: boolean;
     audioReactive: boolean;
     focusTimerSync: boolean;
@@ -37,6 +40,7 @@
   let {
     agentSessions = [],
     agentIntegrations = [],
+    bridgeStatus = null,
     showDesktopOverlay = false,
     audioReactive = true,
     focusTimerSync = true,
@@ -58,6 +62,28 @@
   const installedHooksCount = $derived(
     agentIntegrations.filter((i) => i.is_installed).length
   );
+
+  // The bridge is reported, never assumed: a listener that failed to bind used to still
+  // read "Connected", which is exactly how a dead bridge stayed invisible after a relaunch.
+  const isListening = $derived(bridgeStatus?.is_listening === true);
+  const socketLabel = $derived(
+    bridgeStatus?.socket_path ?? (bridgeStatus ? "not bound" : "checking...")
+  );
+  const bridgeLabel = $derived(
+    !bridgeStatus ? "Checking..." : isListening ? "Listening" : "Not listening"
+  );
+  const queuedEvents = $derived(bridgeStatus?.queued_events ?? 0);
+  const lastEventLabel = $derived.by(() => {
+    const ts = bridgeStatus?.last_event_at;
+    if (!ts) return "no events yet";
+    const secs = Math.max(0, Math.round(Date.now() / 1000 - ts));
+    if (secs < 60) return `${secs}s ago`;
+    if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+    return `${Math.round(secs / 3600)}h ago`;
+  });
+  const workspaceLabel = $derived(
+    getProjectName(agentSessions.find((s) => s.project)?.project) || "workspace"
+  );
 </script>
 
 <div class="w-full space-y-4 select-none pb-6">
@@ -66,12 +92,15 @@
     <div class="p-3.5 rounded-2xl bg-(--surface) border border-(--line) flex items-center justify-between shadow-xs">
       <div>
         <span class="text-[10px] text-(--muted) uppercase tracking-wider font-semibold block">Socket Status</span>
-        <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5 mt-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Connected (1.2 ms)
+        <span class="text-xs font-bold flex items-center gap-1.5 mt-1 {isListening ? 'text-emerald-400' : 'text-(--error)'}">
+          <span class="w-2 h-2 rounded-full {isListening ? 'bg-emerald-400 animate-pulse' : 'bg-(--error)'}"></span>
+          {bridgeLabel}
+        </span>
+        <span class="text-[10px] text-(--muted) block mt-0.5">
+          {bridgeStatus?.events_received ?? 0} events · last {lastEventLabel}
         </span>
       </div>
-      <div class="w-8 h-8 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-center text-emerald-400">
+      <div class="w-8 h-8 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-center {isListening ? 'text-emerald-400' : 'text-(--error)'}">
         <Radio size={16} />
       </div>
     </div>
@@ -129,15 +158,30 @@
         <div class="p-3 rounded-xl bg-(--paper) border border-(--line) text-xs space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-(--muted) text-[11px]">Unix Domain Socket</span>
-            <span class="font-mono text-[10px] text-(--ink) bg-(--surface) px-2 py-0.5 rounded border border-(--line)">/tmp/rust-sound-agent-pet.sock</span>
+            <span class="font-mono text-[10px] text-(--ink) bg-(--surface) px-2 py-0.5 rounded border border-(--line) truncate max-w-56" title={socketLabel}>{socketLabel}</span>
           </div>
           <div class="flex items-center justify-between pt-1 border-t border-(--line) text-[10px] text-(--muted)">
             <span class="flex items-center gap-1">
               <FolderGit2 size={12} class="text-(--accent-text)" />
               Workspace Context
             </span>
-            <span class="font-mono text-(--ink) truncate max-w-44">/Users/mac/Documents/rust-sound</span>
+            <span class="font-mono text-(--ink) truncate max-w-44">{workspaceLabel}</span>
           </div>
+          <div class="flex items-center justify-between pt-1 border-t border-(--line) text-[10px] text-(--muted)">
+            <span class="flex items-center gap-1">
+              <Inbox size={12} class="text-(--accent-text)" />
+              Offline Spool
+            </span>
+            <span class="font-mono text-(--ink)">
+              {queuedEvents} queued · {bridgeStatus?.events_replayed ?? 0} replayed
+            </span>
+          </div>
+          {#if bridgeStatus?.last_error}
+            <div class="flex items-start gap-1.5 pt-1 border-t border-(--line) text-[10px] text-(--error)">
+              <TriangleAlert size={12} class="shrink-0 mt-px" />
+              <span class="font-mono break-all">{bridgeStatus.last_error}</span>
+            </div>
+          {/if}
         </div>
 
         <!-- Controls Toggles -->

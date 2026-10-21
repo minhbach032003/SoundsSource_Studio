@@ -31,7 +31,8 @@ pub use google_calendar::{
 };
 pub use pet::{
     ActivityFormatter, ActivityTheme, AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer,
-    AgentSession, AgentState, BreakClock, BreakClockConfig, BreakTickResult, HookManager,
+    AgentSession, AgentState, BreakClock, BreakClockConfig, BreakTickResult, BridgeStatus,
+    HookManager,
     ModelPricing, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, QuestionDetector,
     SessionStore, TranscriptReader, UsageDelta, MEAL_XP, TOKENS_PER_XP,
 };

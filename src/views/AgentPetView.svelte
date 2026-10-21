@@ -23,6 +23,7 @@
     xpToReach,
     getInternalLevel,
     type PetCareStateDto,
+    type PetBridgeStatusDto,
     type AgentSessionDto,
     type AgentIntegrationDto,
     type PetEvent,
@@ -134,6 +135,7 @@
   });
 
   let agentSessions = $state<AgentSessionDto[]>([]);
+  let bridgeStatus = $state<PetBridgeStatusDto | null>(null);
   let agentIntegrations = $state<AgentIntegrationDto[]>([
     { kind: "claude", display_name: "Claude Code", is_supported: true, is_installed: false },
     { kind: "codex", display_name: "Codex", is_supported: true, is_installed: false },
@@ -209,12 +211,14 @@
 
     const poll = async () => {
       try {
-        const [care, sessList, integList] = await Promise.all([
+        const [care, sessList, integList, bridge] = await Promise.all([
           invoke<PetCareStateDto>("get_pet_care_state"),
           invoke<AgentSessionDto[]>("get_agent_sessions"),
           invoke<AgentIntegrationDto[]>("get_agent_integrations"),
+          invoke<PetBridgeStatusDto>("get_pet_bridge_status"),
         ]);
         if (care) careState = care;
+        if (bridge) bridgeStatus = bridge;
         if (sessList) {
           for (const s of sessList) {
             const prevState = previousSessionStates.get(s.id);
@@ -667,6 +671,7 @@
     <PetSocketPanel
       {agentSessions}
       {agentIntegrations}
+      {bridgeStatus}
       {showDesktopOverlay}
       {audioReactive}
       {focusTimerSync}

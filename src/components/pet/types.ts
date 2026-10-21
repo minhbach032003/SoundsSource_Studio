@@ -52,6 +52,17 @@ export interface AgentSessionDto {
   last_event_at: number;
 }
 
+/** Live state of the AgentPet unix socket bridge, measured by the Rust listener. */
+export interface PetBridgeStatusDto {
+  socket_path: string | null;
+  is_listening: boolean;
+  last_error: string | null;
+  events_received: number;
+  events_replayed: number;
+  queued_events: number;
+  last_event_at: number | null;
+}
+
 export interface AgentIntegrationDto {
   kind: string;
   display_name: string;
