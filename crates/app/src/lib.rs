@@ -230,6 +230,8 @@ pub fn run() {
             benchmark_ipc_latency,
             trim_memory,
             cleaner_scan_system,
+            cleaner_scan_progress,
+            cleaner_cancel_scan,
             cleaner_execute_clean,
             cleaner_scan_apps,
             cleaner_uninstall_app,

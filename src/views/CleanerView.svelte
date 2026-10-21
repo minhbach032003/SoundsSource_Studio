@@ -17,6 +17,10 @@
     AppWindow,
     FileText,
     MemoryStick,
+    TriangleAlert,
+    Ban,
+    CircleCheck,
+    CircleX,
   } from "@lucide/svelte";
   import Modal from "@/components/ui/Modal.svelte";
   import MemoryPanel from "@/components/cleaner/MemoryPanel.svelte";
@@ -29,7 +33,12 @@
     runOptimizationTask,
     getHardwareMetrics,
     getPlatformInfo,
+    getScanProgress,
+    cancelScan,
+    safeCategoryIds,
     formatBytes,
+    type CleanScanProgress,
+    type CleanExecutionResult,
     type CleanScanResult,
     type InstalledAppInfo,
     type SystemHardwareMetrics,
@@ -51,6 +60,11 @@
   let expandedCategoryIds = $state<Set<string>>(new Set());
   let isCleanModalOpen = $state(false);
   let cleanFilterGroup = $state<"all" | "system" | "developer" | "browser" | "user">("all");
+  let scanProgress = $state<CleanScanProgress | null>(null);
+  let lastCleanResult = $state<CleanExecutionResult | null>(null);
+  /// Ticking a "review" category is a separate, deliberate act, so the confirm step asks
+  /// for it again rather than treating the checkbox as consent.
+  let reviewAcknowledged = $state(false);
 
   // App Uninstaller state
   let isScanningApps = $state(false);
@@ -66,30 +80,76 @@
   // Hardware status state
   let hardwareMetrics = $state<SystemHardwareMetrics | null>(null);
 
-  // Initial load
+  // Initial load. Scanning is not part of it: walking the whole disk because a tab was
+  // opened is the slowest thing this view can do, and nobody asked for it.
   $effect(() => {
     getPlatformInfo().then((info) => {
       platformInfo = info;
     });
-    handleScanClean();
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 3000);
     return () => clearInterval(interval);
   });
 
+  /// Polls the backend's own counters while a scan runs, so "Scanning..." can say which
+  /// part of the system it is in and how much it has seen.
+  $effect(() => {
+    if (!isScanningClean) {
+      return;
+    }
+    let alive = true;
+    const poll = async () => {
+      try {
+        const progress = await getScanProgress();
+        if (alive) scanProgress = progress;
+      } catch {
+        /* the scan result itself is the source of truth */
+      }
+    };
+    void poll();
+    const timer = setInterval(poll, 250);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  });
+
   // 1. Deep Clean Handlers
   async function handleScanClean() {
     isScanningClean = true;
+    lastCleanResult = null;
+    reviewAcknowledged = false;
     try {
       const res = await scanSystemClean();
       scanResult = res;
-      // Pre-select all categories by default
-      selectedCategoryIds = new Set(res.categories.map((c) => c.id));
-      toastState.info(`Scanned ${res.categories.length} cleanup categories (${formatBytes(res.total_size_bytes)})`);
+      // Only what regenerates itself is ticked. The Trash and the Downloads folder hold
+      // files the user chose to keep, and a one-click clean must not take them.
+      selectedCategoryIds = safeCategoryIds(res);
+      const reviewCount = res.categories.filter((c) => c.risk === "review").length;
+      if (res.cancelled) {
+        toastState.info(
+          `Scan stopped early. ${res.categories.length} categories found so far (${formatBytes(res.total_size_bytes)}).`
+        );
+      } else {
+        toastState.info(
+          `Found ${formatBytes(res.total_size_bytes)} across ${res.categories.length} categories` +
+            (reviewCount > 0 ? `; ${reviewCount} need a look before deleting` : "")
+        );
+      }
     } catch (err) {
       toastState.error(`System scan failed: ${String(err)}`);
     } finally {
       isScanningClean = false;
+      scanProgress = null;
+    }
+  }
+
+  async function handleCancelScan() {
+    try {
+      await cancelScan();
+      toastState.info("Stopping the scan; you will get what was found so far");
+    } catch (err) {
+      toastState.error(`Could not stop the scan: ${String(err)}`);
     }
   }
 
@@ -120,6 +180,18 @@
       .reduce((sum, c) => sum + c.size_bytes, 0);
   });
 
+  const selectedReviewCategories = $derived.by(() => {
+    if (!scanResult) return [];
+    return scanResult.categories.filter(
+      (c) => c.risk === "review" && selectedCategoryIds.has(c.id)
+    );
+  });
+
+  const canConfirmClean = $derived(
+    selectedCategoryIds.size > 0 &&
+      (selectedReviewCategories.length === 0 || reviewAcknowledged)
+  );
+
   const filteredCategories = $derived.by(() => {
     if (!scanResult) return [];
     if (cleanFilterGroup === "all") return scanResult.categories;
@@ -127,11 +199,28 @@
   });
 
   async function handleConfirmClean() {
+    if (!canConfirmClean) {
+      toastState.info("Confirm the categories that hold your own files first");
+      return;
+    }
     isCleanModalOpen = false;
     isCleaning = true;
     try {
       const res = await executeClean(Array.from(selectedCategoryIds));
-      toastState.success(`Cleaned ${formatBytes(res.bytes_reclaimed)} (${res.items_removed} items removed)`);
+      lastCleanResult = res;
+      // A clean that half worked used to report one number and look like a small disk.
+      const failed = res.categories.filter((c) => c.errors.length > 0);
+      if (failed.length === 0 && res.skipped.length === 0) {
+        toastState.success(
+          `Reclaimed ${formatBytes(res.bytes_reclaimed)} across ${res.categories.length} categories (${res.items_removed} items)`
+        );
+      } else {
+        toastState.info(
+          `Reclaimed ${formatBytes(res.bytes_reclaimed)}; ${failed.length + res.skipped.length} of ${selectedCategoryIds.size} categories did not fully run`
+        );
+      }
+      // The list the user reviewed is now stale, so refresh it rather than leaving sizes
+      // on screen for files that no longer exist.
       await handleScanClean();
     } catch (err) {
       toastState.error(`Clean failed: ${String(err)}`);
@@ -261,6 +350,72 @@
     </div>
   </div>
 
+  <!-- Persistent status strip. The numbers that decide whether to clean anything were
+       only on the Hardware Status tab, which meant leaving the page to find out. -->
+  {#if hardwareMetrics}
+    {@const disk = hardwareMetrics.disk_used_percent}
+    {@const ram = hardwareMetrics.memory_used_percent}
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) shadow-xs">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-(--muted) block">
+          Disk free
+        </span>
+        <span
+          class="text-sm font-bold font-mono {disk >= 90
+            ? 'text-(--error)'
+            : disk >= 75
+              ? 'text-(--warning)'
+              : 'text-(--ink)'}"
+        >
+          {formatBytes(hardwareMetrics.disk_available_bytes)}
+        </span>
+        <span class="text-[10px] text-(--muted) font-mono block">{disk.toFixed(0)}% used</span>
+      </div>
+
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) shadow-xs">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-(--muted) block">
+          Memory
+        </span>
+        <span
+          class="text-sm font-bold font-mono {ram >= 90
+            ? 'text-(--error)'
+            : ram >= 75
+              ? 'text-(--warning)'
+              : 'text-(--ink)'}"
+        >
+          {ram.toFixed(0)}%
+        </span>
+        <span class="text-[10px] text-(--muted) font-mono block">
+          {formatBytes(hardwareMetrics.memory_free_bytes)} free
+        </span>
+      </div>
+
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) shadow-xs">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-(--muted) block">
+          Swap in use
+        </span>
+        <span class="text-sm font-bold font-mono text-(--ink)">
+          {formatBytes(hardwareMetrics.swap_used_bytes)}
+        </span>
+        <span class="text-[10px] text-(--muted) font-mono block">
+          of {formatBytes(hardwareMetrics.swap_total_bytes)}
+        </span>
+      </div>
+
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) shadow-xs">
+        <span class="text-[10px] uppercase tracking-wider font-semibold text-(--muted) block">
+          Found on disk
+        </span>
+        <span class="text-sm font-bold font-mono text-(--accent-text)">
+          {scanResult ? formatBytes(scanResult.total_size_bytes) : "—"}
+        </span>
+        <span class="text-[10px] text-(--muted) font-mono block">
+          {scanResult ? `${scanResult.categories.length} categories` : "not scanned yet"}
+        </span>
+      </div>
+    </div>
+  {/if}
+
   <!-- Navigation Tabs -->
   <div class="flex items-center gap-1 p-1 rounded-xl bg-(--paper) border border-(--line) shrink-0 overflow-x-auto no-scrollbar">
     <button
@@ -343,34 +498,58 @@
       <!-- Toolbar & Action Card -->
       <div class="panel p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div class="space-y-1">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-bold text-(--ink)">Reclaimable Space:</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-(--ink)">Selected:</span>
             <span class="text-base font-extrabold text-(--accent-text) font-mono">
               {formatBytes(selectedTotalBytes)}
             </span>
             <span class="text-[11px] text-(--muted) font-mono">
               ({selectedCategoryIds.size} / {scanResult ? scanResult.categories.length : 0} categories)
             </span>
+            {#if scanResult?.cancelled}
+              <span class="text-[10px] text-(--warning) font-semibold">partial scan</span>
+            {/if}
           </div>
           <p class="text-[11px] text-(--muted) m-0">
-            Preview is safe and dry-run verified. Only selected categories will be removed upon confirmation.
+            {#if selectedReviewCategories.length > 0}
+              {selectedReviewCategories.length} selected category(s) hold files you chose to keep.
+              You will be asked to confirm them separately.
+            {:else}
+              Only self-regenerating caches are ticked by default. Anything holding your own
+              files stays unticked until you tick it.
+            {/if}
           </p>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onclick={handleScanClean}
-            disabled={isScanningClean || isCleaning}
-            class="btn btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5 border border-(--line)"
-          >
-            <RefreshCw size={13} class={isScanningClean ? "animate-spin" : ""} />
-            <span>{isScanningClean ? "Scanning…" : "Re-Scan"}</span>
-          </button>
+          {#if isScanningClean}
+            <button
+              type="button"
+              onclick={handleCancelScan}
+              disabled={scanProgress?.cancelled}
+              class="btn btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5 border border-(--line)"
+            >
+              <Ban size={13} />
+              <span>{scanProgress?.cancelled ? "Stopping…" : "Cancel"}</span>
+            </button>
+          {:else}
+            <button
+              type="button"
+              onclick={handleScanClean}
+              disabled={isCleaning}
+              class="btn btn-ghost text-xs flex items-center gap-1.5 px-3 py-1.5 border border-(--line)"
+            >
+              <RefreshCw size={13} />
+              <span>{scanResult ? "Re-Scan" : "Scan"}</span>
+            </button>
+          {/if}
 
           <button
             type="button"
-            onclick={() => (isCleanModalOpen = true)}
+            onclick={() => {
+              reviewAcknowledged = false;
+              isCleanModalOpen = true;
+            }}
             disabled={isCleaning || isScanningClean || selectedTotalBytes === 0}
             class="btn btn-primary text-xs flex items-center gap-1.5 px-3.5 py-1.5 shadow-xs font-semibold"
           >
@@ -395,12 +574,79 @@
         {/each}
       </div>
 
+      <!-- Live scan progress: the walk reports its own stage and running totals, so
+           "Scanning..." is never the only thing on screen. -->
+      {#if isScanningClean}
+        <div class="panel p-4 shadow-xs flex items-center gap-3">
+          <RefreshCw size={18} class="animate-spin text-(--accent-text) shrink-0" />
+          <div class="min-w-0 flex-1">
+            <span class="text-xs font-bold text-(--ink) block">
+              {scanProgress?.cancelled ? "Stopping the scan…" : scanProgress?.stage || "Starting…"}
+            </span>
+            <span class="text-[10px] text-(--muted) font-mono">
+              {formatBytes(scanProgress?.bytes_seen ?? 0)} across
+              {(scanProgress?.files_seen ?? 0).toLocaleString()} files so far
+            </span>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Per-category results, so a partial clean is legible rather than one number -->
+      {#if lastCleanResult && !isCleaning}
+        <div class="panel p-4 shadow-xs space-y-1.5">
+          <div class="flex items-center justify-between gap-3 pb-2 border-b border-(--line)">
+            <span class="text-xs font-bold text-(--ink)">Last clean</span>
+            <span class="text-xs font-mono text-(--success)">
+              {formatBytes(lastCleanResult.bytes_reclaimed)} · {lastCleanResult.items_removed} items
+            </span>
+          </div>
+          {#each lastCleanResult.categories as outcome (outcome.id)}
+            <div class="flex items-start gap-2 text-[11px]">
+              {#if outcome.errors.length === 0}
+                <CircleCheck size={12} class="text-(--success) shrink-0 mt-0.5" />
+              {:else}
+                <CircleX size={12} class="text-(--error) shrink-0 mt-0.5" />
+              {/if}
+              <span class="min-w-0 flex-1">
+                <span class="text-(--ink)">{outcome.name}</span>
+                <span class="text-(--muted) font-mono"> — {formatBytes(outcome.bytes_reclaimed)}, {outcome.items_removed} items</span>
+                {#each outcome.errors.slice(0, 3) as error (error)}
+                  <span class="block text-(--error) break-all">{error}</span>
+                {/each}
+                {#if outcome.errors.length > 3}
+                  <span class="block text-(--muted)">and {outcome.errors.length - 3} more error(s)</span>
+                {/if}
+              </span>
+            </div>
+          {/each}
+          {#each lastCleanResult.skipped as id (id)}
+            <div class="flex items-start gap-2 text-[11px]">
+              <TriangleAlert size={12} class="text-(--warning) shrink-0 mt-0.5" />
+              <span class="text-(--muted)">
+                <span class="text-(--ink)">{id}</span> — no longer in the reviewed scan, so it was skipped
+              </span>
+            </div>
+          {/each}
+        </div>
+      {/if}
+
       <!-- Categories List -->
-      {#if isScanningClean && !scanResult}
-        <div class="py-16 flex flex-col items-center justify-center text-center text-(--muted) bg-(--paper) rounded-2xl border border-dashed border-(--line)">
-          <RefreshCw size={28} class="animate-spin mb-2 text-(--accent-text)" />
-          <span class="text-xs font-bold text-(--ink)">Scanning macOS File System…</span>
-          <span class="text-[10px] text-(--muted) mt-0.5">Inspecting Caches, Developer DerivedData, Logs, and Leftovers</span>
+      {#if !scanResult && !isScanningClean}
+        <div class="py-12 flex flex-col items-center justify-center text-center text-(--muted) bg-(--paper) rounded-2xl border border-dashed border-(--line)">
+          <Search size={28} class="mb-2 text-(--accent-text)" />
+          <span class="text-xs font-bold text-(--ink)">Nothing scanned yet</span>
+          <span class="text-[10px] text-(--muted) mt-0.5 max-w-80">
+            A scan walks your caches, build artifacts, logs and installers. It reads only; nothing
+            is deleted until you pick categories and confirm.
+          </span>
+          <button
+            type="button"
+            onclick={handleScanClean}
+            class="btn btn-primary text-xs flex items-center gap-1.5 px-3.5 py-1.5 mt-3 font-semibold"
+          >
+            <Search size={13} />
+            <span>Scan now</span>
+          </button>
         </div>
       {:else if filteredCategories.length === 0}
         <div class="py-12 flex flex-col items-center justify-center text-center text-(--muted) bg-(--paper) rounded-2xl border border-dashed border-(--line)">
@@ -423,11 +669,21 @@
                     class="w-4 h-4 rounded text-(--accent) accent-(--accent) cursor-pointer"
                   />
                   <div class="min-w-0">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                       <span class="font-bold text-xs text-(--ink) truncate">{cat.name}</span>
                       <span class="badge text-[9px] px-1.5 py-0 uppercase">{cat.group}</span>
+                      {#if cat.risk === "review"}
+                        <span
+                          class="text-[9px] px-1.5 py-0 rounded uppercase font-semibold border border-(--error)/40 bg-(--error)/10 text-(--error) flex items-center gap-1"
+                        >
+                          <TriangleAlert size={9} /> review
+                        </span>
+                      {/if}
                     </div>
                     <p class="text-[11px] text-(--muted) m-0 truncate">{cat.description}</p>
+                    {#if cat.risk_note}
+                      <p class="text-[10px] text-(--warning) m-0">{cat.risk_note}</p>
+                    {/if}
                   </div>
                 </div>
 
@@ -789,11 +1045,47 @@
 <Modal
   open={isCleanModalOpen}
   title="Confirm Deep Cleanup"
-  description={`Permanently clean ${selectedCategoryIds.size} selected categories and reclaim ~${formatBytes(selectedTotalBytes)} of disk space?`}
-  confirmText="Clean Selected"
+  description={`Delete ${selectedCategoryIds.size} selected categories and reclaim about ${formatBytes(selectedTotalBytes)}? This cannot be undone.`}
+  confirmText={canConfirmClean ? "Clean Selected" : "Tick the box above first"}
+  confirmVariant={selectedReviewCategories.length > 0 ? "destructive" : "primary"}
   onClose={() => (isCleanModalOpen = false)}
   onConfirm={handleConfirmClean}
-/>
+>
+  {#if selectedReviewCategories.length > 0}
+    <!-- The checkbox in the list selects; this confirms. Emptying the Trash is not the
+         same decision as rebuilding a cache, so it is not covered by the same tick. -->
+    <div class="rounded-xl border border-(--error)/40 bg-(--error)/10 p-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <TriangleAlert size={14} class="text-(--error) shrink-0" />
+        <span class="text-xs font-bold text-(--ink)">These hold files you chose to keep</span>
+      </div>
+      {#each selectedReviewCategories as cat (cat.id)}
+        <div class="text-[11px]">
+          <span class="text-(--ink) font-semibold">{cat.name}</span>
+          <span class="text-(--muted) font-mono"> · {formatBytes(cat.size_bytes)}, {cat.item_count} items</span>
+          {#if cat.risk_note}
+            <span class="block text-(--muted)">{cat.risk_note}</span>
+          {/if}
+        </div>
+      {/each}
+      <label class="flex items-start gap-2 pt-1 cursor-pointer">
+        <input
+          type="checkbox"
+          class="mt-0.5 shrink-0 accent-(--accent)"
+          bind:checked={reviewAcknowledged}
+        />
+        <span class="text-[11px] text-(--ink)">
+          I have reviewed these and want them deleted permanently.
+        </span>
+      </label>
+    </div>
+  {:else}
+    <p class="text-[11px] text-(--muted) m-0">
+      Every selected category regenerates itself. The only cost is a slower first run
+      afterwards.
+    </p>
+  {/if}
+</Modal>
 
 <!-- App Uninstall Confirmation Modal -->
 <Modal

@@ -16,6 +16,9 @@ export interface CleanCategory {
   size_bytes: number;
   item_count: number;
   paths: string[];
+  /** "safe" regenerates itself; "review" holds something chosen or unrebuildable. */
+  risk: "safe" | "review";
+  risk_note: string | null;
 }
 
 export interface CleanScanResult {
@@ -24,12 +27,32 @@ export interface CleanScanResult {
   total_item_count: number;
   scanned_at_secs: number;
   platform?: string;
+  /** The walk was stopped early, so the totals are a floor rather than a total. */
+  cancelled?: boolean;
+}
+
+export interface CleanScanProgress {
+  running: boolean;
+  cancelled: boolean;
+  stage: string;
+  bytes_seen: number;
+  files_seen: number;
+}
+
+export interface CleanCategoryOutcome {
+  id: string;
+  name: string;
+  bytes_reclaimed: number;
+  items_removed: number;
+  errors: string[];
 }
 
 export interface CleanExecutionResult {
   bytes_reclaimed: number;
   items_removed: number;
   errors: string[];
+  categories: CleanCategoryOutcome[];
+  skipped: string[];
 }
 
 export interface AppLeftoverItem {
@@ -119,6 +142,8 @@ export async function scanSystemClean(): Promise<CleanScanResult> {
           size_bytes: 412 * 1024 * 1024,
           item_count: 820,
           paths: ["/Users/mock/Library/Caches/mock-app"],
+          risk: "safe",
+          risk_note: null,
         },
         {
           id: "xcode_derived_data",
@@ -128,11 +153,25 @@ export async function scanSystemClean(): Promise<CleanScanResult> {
           size_bytes: 2400 * 1024 * 1024,
           item_count: 1540,
           paths: ["/Users/mock/Library/Developer/Xcode/DerivedData"],
+          risk: "safe",
+          risk_note: null,
+        },
+        {
+          id: "system_trash",
+          name: "Trash Bin",
+          description: "Deleted files currently in your user Trash bin",
+          group: "user",
+          size_bytes: 980 * 1024 * 1024,
+          item_count: 64,
+          paths: ["/Users/mock/.Trash"],
+          risk: "review",
+          risk_note: "These are your own deleted files. Emptying the Trash cannot be undone.",
         },
       ],
-      total_size_bytes: 2812 * 1024 * 1024,
-      total_item_count: 2360,
+      total_size_bytes: 3792 * 1024 * 1024,
+      total_item_count: 2424,
       scanned_at_secs: Math.floor(Date.now() / 1000),
+      cancelled: false,
     };
   }
   return invoke<CleanScanResult>("cleaner_scan_system");
@@ -144,9 +183,36 @@ export async function executeClean(categoryIds: string[]): Promise<CleanExecutio
       bytes_reclaimed: 1500 * 1024 * 1024,
       items_removed: 920,
       errors: [],
+      categories: categoryIds.map((id) => ({
+        id,
+        name: id,
+        bytes_reclaimed: 500 * 1024 * 1024,
+        items_removed: 300,
+        errors: [],
+      })),
+      skipped: [],
     };
   }
   return invoke<CleanExecutionResult>("cleaner_execute_clean", { categoryIds });
+}
+
+export async function getScanProgress(): Promise<CleanScanProgress> {
+  if (!isTauri()) {
+    return { running: false, cancelled: false, stage: "Done", bytes_seen: 0, files_seen: 0 };
+  }
+  return invoke<CleanScanProgress>("cleaner_scan_progress");
+}
+
+/** Stops the walk at the next directory; the partial result is still returned. */
+export async function cancelScan(): Promise<void> {
+  if (!isTauri()) return;
+  await invoke("cleaner_cancel_scan");
+}
+
+/** Only regenerable categories are ticked by default. */
+export function safeCategoryIds(result: CleanScanResult | null): Set<string> {
+  if (!result) return new Set();
+  return new Set(result.categories.filter((c) => c.risk !== "review").map((c) => c.id));
 }
 
 export async function scanInstalledApps(): Promise<InstalledAppInfo[]> {
@@ -230,6 +296,14 @@ export async function purgeProjectArtifacts(paths: string[]): Promise<CleanExecu
       bytes_reclaimed: 2340 * 1024 * 1024,
       items_removed: paths.length,
       errors: [],
+      categories: paths.map((path) => ({
+        id: path,
+        name: path.split("/").pop() ?? path,
+        bytes_reclaimed: 1170 * 1024 * 1024,
+        items_removed: 1,
+        errors: [],
+      })),
+      skipped: [],
     };
   }
   return invoke<CleanExecutionResult>("cleaner_purge_projects", { paths });

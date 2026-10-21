@@ -1,3 +1,4 @@
+pub mod cleaner_policy;
 pub mod device;
 pub mod input_blocker;
 pub mod memory;
@@ -8,6 +9,7 @@ pub mod platform;
 pub mod process;
 pub mod spotify;
 
+pub use cleaner_policy::{risk_for, risk_note, CleanRisk};
 pub use device::AudioDevice;
 pub use input_blocker::{
     should_suppress_event, InputBlocker, KEYCODE_ESCAPE, KEYCODE_F3, KEYCODE_GRAVE, KEYCODE_H,
