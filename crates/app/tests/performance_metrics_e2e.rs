@@ -40,6 +40,7 @@ fn test_performance_metrics_and_memory_trim_lifecycle() {
         timer: Mutex::new(timer),
         auth,
         pet,
+        memory: std::sync::Arc::new(sound_core::MemoryCleaner::new(std::env::temp_dir().join(format!("policy_perf_{}.json", std::process::id())))),
         wheel_settings: Mutex::new(PingloomSettings::default()),
         gesture_engine: Mutex::new(GestureEngine::default()),
         gemini_api_key: Mutex::new(None),

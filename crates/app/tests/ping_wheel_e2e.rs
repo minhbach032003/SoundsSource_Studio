@@ -25,6 +25,7 @@ fn test_ping_wheel_settings_and_geometry_e2e() {
         timer: Mutex::new(timer),
         auth,
         pet,
+        memory: std::sync::Arc::new(sound_core::MemoryCleaner::new(std::env::temp_dir().join(format!("policy_{}.json", std::process::id())))),
         wheel_settings: Mutex::new(PingloomSettings::default()),
         gesture_engine: Mutex::new(GestureEngine::default()),
         gemini_api_key: Mutex::new(None),
