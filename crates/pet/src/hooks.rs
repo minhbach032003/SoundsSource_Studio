@@ -273,29 +273,51 @@ impl HookManager {
             let script = r#"#!/bin/sh
 # Universal AgentPet Hook Dispatcher for rust-sound
 AGENT="claude"
+EVENT=""
+SESSION=""
+PROJECT=""
+MESSAGE=""
+TOOL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --agent) [ $# -ge 2 ] || exit 1; AGENT="$2"; shift 2 ;;
+    --event|-e) [ $# -ge 2 ] || exit 1; EVENT="$2"; shift 2 ;;
+    --session|-s) [ $# -ge 2 ] || exit 1; SESSION="$2"; shift 2 ;;
+    --project|-p) [ $# -ge 2 ] || exit 1; PROJECT="$2"; shift 2 ;;
+    --message|-m) [ $# -ge 2 ] || exit 1; MESSAGE="$2"; shift 2 ;;
+    --tool|-t) [ $# -ge 2 ] || exit 1; TOOL="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
 
-AGENT="$AGENT" python3 -c '
+AGENT="$AGENT" CLI_EVENT="$EVENT" CLI_SESSION="$SESSION" CLI_PROJECT="$PROJECT" CLI_MESSAGE="$MESSAGE" CLI_TOOL="$TOOL" python3 -c '
 import sys, json, os, socket, time
-agent = os.environ["AGENT"]
-payload_str = sys.stdin.read().strip()
+agent = os.environ.get("AGENT", "claude")
+cli_event = os.environ.get("CLI_EVENT") or None
+cli_session = os.environ.get("CLI_SESSION") or None
+cli_project = os.environ.get("CLI_PROJECT") or None
+cli_message = os.environ.get("CLI_MESSAGE") or None
+cli_tool = os.environ.get("CLI_TOOL") or None
+
+payload_str = ""
+if not sys.stdin.isatty():
+    try:
+        payload_str = sys.stdin.read().strip()
+    except Exception:
+        pass
+
 data = {}
 try:
     if payload_str:
         data = json.loads(payload_str)
-except:
+except Exception:
     pass
 
-session_id = data.get("session_id") or data.get("sessionId") or f"{agent}-{os.getpid()}"
-event = data.get("hook_event_name") or data.get("event") or data.get("eventName") or "UserPromptSubmit"
-project = data.get("project") or data.get("cwd") or os.environ.get("PWD") or ""
-message = data.get("message") or data.get("prompt") or data.get("tool_name") or ""
-tool_name = data.get("tool_name") or data.get("tool") or ""
+session_id = data.get("session_id") or data.get("sessionId") or cli_session or f"{agent}-{os.getpid()}"
+event = data.get("hook_event_name") or data.get("event") or data.get("eventName") or cli_event or "UserPromptSubmit"
+project = data.get("project") or data.get("cwd") or cli_project or os.environ.get("PWD") or ""
+message = data.get("message") or data.get("prompt") or cli_message or data.get("tool_name") or cli_tool or ""
+tool_name = data.get("tool_name") or data.get("tool") or cli_tool or ""
 tool_summary = data.get("tool_summary") or data.get("summary") or ""
 
 out = {
@@ -343,7 +365,7 @@ for sock_path in [f"{home}/.agentpet/agentpet.sock", f"{home}/.rust-sound/pet.so
         for m in messages:
             s.sendall(m.encode())
         s.close()
-    except:
+    except Exception:
         pass
 '
 exit 0
@@ -359,10 +381,39 @@ exit 0
                 use std::os::unix::fs::PermissionsExt;
                 fs::set_permissions(&cli_path, fs::Permissions::from_mode(0o755)).map_err(|e| e.to_string())?;
             }
+
+            #[cfg(target_os = "macos")]
+            {
+                let legacy_bin = std::path::Path::new("/Applications/AgentPet.app/Contents/MacOS/agentpet");
+                if legacy_bin.symlink_metadata().is_ok() && !legacy_bin.exists() {
+                    let _ = fs::remove_file(legacy_bin);
+                }
+                if !legacy_bin.exists() {
+                    if let Some(parent) = legacy_bin.parent() {
+                        let _ = fs::create_dir_all(parent);
+                    }
+                    let _ = std::os::unix::fs::symlink(&cli_path, legacy_bin);
+                }
+            }
+
             return Ok(format!("'{}'", cli_path.to_string_lossy().replace('\'', "'\\''")));
         }
 
         Err("Home directory unavailable".into())
+    }
+
+    pub fn auto_heal_installed_hooks() {
+        for spec in SPECS {
+            if Self::is_installed(spec.kind) {
+                let _ = Self::install(spec.kind);
+            }
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            let pi_agent_dir = std::path::Path::new(&home).join(".pi").join("agent");
+            if pi_agent_dir.exists() && !Self::is_installed("pi") {
+                let _ = Self::install("pi");
+            }
+        }
     }
 
     pub fn install(kind: &str) -> Result<(), String> {
@@ -415,7 +466,15 @@ export default function (pi: any) {
   const activeSubagents = new Map<string, string[]>();
 
   pi.on("session_start", () => send("SessionStart"));
-  pi.on("agent_start", () => send("UserPromptSubmit"));
+  pi.on("before_agent_start", (e: any) => {
+    const prompt = typeof e?.prompt === "string" ? e.prompt.slice(0, 120) : undefined;
+    send("UserPromptSubmit", prompt);
+  });
+  pi.on("agent_start", (e: any) => {
+    const prompt = typeof e?.prompt === "string" ? e.prompt.slice(0, 120) : undefined;
+    send("UserPromptSubmit", prompt);
+  });
+  pi.on("turn_start", () => send("UserPromptSubmit"));
   pi.on("tool_call", (e: any) => {
     send("PreToolUse", e?.toolName, e?.toolName);
     const tn = String(e?.toolName || "").toLowerCase();
@@ -518,22 +577,22 @@ export default function (pi: any) {
                 for ev in spec.events {
                     let arr = hooks.entry(*ev).or_insert_with(|| json!([]));
                     if let Some(list) = arr.as_array_mut() {
-                        let already = list.iter().any(|item| {
-                            item.get("hooks")
-                                .and_then(|h| h.as_array())
-                                .map(|cmds| {
-                                    cmds.iter().any(|c| {
-                                        c.get("command")
-                                            .and_then(|s| s.as_str())
-                                            .map(|s| {
-                                                s.contains("agentpet") || s.contains("rust-sound")
-                                            })
-                                            .unwrap_or(false)
-                                    })
-                                })
-                                .unwrap_or(false)
-                        });
-                        if !already {
+                        let mut found = false;
+                        for item in list.iter_mut() {
+                            if let Some(inner) = item.get_mut("hooks").and_then(|h| h.as_array_mut()) {
+                                for cmd_obj in inner.iter_mut() {
+                                    if let Some(c) = cmd_obj.get("command").and_then(|s| s.as_str()) {
+                                        if c.contains("agentpet") || c.contains("rust-sound") {
+                                            if let Some(obj) = cmd_obj.as_object_mut() {
+                                                obj.insert("command".to_string(), json!(cmd));
+                                                found = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if !found {
                             list.push(json!({
                                 "hooks": [{
                                     "type": "command",
@@ -566,13 +625,18 @@ export default function (pi: any) {
                 for ev in spec.events {
                     let arr = hooks.entry(*ev).or_insert_with(|| json!([]));
                     if let Some(list) = arr.as_array_mut() {
-                        let already = list.iter().any(|c| {
-                            c.get("command")
-                                .and_then(|s| s.as_str())
-                                .map(|s| s.contains("agentpet") || s.contains("rust-sound"))
-                                .unwrap_or(false)
-                        });
-                        if !already {
+                        let mut found = false;
+                        for c in list.iter_mut() {
+                            if let Some(s) = c.get("command").and_then(|s| s.as_str()) {
+                                if s.contains("agentpet") || s.contains("rust-sound") {
+                                    if let Some(obj) = c.as_object_mut() {
+                                        obj.insert("command".to_string(), json!(cmd));
+                                        found = true;
+                                    }
+                                }
+                            }
+                        }
+                        if !found {
                             list.push(json!({
                                 "command": cmd,
                                 "type": "command"
@@ -628,7 +692,7 @@ export default function (pi: any) {
                             for item in arr.iter_mut() {
                                 if let Some(commands) = item.get_mut("hooks").and_then(|h| h.as_array_mut()) {
                                     commands.retain(|command| !command.get("command").and_then(|c| c.as_str())
-                                        .is_some_and(|c| c.contains(".rust-sound/pet-hook")));
+                                        .is_some_and(|c| c.contains(".rust-sound/pet-hook") || c.contains("AgentPet.app/Contents/MacOS/agentpet")));
                                 }
                             }
                             arr.retain(|item| !item.get("hooks").and_then(|h| h.as_array()).is_some_and(|h| h.is_empty()));
@@ -643,7 +707,7 @@ export default function (pi: any) {
                             arr.retain(|c| {
                                 !c.get("command")
                                     .and_then(|s| s.as_str())
-                                    .map(|s| s.contains(".rust-sound/pet-hook"))
+                                    .map(|s| s.contains(".rust-sound/pet-hook") || s.contains("AgentPet.app/Contents/MacOS/agentpet"))
                                     .unwrap_or(false)
                             });
                         }
@@ -738,5 +802,27 @@ mod configuration_tests {
         fs::write(&claude, r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/tmp/.rust-sound/pet-hook hook --agent claude"},{"type":"command","command":"custom-audit"}]}]}}"#).unwrap();
         HookManager::uninstall("claude").unwrap();
         assert!(fs::read_to_string(&claude).unwrap().contains("custom-audit"));
+    }
+
+    #[test]
+    fn auto_heal_upgrades_legacy_commands() {
+        if std::env::var_os("RUST_SOUND_HOOK_TEST_CHILD").is_none() {
+            let home = tempfile::tempdir().unwrap();
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "pet::hooks::configuration_tests::auto_heal_upgrades_legacy_commands", "--nocapture"])
+                .env("HOME", home.path()).env("RUST_SOUND_HOOK_TEST_CHILD", "1")
+                .output().unwrap();
+            assert!(output.status.success(), "{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+            return;
+        }
+
+        let claude = HookManager::config_path_for("claude").unwrap();
+        fs::create_dir_all(claude.parent().unwrap()).unwrap();
+        fs::write(&claude, r#"{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"\"/Applications/AgentPet.app/Contents/MacOS/agentpet\" hook --agent claude"}]}]}}"#).unwrap();
+
+        HookManager::auto_heal_installed_hooks();
+        let content = fs::read_to_string(&claude).unwrap();
+        assert!(content.contains(".rust-sound/pet-hook"));
+        assert!(!content.contains("/Applications/AgentPet.app"));
     }
 }

@@ -62,6 +62,8 @@ impl PetManager {
     }
 
     pub fn start_daemon(&self) {
+        let _ = HookManager::ensure_agentpet_cli();
+        HookManager::auto_heal_installed_hooks();
         if let Err(error) = self.server.start(self.sessions.clone(), self.care_store.clone()) {
             eprintln!("AgentPet activity listener failed to start: {error}");
         }
