@@ -1516,7 +1516,9 @@ pub async fn cleaner_optimize_task(task_id: String) -> Result<OptimizationTaskRe
                 task_name = if is_windows { "Windows RAM Working Set Trim".into() } else { "RAM Memory Pressure Relief".into() };
                 let freed = sound_core::trim_memory_cache();
                 if !is_windows {
-                    let _ = Command::new("/usr/sbin/purge").status();
+                    if !Command::new("/usr/sbin/purge").status().map(|s| s.success()).unwrap_or(false) {
+                        let _ = Command::new("sudo").args(["-n", "/usr/sbin/purge"]).status();
+                    }
                 }
                 message = format!("Purgeable RAM caches relieved (~{} KB reclaimed)", freed / 1024);
             }

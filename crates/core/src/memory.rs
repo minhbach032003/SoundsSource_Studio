@@ -450,7 +450,20 @@ mod imp {
         snap
     }
 
+    fn can_purge_without_prompt() -> bool {
+        // Test if unprivileged purge works, or if passwordless sudo purge is configured.
+        if Command::new("/usr/sbin/purge").status().map(|s| s.success()).unwrap_or(false) {
+            return true;
+        }
+        Command::new("sudo")
+            .args(["-n", "/usr/sbin/purge"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+
     pub fn areas() -> Vec<MemoryArea> {
+        let passwordless = can_purge_without_prompt();
         vec![
             MemoryArea {
                 id: AREA_APP_WORKING_SET.into(),
@@ -464,14 +477,18 @@ mod imp {
             MemoryArea {
                 id: AREA_FILE_CACHE.into(),
                 name: "Cached files & purgeable pages".into(),
-                description:
+                description: if passwordless {
+                    "Runs the system `purge`, which drops the disk cache (configured for background execution)."
+                        .into()
+                } else {
                     "Runs the system `purge`, which drops the disk cache. macOS requires an \
                      administrator for this, so it asks for your password."
-                        .into(),
+                        .into()
+                },
                 supported: true,
-                needs_privileges: true,
-                prompts_for_credentials: true,
-                background_safe: false,
+                needs_privileges: !passwordless,
+                prompts_for_credentials: !passwordless,
+                background_safe: passwordless,
             },
         ]
     }
@@ -488,28 +505,34 @@ mod imp {
             AREA_FILE_CACHE => {
                 // Try unprivileged first: asking for a password when it was not needed is
                 // its own kind of broken.
-                match Command::new("/usr/sbin/purge").status() {
-                    Ok(status) if status.success() => Ok("Disk cache purged".into()),
-                    _ if !allow_prompt => {
-                        Err("`purge` needs an administrator and prompting is disabled".into())
+                if let Ok(status) = Command::new("/usr/sbin/purge").status() {
+                    if status.success() {
+                        return Ok("Disk cache purged".into());
                     }
-                    _ => {
-                        let script = "do shell script \"/usr/sbin/purge\" with administrator privileges";
-                        match Command::new("/usr/bin/osascript").args(["-e", script]).output() {
-                            Ok(out) if out.status.success() => {
-                                Ok("Disk cache purged with administrator rights".into())
-                            }
-                            Ok(out) => {
-                                let err = String::from_utf8_lossy(&out.stderr);
-                                if err.contains("-128") {
-                                    Err("Cancelled at the password prompt".into())
-                                } else {
-                                    Err(format!("`purge` failed: {}", err.trim()))
-                                }
-                            }
-                            Err(e) => Err(format!("Could not run `purge`: {e}")),
+                }
+                // Check if passwordless sudo is available (e.g. via sudoers NOPASSWD)
+                if let Ok(status) = Command::new("sudo").args(["-n", "/usr/sbin/purge"]).status() {
+                    if status.success() {
+                        return Ok("Disk cache purged via system privileges".into());
+                    }
+                }
+                if !allow_prompt {
+                    return Err("`purge` needs an administrator and prompting is disabled".into());
+                }
+                let script = "do shell script \"/usr/sbin/purge\" with administrator privileges";
+                match Command::new("/usr/bin/osascript").args(["-e", script]).output() {
+                    Ok(out) if out.status.success() => {
+                        Ok("Disk cache purged with administrator rights".into())
+                    }
+                    Ok(out) => {
+                        let err = String::from_utf8_lossy(&out.stderr);
+                        if err.contains("-128") {
+                            Err("Cancelled at the password prompt".into())
+                        } else {
+                            Err(format!("`purge` failed: {}", err.trim()))
                         }
                     }
+                    Err(e) => Err(format!("Could not run `purge`: {e}")),
                 }
             }
             _ => Err("Unknown memory area".into()),
