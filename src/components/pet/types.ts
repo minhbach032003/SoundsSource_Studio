@@ -187,6 +187,20 @@ export const INSTALLED_PETS: PetArchetype[] = [
       sparkleType: "warm-ember",
     },
   },
+  {
+    id: "pikachu",
+    name: "Pikachu",
+    tag: "Character",
+    tagline: "Iconic electric mouse energizing your builds with thunderous focus",
+    description: "An energetic electric-type mouse companion radiating playful sparks and high-voltage determination. Pikachu stays vigilant beside your terminal, zapping away runtime bugs and powering through complex test suites.",
+    unlockLevel: 4,
+    avatarUrl: "/pets/pikachu/avatar.svg",
+    theme: {
+      primaryColor: "amber",
+      aura: "thunder-spark",
+      sparkleType: "electric-sparks",
+    },
+  },
 ];
 
 export interface AchievementMeta {
@@ -268,6 +282,13 @@ export const SPEECH_QUOTES: Record<string, string[]> = {
     "Patience and clarity. Every great codebase is built step by step.",
     "Observing memory allocations with calm focus.",
     "Reviewing test coverage metrics with serene satisfaction.",
+  ],
+  pikachu: [
+    "Pika-pi! Charging up your CPU cores for instant compilation!",
+    "Thunderbolt refactor! Zapping out memory leaks with zero panics!",
+    "Pikachu senses clean code! Static analysis scores are off the charts!",
+    "High-voltage motivation for this challenging test suite!",
+    "Pika-chuuuu! Electric surge detected in the audio DSP pipeline!",
   ],
 };
 

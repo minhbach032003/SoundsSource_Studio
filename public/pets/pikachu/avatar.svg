@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <!-- Background Circle Radial Gradient -->
+    <radialGradient id="pikaBg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="70%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </radialGradient>
+
+    <!-- Electric Spark Aura -->
+    <radialGradient id="electricAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FDE047" stop-opacity="0.55"/>
+      <stop offset="50%" stop-color="#EAB308" stop-opacity="0.25"/>
+      <stop offset="80%" stop-color="#38BDF8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Pikachu Yellow Body Gradient -->
+    <linearGradient id="pikaBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="40%" stop-color="#FACC15"/>
+      <stop offset="100%" stop-color="#EAB308"/>
+    </linearGradient>
+
+    <!-- Ear / Tip Dark Gradient -->
+    <linearGradient id="earTip" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <!-- Cheek Red Gradient -->
+    <linearGradient id="cheekRed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F87171"/>
+      <stop offset="100%" stop-color="#EF4444"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient Badge Background -->
+  <circle cx="64" cy="64" r="60" fill="url(#pikaBg)"/>
+  <circle cx="64" cy="64" r="56" fill="url(#electricAura)"/>
+  <circle cx="64" cy="64" r="59" fill="none" stroke="#FACC15" stroke-width="1.5" stroke-opacity="0.3"/>
+
+  <!-- Left Ear -->
+  <path d="M 40 46 L 24 16 C 22 12, 28 8, 34 12 L 48 38 Z" fill="url(#pikaBody)"/>
+  <path d="M 24 16 C 22 12, 28 8, 34 12 L 29 22 Z" fill="url(#earTip)"/>
+
+  <!-- Right Ear -->
+  <path d="M 88 46 L 104 16 C 106 12, 100 8, 94 12 L 80 38 Z" fill="url(#pikaBody)"/>
+  <path d="M 104 16 C 106 12, 100 8, 94 12 L 99 22 Z" fill="url(#earTip)"/>
+
+  <!-- Tail (Lightning Bolt Style Silhouette in background) -->
+  <path d="M 82 86 L 98 76 L 92 68 L 110 52 L 100 48 L 94 62 L 86 64 Z" fill="#FACC15" opacity="0.95"/>
+  <path d="M 82 86 L 88 82 L 86 78 L 82 80 Z" fill="#92400E"/>
+
+  <!-- Head / Face Main Silhouette -->
+  <ellipse cx="64" cy="64" rx="34" ry="30" fill="url(#pikaBody)"/>
+
+  <!-- Chubby Cheeks -->
+  <circle cx="42" cy="72" r="7.5" fill="url(#cheekRed)"/>
+  <circle cx="86" cy="72" r="7.5" fill="url(#cheekRed)"/>
+
+  <!-- Big Sparkling Eyes -->
+  <!-- Left Eye -->
+  <circle cx="48" cy="58" r="5.5" fill="#0F172A"/>
+  <circle cx="46.5" cy="56" r="2.2" fill="#FFFFFF"/>
+  <circle cx="50" cy="60" r="1" fill="#FFFFFF" opacity="0.6"/>
+
+  <!-- Right Eye -->
+  <circle cx="80" cy="58" r="5.5" fill="#0F172A"/>
+  <circle cx="78.5" cy="56" r="2.2" fill="#FFFFFF"/>
+  <circle cx="82" cy="60" r="1" fill="#FFFFFF" opacity="0.6"/>
+
+  <!-- Cute Tiny Nose -->
+  <ellipse cx="64" cy="64" rx="1.5" ry="1" fill="#0F172A"/>
+
+  <!-- Cheerful Smile -->
+  <path d="M 58 68 Q 64 72 70 68" fill="none" stroke="#0F172A" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M 61 70 Q 64 74 67 70" fill="#EF4444" opacity="0.85"/>
+
+  <!-- Small Paw Details in Foreground -->
+  <ellipse cx="52" cy="88" rx="5" ry="4" fill="url(#pikaBody)"/>
+  <ellipse cx="76" cy="88" rx="5" ry="4" fill="url(#pikaBody)"/>
+</svg>

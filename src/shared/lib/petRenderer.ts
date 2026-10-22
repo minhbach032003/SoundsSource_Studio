@@ -94,6 +94,16 @@ export const ARCHETYPE_STATE_ROW: Record<string, Record<string, number>> = {
     celebrate: 4,
     sleepy: 5,
   },
+  pikachu: {
+    idle: 0,
+    registered: 0,
+    working: 7,
+    reading: 8,
+    waiting: 6,
+    done: 3,
+    celebrate: 4,
+    sleepy: 5,
+  },
 };
 
 export interface Rect {
@@ -159,6 +169,12 @@ export const PET_MOTION: Record<string, {
     restFrame: 5,
     pixel: false,
     dynamics: { idleBreathSpeed: 0.40, idleBreathHeight: 1.2, workBobSpeed: 1.38, workBobHeight: 0.9, swayAngle: 0.6 },
+  },
+  pikachu: {
+    rates: [6, 12, 12, 8, 12, 5, 5, 12, 5],
+    restFrame: 5,
+    pixel: true,
+    dynamics: { idleBreathSpeed: 0.65, idleBreathHeight: 0.9, workBobSpeed: 1.85, workBobHeight: 1.2, swayAngle: 0.7, glowPulse: true },
   },
 };
 
@@ -276,6 +292,18 @@ export const ARCHETYPE_LIGHTING: Record<string, ArchetypeLighting> = {
       [1, "rgba(216, 180, 254, 0)"],
     ],
     groundColor: "rgba(168, 85, 247, 0.32)",
+  },
+  pikachu: {
+    coreX: 0.50,
+    coreY: 0.50,
+    radiusRatio: 0.62,
+    stops: [
+      [0, "rgba(254, 240, 138, 0.55)"],
+      [0.35, "rgba(250, 204, 21, 0.35)"],
+      [0.70, "rgba(56, 189, 248, 0.20)"],
+      [1, "rgba(254, 240, 138, 0)"],
+    ],
+    groundColor: "rgba(234, 179, 8, 0.38)",
   },
 };
 

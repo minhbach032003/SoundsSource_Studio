@@ -30,7 +30,7 @@ test("petMapping module integrity and distinct split assignment logic", () => {
   assert.ok(viewSrc.includes("sessionPet.avatarUrl"), "AgentPetView renders sessionPet.avatarUrl");
 
   // Metadata check in types.ts
-  for (const slug of ["boba", "code-frenzy-cat", "eddy", "shinchan-3", "super-saiyan-goku", "wode-daodun-3d", "work-blue-cat"]) {
+  for (const slug of ["boba", "code-frenzy-cat", "eddy", "pikachu", "shinchan-3", "super-saiyan-goku", "wode-daodun-3d", "work-blue-cat"]) {
     assert.ok(typesSrc.includes(`/pets/${slug}/avatar.svg`), `${slug} has avatar.svg in types.ts`);
     assert.ok(existsSync(`public/pets/${slug}/avatar.svg`), `${slug} avatar.svg exists on disk`);
   }
