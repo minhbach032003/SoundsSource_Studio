@@ -146,17 +146,28 @@ impl SpotifyIntegration {
                 } else {
                     spotify::playback()
                 };
-                let mut ids = spotify::process_ids();
-                ids.sort_unstable(); ids.dedup();
-                let current = (ids, spotify::default_output());
-                if !enabled.load(Ordering::Acquire) || current != signature {
+                let tap_enabled = enabled.load(Ordering::Acquire);
+                let local_state = player.state();
+
+                // Chỉ quét process IDs và quản lý CoreAudio tap khi tap_enabled thực sự bật.
+                // Tránh gọi CoreAudio FFI liên tục khi đang phát nhạc qua local player.
+                let (current, ids_changed) = if tap_enabled {
+                    let mut ids = spotify::process_ids();
+                    ids.sort_unstable(); ids.dedup();
+                    let cur = (ids, spotify::default_output());
+                    let changed = cur != signature;
+                    (cur, changed)
+                } else {
+                    ((Vec::new(), 0), false)
+                };
+
+                if !tap_enabled || ids_changed {
                     tap = None; previous_frames = 0; stalled = 0;
                 }
-                let local_state = player.state();
                 // Lỗi cũ của đường tap không được bám lại khi người dùng đã chuyển sang local.
                 if local_state.running { route_error = None; }
-                let mut error = if enabled.load(Ordering::Acquire) || local_state.running { None } else { route_error.clone() };
-                if enabled.load(Ordering::Acquire) && tap.is_none() {
+                let mut error = if tap_enabled || local_state.running { None } else { route_error.clone() };
+                if tap_enabled && tap.is_none() {
                     // Try to launch Spotify if tap is enabled
                     if let Err(e) = spotify::launch() {
                         error = Some(e);
@@ -257,10 +268,13 @@ impl SpotifyIntegration {
         let tap = self.enabled.load(Ordering::Acquire);
         let live = local.running || (tap && status.connected);
         let error = if local.running { local.error } else { status.error };
-        // Copy a bounded PCM window, release the lock, then analyze off the audio thread.
-        let buffer = self.spectrum.lock().unwrap().clone();
+        // Dùng try_lock để không bao giờ làm block UI thread nếu audio callback đang update buffer
         let reading = if live && error.is_none() {
-            buffer.snapshot()
+            if let Ok(mut buffer) = self.spectrum.try_lock() {
+                buffer.snapshot()
+            } else {
+                SpectrumReading::default()
+            }
         } else { SpectrumReading::default() };
         SpotifySpectrum {
             reading,

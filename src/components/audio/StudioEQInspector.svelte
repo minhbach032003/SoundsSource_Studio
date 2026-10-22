@@ -214,7 +214,9 @@
           animatedHeights = Array(28).fill(0);
         }
       }
-      if (alive) timer = setTimeout(poll, 50);
+      // Giãn chu kỳ thăm dò từ 50ms (20 FPS) lên 80ms (~12.5 FPS) để giải phóng tài nguyên IPC và CPU,
+      // trong khi vẫn giữ hiệu ứng visualizer mượt mà qua CSS transition.
+      if (alive) timer = setTimeout(poll, 80);
     };
     void poll();
     return () => { alive = false; clearTimeout(timer); };

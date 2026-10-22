@@ -27,12 +27,14 @@ pub fn write_packet(
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut written = 0;
     while written < buf.len() {
-        written += queue.push(&buf[written..]);
+        let n = queue.push(&buf[written..]);
+        written += n;
         if written < buf.len() {
             if Instant::now() >= deadline {
                 break;
             }
-            std::thread::sleep(Duration::from_millis(2));
+            // Tăng thời gian nghỉ từ 2ms lên 8ms để giảm CPU wakeups / spinloop dồn dập
+            std::thread::sleep(Duration::from_millis(8));
         }
     }
     written
@@ -108,7 +110,9 @@ impl RustSoundSink {
         router: Arc<Mutex<AudioRouter>>,
         spectrum: Arc<Mutex<SpectrumBuffer>>,
     ) -> Result<Self, String> {
-        let queue = Arc::new(PcmQueue::new(16384));
+        // Tăng dung lượng hàng đợi lên 65536 frames (~1.5s stereo buffer) để hấp thụ các đợt giải mã burst
+        // của librespot và ngăn ngừa tình trạng thread starvation/sleep thrashing gây đơ hệ điều hành.
+        let queue = Arc::new(PcmQueue::new(65536));
         let output_sink = DeviceSinkBuilder::open_default_sink()
             .map_err(|e| format!("Không thể mở thiết bị âm thanh đầu ra: {e}"))?;
 

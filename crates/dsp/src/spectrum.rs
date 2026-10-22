@@ -31,6 +31,7 @@ pub struct SpectrumBuffer {
     cursor: usize,
     rate: f32,
     updated: Option<Instant>,
+    last_analysis: Option<(Instant, SpectrumReading)>,
 }
 impl Default for SpectrumBuffer {
     fn default() -> Self {
@@ -39,6 +40,7 @@ impl Default for SpectrumBuffer {
             cursor: 0,
             rate: 48000.0,
             updated: None,
+            last_analysis: None,
         }
     }
 }
@@ -56,6 +58,7 @@ impl SpectrumBuffer {
             self.samples = [[0.0; SIZE]; 2];
             self.cursor = 0;
             self.rate = rate;
+            self.last_analysis = None;
         }
         for pair in samples.chunks_exact(2) {
             for (channel, &sample) in self.samples.iter_mut().zip(pair) {
@@ -68,14 +71,23 @@ impl SpectrumBuffer {
             self.cursor = (self.cursor + 1) % SIZE;
         }
         self.updated = Some(Instant::now());
+        self.last_analysis = None;
     }
 
-    pub fn snapshot(&self) -> SpectrumReading {
+    pub fn snapshot(&mut self) -> SpectrumReading {
+        let now = Instant::now();
         if !self
             .updated
             .is_some_and(|at| at.elapsed() < Duration::from_millis(500))
         {
             return SpectrumReading::default();
+        }
+        // Giới hạn tần suất tính toán FFT nặng: nếu lần phân tích trước cách chưa tới 40ms (~25 FPS),
+        // tái sử dụng kết quả đã cache thay vì chạy lại 2 lần FFT 4096-point Radix-2 trên CPU.
+        if let Some((at, ref cached)) = self.last_analysis {
+            if now.duration_since(at) < Duration::from_millis(40) {
+                return cached.clone();
+            }
         }
         let mut heights = [0.0_f32; BANDS];
         let mut peak = 0.0_f32;
@@ -128,11 +140,13 @@ impl SpectrumBuffer {
                 heights[band.min(BANDS - 1)] = heights[band.min(BANDS - 1)].max(height);
             }
         }
-        SpectrumReading {
+        let reading = SpectrumReading {
             heights,
             receiving: true,
             has_signal: peak > 0.001,
-        }
+        };
+        self.last_analysis = Some((now, reading.clone()));
+        reading
     }
 }
 
