@@ -105,12 +105,12 @@
       particleColors: ["text-purple-300", "text-violet-400", "text-cyan-300", "text-pink-300"],
     },
     pikachu: {
-      backlightClass: "from-amber-400/75 via-yellow-400/45 via-sky-400/25 to-transparent",
-      ambientClass: "from-amber-400/40 via-yellow-400/25 to-transparent",
-      sparkleColor1: "text-yellow-300",
-      sparkleColor2: "text-amber-300",
-      sparkleColor3: "text-sky-300",
-      particleColors: ["text-yellow-300", "text-amber-400", "text-sky-300", "text-yellow-100"],
+      backlightClass: "from-sky-400/55 via-amber-400/35 via-yellow-400/20 to-transparent",
+      ambientClass: "from-sky-400/30 via-amber-400/15 to-transparent",
+      sparkleColor1: "text-amber-300",
+      sparkleColor2: "text-sky-300",
+      sparkleColor3: "text-yellow-200",
+      particleColors: ["text-amber-300", "text-sky-300", "text-yellow-400", "text-white"],
     },
   };
 
@@ -819,7 +819,7 @@
                 slug={sessionPet.id}
                 mood={sMood}
                 size={petSize}
-                class="{sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : 'pet-silhouette'} cursor-pointer"
+                class="{sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : sessionPet.id === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
               />
             </div>
           {/each}
@@ -858,7 +858,7 @@
             slug={petSlug}
             {mood}
             size={petSize}
-            class="{petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : 'pet-silhouette'} cursor-pointer"
+            class="{petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : petSlug === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
           />
         </div>
       {/if}
@@ -1067,6 +1067,14 @@
     image-rendering: auto;
     filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent))
       drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
+  }
+
+  /* High-voltage electric aura for Pikachu: Soft golden aura, crisp cyan lightning sparks, and elevated depth */
+  :global(.pet-electric-aura canvas) {
+    image-rendering: auto;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent))
+      drop-shadow(0 3px 12px color-mix(in srgb, var(--focus) 45%, transparent))
+      drop-shadow(0 8px 18px rgba(0, 0, 0, 0.40));
   }
 
   @keyframes petParticleFloat {

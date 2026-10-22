@@ -173,7 +173,7 @@ export const PET_MOTION: Record<string, {
   pikachu: {
     rates: [6, 12, 12, 8, 12, 5, 5, 12, 5],
     restFrame: 5,
-    pixel: true,
+    pixel: false,
     dynamics: { idleBreathSpeed: 0.65, idleBreathHeight: 0.9, workBobSpeed: 1.85, workBobHeight: 1.2, swayAngle: 0.7, glowPulse: true },
   },
 };
@@ -482,6 +482,45 @@ export function drawPetFrame(
       ctx.beginPath();
       ctx.arc(shieldX, shieldY, 4 * pulse, 0, Math.PI * 2);
       ctx.fill();
+    } else if (
+      slug === "pikachu" &&
+      (isWorkOrRead || isCeleb) &&
+      typeof ctx.moveTo === "function" &&
+      typeof ctx.lineTo === "function" &&
+      typeof ctx.stroke === "function"
+    ) {
+      // Thunderbolt cheek sparks & electric aura arcs
+      const pulse = dynamicsOffset.glow ?? 1;
+      ctx.strokeStyle = pulse > 0.88 ? "rgba(56, 189, 248, 0.95)" : "rgba(254, 240, 138, 0.85)";
+      ctx.lineWidth = 1.6;
+      const phase = pulse * 14;
+
+      // Left cheek electric spark
+      const c1X = x + w * 0.38 + Math.sin(phase) * 2;
+      const c1Y = y + h * 0.52;
+      ctx.beginPath();
+      ctx.moveTo(c1X, c1Y);
+      ctx.lineTo(c1X - 3, c1Y + 3);
+      ctx.lineTo(c1X - 1, c1Y + 6);
+      ctx.stroke();
+
+      // Right cheek electric spark
+      const c2X = x + w * 0.62 + Math.cos(phase) * 2;
+      const c2Y = y + h * 0.52;
+      ctx.beginPath();
+      ctx.moveTo(c2X, c2Y);
+      ctx.lineTo(c2X + 3, c2Y + 3);
+      ctx.lineTo(c2X + 1, c2Y + 6);
+      ctx.stroke();
+
+      // Tail lightning spark tip
+      const tX = x + w * 0.82;
+      const tY = y + h * 0.56 + Math.sin(phase * 0.8) * 3;
+      ctx.beginPath();
+      ctx.moveTo(tX, tY);
+      ctx.lineTo(tX + 4, tY - 3);
+      ctx.lineTo(tX + 2, tY - 7);
+      ctx.stroke();
     }
 
     ctx.restore();
