@@ -125,6 +125,18 @@
   let splitEnabled = $state(readPetPreferences().split);
   let motionEnabled = $state(readPetPreferences().animate);
   let reduceMotion = $state(false);
+  let mappingRevision = $state(0);
+  $effect(() => {
+    const handler = () => { mappingRevision += 1; };
+    window.addEventListener("project-pet-changed", handler);
+    window.addEventListener("session-pet-changed", handler);
+    window.addEventListener("favorite-pets-changed", handler);
+    return () => {
+      window.removeEventListener("project-pet-changed", handler);
+      window.removeEventListener("session-pet-changed", handler);
+      window.removeEventListener("favorite-pets-changed", handler);
+    };
+  });
   $effect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => { reduceMotion = media.matches; };
@@ -770,6 +782,7 @@
         <!-- Một con cho mỗi agent đang bận, mỗi con mang tâm trạng của phiên nó đại diện. -->
         <div class="flex items-end gap-3">
           {#each splitPets as session, idx (session.id)}
+            {@const _rev = mappingRevision}
             {@const sessionPet = getPetForSession(session, idx, petSlug)}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
             {@const sFx = PET_FX_THEMES[sessionPet.id] ?? petFx}

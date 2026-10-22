@@ -1,6 +1,7 @@
 import { INSTALLED_PETS, type PetArchetype } from "../components/pet/types.ts";
 
 const STORAGE_KEY_PREFIX = "rust_sound_project_pet_";
+const SESSION_PET_PREFIX = "rust_sound_session_pet_";
 export const FAVORITE_PETS_KEY = "rust_sound_favorite_pets";
 export const DELETED_PETS_KEY = "rust_sound_deleted_pets";
 
@@ -95,6 +96,24 @@ export function getProjectName(projectPath?: string | null): string {
   return parts.pop() || "workspace";
 }
 
+/** Get user-configured pet for a specific session ID */
+export function getSessionPetBinding(sessionId?: string | null): string | null {
+  if (!sessionId || typeof localStorage === "undefined") return null;
+  return localStorage.getItem(`${SESSION_PET_PREFIX}${sessionId}`) || null;
+}
+
+/** Save user-configured pet for a specific session ID */
+export function setSessionPetBinding(sessionId: string, petId: string): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(`${SESSION_PET_PREFIX}${sessionId}`, petId);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("session-pet-changed", { detail: { sessionId, petId } }));
+    window.dispatchEvent(new CustomEvent("project-pet-changed", { detail: { sessionId, petId } }));
+    window.dispatchEvent(new StorageEvent("storage", { key: `${SESSION_PET_PREFIX}${sessionId}` }));
+    window.dispatchEvent(new Event("storage"));
+  }
+}
+
 /** Get user-configured pet for a given project name */
 export function getProjectPetBinding(projectName: string): string | null {
   if (typeof localStorage === "undefined") return null;
@@ -107,6 +126,7 @@ export function setProjectPetBinding(projectName: string, petId: string): void {
   localStorage.setItem(`${STORAGE_KEY_PREFIX}${projectName}`, petId);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("project-pet-changed", { detail: { projectName, petId } }));
+    window.dispatchEvent(new StorageEvent("storage", { key: `${STORAGE_KEY_PREFIX}${projectName}` }));
     window.dispatchEvent(new Event("storage"));
   }
 }
@@ -163,15 +183,23 @@ export function setFavoritePetSlot(slotIndex: number, petId: string): void {
 /**
  * Maps an agent session to its distinct PetArchetype.
  * Priority:
- * 1. User's explicit project binding (if set in Connected Sessions)
- * 2. Favorite trio by slot index (Slot 0 = Primary, Slot 1 = Subagent 1, Slot 2 = Subagent 2)
- * 3. Fallback to equipped pet or deterministic fallback
+ * 1. User's explicit session-level binding (when changed directly on that session row)
+ * 2. User's explicit project binding (if set in Connected Sessions)
+ * 3. Favorite trio by slot index (Slot 0 = Primary, Slot 1 = Subagent 1, Slot 2 = Subagent 2)
+ * 4. Fallback to equipped pet or deterministic fallback
  */
 export function getPetForSession(
   session: { project?: string | null; agent_kind?: string; id?: string } | null | undefined,
   index: number = 0,
   equippedSlug: string = "super-saiyan-goku"
 ): PetArchetype {
+  if (session?.id) {
+    const sessionExplicit = getSessionPetBinding(session.id);
+    if (sessionExplicit) {
+      return getPetArchetype(sessionExplicit);
+    }
+  }
+
   const projectName = getProjectName(session?.project);
   const explicit = getProjectPetBinding(projectName);
   if (explicit) {

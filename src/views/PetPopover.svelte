@@ -77,6 +77,18 @@
   });
 
   // Active agents (working, waiting, done)
+  let mappingRevision = $state(0);
+  $effect(() => {
+    const handler = () => { mappingRevision += 1; };
+    window.addEventListener("project-pet-changed", handler);
+    window.addEventListener("session-pet-changed", handler);
+    window.addEventListener("favorite-pets-changed", handler);
+    return () => {
+      window.removeEventListener("project-pet-changed", handler);
+      window.removeEventListener("session-pet-changed", handler);
+      window.removeEventListener("favorite-pets-changed", handler);
+    };
+  });
   const activeAgents = $derived(
     sessions.filter((s) => s.state !== "idle" && s.state !== "registered")
   );
@@ -194,6 +206,7 @@
       {:else}
         <ul class="session-list" aria-label="Active agent sessions">
           {#each activeAgents as agent, idx (agent.id)}
+            {@const _rev = mappingRevision}
             {@const agentPet = getPetForSession(agent, idx, petSlug)}
             <li class="session">
               <span class="session-dot" class:working={agent.state === "working"} class:waiting={agent.state === "waiting"}></span>

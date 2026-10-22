@@ -19,6 +19,7 @@
     getPetForSession,
     getProjectName,
     setProjectPetBinding,
+    setSessionPetBinding,
     getPetArchetype,
     getFavoritePets,
     setFavoritePetSlot,
@@ -37,6 +38,19 @@
   let sessions = $state<AgentSessionDto[]>([]);
   let favoritePets = $state<string[]>(getFavoritePets());
   let isTestingAudio = $state(false);
+  let mappingRevision = $state(0);
+
+  $effect(() => {
+    const handler = () => { mappingRevision += 1; };
+    window.addEventListener("project-pet-changed", handler);
+    window.addEventListener("session-pet-changed", handler);
+    window.addEventListener("favorite-pets-changed", handler);
+    return () => {
+      window.removeEventListener("project-pet-changed", handler);
+      window.removeEventListener("session-pet-changed", handler);
+      window.removeEventListener("favorite-pets-changed", handler);
+    };
+  });
 
   $effect(() => {
     return subscribePetPreferences(() => {
@@ -321,6 +335,7 @@
             <span class="text-[10px] font-bold uppercase tracking-wider text-(--muted) block">Active Connected Sessions ({activeSessions.length})</span>
             <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {#each activeSessions as session, idx (session.id)}
+                {@const _rev = mappingRevision}
                 {@const sessionPet = getPetForSession(session, idx, selectedPet)}
                 {@const projName = getProjectName(session.project)}
                 <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-xs">
@@ -346,8 +361,10 @@
                   <select
                     value={sessionPet.id}
                     onchange={(e) => {
-                      setProjectPetBinding(projName, e.currentTarget.value);
-                      toastState.info(`Assigned ${getPetArchetype(e.currentTarget.value).name} to ${projName}`);
+                      const newId = e.currentTarget.value;
+                      setSessionPetBinding(session.id, newId);
+                      setProjectPetBinding(projName, newId);
+                      toastState.info(`Assigned ${getPetArchetype(newId).name} to ${projName}`);
                     }}
                     class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink) shrink-0"
                     title="Assign companion to {projName}"

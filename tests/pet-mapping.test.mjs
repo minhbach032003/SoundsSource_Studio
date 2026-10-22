@@ -15,6 +15,8 @@ test("petMapping module integrity and distinct split assignment logic", () => {
   assert.ok(mappingSrc.includes("getProjectName"), "exports getProjectName");
   assert.ok(mappingSrc.includes("setProjectPetBinding"), "exports setProjectPetBinding");
   assert.ok(mappingSrc.includes("getProjectPetBinding"), "exports getProjectPetBinding");
+  assert.ok(mappingSrc.includes("setSessionPetBinding"), "exports setSessionPetBinding");
+  assert.ok(mappingSrc.includes("getSessionPetBinding"), "exports getSessionPetBinding");
   assert.ok(mappingSrc.includes("otherPets"), "guarantees distinct companions for split sessions");
 
   // PetOverlay split logic uses getPetForSession
