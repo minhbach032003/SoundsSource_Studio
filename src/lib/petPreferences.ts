@@ -23,7 +23,7 @@ export function boundedInteger(value: unknown, min: number, max: number, fallbac
  * `pets` là số con hiện cạnh nhau khi bật Split pet: cửa sổ phải rộng ra theo, nếu không
  * con thứ hai trở đi bị cắt mất ở mép. */
 export function petOverlayWindowSize(value: number, pets = 1) {
-  const size = boundedInteger(value, 80, 300, 180);
+  const size = boundedInteger(value, 10, 300, 180);
   const count = boundedInteger(pets, 1, 3, 1);
   const sprite = Math.ceil(size * 1.15);
   const row = sprite * count + 12 * (count - 1);
@@ -43,7 +43,7 @@ export function readPetPreferences() {
     waitingCustom: read(PET_KEYS.waitingCustom),
     animate: read(PET_KEYS.animate) !== "0",
     fps: boundedInteger(read(PET_KEYS.fps), 1, 12, 12),
-    size: boundedInteger(read(PET_KEYS.size), 80, 300, 180),
+    size: boundedInteger(read(PET_KEYS.size), 10, 300, 180),
     count: read(PET_KEYS.count) !== "0",
     chat: read(PET_KEYS.chat) === "1",
     bubble: read(PET_KEYS.bubble) === "1",
@@ -54,7 +54,7 @@ export function readPetPreferences() {
 /** Native storage events reach other webviews; this event also reaches this one. */
 export function writePetPreference(key: Exclude<keyof typeof PET_KEYS, "doneCustom" | "waitingCustom">, value: number | boolean) {
   const normalized = key === "fps" ? boundedInteger(value, 1, 12, 12)
-    : key === "size" ? boundedInteger(value, 80, 300, 180) : value === true ? "1" : "0";
+    : key === "size" ? boundedInteger(value, 10, 300, 180) : value === true ? "1" : "0";
   writePetStorage(PET_KEYS[key], String(normalized));
 }
 

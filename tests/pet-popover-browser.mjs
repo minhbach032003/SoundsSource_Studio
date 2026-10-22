@@ -109,7 +109,7 @@ try {
     assert.equal(new Set(geometry.switches.map(s=>s.right)).size,1,'all switches align');
     assert.ok(geometry.switches.every(s=>s.label && s.width===30),'all switches have labels and styled tracks');
     assert.ok(geometry.ranges.every(s=>s.label),'sliders have visible labels');
-    assert.deepEqual(geometry.ranges.map(({id,min,max})=>[id,min,max]),[['pet-size','80','300'],['animation-fps','1','12']]);
+    assert.deepEqual(geometry.ranges.map(({id,min,max})=>[id,min,max]),[['pet-size','10','300'],['animation-fps','1','12']]);
     const contrasts=await checkContrast();
     for(const entry of contrasts) assert.ok(entry.ratio>=4.5,`${family}/${mode}: ${entry.text} contrast ${entry.ratio}`);
     console.log(`${family}/${mode}: minimum text contrast ${Math.min(...contrasts.map(entry=>entry.ratio)).toFixed(2)}:1; 320x520 without page/horizontal overflow`);
@@ -139,7 +139,7 @@ try {
     return Math.abs(surface.getBoundingClientRect().bottom - parseFloat(getComputedStyle(surface).borderBottomWidth) - footer.getBoundingClientRect().bottom) < 1;
   })()`),'footer stays pinned with no sessions and animation disabled');
   await browser('eval',`document.getElementById('animate-pets').click();window.sizeEvents=0;window.addEventListener('storage',()=>window.sizeEvents++)`);
-  for(const [id,key,values] of [['pet-size','rust_sound_pet_size',[80,300]],['animation-fps','ap_animation_fps',[1,12]]]) {
+  for(const [id,key,values] of [['pet-size','rust_sound_pet_size',[10,300]],['animation-fps','ap_animation_fps',[1,12]]]) {
     for(const value of values) {
       await browser('eval',`(()=>{const el=document.getElementById('${id}');el.value=${value};el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       assert.equal(await evaluate(`localStorage.getItem('${key}')`),String(value));

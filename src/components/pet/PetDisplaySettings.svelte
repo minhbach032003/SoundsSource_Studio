@@ -88,7 +88,7 @@
       </div>
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 justify-end">
         <div class="slider-control">
-          <input id="pet-size" type="range" min="80" max="300" value={prefs.size}
+          <input id="pet-size" type="range" min="10" max="300" value={prefs.size}
             oninput={event => { prefs.size = Number(event.currentTarget.value); }}
             onchange={event => save("size", Number(event.currentTarget.value))} />
           <output for="pet-size">{prefs.size}<span class="sr-only"> pixels</span></output>
