@@ -3,7 +3,7 @@
   import { IDLE_BOOST_LINES } from "@/lib/petTrayTitle";
   import { petMoodFor, splitPetSessions } from "@/lib/petMood";
   import { getPetForSession, setFavoritePetSlot, getPetArchetype, getActivePets } from "@/lib/petMapping";
-  import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize } from "@/lib/petPreferences";
+  import { readPetPreferences, subscribePetPreferences, writePetPreference, petOverlayWindowSize, subscribePetSizePreview } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -104,6 +104,14 @@
       sparkleColor3: "text-violet-200",
       particleColors: ["text-purple-300", "text-violet-400", "text-cyan-300", "text-pink-300"],
     },
+    pikachu: {
+      backlightClass: "from-amber-400/75 via-yellow-400/45 via-sky-400/25 to-transparent",
+      ambientClass: "from-amber-400/40 via-yellow-400/25 to-transparent",
+      sparkleColor1: "text-yellow-300",
+      sparkleColor2: "text-amber-300",
+      sparkleColor3: "text-sky-300",
+      particleColors: ["text-yellow-300", "text-amber-400", "text-sky-300", "text-yellow-100"],
+    },
   };
 
 
@@ -128,6 +136,9 @@
     petSize = readPetPreferences().size;
     splitEnabled = readPetPreferences().split;
     motionEnabled = readPetPreferences().animate;
+  }));
+  $effect(() => subscribePetSizePreview((previewSize) => {
+    petSize = previewSize;
   }));
   let resizeError = $state("");
   $effect(() => {

@@ -64,7 +64,7 @@ test('initial and external storage are validated and live custom bindings refres
   for (const [value, expected] of [['-10',1],['99',12],['1.7',2],['12oops',12],['',12]]) {
     view.external('ap_animation_fps',value); assert.equal(view.run('readPetPreferences().fps'),expected);
   }
-  view.external('rust_sound_pet_size','-1'); assert.equal(view.run('readPetPreferences().size'),80);
+  view.external('rust_sound_pet_size','-1'); assert.equal(view.run('readPetPreferences().size'),30);
   view.external('rust_sound_pet_size','500'); assert.equal(view.run('readPetPreferences().size'),300);
   view.run('renderer.setState("working");writePetStorage("ap_bind_work-blue-cat_working", "4")');
   assert.equal(view.context.renderer.row,4);
@@ -85,7 +85,7 @@ test('overlay resize capability is scoped to its one window and dimensions clamp
   assert.deepEqual(capability.windows,['pet-overlay']);
   assert.deepEqual(capability.permissions,['core:window:allow-set-size']);
   const view = webview();
-  for (const [value,width,height] of [[-1,320,332],[80,320,332],[300,377,585],[999,377,585],[NaN,320,447]]) {
+  for (const [value,width,height] of [[-1,320,275],[80,320,332],[300,377,585],[999,377,585],[NaN,320,447]]) {
     view.context.size = value;
     assert.equal(view.run('petOverlayWindowSize(size).width'),width);
     assert.equal(view.run('petOverlayWindowSize(size).height'),height);

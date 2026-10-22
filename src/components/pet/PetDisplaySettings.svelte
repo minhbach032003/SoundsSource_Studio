@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { PawPrint, Hash, MessageSquare, List, Columns2, Play, Maximize2 } from "@lucide/svelte";
-  import { readPetPreferences, subscribePetPreferences, writePetPreference } from "@/lib/petPreferences";
+  import { readPetPreferences, subscribePetPreferences, writePetPreference, broadcastPetSizePreview } from "@/lib/petPreferences";
   import { setDesktopPetVisible } from "@/lib/petVisibility";
   import { toastState } from "@/lib/toast.svelte";
   import { updatePetTrayCount } from "@/lib/petTray";
@@ -88,8 +88,12 @@
       </div>
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 justify-end">
         <div class="slider-control">
-          <input id="pet-size" type="range" min="10" max="300" value={prefs.size}
-            oninput={event => { prefs.size = Number(event.currentTarget.value); }}
+          <input id="pet-size" type="range" min="30" max="300" value={prefs.size}
+            oninput={event => {
+              const val = Number(event.currentTarget.value);
+              prefs.size = val;
+              broadcastPetSizePreview(val);
+            }}
             onchange={event => save("size", Number(event.currentTarget.value))} />
           <output for="pet-size">{prefs.size}<span class="sr-only"> pixels</span></output>
         </div>
