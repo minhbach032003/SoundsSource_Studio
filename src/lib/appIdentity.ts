@@ -41,8 +41,8 @@ export async function getSigningIdentity(): Promise<SigningIdentity> {
   return cached;
 }
 
-/** One line telling the user how to stop the permission resetting, or null if it will not. */
+/** Explain rebuild-related identity changes without promising to bypass macOS consent. */
 export function rebuildPermissionHint(identity: SigningIdentity | null): string | null {
   if (!identity?.permissions_reset_on_rebuild) return null;
-  return "Run ./scripts/macos-signing-identity.sh once, then rebuild. The app will be signed with a stable identity and macOS will keep the permission.";
+  return "Bản này chưa có chữ ký ổn định nên quyền cũ có thể không khớp sau rebuild. Chạy ./scripts/macos-signing-identity.sh một lần rồi pnpm rebuild:app. Sau khi đổi chữ ký, có thể cần cấp lại quyền và mở lại app một lần.";
 }

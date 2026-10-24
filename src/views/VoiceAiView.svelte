@@ -382,7 +382,7 @@
   async function handleOpenScreenSettings() {
     try {
       await openScreenCaptureSettings();
-      toastState.info("Bật rust-sound trong Screen & System Audio Recording, rồi thoát hẳn app (Cmd+Q) và mở lại.");
+      toastState.info("Kiểm tra SoundsSource Studio trong Screen & System Audio Recording. Nếu đã bật, hãy thoát hẳn app (Cmd+Q) rồi mở lại.");
     } catch (err) {
       toastState.error(err instanceof Error ? err.message : String(err));
     }
@@ -391,7 +391,7 @@
   async function recheckScreenPermission() {
     const granted = await checkScreenCapturePermission();
     if (granted === false) {
-      toastState.error("macOS vẫn chưa cấp quyền. Nếu vừa bật, hãy thoát hẳn app (Cmd+Q) rồi mở lại.");
+      toastState.error("Bản app đang chạy vẫn chưa dùng được quyền. Nếu Settings đã bật, hãy thoát hẳn app (Cmd+Q) rồi mở lại; bản vừa đổi chữ ký có thể cần cấp lại quyền.");
       return;
     }
     await startShareUnchecked();
@@ -895,21 +895,27 @@
         {/if}
 
         {#if screenPermissionMissing && !geminiLiveState.isScreenSharing}
-          <!-- macOS chưa cấp quyền Screen Recording: không mở stream đen -->
+          <!-- Preflight describes this process, not the switch shown in System Settings. -->
           <div class="absolute inset-0 z-15 flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-sm">
             <div class="max-w-md w-full rounded-2xl border border-amber-500/40 bg-stone-900/95 p-4 text-stone-200 space-y-2.5 shadow-2xl">
               <div class="flex items-center gap-2 text-amber-300 font-semibold text-sm">
                 <ShieldAlert class="w-4 h-4 shrink-0" />
-                <span>rust-sound chưa có quyền ghi màn hình</span>
+                <span>Quyền ghi màn hình chưa khả dụng</span>
               </div>
               <p class="text-[11px] text-stone-400 m-0">
-                macOS sẽ chỉ gửi khung đen cho đến khi bạn cấp quyền Screen Recording cho app.
+                macOS chưa cho bản SoundsSource Studio đang chạy sử dụng quyền này.
+                Công tắc trong Settings có thể đã bật nhưng quyền chưa áp dụng cho tiến trình hiện tại.
               </p>
               <ol class="text-[11px] text-stone-300 m-0 pl-4 space-y-1 list-decimal">
-                <li>Bấm "Mở System Settings" và bật <span class="font-semibold">rust-sound</span>
-                  (chạy bằng <span class="font-mono">pnpm tauri dev</span> thì bật Terminal / iTerm / VS Code).</li>
-                <li>Thoát hẳn app bằng Cmd+Q rồi mở lại.</li>
+                <li>Nếu đã bật quyền, thoát hẳn app bằng Cmd+Q rồi mở lại từ Applications.</li>
+                <li>Nếu vẫn bị chặn, kiểm tra <span class="font-semibold">SoundsSource Studio</span>
+                  trong Screen &amp; System Audio Recording. Bản vừa đổi chữ ký có thể cần cấp lại quyền một lần.</li>
               </ol>
+              {#if rebuildPermissionHint(signingIdentity)}
+                <p class="text-[11px] text-amber-200 m-0 break-words">
+                  {rebuildPermissionHint(signingIdentity)}
+                </p>
+              {/if}
               <div class="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
@@ -966,10 +972,10 @@
               <ol class="text-[11px] text-stone-300 m-0 pl-4 space-y-1 list-decimal">
                 <li>Mở System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording.</li>
                 <li>
-                  Bật <span class="font-semibold">rust-sound</span>. Nếu đang chạy bằng
+                  Kiểm tra <span class="font-semibold">SoundsSource Studio</span>. Nếu đang chạy bằng
                   <span class="font-mono">pnpm tauri dev</span>, bật cho Terminal / iTerm / VS Code đang chạy lệnh đó.
                 </li>
-                <li>Thoát hẳn app bằng Cmd+Q rồi mở lại. macOS chỉ áp dụng quyền này sau khi khởi động lại.</li>
+                <li>Nếu đã bật quyền, thoát hẳn app bằng Cmd+Q rồi mở lại. Bản vừa đổi chữ ký có thể cần cấp lại quyền một lần.</li>
               </ol>
 
               {#if rebuildPermissionHint(signingIdentity)}

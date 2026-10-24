@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import vm from "node:vm";
 import ts from "typescript";
+import { compile } from "svelte/compiler";
+import { render } from "svelte/server";
+import { pathToFileURL } from "node:url";
 
 const gemini = readFileSync("src/lib/geminiLive.svelte.ts", "utf8");
 const cmdSystem = readFileSync("crates/app/src/cmd_system.rs", "utf8");
@@ -54,7 +60,7 @@ test("the capture command clamps what the webview can ask for", () => {
   assert.ok(command.includes("DEFAULT_MAX_EDGE"), "omitting the argument still works");
 });
 
-test("rebuild signs with a stable identity when one exists, and warns when it does not", () => {
+test("rebuild requires a stable identity and verifies it before deployment", () => {
   assert.ok(existsSync("scripts/macos-signing-identity.sh"), "the identity script exists");
   assert.equal(
     pkg.scripts["rebuild:app"],
@@ -71,11 +77,81 @@ test("rebuild signs with a stable identity when one exists, and warns when it do
     rebuild.includes('codesign --force --deep --sign "$identity"'),
     "and uses it when present"
   );
-  // The fallback is still allowed, but it must say what it costs rather than silently
-  // producing a build whose permissions reset.
-  const fallback = rebuild.slice(rebuild.indexOf("codesign --force --deep --sign -"));
-  assert.ok(fallback.includes("granted again"), "the ad-hoc fallback explains itself");
-  assert.ok(fallback.includes("macos-signing-identity.sh"), "and points at the fix");
+  assert.ok(!rebuild.includes("codesign --force --deep --sign -"), "no ad-hoc fallback");
+});
+
+for (const scenario of ["missing", "invalid", "valid"]) {
+  test(`production rebuild: ${scenario} identity/signature`, () => {
+    const root = mkdtempSync(join(tmpdir(), "sound-signing-test-"));
+    try {
+      mkdirSync(join(root, "scripts"));
+      mkdirSync(join(root, "bin"));
+      // Unregistering the temporary build is unrelated to signing and must not touch macOS in tests.
+      writeFileSync(join(root, "scripts/rebuild-app.sh"), rebuild.replace(/^LSREGISTER=.*$/m, "LSREGISTER=/usr/bin/true"));
+      const tool = (path, body) => writeFileSync(join(root, path), `#!/bin/bash\n${body}\n`, { mode: 0o700 });
+      tool("scripts/macos-signing-identity.sh", '[ "$SCENARIO" != missing ] || exit 1\necho "Test Identity"');
+      tool("bin/uname", 'echo Darwin');
+      tool("bin/pnpm", 'echo build >> "$EVENTS"\n/bin/mkdir -p "target/release/bundle/macos/SoundsSource Studio.app"');
+      tool("bin/codesign", 'echo "codesign $*" >> "$EVENTS"\nif [[ "$*" == *--verify* && "$SCENARIO" == invalid ]]; then exit 1; fi');
+      for (const command of ["rm", "cp"]) {
+        tool(`bin/${command}`, `echo "${command} $*" >> "$EVENTS"`);
+      }
+      const events = join(root, "events");
+      const result = spawnSync("/bin/bash", ["scripts/rebuild-app.sh"], {
+        cwd: root,
+        env: { ...process.env, PATH: `${root}/bin:/usr/bin:/bin`, SCENARIO: scenario, EVENTS: events },
+        encoding: "utf8",
+        timeout: 10000,
+      });
+      const log = existsSync(events) ? readFileSync(events, "utf8") : "";
+      assert.ifError(result.error);
+      if (scenario === "missing") {
+        assert.notEqual(result.status, 0);
+        assert.equal(log, "", "no build or destructive command before identity check");
+        assert.match(result.stderr, /macos-signing-identity.sh/);
+      } else if (scenario === "invalid") {
+        assert.notEqual(result.status, 0);
+        assert.ok(!log.includes("/Applications"), log);
+      } else {
+        assert.equal(result.status, 0, result.stderr);
+        assert.ok(log.includes("--sign Test Identity"), log);
+        const verify = log.indexOf("codesign --verify");
+        assert.ok(verify >= 0 && verify < log.indexOf("/Applications"), log);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("identity --check matches an exact name and never provisions Keychain", () => {
+  const root = mkdtempSync(join(tmpdir(), "sound-identity-test-"));
+  try {
+    writeFileSync(join(root, "uname"), '#!/bin/bash\necho Darwin\n', { mode: 0o700 });
+    writeFileSync(join(root, "security"), '#!/bin/bash\n[[ "$*" == "find-identity -v -p codesigning" ]] || exit 99\nprintf \'%s\\n\' "$IDENTITIES"\n', { mode: 0o700 });
+    for (const name of ["SoundsSource Local Dev", "SoundsSource Local Dev Old", "Other SoundsSource Local Dev"]) {
+      const result = spawnSync("/bin/bash", ["scripts/macos-signing-identity.sh", "--check"], {
+        env: { ...process.env, PATH: `${root}:/usr/bin:/bin`, RUST_SOUND_SIGN_IDENTITY: "SoundsSource Local Dev", IDENTITIES: `1) ABCDEF "${name}"` },
+        encoding: "utf8",
+        timeout: 5000,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, name === "SoundsSource Local Dev" ? 0 : 1, result.stderr);
+      assert.equal(result.stdout.trim(), name === "SoundsSource Local Dev" ? name : "");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("local identity setup uses scoped trust without blanket key ACL updates", () => {
+  const script = readFileSync("scripts/macos-signing-identity.sh", "utf8");
+  assert.match(script, /add-trusted-cert -r trustRoot -p codeSign/);
+  assert.ok(!script.includes("set-key-partition-list"));
+  assert.ok(script.includes("umask 077"));
+  assert.ok(script.includes('p12_password="$(/usr/bin/openssl rand -hex 24)"'));
+  assert.ok(script.includes('-passout "pass:$p12_password"'));
+  assert.ok(script.includes('-P "$p12_password"'), "import must use the same nonempty temporary password");
 });
 
 test("the app can tell the user why a granted permission disappeared", () => {
@@ -110,6 +186,40 @@ test("the app can tell the user why a granted permission disappeared", () => {
     view.includes("build lại vẫn bị hỏi"),
     "and names the symptom the user actually sees"
   );
+});
+
+test("the denied panel explains stale grants and shows the signing hint before capture", async () => {
+  const view = readFileSync("src/views/VoiceAiView.svelte", "utf8");
+  const panel = view.slice(
+    view.indexOf("{#if screenPermissionMissing && !geminiLiveState.isScreenSharing}"),
+    view.indexOf("{#if geminiLiveState.isScreenSharing && geminiLiveState.screenShareIssue}")
+  );
+  const identitySource = readFileSync("src/lib/appIdentity.ts", "utf8")
+    .replace(/^import .*;$/gm, "").replaceAll("export ", "");
+  const component = compile(`<script>
+    ${ts.transpile(identitySource)}
+    let { signingIdentity } = $props();
+    let screenPermissionMissing = $state(true);
+    const geminiLiveState = { isScreenSharing: false };
+    const ShieldAlert = () => {}, Settings2 = () => {}, RotateCcw = () => {};
+    const handleOpenScreenSettings = () => {}, recheckScreenPermission = () => {}, startShareUnchecked = () => {};
+  </script>${panel}`, { generate: "server", filename: "PermissionPanel.svelte" });
+  const root = mkdtempSync(join(process.cwd(), ".permission-panel-test-"));
+  try {
+    const file = join(root, "panel.mjs");
+    writeFileSync(file, component.js.code);
+    const { default: Panel } = await import(pathToFileURL(file).href);
+    const stable = render(Panel, { props: { signingIdentity: { kind: "certificate", permissions_reset_on_rebuild: false } } }).body;
+    const adhoc = render(Panel, { props: { signingIdentity: { kind: "ad_hoc", permissions_reset_on_rebuild: true } } }).body;
+    assert.match(stable, /SoundsSource Studio/);
+    assert.match(stable, /đã bật/);
+    assert.match(stable, /Cmd\+Q/);
+    assert.ok(!stable.includes("macos-signing-identity.sh"));
+    assert.match(adhoc, /macos-signing-identity.sh/);
+    assert.ok(!stable.includes("rust-sound chưa có quyền"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("memory is reported from one place, so the Cleaner cannot show two percentages", () => {
