@@ -782,8 +782,7 @@
         <!-- Một con cho mỗi agent đang bận, mỗi con mang tâm trạng của phiên nó đại diện. -->
         <div class="flex items-end gap-3">
           {#each splitPets as session, idx (session.id)}
-            {@const _rev = mappingRevision}
-            {@const sessionPet = getPetForSession(session, idx, petSlug)}
+            {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, petSlug))}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
             {@const sFx = PET_FX_THEMES[sessionPet.id] ?? petFx}
             <div class="relative flex items-center justify-center">

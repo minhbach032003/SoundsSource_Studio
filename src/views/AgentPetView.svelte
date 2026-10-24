@@ -1066,8 +1066,7 @@
           {:else}
             <div class="space-y-2">
               {#each agentSessions as session, idx (session.id)}
-                {@const _rev = mappingRevision}
-                {@const sessionPet = getPetForSession(session, idx, selectedPet)}
+                {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, selectedPet))}
                 {@const projName = getProjectName(session.project)}
                 <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-2.5 text-xs">
                   <div class="min-w-0 flex items-center gap-2.5 flex-1">

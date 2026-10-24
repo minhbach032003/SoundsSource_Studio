@@ -1,6 +1,35 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
+import { compileModule } from "svelte/compiler";
+
+for (const view of ["AgentPetView", "AgentPetSettingsView", "PetOverlay", "PetPopover"]) {
+  test(`${view} refreshes a stable session's pet when its mapping revision changes`, async () => {
+    const source = readFileSync(`src/views/${view}.svelte`, "utf8");
+    const expression = source.match(/\{@const (?:sessionPet|agentPet) = ([^}]+)\}/)?.[1];
+    assert.ok(expression, "production mapped-pet expression exists");
+    // Use the real expression and Svelte's runtime, not a mocked $derived identity function.
+    const { js } = compileModule(`
+      let mappingRevision = $state(0);
+      let assignment = "before";
+      const session = { id: "stable-session" }, agent = session, idx = 0;
+      const selectedPet = "fallback", petSlug = selectedPet;
+      const getPetForSession = () => assignment;
+      const pet = $derived(${expression});
+      export function current() { return pet; }
+      export function remap(value) { assignment = value; mappingRevision += 1; }
+    `, { filename: `${view}.svelte.js`, generate: "client" });
+    // Data-URL modules need absolute runtime imports, resolved from this project's Svelte.
+    const code = js.code.replace(/(['"])(svelte\/[^'"]+)\1/g,
+      (_, _quote, specifier) => JSON.stringify(import.meta.resolve(specifier)));
+    const harness = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}#${view}`);
+    assert.equal(harness.current(), "before");
+    harness.remap("after");
+    assert.equal(harness.current(), "after", "revision must invalidate the pet lookup without a session poll");
+    harness.remap("third");
+    assert.equal(harness.current(), "third");
+  });
+}
 
 test("petMapping module integrity and distinct split assignment logic", () => {
   assert.ok(existsSync("src/lib/petMapping.ts"), "petMapping.ts exists");

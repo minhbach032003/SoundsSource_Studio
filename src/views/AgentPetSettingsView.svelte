@@ -335,8 +335,7 @@
             <span class="text-[10px] font-bold uppercase tracking-wider text-(--muted) block">Active Connected Sessions ({activeSessions.length})</span>
             <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {#each activeSessions as session, idx (session.id)}
-                {@const _rev = mappingRevision}
-                {@const sessionPet = getPetForSession(session, idx, selectedPet)}
+                {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, selectedPet))}
                 {@const projName = getProjectName(session.project)}
                 <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-xs">
                   <div class="flex items-center gap-2 min-w-0">

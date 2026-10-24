@@ -206,8 +206,7 @@
       {:else}
         <ul class="session-list" aria-label="Active agent sessions">
           {#each activeAgents as agent, idx (agent.id)}
-            {@const _rev = mappingRevision}
-            {@const agentPet = getPetForSession(agent, idx, petSlug)}
+            {@const agentPet = (void mappingRevision, getPetForSession(agent, idx, petSlug))}
             <li class="session">
               <span class="session-dot" class:working={agent.state === "working"} class:waiting={agent.state === "waiting"}></span>
               <img
