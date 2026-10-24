@@ -89,6 +89,10 @@ impl GestureEngine {
         self.state
     }
 
+    pub fn is_tracking_pointer(&self) -> bool {
+        matches!(self.state, GestureState::Pending | GestureState::Wheel)
+    }
+
     pub fn enabled(&self) -> bool {
         self.enabled
     }

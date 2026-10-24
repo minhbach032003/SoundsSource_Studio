@@ -212,10 +212,12 @@ impl SpotifyIntegration {
                     Ok(p) => next.playback = p,
                     Err(e) => next.playback_error = Some(e),
                 }
+                let is_active = next.playback.playing || next.processing || tap.is_some() || local_state.playing;
                 *status.lock().unwrap() = next;
                 // Wake early when a button press invalidates the cache, so the track the
                 // user just skipped to shows up in about a tick instead of a poll interval.
-                for _ in 0..20 {
+                let slices = if is_active { 20 } else { 60 };
+                for _ in 0..slices {
                     if stop.load(Ordering::Acquire) || force_playback.load(Ordering::Acquire) { break; }
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }

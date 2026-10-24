@@ -34,20 +34,52 @@ fn run_script(script: &str) -> Result<String, String> {
     let mut child = Command::new("/usr/bin/osascript")
         .args(["-l", "JavaScript", "-e", script])
         .stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
-    let start = Instant::now();
+    let deadline = Instant::now() + Duration::from_secs(6);
     loop {
-        if child.try_wait().map_err(|e| e.to_string())?.is_some() { break; }
-        if start.elapsed() > Duration::from_secs(8) {
-            let _ = child.kill(); let _ = child.wait();
-            return Err("Spotify không phản hồi. Kiểm tra quyền Automation trong System Settings.".into());
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err("Spotify không phản hồi. Kiểm tra quyền Automation trong System Settings.".into());
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            Err(e) => return Err(e.to_string()),
         }
-        std::thread::sleep(Duration::from_millis(25));
     }
     let output = child.wait_with_output().map_err(|e| e.to_string())?;
     if !output.status.success() {
         return Err(format!("Không điều khiển được Spotify. Cho phép rust-sound trong Privacy & Security → Automation. {}", String::from_utf8_lossy(&output.stderr).trim()));
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[cfg(target_os = "macos")]
+pub fn is_spotify_running() -> bool {
+    let ids = process_ids();
+    if !ids.is_empty() {
+        return true;
+    }
+    unsafe {
+        use objc2::runtime::AnyClass;
+        use objc2_foundation::NSString;
+        if let Some(cls) = AnyClass::get(c"NSRunningApplication") {
+            let bundle = NSString::from_str("com.spotify.client");
+            let apps: *mut objc2::runtime::AnyObject = objc2::msg_send![cls, runningApplicationsWithBundleIdentifier: &*bundle];
+            if !apps.is_null() {
+                let count: usize = objc2::msg_send![apps, count];
+                return count > 0;
+            }
+        }
+    }
+    false
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn is_spotify_running() -> bool {
+    false
 }
 
 pub fn launch() -> Result<(), String> {
@@ -59,6 +91,9 @@ pub fn launch() -> Result<(), String> {
 }
 
 pub fn playback() -> Result<SpotifyPlayback, String> {
+    if !is_spotify_running() {
+        return Ok(SpotifyPlayback::default());
+    }
     let json = run_script(r#"const s = Application('com.spotify.client');
 if (!s.running()) { JSON.stringify({running:false,playing:false}); }
 else {

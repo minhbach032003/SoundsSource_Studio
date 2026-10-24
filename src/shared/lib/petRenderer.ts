@@ -599,6 +599,7 @@ export class PetRenderer {
   private transitionStart = 0;
   private transitionDuration = 0.22; // 220ms smooth C2 quintic hermite blend
   private lastRafTime: number | null = null;
+  private lastDrawTime = 0;
   private state = "idle";
   private animate = true;
   private unsubscribe: () => void;
@@ -778,8 +779,14 @@ export class PetRenderer {
       if (previous !== petFrameIndex(this.slug, this.row, count, this.frame)) shouldRedraw = true;
     }
 
-    // Always redraw at display refresh rate for silky smooth subpixel physics if animated
-    if (this.loaded && (shouldRedraw || this.hasContinuousDynamics())) {
+    // Continuous smooth micro-dynamics: limit idle state redraw to max ~30 FPS (33ms)
+    // while allowing active states (working, reading, celebrate) to render at display refresh rate.
+    const isIdle = this.state === "idle";
+    const minDynamicsInterval = isIdle ? 33 : 0;
+    const canDrawDynamics = this.hasContinuousDynamics() && (t - this.lastDrawTime >= minDynamicsInterval);
+
+    if (this.loaded && (shouldRedraw || canDrawDynamics)) {
+      this.lastDrawTime = t;
       this.draw();
     }
 

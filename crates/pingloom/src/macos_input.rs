@@ -457,10 +457,12 @@ fn run_listener_loop(
     ];
 
     let current_origin = Arc::new(Mutex::new(None::<Point>));
+    let tracking_pointer = Arc::new(AtomicBool::new(false));
     let start_instant = Instant::now();
 
     let cb_engine = Arc::clone(&engine);
     let cb_origin = Arc::clone(&current_origin);
+    let cb_tracking = Arc::clone(&tracking_pointer);
     let cb_callback = Arc::clone(&callback);
 
     let tap_result = CGEventTap::new(
@@ -481,6 +483,18 @@ fn run_listener_loop(
             }
 
             if matches!(kind, CGEventType::TapDisabledByUserInput) {
+                return CallbackResult::Keep;
+            }
+
+            // Fast-path pointer movement when not currently tracking a gesture
+            let is_pointer_movement = matches!(
+                kind,
+                CGEventType::MouseMoved
+                    | CGEventType::LeftMouseDragged
+                    | CGEventType::RightMouseDragged
+                    | CGEventType::OtherMouseDragged
+            );
+            if is_pointer_movement && !cb_tracking.load(Ordering::Relaxed) {
                 return CallbackResult::Keep;
             }
 
@@ -560,12 +574,14 @@ fn run_listener_loop(
                 }
                 _ => button(kind, event).map(|(button, down)| {
                     if down {
+                        let is_game_check = cb_engine.lock().map(|e| e.settings().game_check).unwrap_or(false);
+                        let fullscreen_app = if is_game_check { fullscreen_at(point) } else { false };
                         InputEvent::PointerDown {
                             button,
                             point,
                             time_ms,
                             injected: false,
-                            fullscreen_app: fullscreen_at(point),
+                            fullscreen_app,
                             dpi_scale: 1.0,
                         }
                     } else {
@@ -605,8 +621,10 @@ fn run_listener_loop(
                     }
 
                     if decision.swallow {
+                        cb_tracking.store(engine.is_tracking_pointer(), Ordering::Release);
                         return CallbackResult::Drop;
                     }
+                    cb_tracking.store(engine.is_tracking_pointer(), Ordering::Release);
                 }
             }
 
@@ -646,13 +664,14 @@ fn run_listener_loop(
         CFRunLoop::run_in_mode(
             unsafe { kCFRunLoopDefaultMode },
             Duration::from_millis(100),
-            true,
+            false,
         );
 
         // Tick watchdog for timeouts
         let now_ms = start_instant.elapsed().as_millis() as u64;
         if let Ok(mut engine) = engine.lock() {
             let tick_decision = engine.tick(now_ms);
+            tracking_pointer.store(engine.is_tracking_pointer(), Ordering::Release);
             for action in tick_decision.actions {
                 let origin = match action {
                     Action::WheelOpen { origin, .. } => {

@@ -362,7 +362,7 @@ fn segment(id: &str, label: &str, bytes: u64) -> MemorySegment {
 #[cfg(target_os = "macos")]
 mod imp {
     use super::*;
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
     type MachPort = u32;
     const HOST_VM_INFO64: i32 = 4;
@@ -451,12 +451,18 @@ mod imp {
     }
 
     fn can_purge_without_prompt() -> bool {
-        // Test if unprivileged purge works, or if passwordless sudo purge is configured.
-        if Command::new("/usr/sbin/purge").status().map(|s| s.success()).unwrap_or(false) {
+        unsafe extern "C" {
+            fn geteuid() -> u32;
+        }
+        if unsafe { geteuid() } == 0 {
             return true;
         }
+        // Test if passwordless sudo purge is configured without actually running purge.
+        // `sudo -n -l /usr/sbin/purge` checks if the command is allowed in sudoers without executing it.
         Command::new("sudo")
-            .args(["-n", "/usr/sbin/purge"])
+            .args(["-n", "-l", "/usr/sbin/purge"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
             .map(|s| s.success())
             .unwrap_or(false)
