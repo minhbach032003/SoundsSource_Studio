@@ -38,6 +38,7 @@
     Unlink,
     Timer,
     ShieldCheck,
+    X,
   } from "@lucide/svelte";
 
   export type TimerPhase = "idle" | "studying" | "warning" | "breaking";
@@ -189,6 +190,19 @@
 
   // Wall-clock ticker
   let currentTime = $state(new Date());
+  let prevPhase = $state<TimerPhase>("idle");
+
+  $effect(() => {
+    const curPhase = status.phase;
+    if ((prevPhase === "studying" || prevPhase === "warning") && curPhase === "breaking") {
+      if (activeGoal) {
+        notify("success", `Hoàn thành phiên tập trung cho "${activeGoal.title}"! Đã đến giờ nghỉ ngơi.`);
+      } else {
+        notify("success", "Phiên tập trung hoàn thành! Đã đến giờ nghỉ ngơi.");
+      }
+    }
+    prevPhase = curPhase;
+  });
 
   function persistLocalTodos() {
     if (typeof window !== "undefined") {
@@ -642,13 +656,28 @@
   }
 
   function handleFocusGoal(item: TodoItem) {
+    if (activeGoalId === item.id) {
+      activeGoalId = null;
+      notify("info", "Đã bỏ chọn mục tiêu trọng tâm");
+      return;
+    }
     activeGoalId = item.id;
     if (item.duration_minutes && item.duration_minutes > 0) {
       const clampedMinutes = Math.min(180, Math.max(1, item.duration_minutes));
       if (isIdle) {
         handleSetDurations(clampedMinutes * 60, status.break_duration);
+      } else {
+        notify("info", `Đang chạy phiên tập trung. Mục tiêu "${item.title}" (${clampedMinutes}m) đã chọn.`);
       }
+    } else {
+      notify("info", `Đã chọn mục tiêu "${item.title}" làm trọng tâm.`);
     }
+  }
+
+  function handleClearCompleted() {
+    todos = todos.filter((t) => !t.is_completed);
+    persistLocalTodos();
+    notify("info", "Đã dọn dẹp các mục tiêu thủ công đã hoàn thành.");
   }
 
   async function handleConnectCalendar() {
@@ -934,7 +963,7 @@
           <div class="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
             {#if activeGoal}
               <div
-                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--accent)/15 border border-(--accent)/40 text-(--accent-text) text-[11px] font-semibold mb-1 max-w-55 truncate shadow-sm"
+                class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full bg-(--accent)/15 border border-(--accent)/40 text-(--accent-text) text-[11px] font-semibold mb-1 max-w-60 shadow-sm"
                 title={`Active Goal: ${activeGoal.title}`}
               >
                 {#if activeGoal.source === "google-calendar"}
@@ -943,6 +972,18 @@
                   <Target class="w-3.5 h-3.5 text-(--accent) shrink-0" />
                 {/if}
                 <span class="truncate">{activeGoal.title}</span>
+                <button
+                  type="button"
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    activeGoalId = null;
+                    notify("info", "Đã bỏ chọn mục tiêu trọng tâm");
+                  }}
+                  class="p-0.5 rounded-full hover:bg-(--accent)/20 text-(--muted) hover:text-(--ink) transition-colors cursor-pointer shrink-0 ml-0.5"
+                  title="Bỏ chọn mục tiêu"
+                >
+                  <X class="w-3 h-3" />
+                </button>
               </div>
             {:else}
               <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-(--paper) border border-(--line) text-[11px] font-semibold uppercase tracking-wider mb-1">
@@ -1095,6 +1136,16 @@
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--surface) text-(--muted) text-[10px] font-semibold border border-(--line)">
               <CheckCircle2 class="w-2.5 h-2.5 text-(--success)" />
               <span>{completedCount}/{unifiedItems.length} Done</span>
+              {#if todos.some((t) => t.is_completed)}
+                <button
+                  type="button"
+                  onclick={handleClearCompleted}
+                  class="hover:text-(--error) ml-1 transition-colors underline cursor-pointer"
+                  title="Dọn dẹp công việc hoàn thành"
+                >
+                  Clear
+                </button>
+              {/if}
             </span>
           </div>
 
@@ -1293,9 +1344,7 @@
                   <button
                     type="button"
                     onclick={() => {
-                      const nowStr = formatClockTime(new Date());
-                      newStartTime = nowStr;
-                      newEndTime = addMinutesToTime(nowStr, dur);
+                      newEndTime = addMinutesToTime(newStartTime, dur);
                     }}
                     class="px-2 py-0.5 rounded bg-(--surface) hover:bg-(--paper) text-[10px] text-(--ink) border border-(--line) cursor-pointer"
                   >
@@ -1327,6 +1376,17 @@
                         : "Hôm nay không có cuộc hẹn hoặc sự kiện nào trong lịch.")
                     : "Thêm công việc vào ô phía trên để bắt đầu phiên tập trung."}
                 </p>
+                {#if activeFilter === "calendar" && !isCalendarConnected}
+                  <button
+                    type="button"
+                    onclick={handleConnectCalendar}
+                    disabled={isLoadingCalendar}
+                    class="btn btn-primary h-7 text-[11px] px-3 rounded-lg flex items-center gap-1.5 mt-2 cursor-pointer mx-auto"
+                  >
+                    <GoogleIcon class="w-3 h-3" />
+                    <span>{isLoadingCalendar ? "Connecting…" : "Connect Google Calendar"}</span>
+                  </button>
+                {/if}
               </div>
             </div>
           {:else}

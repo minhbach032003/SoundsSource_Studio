@@ -154,7 +154,17 @@ pub fn run() {
         #[cfg(target_os = "macos")]
         gesture_listener: Mutex::new(None),
         gemini_api_key: Mutex::new(std::env::var("GEMINI_API_KEY").ok().filter(|k| !k.trim().is_empty())),
-        google_calendar: Arc::new(engine::GoogleCalendarService::default()),
+        google_calendar: {
+            let client_id = std::env::var("GOOGLE_CLIENT_ID")
+                .ok()
+                .or_else(|| option_env!("GOOGLE_CLIENT_ID").map(String::from))
+                .filter(|s| !s.trim().is_empty());
+            let client_secret = std::env::var("GOOGLE_CLIENT_SECRET")
+                .ok()
+                .or_else(|| option_env!("GOOGLE_CLIENT_SECRET").map(String::from))
+                .filter(|s| !s.trim().is_empty());
+            Arc::new(engine::GoogleCalendarService::new(client_id, client_secret))
+        },
     };
 
     let app = tauri::Builder::default()

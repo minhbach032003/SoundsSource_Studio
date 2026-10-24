@@ -209,6 +209,33 @@ impl TokenStorage for MockTokenStorage {
     }
 }
 
+fn load_dotenv_var(key: &str) -> Option<String> {
+    let candidates = [
+        PathBuf::from(".env"),
+        PathBuf::from("../../.env"),
+        PathBuf::from("../.env"),
+    ];
+    for path in &candidates {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('#') || trimmed.is_empty() {
+                    continue;
+                }
+                if let Some((k, v)) = trimmed.split_once('=') {
+                    if k.trim() == key {
+                        let val = v.trim().trim_matches(['\"', '\'']);
+                        if !val.is_empty() {
+                            return Some(val.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Service managing Google Calendar OAuth2 PKCE login, auto refresh, and event fetching.
 pub struct GoogleCalendarService {
     client_id: Option<String>,
@@ -223,10 +250,12 @@ impl Default for GoogleCalendarService {
         let client_id = std::env::var("GOOGLE_CLIENT_ID")
             .ok()
             .or_else(|| option_env!("GOOGLE_CLIENT_ID").map(String::from))
+            .or_else(|| load_dotenv_var("GOOGLE_CLIENT_ID"))
             .filter(|s| !s.trim().is_empty());
         let client_secret = std::env::var("GOOGLE_CLIENT_SECRET")
             .ok()
             .or_else(|| option_env!("GOOGLE_CLIENT_SECRET").map(String::from))
+            .or_else(|| load_dotenv_var("GOOGLE_CLIENT_SECRET"))
             .filter(|s| !s.trim().is_empty());
         Self::new(client_id, client_secret)
     }

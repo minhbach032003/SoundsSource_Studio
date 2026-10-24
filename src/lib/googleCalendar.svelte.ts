@@ -99,7 +99,7 @@ export class GoogleCalendarState {
     }
   }
 
-  async checkStatus(): Promise<GoogleCalendarAccount> {
+  async checkStatus(autoSyncIfEmpty = true): Promise<GoogleCalendarAccount> {
     if (typeof window === "undefined" || !isTauri()) {
       return { connected: false, email: null };
     }
@@ -107,6 +107,9 @@ export class GoogleCalendarState {
       const res = await invoke<GoogleCalendarAccount>("google_calendar_status");
       this.isConnected = Boolean(res?.connected);
       this.accountEmail = res?.email ?? null;
+      if (this.isConnected && autoSyncIfEmpty && this.events.length === 0 && !this.isLoading) {
+        void this.syncCalendarInternal().catch(() => {});
+      }
       return { connected: this.isConnected, email: this.accountEmail };
     } catch (e) {
       console.warn("Failed to check Google Calendar status:", e);
