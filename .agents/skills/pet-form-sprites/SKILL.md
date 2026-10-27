@@ -1,6 +1,12 @@
 ---
 name: pet-form-sprites
-description: Rebuilds an AgentPet companion's 10 evolution forms as distinct sprites (own silhouette, hair/fur/eye/skin colours, untouched outfit) plus a per-form ki/energy aura drawn on the canvas, instead of one sprite under a colour tint. Use when a pet's forms "only change colour", do not match the character, or when adding or redesigning evolution forms for any pet in public/pets/ (Goku, Pikachu, Shinchan, the cats, Boba, Eddy, Wode). Vietnamese triggers: "làm lại con pet theo từng cấp độ", "chỉ bọc màu", "không khớp nhân vật", "hình thái tiến hoá".
+description: >-
+  Rebuilds an AgentPet companion's 10 evolution forms as distinct sprites (own silhouette,
+  hair/fur/eye/skin colours, untouched outfit) plus a per-form ki/energy aura drawn on the canvas,
+  instead of one sprite under a colour tint. Use when a pet's forms "only change colour", do not
+  match the character, or when adding or redesigning evolution forms for any pet in public/pets/
+  (Goku, Pikachu, Shinchan, the cats, Boba, Eddy, Wode). Vietnamese triggers: "làm lại con pet
+  theo từng cấp độ", "chỉ bọc màu", "không khớp nhân vật", "hình thái tiến hoá".
 ---
 
 # Pet Form Sprites
