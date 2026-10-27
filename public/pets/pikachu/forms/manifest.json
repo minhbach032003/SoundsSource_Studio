@@ -16,8 +16,8 @@
         "#f78398",
         "#ffccd5"
       ],
-      "alphaHash": "8087c8df7e958471",
-      "opaquePixels": 918527
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "classic": {
       "shapeKey": "classic",
@@ -34,8 +34,8 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "960ac824fb65a03f",
-      "opaquePixels": 1093548
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "spark": {
       "shapeKey": "spark",
@@ -52,8 +52,8 @@
         "#ff3333",
         "#ff8f8f"
       ],
-      "alphaHash": "f678222ef8588f60",
-      "opaquePixels": 1070629
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "studio": {
       "shapeKey": "studio",
@@ -88,8 +88,8 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "c360d9da681d7464",
-      "opaquePixels": 1132093
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "iron-tail": {
       "shapeKey": "iron-tail",
@@ -106,8 +106,8 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "ee7ad3b95fcda660",
-      "opaquePixels": 1075256
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "thunderbolt": {
       "shapeKey": "thunderbolt",
@@ -124,8 +124,8 @@
         "#ff3d3d",
         "#ffa3a3"
       ],
-      "alphaHash": "b53fb3c2a024f104",
-      "opaquePixels": 1083237
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "overcharge": {
       "shapeKey": "overcharge",
@@ -142,8 +142,8 @@
         "#ffe600",
         "#fff380"
       ],
-      "alphaHash": "d6c6df5588a74021",
-      "opaquePixels": 914887
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "gigantamax": {
       "shapeKey": "gigantamax",
@@ -155,13 +155,13 @@
         "#ffdb8a"
       ],
       "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
+        "#c70c0c",
+        "#f01616",
+        "#ff3d3d",
+        "#ffa3a3"
       ],
-      "alphaHash": "afa25071a96d1f5c",
-      "opaquePixels": 1019971
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
     },
     "ash-cap": {
       "shapeKey": "ash-cap",

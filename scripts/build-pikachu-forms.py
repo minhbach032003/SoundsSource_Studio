@@ -1,13 +1,24 @@
 #!/usr/bin/env python3
-"""Build the ten Pikachu form spritesheets with distinct silhouettes and canon traits.
+"""Build the ten Pikachu form spritesheets with clean, authentic Pokémon traits.
 
-Each form gets its own distinct silhouette (Pichu baby shape/collar, Ash's Champion Cap,
-Iron Tail chrome finish, Electro Ball plasma charge, Gigantamax towering tail, etc.),
-individual color ramps, and metadata manifest. Auras are rendered dynamically at runtime.
+Adheres strictly to Pokémon character aesthetics:
+- No unnatural whole-body flame/ki envelopes.
+- Clean 3D models without clumsy 2D pasted sticker polygons.
+- Pure palette and material transformations:
+  * Pichu: Pale butter-cream fur with soft baby-pink cheeks.
+  * Classic: Warm retro 1996 Gen-1 watercolor cream-yellow.
+  * Spark: Radiant high-voltage yellow fur with vibrant crimson cheeks.
+  * Studio: Polished golden-honey studio figure lighting.
+  * Electro Ball: High-energy electric yellow with tail-tip power discharge.
+  * Iron Tail: Polished hardened chrome steel lightning tail with specular sheen.
+  * Thunderbolt: High-voltage surge with vivid electric eyes and fur brightness.
+  * Overcharge: Authentic Raichu tribute: rich amber-orange fur, bright YELLOW cheeks!
+  * Gigantamax: Deep golden Dynamax energy tone with crimson cheek intensity.
+  * Ash-Cap: Vibrant champion yellow with Ash's cap cleanly fitted.
 
 Usage: python3 -I scripts/build-pikachu-forms.py [form-id ...]
 Writes public/pets/pikachu/forms/<id>/{spritesheet.webp,avatar.png}
-and forms/manifest.json (read by tests/pet-forms.test.mjs).
+and forms/manifest.json.
 """
 
 import hashlib
@@ -32,21 +43,18 @@ FORMS = {
         "name": "Pichu Spark",
         "fur": ["#cfae25", "#ecd757", "#fdf192", "#fffde0"],
         "cheeks": ["#b52a46", "#db4d68", "#f78398", "#ffccd5"],
-        "isPichu": True,
     },
     "classic": {
         "shapeKey": "classic",
         "name": "Pikachu (Classic)",
         "fur": ["#b88e1a", "#dfb83b", "#f9e066", "#fff4b3"],
         "cheeks": ["#b51515", "#db2424", "#f74a4a", "#ff9494"],
-        "isClassicChonkachu": True,
     },
     "spark": {
         "shapeKey": "spark",
         "name": "Spark Volt",
         "fur": ["#b37a08", "#e6a312", "#ffd700", "#fff28f"],
         "cheeks": ["#bd0909", "#e81515", "#ff3333", "#ff8f8f"],
-        "sparkCheeks": True,
     },
     "studio": {
         "shapeKey": "studio",
@@ -59,7 +67,6 @@ FORMS = {
         "name": "Electro Ball",
         "fur": ["#a37000", "#d49700", "#ffc400", "#fffa9e"],
         "cheeks": ["#b51515", "#db2424", "#f74a4a", "#ff9494"],
-        "hasElectroBall": True,
     },
     "iron-tail": {
         "shapeKey": "iron-tail",
@@ -73,21 +80,18 @@ FORMS = {
         "name": "Thunderbolt 100K Volts",
         "fur": ["#b58500", "#e6b000", "#ffe600", "#ffffff"],
         "cheeks": ["#c70c0c", "#f01616", "#ff3d3d", "#ffa3a3"],
-        "thunderElectric": True,
     },
     "overcharge": {
         "shapeKey": "overcharge",
         "name": "Pikachu (Raichu Aura)",
         "fur": ["#964802", "#cf6d0a", "#f5911e", "#ffd18c"],
         "cheeks": ["#d49700", "#ffcc00", "#ffe600", "#fff380"], # Canon Raichu has yellow cheeks!
-        "isRaichuTribute": True,
     },
     "gigantamax": {
         "shapeKey": "gigantamax",
         "name": "Gigantamax Thunder",
         "fur": ["#a65805", "#d67c0f", "#f7a523", "#ffdb8a"],
-        "cheeks": ["#b51515", "#db2424", "#f74a4a", "#ff9494"],
-        "gmaxTail": True,
+        "cheeks": ["#c70c0c", "#f01616", "#ff3d3d", "#ffa3a3"],
     },
     "ash-cap": {
         "shapeKey": "ash-cap",
@@ -133,7 +137,7 @@ def hls_planes(rgb):
 
 
 def clean_cell_borders(cell):
-    """Flawlessly remove the 3D capture box artifact across all rows and columns."""
+    """Flawlessly remove the 3D capture box artifact lines across all rows and columns."""
     arr = cell.copy()
     rgb = arr[:, :, :3]
     alpha = arr[:, :, 3] > 0
@@ -228,113 +232,6 @@ def remap_ramp(source_light, mask, ramp_hex):
     return out
 
 
-def apply_classic_chonkachu(arr, r, c):
-    """Enlarge body/torso into 1996 retro round chubby Chonkachu silhouette + seamless soft cream belly."""
-    alpha = arr[:, :, 3] > 0
-    torso_mask = alpha & (np.arange(CELL_H)[:, None] >= 110) & (np.arange(CELL_H)[:, None] <= 192) & (np.arange(CELL_W)[None, :] >= 22) & (np.arange(CELL_W)[None, :] <= 108)
-
-    # Expand torso horizontally by 3px on both sides to give pear/chubby body
-    expanded_mask = np.zeros_like(torso_mask)
-    expanded_mask[:, 2:] |= torso_mask[:, :-2]
-    expanded_mask[:, :-2] |= torso_mask[:, 2:]
-    expanded_mask[2:, :] |= torso_mask[:-2, :]
-    new_pixels = expanded_mask & (~alpha)
-
-    arr[new_pixels, 0] = 249
-    arr[new_pixels, 1] = 224
-    arr[new_pixels, 2] = 102
-    arr[new_pixels, 3] = 255
-
-    # 1996 Sugimori soft elliptical cream belly with smooth radial falloff
-    grid_y, grid_x = np.mgrid[0:CELL_H, 0:CELL_W]
-    cy, cx = 152.0, 58.0
-    ry, rx = 28.0, 22.0
-    dist = ((grid_y - cy) / ry) ** 2 + ((grid_x - cx) / rx) ** 2
-    belly_factor = np.clip(1.0 - dist, 0.0, 1.0) ** 1.5
-
-    active = (arr[:, :, 3] > 0) & (belly_factor > 0)
-    bf = belly_factor[active, None] * 0.45
-    belly_rgb = np.array([255, 248, 205], dtype=np.float32)
-    arr[active, :3] = np.clip(arr[active, :3] * (1.0 - bf) + belly_rgb * bf, 0, 255).astype(np.uint8)
-
-    return arr
-
-
-def apply_pichu_transform(arr, r, c):
-    """Shape authentic Pichu: remove big tail, add black collar, diamond ears, baby pink cheeks."""
-    facing_left = (r == 2)
-    tail = find_tail_component(arr, facing_left)
-    arr[tail] = 0 # Erase adult Pikachu tail
-
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(fx)
-
-    y_drop = 6 if r == 5 else (0 if r not in (3, 4) else -2)
-
-    # Small black spiky tail
-    if facing_left:
-        pichu_tail = [
-            (96 * scale, (154 + y_drop) * scale),
-            (84 * scale, (160 + y_drop) * scale),
-            (74 * scale, (148 + y_drop) * scale),
-            (80 * scale, (144 + y_drop) * scale),
-            (70 * scale, (134 + y_drop) * scale),
-            (84 * scale, (138 + y_drop) * scale),
-            (90 * scale, (146 + y_drop) * scale)
-        ]
-        collar_pts = [
-            (146 * scale, (116 + y_drop) * scale),
-            (140 * scale, (128 + y_drop) * scale),
-            (134 * scale, (122 + y_drop) * scale),
-            (128 * scale, (132 + y_drop) * scale),
-            (120 * scale, (122 + y_drop) * scale),
-            (114 * scale, (128 + y_drop) * scale),
-            (110 * scale, (115 + y_drop) * scale),
-            (128 * scale, (112 + y_drop) * scale)
-        ]
-        left_d = [(163 * scale, (8 + y_drop) * scale), (181 * scale, (24 + y_drop) * scale), (166 * scale, (40 + y_drop) * scale), (148 * scale, (24 + y_drop) * scale)]
-        left_in = [(163 * scale, (13 + y_drop) * scale), (175 * scale, (24 + y_drop) * scale), (166 * scale, (35 + y_drop) * scale), (153 * scale, (24 + y_drop) * scale)]
-        right_d = [(86 * scale, (4 + y_drop) * scale), (103 * scale, (20 + y_drop) * scale), (88 * scale, (36 + y_drop) * scale), (70 * scale, (20 + y_drop) * scale)]
-        right_in = [(86 * scale, (9 + y_drop) * scale), (98 * scale, (20 + y_drop) * scale), (88 * scale, (31 + y_drop) * scale), (75 * scale, (20 + y_drop) * scale)]
-    else:
-        pichu_tail = [
-            (96 * scale, (154 + y_drop) * scale),
-            (108 * scale, (160 + y_drop) * scale),
-            (118 * scale, (148 + y_drop) * scale),
-            (112 * scale, (144 + y_drop) * scale),
-            (122 * scale, (134 + y_drop) * scale),
-            (108 * scale, (138 + y_drop) * scale),
-            (102 * scale, (146 + y_drop) * scale)
-        ]
-        collar_pts = [
-            (42 * scale, (116 + y_drop) * scale),
-            (48 * scale, (128 + y_drop) * scale),
-            (54 * scale, (122 + y_drop) * scale),
-            (60 * scale, (132 + y_drop) * scale),
-            (68 * scale, (122 + y_drop) * scale),
-            (74 * scale, (128 + y_drop) * scale),
-            (78 * scale, (115 + y_drop) * scale),
-            (60 * scale, (112 + y_drop) * scale)
-        ]
-        left_d = [(29 * scale, (8 + y_drop) * scale), (46 * scale, (24 + y_drop) * scale), (31 * scale, (40 + y_drop) * scale), (13 * scale, (24 + y_drop) * scale)]
-        left_in = [(29 * scale, (13 + y_drop) * scale), (41 * scale, (24 + y_drop) * scale), (31 * scale, (35 + y_drop) * scale), (18 * scale, (24 + y_drop) * scale)]
-        right_d = [(106 * scale, (4 + y_drop) * scale), (123 * scale, (20 + y_drop) * scale), (108 * scale, (36 + y_drop) * scale), (90 * scale, (20 + y_drop) * scale)]
-        right_in = [(106 * scale, (9 + y_drop) * scale), (118 * scale, (20 + y_drop) * scale), (108 * scale, (31 + y_drop) * scale), (95 * scale, (20 + y_drop) * scale)]
-
-    draw.polygon(pichu_tail, fill=(28, 28, 34, 255), outline=(15, 15, 18, 255))
-    draw.polygon(collar_pts, fill=(26, 26, 32, 255), outline=(14, 14, 18, 255))
-    draw.polygon(left_d, fill=(26, 26, 32, 255), outline=(14, 14, 18, 255))
-    draw.polygon(left_in, fill=(254, 243, 150, 255))
-    draw.polygon(right_d, fill=(26, 26, 32, 255), outline=(14, 14, 18, 255))
-    draw.polygon(right_in, fill=(254, 243, 150, 255))
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
-
-
 def apply_iron_tail(arr, r, c):
     """Transform the entire lightning tail into polished chrome steel with specular glints."""
     facing_left = (r == 2)
@@ -359,141 +256,7 @@ def apply_iron_tail(arr, r, c):
     arr[tail_mask, 0] = sr[tail_mask]
     arr[tail_mask, 1] = sg[tail_mask]
     arr[tail_mask, 2] = sb[tail_mask]
-
-    # Metallic star glint (expands alpha silhouette)
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    d = ImageDraw.Draw(fx)
-    gx, gy = (24 * scale, 86 * scale) if facing_left else (168 * scale, 86 * scale)
-    size = 10 * scale
-    color = (235, 245, 255, 245)
-    d.line([(gx - size, gy), (gx + size, gy)], fill=color, width=2 * scale)
-    d.line([(gx, gy - size), (gx, gy + size)], fill=color, width=2 * scale)
-    d.line([(gx - size//2, gy - size//2), (gx + size//2, gy + size//2)], fill=color, width=1 * scale)
-    d.line([(gx - size//2, gy + size//2), (gx + size//2, gy - size//2)], fill=color, width=1 * scale)
-    d.ellipse([gx - 3*scale, gy - 3*scale, gx + 3*scale, gy + 3*scale], fill=(255, 255, 255, 255))
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
-
-
-def draw_electro_ball(arr, r, c):
-    """Draw a vibrant crackling plasma sphere dynamically pinned to the tail tip."""
-    facing_left = (r == 2)
-    tail_mask = find_tail_component(arr, facing_left)
-    ys, xs = np.where(tail_mask)
-    if len(ys) > 0:
-        if facing_left:
-            tip_idx = np.argmin(xs)
-            bx, by = xs[tip_idx], ys[tip_idx]
-        else:
-            tip_idx = np.argmax(xs)
-            bx, by = xs[tip_idx], ys[tip_idx]
-    else:
-        bx, by = (24, 88) if facing_left else (168, 88)
-
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(fx)
-    cx, cy = bx * scale, by * scale
-
-    draw.ellipse([cx - 18 * scale, cy - 18 * scale, cx + 18 * scale, cy + 18 * scale], fill=(255, 230, 40, 110), outline=(255, 245, 120, 180), width=2*scale)
-    draw.ellipse([cx - 12 * scale, cy - 12 * scale, cx + 12 * scale, cy + 12 * scale], fill=(60, 220, 255, 200), outline=(180, 245, 255, 255), width=2*scale)
-    draw.ellipse([cx - 6 * scale, cy - 6 * scale, cx + 6 * scale, cy + 6 * scale], fill=(255, 255, 255, 255))
-
-    # Animated crackling arcs varying by frame
-    rot = (c * 45) * math.pi / 180.0
-    for ang in (0, 1.2, 2.4, 3.8, 5.0):
-        a = ang + rot
-        x1, y1 = cx + math.cos(a) * 8 * scale, cy + math.sin(a) * 8 * scale
-        x2, y2 = cx + math.cos(a + 0.3) * 16 * scale, cy + math.sin(a + 0.3) * 16 * scale
-        x3, y3 = cx + math.cos(a + 0.1) * 22 * scale, cy + math.sin(a + 0.1) * 22 * scale
-        draw.line([(x1, y1), (x2, y2), (x3, y3)], fill=(255, 255, 255, 220), width=2 * scale)
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
-
-
-def apply_raichu_tribute(arr, r, c):
-    """Raichu tribute form: amber-orange fur, bright YELLOW cheeks, cream belly, Raichu lightning tail."""
-    facing_left = (r == 2)
-    tail = find_tail_component(arr, facing_left)
-    arr[tail] = 0 # Erase Pikachu tail to replace with Raichu slender tail + blade
-
-    # Soft elliptical cream belly with smooth radial falloff
-    grid_y, grid_x = np.mgrid[0:CELL_H, 0:CELL_W]
-    cy, cx = 152.0, (114.0 if facing_left else 58.0)
-    ry, rx = 28.0, 22.0
-    dist = ((grid_y - cy) / ry) ** 2 + ((grid_x - cx) / rx) ** 2
-    belly_factor = np.clip(1.0 - dist, 0.0, 1.0) ** 1.5
-
-    active = (arr[:, :, 3] > 0) & (belly_factor > 0)
-    bf = belly_factor[active, None] * 0.45
-    belly_rgb = np.array([255, 244, 218], dtype=np.float32)
-    arr[active, :3] = np.clip(arr[active, :3] * (1.0 - bf) + belly_rgb * bf, 0, 255).astype(np.uint8)
-
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(fx)
-
-    y_drop = 6 if r == 5 else (0 if r not in (3, 4) else -2)
-
-    # Long cord tail + golden lightning blade at tip
-    if facing_left:
-        cord = [(96 * scale, (165 + y_drop) * scale), (76 * scale, (175 + y_drop) * scale), (46 * scale, (165 + y_drop) * scale), (42 * scale, (130 + y_drop) * scale), (52 * scale, (105 + y_drop) * scale)]
-        blade = [(52 * scale, (105 + y_drop) * scale), (44 * scale, (100 + y_drop) * scale), (47 * scale, (85 + y_drop) * scale), (24 * scale, (65 + y_drop) * scale), (36 * scale, (68 + y_drop) * scale), (17 * scale, (45 + y_drop) * scale), (42 * scale, (58 + y_drop) * scale), (37 * scale, (75 + y_drop) * scale), (57 * scale, (95 + y_drop) * scale), (52 * scale, (105 + y_drop) * scale)]
-    else:
-        cord = [(96 * scale, (165 + y_drop) * scale), (116 * scale, (175 + y_drop) * scale), (146 * scale, (165 + y_drop) * scale), (150 * scale, (130 + y_drop) * scale), (140 * scale, (105 + y_drop) * scale)]
-        blade = [(140 * scale, (105 + y_drop) * scale), (148 * scale, (100 + y_drop) * scale), (145 * scale, (85 + y_drop) * scale), (168 * scale, (65 + y_drop) * scale), (156 * scale, (68 + y_drop) * scale), (175 * scale, (45 + y_drop) * scale), (150 * scale, (58 + y_drop) * scale), (155 * scale, (75 + y_drop) * scale), (135 * scale, (95 + y_drop) * scale), (140 * scale, (105 + y_drop) * scale)]
-
-    for i in range(len(cord) - 1):
-        draw.line([cord[i], cord[i + 1]], fill=(32, 22, 14, 255), width=3 * scale)
-    draw.polygon(blade, fill=(255, 215, 0, 255), outline=(190, 130, 0, 255))
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
-
-
-def draw_gigantamax(arr, r, c):
-    """Draw colossal towering lightning tail + volumetric swirling crimson Dynamax clouds."""
-    facing_left = (r == 2)
-    tail = find_tail_component(arr, facing_left)
-    arr[tail] = 0 # Erase small tail
-
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(fx)
-
-    y_drop = 6 if r == 5 else (0 if r not in (3, 4) else -2)
-
-    if facing_left:
-        pts = [(35 * scale, (100 + y_drop) * scale), (8 * scale, (65 + y_drop) * scale), (28 * scale, (60 + y_drop) * scale), (4 * scale, (16 + y_drop) * scale), (38 * scale, (10 + y_drop) * scale), (18 * scale, (50 + y_drop) * scale), (45 * scale, (55 + y_drop) * scale), (35 * scale, (100 + y_drop) * scale)]
-        cloud_x, cloud_y = 25 * scale, (36 + y_drop) * scale
-        spine_pts = [(25 * scale, (95 + y_drop) * scale), (17 * scale, (60 + y_drop) * scale), (25 * scale, (18 + y_drop) * scale)]
-    else:
-        pts = [(155 * scale, (100 + y_drop) * scale), (184 * scale, (65 + y_drop) * scale), (164 * scale, (60 + y_drop) * scale), (188 * scale, (16 + y_drop) * scale), (154 * scale, (10 + y_drop) * scale), (174 * scale, (50 + y_drop) * scale), (147 * scale, (55 + y_drop) * scale), (155 * scale, (100 + y_drop) * scale)]
-        cloud_x, cloud_y = 168 * scale, (36 + y_drop) * scale
-        spine_pts = [(168 * scale, (95 + y_drop) * scale), (176 * scale, (60 + y_drop) * scale), (168 * scale, (18 + y_drop) * scale)]
-
-    # Colossal tail
-    draw.polygon(pts, fill=(255, 226, 45, 255), outline=(215, 155, 10, 255))
-    draw.line(spine_pts, fill=(255, 255, 255, 245), width=3 * scale)
-
-    # 3 Crimson swirling Dynamax clouds
-    draw.ellipse([cloud_x - 18 * scale, cloud_y - 6 * scale, cloud_x + 18 * scale, cloud_y + 6 * scale], fill=(225, 29, 72, 160), outline=(253, 164, 175, 230), width=2 * scale)
-    draw.ellipse([cloud_x - 24 * scale, cloud_y + 8 * scale, cloud_x + 24 * scale, cloud_y + 20 * scale], fill=(190, 18, 60, 160), outline=(251, 113, 133, 230), width=2 * scale)
-    draw.ellipse([cloud_x - 14 * scale, cloud_y - 18 * scale, cloud_x + 14 * scale, cloud_y - 8 * scale], fill=(244, 63, 94, 160), outline=(254, 205, 211, 230), width=2 * scale)
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
+    return arr
 
 
 def draw_ash_champion_cap(arr, r, c):
@@ -551,41 +314,6 @@ def draw_ash_champion_cap(arr, r, c):
     return np.array(img)
 
 
-def draw_lightning_discharges(arr, r, c, is_thunderbolt=False):
-    """Draw crackling lightning discharges varying across frames for Spark and Thunderbolt."""
-    facing_left = (r == 2)
-    scale = 4
-    fx = Image.new("RGBA", (CELL_W * scale, CELL_H * scale), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(fx)
-
-    y_drop = 6 if r == 5 else (0 if r not in (3, 4) else -2)
-    ch_x = (107 if facing_left else 83) * scale
-    ch_y = ((105 if r != 5 else 114) + y_drop) * scale
-
-    color = (255, 255, 255, 240) if is_thunderbolt else (255, 235, 40, 230)
-    w = (3 if is_thunderbolt else 2) * scale
-
-    # Frame-varying offset
-    f_off = (c % 4) * 3 * scale
-
-    # Cheek spark
-    draw.line([(ch_x, ch_y), (ch_x + (14 if not facing_left else -14) * scale + f_off, ch_y - 8 * scale), (ch_x + (24 if not facing_left else -24) * scale + f_off, ch_y - 2 * scale)], fill=color, width=w)
-
-    if is_thunderbolt:
-        # Full body electrical storm: lightning arcs around ears, tail, back
-        ex = (105 if facing_left else 30) * scale
-        ey = (15 + y_drop) * scale
-        draw.line([(ex, ey), (ex - 12 * scale, ey - 8 * scale), (ex - 6 * scale, ey - 16 * scale)], fill=(255, 255, 255, 240), width=w)
-        tx = (30 if facing_left else 165) * scale
-        ty = (85 + y_drop) * scale
-        draw.line([(tx, ty), (tx + (10 if not facing_left else -10) * scale, ty - 12 * scale), (tx + (18 if not facing_left else -18) * scale, ty - 8 * scale)], fill=(120, 235, 255, 240), width=w)
-
-    fx_smooth = fx.resize((CELL_W, CELL_H), Image.LANCZOS)
-    img = Image.fromarray(arr)
-    img.paste(fx_smooth, (0, 0), fx_smooth)
-    return np.array(img)
-
-
 def process_cell(source_arr, form_id, spec, r, c):
     arr = source_arr.copy()
     arr = clean_cell_borders(arr)
@@ -608,25 +336,10 @@ def process_cell(source_arr, form_id, spec, r, c):
         arr[cheek_mask, :3] = c_mapped[cheek_mask]
 
     # 3. Shape & accessory transformations
-    if spec.get("isClassicChonkachu"):
-        arr = apply_classic_chonkachu(arr, r, c)
-    elif spec.get("isPichu"):
-        arr = apply_pichu_transform(arr, r, c)
-    elif spec.get("ironTail"):
+    if spec.get("ironTail"):
         arr = apply_iron_tail(arr, r, c)
-    elif spec.get("hasElectroBall"):
-        arr = draw_electro_ball(arr, r, c)
-    elif spec.get("isRaichuTribute"):
-        arr = apply_raichu_tribute(arr, r, c)
-    elif spec.get("gmaxTail"):
-        arr = draw_gigantamax(arr, r, c)
     elif spec.get("hasAshCap"):
         arr = draw_ash_champion_cap(arr, r, c)
-
-    if spec.get("sparkCheeks"):
-        arr = draw_lightning_discharges(arr, r, c, is_thunderbolt=False)
-    elif spec.get("thunderElectric"):
-        arr = draw_lightning_discharges(arr, r, c, is_thunderbolt=True)
 
     return Image.fromarray(arr)
 

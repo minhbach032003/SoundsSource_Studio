@@ -239,7 +239,7 @@ const PIKACHU_MANIFEST = JSON.parse(
   readFileSync("public/pets/pikachu/forms/manifest.json", "utf8")
 );
 
-test("every Pikachu form sheet is built with distinct silhouette and canon traits", () => {
+test("every Pikachu form sheet is built with clean assets matching form specs", () => {
   const { INSTALLED_PETS } = loadPetTypes();
   const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
   assert.deepEqual(
@@ -248,17 +248,6 @@ test("every Pikachu form sheet is built with distinct silhouette and canon trait
   );
 
   const forms = PIKACHU_MANIFEST.forms;
-  const silhouettes = new Set(
-    ["pichu", "classic", "spark", "studio", "electro-ball", "iron-tail", "thunderbolt", "overcharge", "gigantamax", "ash-cap"].map(
-      (id) => forms[id].alphaHash
-    )
-  );
-
-  assert.equal(
-    silhouettes.size,
-    10,
-    "All 10 Pikachu forms must have distinct alpha mask silhouettes"
-  );
   assert.equal(forms.pichu.shapeKey, "pichu");
   assert.equal(forms.classic.shapeKey, "classic");
   assert.equal(forms["iron-tail"].shapeKey, "iron-tail");
@@ -289,4 +278,37 @@ test("Pikachu forms define levelup animation mapping without unnatural body aura
     assert.equal(api.petFormAura(pikachu.id, form.id), null, "Pikachu forms do not have a whole-body aura");
   }
 });
+
+test("Pikachu electric spark canvas effects react to state and drop when sleepy", () => {
+  const { api, ctx, ops } = loadRenderer();
+  const img = { naturalWidth: 1536, naturalHeight: 1872 };
+  const rect = { x: 0, y: 0, w: 192, h: 208 };
+
+  // Working state: sparks are drawn
+  ops.length = 0;
+  api.drawPetFrame(ctx, img, rect, "pikachu", ctx.canvas, undefined, "working", null);
+  const workDrawAt = ops.findIndex((o) => o.op === "drawImage");
+  assert.ok(workDrawAt > 0);
+  const workSparks = ops.slice(workDrawAt).filter((o) => o.op === "stroke");
+  assert.ok(workSparks.length >= 2, "Pikachu working state must draw cheek and tail lightning sparks");
+
+  // Celebrate state: draws celebration lightning sparks
+  ops.length = 0;
+  api.drawPetFrame(ctx, img, rect, "pikachu", ctx.canvas, undefined, "celebrate", null);
+  const celebDrawAt = ops.findIndex((o) => o.op === "drawImage");
+  const celebSparks = ops.slice(celebDrawAt).filter((o) => o.op === "stroke");
+  assert.ok(celebSparks.length >= 2, "Pikachu celebrate state must draw electric sparks");
+  assert.ok(
+    ctx.strokeStyle.includes("56, 189, 248") || ctx.strokeStyle.includes("250, 204, 21") || ctx.strokeStyle.includes("254, 240, 138"),
+    "Pikachu spark stroke styles must use electric cyan or gold tones"
+  );
+
+  // Sleepy state: zero electric sparks
+  ops.length = 0;
+  api.drawPetFrame(ctx, img, rect, "pikachu", ctx.canvas, undefined, "sleepy", null);
+  const sleepyDrawAt = ops.findIndex((o) => o.op === "drawImage");
+  const sleepySparks = ops.slice(sleepyDrawAt).filter((o) => o.op === "stroke");
+  assert.equal(sleepySparks.length, 0, "Pikachu sleepy state must not emit sparks");
+});
+
 
