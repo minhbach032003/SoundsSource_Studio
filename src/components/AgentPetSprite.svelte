@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { PetRenderer, PET_MOTION } from "@/shared/lib/petRenderer";
+  import { Zap, Sparkles } from "@lucide/svelte";
 
   interface Props {
     slug: string;
@@ -167,6 +168,21 @@
         ? 'bg-white'
         : 'bg-yellow-200'}"
     ></div>
+
+    <!-- Divine Ki Flare & Bio-electric Lightning Spark Overlays -->
+    {#if formId === "ss2" || formId === "ss3"}
+      <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
+        <span class="absolute top-1 left-2 text-cyan-400 animate-pulse drop-shadow-sm"><Zap size={13} /></span>
+        <span class="absolute bottom-2 right-2 text-sky-300 animate-bounce drop-shadow-sm"><Zap size={11} /></span>
+        <span class="absolute top-4 right-1 text-cyan-300 animate-pulse drop-shadow-sm"><Zap size={10} /></span>
+      </div>
+    {:else if formId === "god" || formId === "ssblue" || formId === "blue-kaioken" || formId === "ui-sign" || formId === "mui"}
+      <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
+        <span class="absolute top-1 right-3 text-amber-200 animate-ping opacity-60 drop-shadow-sm"><Sparkles size={11} /></span>
+        <span class="absolute bottom-3 left-2 text-cyan-200 animate-pulse opacity-75 drop-shadow-sm"><Sparkles size={10} /></span>
+        <span class="absolute top-6 left-1 text-white animate-pulse opacity-80 drop-shadow-sm"><Sparkles size={9} /></span>
+      </div>
+    {/if}
   {/if}
 
   <canvas
