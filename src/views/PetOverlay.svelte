@@ -8,6 +8,7 @@
   import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
+  import { petFormAura } from "@/shared/lib/petRenderer";
 import {
     playPetDoneChime,
     playPetWaitingChime,
@@ -45,6 +46,10 @@ import {
 
   interface PetFxTheme {
     backlightClass: string;
+    /** Inline gradient for forms with their own ki aura; overrides backlightClass. */
+    backlightStyle?: string;
+    /** Inline sparkle colours matching the form aura; override the sparkleColor classes. */
+    sparkleStyle?: [string, string, string];
     ambientClass: string;
     sparkleColor1: string;
     sparkleColor2: string;
@@ -489,54 +494,21 @@ import {
   );
 
   const multiplier = $derived(Math.max(1, sessions.length || 1));
-  const petFx = $derived.by(() => {
-    const base = PET_FX_THEMES[petSlug] ?? PET_FX_THEMES["work-blue-cat"]!;
-    if (petSlug === "super-saiyan-goku" && activeForm) {
-      switch (activeForm.id) {
-        case "kaioken":
-        case "god":
-          return {
-            ...base,
-            backlightClass: "from-rose-500/50 via-red-500/30 to-transparent",
-            ambientClass: "from-rose-500/35 to-transparent",
-            sparkleColor1: "text-rose-400",
-            sparkleColor2: "text-red-400",
-            sparkleColor3: "text-amber-300",
-          };
-        case "ssblue":
-          return {
-            ...base,
-            backlightClass: "from-sky-400/50 via-cyan-500/30 to-transparent",
-            ambientClass: "from-sky-400/35 to-transparent",
-            sparkleColor1: "text-cyan-300",
-            sparkleColor2: "text-sky-400",
-            sparkleColor3: "text-yellow-200",
-          };
-        case "blue-kaioken":
-          return {
-            ...base,
-            backlightClass: "from-sky-400/50 via-purple-500/35 to-rose-500/35",
-            ambientClass: "from-sky-400/40 to-rose-500/25",
-            sparkleColor1: "text-cyan-300",
-            sparkleColor2: "text-rose-400",
-            sparkleColor3: "text-amber-200",
-          };
-        case "ui-sign":
-        case "mui":
-          return {
-            ...base,
-            backlightClass: "from-slate-200/60 via-sky-300/35 to-transparent",
-            ambientClass: "from-slate-200/45 to-transparent",
-            sparkleColor1: "text-white",
-            sparkleColor2: "text-cyan-200",
-            sparkleColor3: "text-indigo-200",
-          };
-        default:
-          return base;
-      }
-    }
-    return base;
-  });
+  // Forms with an aura (Goku) light the floor in the aura's own colours.
+  function petFxFor(slug: string, form: PetFormMeta | null): PetFxTheme {
+    const base = PET_FX_THEMES[slug] ?? PET_FX_THEMES["work-blue-cat"]!;
+    const aura = petFormAura(slug, form?.id);
+    if (!aura) return base;
+    const outer = aura.outer ?? aura.inner;
+    const third = aura.sparks ?? outer;
+    return {
+      ...base,
+      backlightStyle: `background: radial-gradient(closest-side, ${aura.inner}b3, ${outer}59 55%, transparent);`,
+      sparkleStyle: [`color: ${aura.inner};`, `color: ${outer};`, `color: ${third};`],
+    };
+  }
+
+  const petFx = $derived(petFxFor(petSlug, activeForm));
 
   const activityText = $derived.by(() => {
     if (isInteracting) return "Purring happily! (+15 XP)";
@@ -851,23 +823,23 @@ import {
           {#each splitPets as session, idx (session.id)}
             {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, petSlug))}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
-            {@const sFx = PET_FX_THEMES[sessionPet.id] ?? petFx}
+            {@const sFx = petFxFor(sessionPet.id, resolvePetActiveForm(sessionPet.id, care?.display_level ?? 1, readPetFormPreference(sessionPet.id)))}
             {@const sFormPref = readPetFormPreference(sessionPet.id)}
             {@const sForm = resolvePetActiveForm(sessionPet.id, care?.display_level ?? 1, sFormPref)}
             <div class="relative flex items-center justify-center">
               {#if sMood === "working" || sMood === "reading" || sMood === "celebrate"}
                 <!-- Cozy ambient archetype backlight underneath pet -->
                 <div
-                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {sFx.backlightClass}"
-                  style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px;"
+                  class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} {sFx.backlightStyle ? '' : `bg-radial ${sFx.backlightClass}`}"
+                  style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px; {sFx.backlightStyle ?? ''}"
                   aria-hidden="true"
                 ></div>
                 <!-- Cute typing micro-sparkles -->
                 {#if motionEnabled && !reduceMotion}
                   <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{sFx.sparkleColor1} drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{sFx.sparkleColor2} drop-shadow-sm" /></span>
-                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{sFx.sparkleColor3} drop-shadow-sm" /></span>
+                    <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{sFx.sparkleColor1} drop-shadow-sm" style={sFx.sparkleStyle?.[0]} /></span>
+                    <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{sFx.sparkleColor2} drop-shadow-sm" style={sFx.sparkleStyle?.[1]} /></span>
+                    <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{sFx.sparkleColor3} drop-shadow-sm" style={sFx.sparkleStyle?.[2]} /></span>
                     {#if sMood === "working"}
                       <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{sFx.sparkleColor1} drop-shadow-sm" /></span>
                     {:else if sMood === "celebrate"}
@@ -899,16 +871,16 @@ import {
           {#if mood === "working" || mood === "reading" || mood === "celebrate"}
             <!-- Cozy ambient archetype backlight underneath pet -->
             <div
-              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} bg-radial {petFx.backlightClass}"
-              style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px;"
+              class="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full blur-md opacity-70 {motionEnabled && !reduceMotion ? 'cozy-backlight' : ''} {petFx.backlightStyle ? '' : `bg-radial ${petFx.backlightClass}`}"
+              style="width: {Math.round(petSize * 0.75)}px; height: {Math.round(petSize * 0.25)}px; {petFx.backlightStyle ?? ''}"
               aria-hidden="true"
             ></div>
             <!-- Cute typing micro-sparkles -->
             {#if motionEnabled && !reduceMotion}
               <div class="pointer-events-none absolute inset-0 z-20 overflow-visible" aria-hidden="true">
-                <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
-                <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{petFx.sparkleColor2} drop-shadow-sm" /></span>
-                <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{petFx.sparkleColor3} drop-shadow-sm" /></span>
+                <span class="cozy-sparkle cozy-sparkle-1"><Sparkles size={11} class="{petFx.sparkleColor1} drop-shadow-sm" style={petFx.sparkleStyle?.[0]} /></span>
+                <span class="cozy-sparkle cozy-sparkle-2"><Zap size={9} class="{petFx.sparkleColor2} drop-shadow-sm" style={petFx.sparkleStyle?.[1]} /></span>
+                <span class="cozy-sparkle cozy-sparkle-3"><Sparkles size={9} class="{petFx.sparkleColor3} drop-shadow-sm" style={petFx.sparkleStyle?.[2]} /></span>
                 {#if mood === "working"}
                   <span class="cozy-sparkle cozy-sparkle-4"><Code2 size={10} class="{petFx.sparkleColor1} drop-shadow-sm" /></span>
                 {:else if mood === "celebrate"}
@@ -1177,10 +1149,8 @@ import {
 
   /* Radiant Super Saiyan / Divine Ki Aura for Son Goku */
   :global(.pet-goku-aura canvas) {
-    image-rendering: auto;
-    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--warning) 85%, transparent))
-      drop-shadow(0 0 26px color-mix(in srgb, var(--accent) 55%, transparent))
-      drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+    /* The ki aura is drawn per form on the canvas; only keep a neutral depth shadow here. */
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
   }
 
   @keyframes petParticleFloat {

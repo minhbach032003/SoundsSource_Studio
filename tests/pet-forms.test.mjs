@@ -85,3 +85,115 @@ test("AgentPetSprite imports resolvePetActiveForm for robust fallback", () => {
   assert.ok(spriteSrc.includes("resolvePetActiveForm"), "AgentPetSprite imports resolvePetActiveForm");
   assert.ok(spriteSrc.includes("INSTALLED_PETS"), "AgentPetSprite imports INSTALLED_PETS");
 });
+
+// Goku forms are built by scripts/build-goku-forms.py; the manifest records what each sheet contains.
+const GOKU_MANIFEST = JSON.parse(readFileSync("public/pets/super-saiyan-goku/forms/manifest.json", "utf8"));
+
+function hexLightness(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  return (Math.max(...c) + Math.min(...c)) / 2;
+}
+
+function hexHue(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+test("every Goku form sheet is built from its own hair silhouette, not a recolour", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const goku = INSTALLED_PETS.find((p) => p.id === "super-saiyan-goku");
+  assert.deepEqual(Object.keys(GOKU_MANIFEST.forms).sort(), Array.from(goku.forms, (f) => f.id).sort());
+
+  const forms = GOKU_MANIFEST.forms;
+  const silhouettes = new Set(["base", "ss1", "ss2", "ss3", "god"].map((id) => forms[id].alphaHash));
+  assert.equal(silhouettes.size, 5, "base, SSJ1, SSJ2, SSJ3 and God must not share one alpha mask");
+  assert.equal(forms.ss3.hairShape, "ssj3");
+  assert.equal(forms.ss3.browsVisible, false, "Super Saiyan 3 has no eyebrows");
+  assert.ok(forms.ss3.opaquePixels > forms.ss1.opaquePixels * 1.1, "SSJ3 waist-length mane adds a large silhouette");
+  assert.equal(forms.base.hairShape, "base");
+  assert.equal(forms["ui-sign"].hairShape, "base", "Ultra Instinct -Sign- keeps base hair");
+});
+
+test("Goku form palettes follow the character, and only hair, eyes and skin change", () => {
+  const forms = GOKU_MANIFEST.forms;
+  for (const id of ["base", "kaioken", "ui-sign"]) {
+    assert.ok(hexLightness(forms[id].hair[1]) < 0.2, `${id} hair must be black`);
+  }
+  for (const id of ["ss1", "ss2", "ss3"]) {
+    const hue = hexHue(forms[id].hair[2]);
+    assert.ok(hue >= 38 && hue <= 60, `${id} hair must be gold, got hue ${hue}`);
+  }
+  const godIris = hexHue(forms.god.iris[1]);
+  assert.ok(godIris >= 340 || godIris <= 15, "Super Saiyan God eyes must be red");
+  for (const id of ["ssblue", "blue-kaioken"]) {
+    const hue = hexHue(forms[id].iris[1]);
+    assert.ok(hue >= 190 && hue <= 230, `${id} eyes must be blue`);
+  }
+  assert.ok(hexLightness(forms.mui.hair[2]) > 0.8, "Mastered Ultra Instinct hair must be silver");
+  assert.ok(forms.kaioken.skinTint && forms["blue-kaioken"].skinTint, "Kaio-ken forms tint the skin");
+  for (const id of ["base", "ss1", "god", "ssblue", "mui"]) {
+    assert.equal(forms[id].skinTint, null, `${id} must not tint the skin`);
+  }
+});
+
+function loadRenderer() {
+  const source = ["src/lib/petPreferences.ts", "src/shared/lib/petRenderer.ts"]
+    .map((path) => readFileSync(path, "utf8").replace(/^import .*;\n/gm, "").replaceAll("export ", ""))
+    .join("\n");
+  const ops = [];
+  const gradient = { addColorStop() {} };
+  const ctx = new Proxy(
+    { globalCompositeOperation: "source-over", canvas: { width: 200, height: 200 } },
+    {
+      get(target, key) {
+        if (key in target) return target[key];
+        return (...args) => {
+          ops.push({ op: key, composite: target.globalCompositeOperation, args });
+          return key.startsWith("create") ? gradient : undefined;
+        };
+      },
+      set(target, key, value) {
+        target[key] = value;
+        if (key === "globalCompositeOperation") ops.push({ op: "composite", composite: value });
+        return true;
+      },
+    }
+  );
+  const context = vm.createContext({
+    window: { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) },
+    document: { hidden: false, addEventListener() {}, removeEventListener() {} },
+    localStorage: { getItem: () => null },
+    performance: { now: () => 1000 },
+  });
+  vm.runInContext(ts.transpile(source + "\nglobalThis.api = { drawPetFrame, petFormAura, FORM_AURAS, ARCHETYPE_STATE_ROW };"), context);
+  return { api: context.api, ctx, ops };
+}
+
+test("Goku forms draw their aura behind the sprite and never wash the sprite pixels", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const { api, ctx, ops } = loadRenderer();
+  const goku = INSTALLED_PETS.find((p) => p.id === "super-saiyan-goku");
+  for (const form of goku.forms) assert.ok(api.petFormAura(goku.id, form.id), `${form.id} must define an aura`);
+  assert.ok(api.FORM_AURAS["super-saiyan-goku/ss2"].sparks && api.FORM_AURAS["super-saiyan-goku/ss3"].sparks);
+  assert.equal(api.FORM_AURAS["super-saiyan-goku/ss1"].sparks, undefined, "only SSJ2 and SSJ3 crackle");
+  assert.ok(api.FORM_AURAS["super-saiyan-goku/blue-kaioken"].outer, "Blue Kaio-ken has a red envelope over blue");
+  assert.equal(api.ARCHETYPE_STATE_ROW["super-saiyan-goku"].levelup, 4, "level up is its own clip, not Waiting");
+
+  const img = { naturalWidth: 1536, naturalHeight: 1872 };
+  const rect = { x: 0, y: 0, w: 192, h: 208 };
+  api.drawPetFrame(ctx, img, rect, goku.id, ctx.canvas, undefined, "working", api.petFormAura(goku.id, "god"));
+  const drawAt = ops.findIndex((o) => o.op === "drawImage");
+  assert.ok(drawAt > 0);
+  assert.ok(ops.slice(0, drawAt).some((o) => o.op === "createRadialGradient"), "aura is painted before the sprite");
+  assert.ok(!ops.some((o) => o.composite === "source-atop"), "no gold/cyan wash on a form's own colours");
+
+  ops.length = 0;
+  api.drawPetFrame(ctx, img, rect, goku.id, ctx.canvas, undefined, "sleepy", api.petFormAura(goku.id, "ss1"));
+  const sleepyDraw = ops.findIndex((o) => o.op === "drawImage");
+  assert.ok(!ops.slice(0, sleepyDraw).some((o) => o.op === "moveTo"), "a sleeping Super Saiyan drops the aura");
+});

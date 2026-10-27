@@ -93,6 +93,7 @@ export const ARCHETYPE_STATE_ROW: Record<string, Record<string, number>> = {
     done: 3,
     celebrate: 4,
     sleepy: 5,
+    levelup: 4, // Powering up: the jump pose under a full aura burst
   },
   pikachu: {
     idle: 0,
@@ -307,6 +308,157 @@ export const ARCHETYPE_LIGHTING: Record<string, ArchetypeLighting> = {
   },
 };
 
+/** Per-form ki aura, drawn behind the sprite instead of tinting the sprite pixels. */
+export interface PetAura {
+  inner: string; // hex
+  outer?: string; // hex; a second, larger envelope (Blue Kaio-ken, God)
+  sparks?: string; // hex; bio-electric bolts around the body (SSJ2, SSJ3)
+  intensity?: number;
+  calm?: boolean; // Ultra Instinct keeps a faint shimmer even while asleep
+}
+
+// Ki aura per evolution form, keyed "<slug>/<formId>". Colours follow
+// docs/engineering/goku-form-sprite-redesign-research.md (3.3).
+export const FORM_AURAS: Record<string, PetAura> = {
+  "super-saiyan-goku/base": { inner: "#f4f7ff", intensity: 0.45 },
+  "super-saiyan-goku/kaioken": { inner: "#e0232b", intensity: 0.9 },
+  "super-saiyan-goku/ss1": { inner: "#ffd23f" },
+  "super-saiyan-goku/ss2": { inner: "#ffd23f", sparks: "#9fe8ff", intensity: 1.05 },
+  "super-saiyan-goku/ss3": { inner: "#ffc72c", sparks: "#9fe8ff", intensity: 1.2 },
+  "super-saiyan-goku/god": { inner: "#ff4d2e", outer: "#ffb347", intensity: 0.85 },
+  "super-saiyan-goku/ssblue": { inner: "#3ecbff" },
+  "super-saiyan-goku/blue-kaioken": { inner: "#3ecbff", outer: "#e0232b", intensity: 1.15 },
+  "super-saiyan-goku/ui-sign": { inner: "#e8f2ff", outer: "#5aa9ff", calm: true },
+  "super-saiyan-goku/mui": { inner: "#f4f7ff", outer: "#bcd6ff", calm: true },
+};
+
+export function petFormAura(slug: string, formId: string | null | undefined): PetAura | null {
+  return formId ? FORM_AURAS[`${slug}/${formId}`] ?? null : null;
+}
+
+const AURA_STATE_STRENGTH: Record<string, number> = {
+  idle: 0.55,
+  registered: 0.55,
+  waiting: 0.5,
+  reading: 0.5,
+  working: 0.85,
+  done: 0.85,
+  celebrate: 1.15,
+  levelup: 1.45,
+  sleepy: 0,
+};
+
+function hexRgb(hex: string): string {
+  const v = hex.replace("#", "");
+  const n = parseInt(v.length === 3 ? v.replace(/./g, (c) => c + c) : v, 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+
+function auraStrength(aura: PetAura, state: string): number {
+  const base = AURA_STATE_STRENGTH[state] ?? 0.55;
+  const strength = state === "sleepy" && aura.calm ? 0.2 : base;
+  return strength * (aura.intensity ?? 1);
+}
+
+// Flame envelope: a soft body glow plus upward-licking tongues around the silhouette.
+function drawAuraLayer(
+  ctx: CanvasRenderingContext2D,
+  rgb: string,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  strength: number,
+  t: number
+) {
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, ry);
+  glow.addColorStop(0, `rgba(${rgb}, ${(0.55 * strength).toFixed(3)})`);
+  glow.addColorStop(0.6, `rgba(${rgb}, ${(0.32 * strength).toFixed(3)})`);
+  glow.addColorStop(1, `rgba(${rgb}, 0)`);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(rx / ry, 1);
+  ctx.translate(-cx, -cy);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ry, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const tongues = 11;
+  ctx.fillStyle = `rgba(${rgb}, ${Math.min(0.7, 0.4 * strength).toFixed(3)})`;
+  for (let i = 0; i < tongues; i++) {
+    // Spread over the sides and top; tongues all lean upward like rising ki.
+    const a = Math.PI * (0.92 + (1.16 * i) / (tongues - 1));
+    const flicker = 0.75 + 0.25 * Math.sin(t * 9 + i * 1.7);
+    const bx = cx + Math.cos(a) * rx * 0.86;
+    const by = cy + Math.sin(a) * ry * 0.86;
+    const len = ry * 0.32 * flicker * (0.7 + 0.3 * Math.abs(Math.sin(a)));
+    const half = rx * 0.13;
+    const tipX = bx + Math.cos(a) * len * 0.35 + Math.sin(t * 6 + i) * half * 0.3;
+    const tipY = by - len;
+    ctx.beginPath();
+    ctx.moveTo(bx - half, by + half * 0.4);
+    if (typeof ctx.quadraticCurveTo === "function") {
+      // Curved flanks read as flame rather than as flat spikes.
+      ctx.quadraticCurveTo(bx - half * 0.9, by - len * 0.45, tipX, tipY);
+      ctx.quadraticCurveTo(bx + half * 0.9, by - len * 0.45, bx + half, by + half * 0.4);
+    } else {
+      ctx.lineTo(tipX, tipY);
+      ctx.lineTo(bx + half, by + half * 0.4);
+    }
+    ctx.fill();
+  }
+}
+
+function drawFormAura(ctx: CanvasRenderingContext2D, aura: PetAura, x: number, y: number, w: number, h: number, strength: number, t: number) {
+  if (
+    strength <= 0 ||
+    typeof ctx.save !== "function" ||
+    typeof ctx.createRadialGradient !== "function" ||
+    typeof ctx.beginPath !== "function" ||
+    typeof ctx.arc !== "function" ||
+    typeof ctx.moveTo !== "function" ||
+    typeof ctx.lineTo !== "function" ||
+    typeof ctx.fill !== "function" ||
+    typeof ctx.scale !== "function" ||
+    typeof ctx.translate !== "function"
+  ) {
+    return;
+  }
+  const cx = x + w / 2;
+  const cy = y + h * 0.55;
+  if (aura.outer) drawAuraLayer(ctx, hexRgb(aura.outer), cx, cy, w * 0.46, h * 0.5, strength * 0.9, t + 0.4);
+  drawAuraLayer(ctx, hexRgb(aura.inner), cx, cy, w * 0.36, h * 0.44, strength, t);
+}
+
+function drawAuraSparks(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number, t: number) {
+  if (typeof ctx.save !== "function" || typeof ctx.moveTo !== "function" || typeof ctx.lineTo !== "function" || typeof ctx.stroke !== "function") {
+    return;
+  }
+  ctx.save();
+  ctx.strokeStyle = `rgba(${hexRgb(color)}, 0.9)`;
+  ctx.lineWidth = Math.max(1.2, w / 120);
+  // A new bolt layout roughly every 140ms reads as crackling rather than drifting.
+  const seed = Math.floor(t * 7);
+  for (let i = 0; i < 3; i++) {
+    const r1 = Math.abs(Math.sin(seed * 12.9898 + i * 78.233)) % 1;
+    const r2 = Math.abs(Math.sin(seed * 39.3468 + i * 11.135)) % 1;
+    const side = i % 2 === 0 ? -1 : 1;
+    let px = x + w / 2 + side * w * (0.18 + 0.16 * r1);
+    let py = y + h * (0.12 + 0.6 * r2);
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    for (let k = 0; k < 3; k++) {
+      px += side * w * 0.025 * (k % 2 === 0 ? 1 : -0.6);
+      py += h * 0.035;
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawPetFrame(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -314,7 +466,8 @@ export function drawPetFrame(
   slug: string,
   canvas = ctx.canvas,
   dynamicsOffset: { offsetY: number; rotationDeg: number; squashY: number; glow?: number } = { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 },
-  state: string = ""
+  state: string = "",
+  aura: PetAura | null = null
 ): Rect {
   const { width, height } = canvas;
   const scale = Math.min(width / r.w, height / r.h);
@@ -326,7 +479,12 @@ export function drawPetFrame(
   ctx.imageSmoothingEnabled = !pixel;
   ctx.clearRect(0, 0, width, height);
 
-  const lighting = ARCHETYPE_LIGHTING[slug] ?? ARCHETYPE_LIGHTING["work-blue-cat"];
+  const archetypeLighting = ARCHETYPE_LIGHTING[slug] ?? ARCHETYPE_LIGHTING["work-blue-cat"];
+  // A form with its own aura keeps its authored colours: only the floor glow takes the aura hue.
+  const lighting = aura && archetypeLighting
+    ? { ...archetypeLighting, groundColor: `rgba(${hexRgb(aura.outer ?? aura.inner)}, 0.35)` }
+    : archetypeLighting;
+  const auraTime = typeof performance !== "undefined" ? performance.now() / 1000 : 0;
   const sheetRow = img.naturalHeight ? Math.floor((r.y + 1) / (img.naturalHeight / ROWS)) : -1;
   const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
   const isCeleb = state === "celebrate" || state === "done";
@@ -402,11 +560,16 @@ export function drawPetFrame(
     if (typeof ctx.translate === "function") ctx.translate(-pivotX, -pivotY);
   }
 
+  if (aura) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime);
+
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
+
+  if (aura?.sparks && state !== "sleepy") drawAuraSparks(ctx, aura.sparks, x, y, w, h, auraTime);
 
   // Archetype lighting and screen reflections composite (source-atop preserves sprite silhouette)
   if (
     lighting &&
+    !aura &&
     typeof ctx.save === "function" &&
     typeof ctx.createRadialGradient === "function" &&
     typeof ctx.beginPath === "function" &&
@@ -651,6 +814,7 @@ export class PetRenderer {
   public spriteRect: Rect | null = null;
 
   private slug: string = "code-frenzy-cat";
+  private aura: PetAura | null = null;
 
   constructor(private canvas: HTMLCanvasElement, slug: string = "code-frenzy-cat") {
     const c = canvas.getContext("2d");
@@ -682,6 +846,13 @@ export class PetRenderer {
       this.slug = slug;
       this.row = -1;
       this.setState(this.state);
+    }
+  }
+
+  setAura(aura: PetAura | null) {
+    if (this.aura !== aura) {
+      this.aura = aura;
+      this.draw();
     }
   }
 
@@ -838,8 +1009,11 @@ export class PetRenderer {
 
     // Smooth 60fps micro-dynamics: allow fluid redraw intervals for all states
     const isIdle = this.state === "idle";
-    const minDynamicsInterval = isIdle ? 33 : 0; // ~30fps for idle, full 60fps for actions
-    const canDrawDynamics = this.hasContinuousDynamics() && (t - this.lastDrawTime >= minDynamicsInterval);
+    // ~30fps for idle, full 60fps for actions
+    const minDynamicsInterval = isIdle ? 33 : 0;
+    // A flickering aura alone (done, level up) needs ~20fps, not 60.
+    const auraOnly = !["idle", "working", "reading", "celebrate", "waiting"].includes(this.state);
+    const canDrawDynamics = this.hasContinuousDynamics() && (t - this.lastDrawTime >= minDynamicsInterval) && (!auraOnly || t - this.lastDrawTime >= 50);
 
     if (this.loaded && (shouldRedraw || canDrawDynamics)) {
       this.lastDrawTime = t;
@@ -851,7 +1025,8 @@ export class PetRenderer {
 
   private hasContinuousDynamics(): boolean {
     if (!this.animate || this.reducedMotion?.matches) return false;
-    // States that feature continuous micro-dynamics
+    // States that feature continuous micro-dynamics; a ki aura flickers in every waking state.
+    if (this.aura && this.state !== "sleepy") return true;
     return ["idle", "working", "reading", "celebrate", "waiting"].includes(this.state);
   }
 
@@ -879,7 +1054,7 @@ export class PetRenderer {
     // Compute subpixel procedural dynamics for ultra-smooth 60fps motion
     const dynamicsOffset = this.computeDynamicsOffset();
 
-    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset, this.state);
+    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset, this.state, this.aura);
     this.headroom = this.spriteRect.y / H;
   }
 

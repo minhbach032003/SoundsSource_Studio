@@ -1,5 +1,7 @@
 # Research: Dragon Ball Goku Ki & Aura Specifications per Evolution Form
 
+> Superseded by `goku-form-sprite-redesign-research.md`, which covers hair, eyes and gi per form and corrects the aura colours below.
+
 ## 1. Overview & Objective
 
 This document analyzes the canonical visual attributes, dynamics, colors, and particle physics of Son Goku's Ki auras across each of the 10 progression forms in the Dragon Ball franchise (Toriyama, Shueisha, Toei Animation *Dragon Ball Z* & *Dragon Ball Super*). It serves as the engineering baseline for rendering authentic dynamic CSS/Canvas Ki aura shaders in SoundsSource Studio.

@@ -3,6 +3,7 @@
   import { setDesktopPetVisible } from "@/lib/petVisibility";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
+  import { petFormAura } from "@/shared/lib/petRenderer";
   import PetGallery from "@/components/pet/PetGallery.svelte";
   import PetAnimationPicker from "@/components/pet/PetAnimationPicker.svelte";
   import PetSocketPanel from "@/components/pet/PetSocketPanel.svelte";
@@ -161,6 +162,7 @@
   const activeForm = $derived(
     resolvePetActiveForm(selectedPet, careState?.display_level ?? 1, formPref)
   );
+  const activeAura = $derived(petFormAura(selectedPet, activeForm?.id));
   let mappingRevision = $state(0);
   $effect(() => {
     const handler = () => { mappingRevision += 1; };
@@ -697,6 +699,7 @@
     <PetAnimationPicker
       slug={selectedPet}
       formSpritesheetPath={activeForm?.spritesheetPath}
+      formAura={activeAura}
       onBindingChange={(state, clipIdx) => {
         bindingRevision += 1;
         toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);
@@ -744,19 +747,14 @@
         <div class="flex flex-col items-center p-5 sm:p-6 panel relative overflow-hidden gap-3">
           <!-- Subtle Glow Backdrop & Dynamic Ki Aura field -->
           <div
-            class="absolute inset-0 rounded-full blur-3xl pointer-events-none transition-all duration-500 {selectedPet === 'super-saiyan-goku'
-              ? activeForm?.id === 'kaioken' || activeForm?.id === 'god'
-                ? 'opacity-35 bg-gradient-to-tr from-rose-600/35 via-red-500/25 to-amber-500/15'
-                : activeForm?.id === 'ssblue'
-                ? 'opacity-35 bg-gradient-to-tr from-sky-500/35 via-cyan-400/25 to-blue-600/20'
-                : activeForm?.id === 'blue-kaioken'
-                ? 'opacity-40 bg-gradient-to-tr from-sky-500/40 via-purple-500/30 to-rose-600/35'
-                : activeForm?.id === 'ui-sign' || activeForm?.id === 'mui'
-                ? 'opacity-40 bg-gradient-to-tr from-slate-200/40 via-sky-200/30 to-indigo-300/25'
-                : 'opacity-35 bg-gradient-to-tr from-amber-500/35 via-yellow-400/25 to-amber-600/20'
+            class="absolute inset-0 rounded-full blur-3xl pointer-events-none transition-all duration-500 {activeAura
+              ? 'opacity-30'
               : audioReactive
               ? 'opacity-20 bg-linear-to-tr from-rose-500/20 via-pink-500/10 to-purple-500/15'
               : 'opacity-20 bg-rose-500/10'}"
+            style={activeAura
+              ? `background: radial-gradient(closest-side, ${activeAura.inner}66, ${activeAura.outer ?? activeAura.inner}33 60%, transparent);`
+              : undefined}
           ></div>
 
           <!-- Top Row: Pet Selector Dropdown & Switcher -->
@@ -1026,6 +1024,7 @@
         <PetAnimationPicker
           slug={selectedPet}
           formSpritesheetPath={activeForm?.spritesheetPath}
+          formAura={activeAura}
           onBindingChange={(state, clipIdx) => {
             bindingRevision += 1;
             toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);

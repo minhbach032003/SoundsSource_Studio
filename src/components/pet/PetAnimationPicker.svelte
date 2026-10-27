@@ -1,17 +1,18 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { readPetPreferences, readPetBinding, subscribePetPreferences, writePetStorage } from "@/lib/petPreferences";
-  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, drawPetFrame, petAnimationFps, petFrameIndex, PET_MOTION, resolvePetSpritesheetUrls, type Rect } from "@/shared/lib/petRenderer";
+  import { DEFAULT_STATE_ROW, ARCHETYPE_STATE_ROW, slice, drawPetFrame, petAnimationFps, petFrameIndex, PET_MOTION, resolvePetSpritesheetUrls, type PetAura, type Rect } from "@/shared/lib/petRenderer";
   import { Clapperboard } from "@lucide/svelte";
   import { toastState } from "@/lib/toast.svelte";
 
   interface Props {
     slug: string;
     formSpritesheetPath?: string;
+    formAura?: PetAura | null;
     onBindingChange?: (state: string, clipIndex: number) => void;
   }
 
-  let { slug, formSpritesheetPath, onBindingChange }: Props = $props();
+  let { slug, formSpritesheetPath, formAura = null, onBindingChange }: Props = $props();
 
   const STATES = [
     { id: "idle", label: "Idle" },
@@ -136,7 +137,7 @@
   function renderAnimationFrame(canvas: HTMLCanvasElement, clip: Rect[], frame: number) {
     const ctx = canvas.getContext("2d");
     const r = clip[frame];
-    if (loadedImage && ctx && r) drawPetFrame(ctx, loadedImage, r, slug);
+    if (loadedImage && ctx && r) drawPetFrame(ctx, loadedImage, r, slug, canvas, undefined, "", formAura);
   }
 
   function handleClipHover(index: number | null) {

@@ -548,8 +548,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "base",
         name: "Goku (Base)",
         minLevel: 1,
-        hairDescription: "Tóc đen nhánh đặc trưng của người Saiyan",
-        auraDescription: "Khí tự nhiên thuần khiết",
+        hairDescription: "Tóc đen nhánh xoè sang hai bên, mắt đen",
+        auraDescription: "Không bùng khí khi nghỉ, chớp trắng nhẹ khi dồn lực",
         avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
       },
@@ -557,8 +557,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "kaioken",
         name: "Kaio-ken Power",
         minLevel: 3,
-        hairDescription: "Khí công Kaio-ken gấp 20 lần uy lực",
-        auraDescription: "Hào quang đỏ thẫm cuộn trào bùng nổ",
+        hairDescription: "Tóc đen như dạng thường, da ửng đỏ",
+        auraDescription: "Ngọn lửa khí đỏ thẫm ôm sát cơ thể",
         avatarUrl: "/pets/super-saiyan-goku/forms/kaioken/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/kaioken/spritesheet.webp",
       },
@@ -566,8 +566,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "ss1",
         name: "Super Saiyan 1",
         minLevel: 5,
-        hairDescription: "Tóc vàng dựng đứng kinh điển",
-        auraDescription: "Ki vàng Super Saiyan",
+        hairDescription: "Tóc vàng dựng đứng, mắt xanh ngọc",
+        auraDescription: "Ngọn lửa khí vàng ổn định",
         avatarUrl: "/pets/super-saiyan-goku/forms/ss1/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/ss1/spritesheet.webp",
       },
@@ -575,8 +575,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "ss2",
         name: "Super Saiyan 2",
         minLevel: 10,
-        hairDescription: "Tóc vàng chĩa sắc nhọn với tia điện",
-        auraDescription: "Aura vàng bốc cháy & sấm sét",
+        hairDescription: "Tóc vàng dựng cứng hơn, một lọn mái rủ trước trán",
+        auraDescription: "Khí vàng gai nhọn kèm tia điện xanh trắng",
         avatarUrl: "/pets/super-saiyan-goku/forms/ss2/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/ss2/spritesheet.webp",
       },
@@ -584,8 +584,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "ss3",
         name: "Super Saiyan 3",
         minLevel: 15,
-        hairDescription: "Tóc vàng dài chạm gót chân không chân mày",
-        auraDescription: "Sức mạnh khổng lồ rung chuyển vũ trụ",
+        hairDescription: "Tóc vàng dài tới eo, không có lông mày",
+        auraDescription: "Khí vàng lớn với tia điện dày đặc",
         avatarUrl: "/pets/super-saiyan-goku/forms/ss3/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/ss3/spritesheet.webp",
       },
@@ -593,8 +593,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "god",
         name: "Super Saiyan God",
         minLevel: 20,
-        hairDescription: "Mái tóc đỏ rực lửa của thần linh",
-        auraDescription: "Thần khí thuần khiết bất hoại",
+        hairDescription: "Tóc và mắt đỏ thẫm, dáng tóc gần dạng thường",
+        auraDescription: "Khí đỏ cam mềm như ngọn lửa",
         avatarUrl: "/pets/super-saiyan-goku/forms/god/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/god/spritesheet.webp",
       },
@@ -602,8 +602,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "ssblue",
         name: "Super Saiyan Blue",
         minLevel: 25,
-        hairDescription: "Tóc xanh lam ngọc của Ki Thần",
-        auraDescription: "Hào quang lam ngọc thần thánh",
+        hairDescription: "Tóc và mắt xanh lam",
+        auraDescription: "Ngọn lửa khí xanh lam điềm tĩnh",
         avatarUrl: "/pets/super-saiyan-goku/forms/ssblue/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/ssblue/spritesheet.webp",
       },
@@ -611,8 +611,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "blue-kaioken",
         name: "Blue Kaio-ken x20",
         minLevel: 30,
-        hairDescription: "Sự kết hợp hoàn mỹ giữa Thần khí và Kaio-ken",
-        auraDescription: "Lớp hào quang kép đỏ rực bọc lấy sắc lam",
+        hairDescription: "Tóc và mắt xanh lam, da ửng hồng",
+        auraDescription: "Hào quang kép: lửa đỏ Kaio-ken bọc ngoài khí xanh lam",
         avatarUrl: "/pets/super-saiyan-goku/forms/blue-kaioken/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/blue-kaioken/spritesheet.webp",
       },
@@ -620,8 +620,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "ui-sign",
         name: "Ultra Instinct -Sign-",
         minLevel: 35,
-        hairDescription: "Bản Năng Vô Cực điềm báo với đôi mắt bạc",
-        auraDescription: "Nhiệt lượng vô hạn cùng chuyển động tự tại",
+        hairDescription: "Tóc đen, đôi mắt bạc",
+        auraDescription: "Hào quang xanh trắng bao quanh toàn thân",
         avatarUrl: "/pets/super-saiyan-goku/forms/ui-sign/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/ui-sign/spritesheet.webp",
       },
@@ -629,8 +629,8 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "mui",
         name: "Mastered Ultra Instinct",
         minLevel: 40,
-        hairDescription: "Mái tóc bạch kim sáng chói tối thượng",
-        auraDescription: "Cảnh giới tối cao cơ thể tự phản xạ",
+        hairDescription: "Tóc, lông mày và mắt bạc",
+        auraDescription: "Hào quang trắng bạc viền xanh nhạt, tĩnh lặng",
         avatarUrl: "/pets/super-saiyan-goku/forms/mui/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/mui/spritesheet.webp",
       },
@@ -992,121 +992,6 @@ export function getInternalLevel(xp: number): number {
   return level;
 }
 
-export type GokuFormId =
-  | "base"
-  | "kaioken"
-  | "ss1"
-  | "ss2"
-  | "ss3"
-  | "god"
-  | "ssblue"
-  | "blue-kaioken"
-  | "ui-sign"
-  | "mui";
-
-export interface GokuFormMeta {
-  id: GokuFormId;
-  name: string;
-  minLevel: number;
-  hairDescription: string;
-  auraDescription: string;
-  avatarUrl: string;
-  spritesheetPath: string;
-}
-
-export const GOKU_FORMS: Record<GokuFormId, GokuFormMeta> = {
-  base: {
-    id: "base",
-    name: "Goku (Base)",
-    minLevel: 1,
-    hairDescription: "Tóc đen nhánh đặc trưng của người Saiyan",
-    auraDescription: "Khí tự nhiên thuần khiết",
-    avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
-  },
-  kaioken: {
-    id: "kaioken",
-    name: "Kaio-ken Power",
-    minLevel: 3,
-    hairDescription: "Khí công Kaio-ken gấp 20 lần uy lực",
-    auraDescription: "Hào quang đỏ thẫm cuộn trào bùng nổ",
-    avatarUrl: "/pets/super-saiyan-goku/forms/kaioken/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/kaioken/spritesheet.webp",
-  },
-  ss1: {
-    id: "ss1",
-    name: "Super Saiyan 1",
-    minLevel: 5,
-    hairDescription: "Tóc vàng dựng đứng kinh điển",
-    auraDescription: "Ki vàng Super Saiyan",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ss1/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ss1/spritesheet.webp",
-  },
-  ss2: {
-    id: "ss2",
-    name: "Super Saiyan 2",
-    minLevel: 10,
-    hairDescription: "Tóc vàng chĩa sắc nhọn với tia điện",
-    auraDescription: "Aura vàng bốc cháy & sấm sét",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ss2/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ss2/spritesheet.webp",
-  },
-  ss3: {
-    id: "ss3",
-    name: "Super Saiyan 3",
-    minLevel: 15,
-    hairDescription: "Tóc vàng dài chạm gót chân không chân mày",
-    auraDescription: "Sức mạnh khổng lồ rung chuyển vũ trụ",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ss3/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ss3/spritesheet.webp",
-  },
-  god: {
-    id: "god",
-    name: "Super Saiyan God",
-    minLevel: 20,
-    hairDescription: "Mái tóc đỏ rực lửa của thần linh",
-    auraDescription: "Thần khí thuần khiết bất hoại",
-    avatarUrl: "/pets/super-saiyan-goku/forms/god/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/god/spritesheet.webp",
-  },
-  ssblue: {
-    id: "ssblue",
-    name: "Super Saiyan Blue",
-    minLevel: 25,
-    hairDescription: "Tóc xanh lam ngọc của Ki Thần",
-    auraDescription: "Hào quang lam ngọc thần thánh",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ssblue/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ssblue/spritesheet.webp",
-  },
-  "blue-kaioken": {
-    id: "blue-kaioken",
-    name: "Blue Kaio-ken x20",
-    minLevel: 30,
-    hairDescription: "Sự kết hợp hoàn mỹ giữa Thần khí và Kaio-ken",
-    auraDescription: "Lớp hào quang kép đỏ rực bọc lấy sắc lam",
-    avatarUrl: "/pets/super-saiyan-goku/forms/blue-kaioken/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/blue-kaioken/spritesheet.webp",
-  },
-  "ui-sign": {
-    id: "ui-sign",
-    name: "Ultra Instinct -Sign-",
-    minLevel: 35,
-    hairDescription: "Bản Năng Vô Cực điềm báo với đôi mắt bạc",
-    auraDescription: "Nhiệt lượng vô hạn cùng chuyển động tự tại",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ui-sign/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ui-sign/spritesheet.webp",
-  },
-  mui: {
-    id: "mui",
-    name: "Mastered Ultra Instinct",
-    minLevel: 40,
-    hairDescription: "Mái tóc bạch kim sáng chói tối thượng",
-    auraDescription: "Cảnh giới tối cao cơ thể tự phản xạ",
-    avatarUrl: "/pets/super-saiyan-goku/forms/mui/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/mui/spritesheet.webp",
-  },
-};
-
 export function resolvePetActiveForm(
   pet: PetArchetype | string,
   level: number = 1,
@@ -1124,14 +1009,6 @@ export function resolvePetActiveForm(
   // Automatic level progression: select highest form with minLevel <= current level
   const sorted = [...archetype.forms].sort((a, b) => b.minLevel - a.minLevel);
   return sorted.find((f) => level >= f.minLevel) || sorted[sorted.length - 1]!;
-}
-
-export function resolveGokuForm(level: number, formPreference: string = "auto"): GokuFormMeta {
-  const resolved = resolvePetActiveForm("super-saiyan-goku", level, formPreference);
-  if (resolved && resolved.id in GOKU_FORMS) {
-    return GOKU_FORMS[resolved.id as GokuFormId];
-  }
-  return GOKU_FORMS.base;
 }
 
 export const SPEECH_QUOTES: Record<string, string[]> = {

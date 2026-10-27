@@ -130,7 +130,7 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toastState.success(`Đã tải gói pet "${pet.name}" (10 hình thái & metadata) về máy!`);
+      toastState.success(`Đã tải metadata của pet "${pet.name}" (danh sách hình thái, không gồm ảnh) về máy!`);
     } catch (err) {
       toastState.error(`Không thể tải gói pet: ${String(err)}`);
     }
@@ -254,6 +254,7 @@
             slug={pet.id}
             mood={isSelected ? "working" : "idle"}
             size={56}
+            level={currentLevel}
           />
           <img
             src={pet.avatarUrl}
