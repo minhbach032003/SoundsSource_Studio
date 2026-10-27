@@ -234,22 +234,6 @@ test("every Work Blue Cat form sheet is built with distinct silhouette or access
   assert.equal(forms.timeless.shape, "halo");
 });
 
-test("Work Blue Cat forms define runtime auras and only high-voltage cyber forms crackle with sparks", () => {
-  const { INSTALLED_PETS } = loadPetTypes();
-  const { api } = loadRenderer();
-  const cat = INSTALLED_PETS.find((p) => p.id === "work-blue-cat");
-  for (const form of cat.forms) {
-    assert.ok(api.petFormAura(cat.id, form.id), `${form.id} must define an aura`);
-  }
-  assert.ok(api.FORM_AURAS["work-blue-cat/amber-flow"].sparks);
-  assert.ok(api.FORM_AURAS["work-blue-cat/synthwave"].sparks);
-  assert.ok(api.FORM_AURAS["work-blue-cat/astral"].sparks);
-  assert.ok(api.FORM_AURAS["work-blue-cat/timeless"].sparks);
-  assert.equal(api.FORM_AURAS["work-blue-cat/classic"].sparks, undefined);
-  assert.equal(api.FORM_AURAS["work-blue-cat/midnight"].sparks, undefined);
-  assert.equal(api.FORM_AURAS["work-blue-cat/indigo"].sparks, undefined);
-});
-
 // Pikachu manifest and aura assertions
 const PIKACHU_MANIFEST = JSON.parse(
   readFileSync("public/pets/pikachu/forms/manifest.json", "utf8")
@@ -295,16 +279,14 @@ test("Pikachu form palettes follow Pokémon canon lore", () => {
   assert.ok(raichuCheekHue >= 40 && raichuCheekHue <= 65, `Raichu cheeks must be yellow, got hue ${raichuCheekHue}`);
 });
 
-test("Pikachu forms define runtime auras and levelup animation mapping", () => {
+test("Pikachu forms define levelup animation mapping without unnatural body aura", () => {
   const { INSTALLED_PETS } = loadPetTypes();
   const { api } = loadRenderer();
   const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
-  for (const form of pikachu.forms) {
-    assert.ok(api.petFormAura(pikachu.id, form.id), `${form.id} must define an aura`);
-  }
   assert.equal(api.ARCHETYPE_STATE_ROW.pikachu.levelup, 4, "Pikachu level up must be Celebrate jump (row 4)");
-  assert.ok(api.FORM_AURAS["pikachu/thunderbolt"].sparks, "Thunderbolt must crackle with high voltage sparks");
-  assert.ok(api.FORM_AURAS["pikachu/gigantamax"].outer, "Gigantamax must have crimson outer cloud aura");
-  assert.ok(api.FORM_AURAS["pikachu/electro-ball"].outer, "Electro Ball must have outer plasma aura");
+  // Pikachu has no whole-body aura envelope (auras are for ki pets like Goku), so petFormAura returns null
+  for (const form of pikachu.forms) {
+    assert.equal(api.petFormAura(pikachu.id, form.id), null, "Pikachu forms do not have a whole-body aura");
+  }
 });
 

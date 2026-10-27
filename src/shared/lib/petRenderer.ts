@@ -331,27 +331,6 @@ export const FORM_AURAS: Record<string, PetAura> = {
   "super-saiyan-goku/blue-kaioken": { inner: "#3ecbff", outer: "#e0232b", intensity: 1.15 },
   "super-saiyan-goku/ui-sign": { inner: "#e8f2ff", outer: "#5aa9ff", calm: true },
   "super-saiyan-goku/mui": { inner: "#f4f7ff", outer: "#bcd6ff", calm: true },
-  "pikachu/pichu": { inner: "#fff3a1", sparks: "#ffe066", intensity: 0.6 },
-  "pikachu/classic": { inner: "#fae06b", intensity: 0.5 },
-  "pikachu/spark": { inner: "#ffd700", sparks: "#fff275", intensity: 0.9 },
-  "pikachu/studio": { inner: "#ffcc00", intensity: 0.55 },
-  "pikachu/electro-ball": { inner: "#ffe600", outer: "#4deeea", sparks: "#57f3ff", intensity: 1.1 },
-  "pikachu/iron-tail": { inner: "#e0e8f5", sparks: "#ffffff", intensity: 0.85 },
-  "pikachu/thunderbolt": { inner: "#ffe600", outer: "#ffffff", sparks: "#ffffff", intensity: 1.25 },
-  "pikachu/overcharge": { inner: "#ff9f22", outer: "#ff5e00", sparks: "#ffd280", intensity: 1.15 },
-  "pikachu/gigantamax": { inner: "#ffd000", outer: "#ff2a42", sparks: "#ff3d5a", intensity: 1.35 },
-  "pikachu/ash-cap": { inner: "#ffe600", outer: "#38bdf8", sparks: "#facc15", intensity: 1.1 },
-  // Work Blue Cat (Cyber Coding Cat) Evolution Auras
-  "work-blue-cat/classic": { inner: "#6ee7b7", outer: "#34d399", intensity: 0.35, calm: true },
-  "work-blue-cat/midnight": { inner: "#38bdf8", outer: "#1e1b4b", intensity: 0.55 },
-  "work-blue-cat/indigo": { inner: "#818cf8", outer: "#4338ca", intensity: 0.65 },
-  "work-blue-cat/deep-work": { inner: "#ef4444", outer: "#18181b", intensity: 0.85 },
-  "work-blue-cat/lofi-study": { inner: "#f472b6", outer: "#a855f7", intensity: 0.60, calm: true },
-  "work-blue-cat/aurora": { inner: "#fbbf24", outer: "#34d399", intensity: 0.80 },
-  "work-blue-cat/amber-flow": { inner: "#f97316", outer: "#eab308", sparks: "#fef08a", intensity: 0.95 },
-  "work-blue-cat/synthwave": { inner: "#00f0ff", outer: "#d946ef", sparks: "#00f0ff", intensity: 1.10 },
-  "work-blue-cat/astral": { inner: "#2dd4bf", outer: "#7e22ce", sparks: "#a7f3d0", intensity: 1.15 },
-  "work-blue-cat/timeless": { inner: "#fef08a", outer: "#38bdf8", sparks: "#ffffff", intensity: 1.25, calm: true },
 };
 
 export function petFormAura(slug: string, formId: string | null | undefined): PetAura | null {
