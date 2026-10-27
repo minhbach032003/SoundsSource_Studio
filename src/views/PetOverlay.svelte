@@ -485,7 +485,54 @@ import {
   );
 
   const multiplier = $derived(Math.max(1, sessions.length || 1));
-  const petFx = $derived(PET_FX_THEMES[petSlug] ?? PET_FX_THEMES["work-blue-cat"]!);
+  const petFx = $derived.by(() => {
+    const base = PET_FX_THEMES[petSlug] ?? PET_FX_THEMES["work-blue-cat"]!;
+    if (petSlug === "super-saiyan-goku" && activeForm) {
+      switch (activeForm.id) {
+        case "kaioken":
+        case "god":
+          return {
+            ...base,
+            backlightClass: "from-rose-500/50 via-red-500/30 to-transparent",
+            ambientClass: "from-rose-500/35 to-transparent",
+            sparkleColor1: "text-rose-400",
+            sparkleColor2: "text-red-400",
+            sparkleColor3: "text-amber-300",
+          };
+        case "ssblue":
+          return {
+            ...base,
+            backlightClass: "from-sky-400/50 via-cyan-500/30 to-transparent",
+            ambientClass: "from-sky-400/35 to-transparent",
+            sparkleColor1: "text-cyan-300",
+            sparkleColor2: "text-sky-400",
+            sparkleColor3: "text-yellow-200",
+          };
+        case "blue-kaioken":
+          return {
+            ...base,
+            backlightClass: "from-sky-400/50 via-purple-500/35 to-rose-500/35",
+            ambientClass: "from-sky-400/40 to-rose-500/25",
+            sparkleColor1: "text-cyan-300",
+            sparkleColor2: "text-rose-400",
+            sparkleColor3: "text-amber-200",
+          };
+        case "ui-sign":
+        case "mui":
+          return {
+            ...base,
+            backlightClass: "from-slate-200/60 via-sky-300/35 to-transparent",
+            ambientClass: "from-slate-200/45 to-transparent",
+            sparkleColor1: "text-white",
+            sparkleColor2: "text-cyan-200",
+            sparkleColor3: "text-indigo-200",
+          };
+        default:
+          return base;
+      }
+    }
+    return base;
+  });
 
   const activityText = $derived.by(() => {
     if (isInteracting) return "Purring happily! (+15 XP)";
