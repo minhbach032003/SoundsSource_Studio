@@ -35,7 +35,12 @@
     setSessionPetBinding,
     getPetArchetype,
     getActivePets,
+    resolvePetActiveForm,
   } from "@/lib/petMapping";
+  import {
+    readPetFormPreference,
+    writePetFormPreference,
+  } from "@/lib/petPreferences";
   import {
     Sparkles,
     Heart,
@@ -148,6 +153,14 @@
   // Selected Pet & Vitals
   let selectedPet = $state<string>("code-frenzy-cat");
   const currentArchetype = $derived(getPetArchetype(selectedPet));
+  let formPref = $state<string>("auto");
+  let bindingRevision = $state<number>(0);
+  $effect(() => {
+    formPref = readPetFormPreference(selectedPet);
+  });
+  const activeForm = $derived(
+    resolvePetActiveForm(selectedPet, careState?.display_level ?? 1, formPref)
+  );
   let mappingRevision = $state(0);
   $effect(() => {
     const handler = () => { mappingRevision += 1; };
@@ -668,9 +681,11 @@
   {:else if activeViewTab === "animations"}
     <PetAnimationPicker
       slug={selectedPet}
-      onBindingChange={(state, clipIdx) =>
-        toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`)
-      }
+      formSpritesheetPath={activeForm?.spritesheetPath}
+      onBindingChange={(state, clipIdx) => {
+        bindingRevision += 1;
+        toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);
+      }}
     />
 
   <!-- TAB: FULL ACTIVITY STREAM VIEW -->
@@ -750,6 +765,41 @@
             </div>
           </div>
 
+          {#if currentArchetype.forms && currentArchetype.forms.length > 0}
+            <!-- Multi-Form Progression & Evolution Selector Bar -->
+            <div class="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-(--paper)/80 border border-(--line) mb-2 text-xs relative z-10 shrink-0">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent-text) border border-(--accent)/30">
+                  {activeForm ? activeForm.name : "Default"}
+                </span>
+                <span class="text-[11px] text-(--muted) truncate hidden sm:inline">
+                  {activeForm?.hairDescription || "Trạng thái tự động theo Level"}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <select
+                  value={formPref}
+                  onchange={(e) => {
+                    const val = e.currentTarget.value;
+                    writePetFormPreference(selectedPet, val);
+                    formPref = val;
+                    toastState.info(val === "auto" ? "Tự động tiến hóa theo cấp độ" : `Đã khóa hình thái: ${currentArchetype.forms?.find(f => f.id === val)?.name || val}`);
+                  }}
+                  class="field text-[11px] h-7 px-2 py-0 rounded-lg text-(--ink) cursor-pointer"
+                  title="Tùy chỉnh hình thái tiến hóa"
+                >
+                  <option value="auto">Auto (Level {careState.display_level})</option>
+                  {#each currentArchetype.forms as f}
+                    <option value={f.id}>
+                      {careState.display_level >= f.minLevel ? "[v]" : "[x]"} {f.name} (Lv {f.minLevel})
+                    </option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+          {/if}
+
           <!-- Interactive Speech / Context Bubble -->
           <div class="relative max-w-lg w-full my-1 z-10 shrink-0">
             <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -782,8 +832,11 @@
             >
               <AgentPetSprite
                 slug={selectedPet}
+                formId={activeForm?.id}
+                spritesheetPath={activeForm?.spritesheetPath}
                 mood={currentMood}
                 size={160}
+                revision={bindingRevision}
               />
 
               <!-- Status Pill -->
@@ -861,12 +914,97 @@
           onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
         />
 
+        {#if currentArchetype.forms && currentArchetype.forms.length > 0}
+          <!-- Dedicated Evolution Forms & Models Selector Card -->
+          <div class="panel p-4 sm:p-5 shadow-sm space-y-3 select-none">
+            <div class="flex items-center justify-between pb-2 border-b border-(--line) gap-2">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-lg bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent-text)">
+                  <Sparkles class="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-(--ink) tracking-tight m-0">
+                    Evolution Forms & Models
+                  </h4>
+                  <p class="text-[10px] text-(--muted) m-0">
+                    Select progression forms or lock specific cosmetics for {currentArchetype.name}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Auto Mode Button -->
+              <button
+                type="button"
+                onclick={() => {
+                  writePetFormPreference(selectedPet, "auto");
+                  formPref = "auto";
+                  toastState.info("Tự động tiến hóa theo cấp độ");
+                }}
+                class="px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer {formPref === 'auto'
+                  ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
+                title="Tự động tiến hóa theo cấp độ hiện tại"
+              >
+                <Zap class="w-3 h-3 {formPref === 'auto' ? 'text-white' : 'text-(--warning)'}" />
+                <span>Auto (Lv {careState.display_level})</span>
+              </button>
+            </div>
+
+            <!-- Forms Cards Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {#each currentArchetype.forms as f (f.id)}
+                {@const isUnlocked = careState.display_level >= f.minLevel}
+                {@const isCurrentActive = activeForm?.id === f.id}
+                {@const isExplicitLocked = formPref === f.id}
+
+                <button
+                  type="button"
+                  onclick={() => {
+                    writePetFormPreference(selectedPet, f.id);
+                    formPref = f.id;
+                    toastState.info(`Đã áp dụng hình thái: ${f.name}`);
+                  }}
+                  class="p-2 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all text-center group cursor-pointer relative overflow-hidden {isExplicitLocked || (formPref === 'auto' && isCurrentActive)
+                    ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/30 text-(--ink)'
+                    : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                  title="{f.name} — {f.hairDescription || ''} (Cần Lv {f.minLevel})"
+                >
+                  <div class="w-12 h-12 rounded-lg bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
+                    <img
+                      src={f.avatarUrl}
+                      alt={f.name}
+                      class="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div class="w-full min-w-0">
+                    <span class="text-[11px] font-bold block truncate leading-tight {isCurrentActive ? 'text-blue-400' : 'text-(--ink)'}">
+                      {f.name}
+                    </span>
+                    <span class="text-[9px] font-mono block mt-0.5 {isUnlocked ? 'text-(--muted)' : 'text-(--warning)'}">
+                      {isUnlocked ? `Lv ${f.minLevel}` : `Khóa (Lv ${f.minLevel})`}
+                    </span>
+                  </div>
+
+                  {#if isCurrentActive}
+                    <span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                      Active
+                    </span>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <!-- Interactive Animations Clip Inspector & Binding Panel -->
         <PetAnimationPicker
           slug={selectedPet}
-          onBindingChange={(state, clipIdx) =>
-            toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`)
-          }
+          formSpritesheetPath={activeForm?.spritesheetPath}
+          onBindingChange={(state, clipIdx) => {
+            bindingRevision += 1;
+            toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);
+          }}
         />
 
         <!-- Compact Progression & Vitals Panel -->

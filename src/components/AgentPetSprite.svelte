@@ -4,30 +4,47 @@
 
   interface Props {
     slug: string;
+    formId?: string;
+    spritesheetPath?: string;
     mood: "idle" | "working" | "reading" | "waiting" | "done" | "celebrate" | "sleepy";
     size?: number;
+    revision?: number;
     class?: string;
     onclick?: () => void;
   }
 
   let {
     slug,
+    formId,
+    spritesheetPath,
     mood,
     size = 200,
+    revision,
     class: className = "",
     onclick,
   }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
   let renderer = $state<PetRenderer | null>(null);
+  let lastLoadedPath = $state<string>("");
+
+  function computeSpritesheetPath(currentSlug: string, currentForm?: string, directPath?: string): string {
+    if (directPath) return directPath;
+    if (currentForm && currentForm !== "default" && currentForm !== "auto") {
+      return `/pets/${currentSlug}/forms/${currentForm}/spritesheet.webp`;
+    }
+    return `/pets/${currentSlug}/spritesheet.webp`;
+  }
 
   // Initialize PetRenderer, load spritesheet, call setState(mood), and clean up on destroy
   $effect(() => {
     if (!canvas) return;
     const currentSlug = slug;
+    const path = computeSpritesheetPath(slug, formId, spritesheetPath);
     const r = new PetRenderer(canvas, currentSlug);
     renderer = r;
-    r.load(`/pets/${currentSlug}/spritesheet.webp`);
+    lastLoadedPath = path;
+    r.load(path);
     untrack(() => {
       r.setState(mood);
     });
@@ -44,12 +61,18 @@
     renderer?.draw();
   });
 
-  // Update renderer.setSlug and renderer.setState(mood)
+  // Update renderer.setSlug, renderer.load, and renderer.setState(mood) reactively
   $effect(() => {
+    void revision;
     const currentSlug = slug;
     const currentMood = mood;
+    const path = computeSpritesheetPath(currentSlug, formId, spritesheetPath);
     if (renderer) {
       renderer.setSlug(currentSlug);
+      if (lastLoadedPath !== path) {
+        lastLoadedPath = path;
+        renderer.load(path);
+      }
       renderer.setState(currentMood);
     }
   });

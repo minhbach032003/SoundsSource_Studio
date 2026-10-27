@@ -137,6 +137,8 @@ export function getPetArchetype(id?: string | null): PetArchetype {
   return active.find((p) => p.id === id) || INSTALLED_PETS.find((p) => p.id === id) || active[0] || INSTALLED_PETS[0]!;
 }
 
+export { resolvePetActiveForm } from "../components/pet/types.ts";
+
 /** Get the user's active 3 favorite companions for desktop split clustering */
 export function getFavoritePets(): string[] {
   if (typeof localStorage === "undefined") {

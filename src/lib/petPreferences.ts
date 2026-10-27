@@ -12,6 +12,7 @@ export const PET_KEYS = {
   waitingSound: "ap_sound_waiting_enabled",
   doneCustom: "ap_sound_done_custom",
   waitingCustom: "ap_sound_waiting_custom",
+  gokuForm: "ap_goku_form",
 } as const;
 
 export function boundedInteger(value: unknown, min: number, max: number, fallback: number): number {
@@ -48,14 +49,29 @@ export function readPetPreferences() {
     chat: read(PET_KEYS.chat) === "1",
     bubble: read(PET_KEYS.bubble) === "1",
     split: read(PET_KEYS.split) === "1",
+    gokuForm: read(PET_KEYS.gokuForm) || "auto",
   };
 }
 
 /** Native storage events reach other webviews; this event also reaches this one. */
-export function writePetPreference(key: Exclude<keyof typeof PET_KEYS, "doneCustom" | "waitingCustom">, value: number | boolean) {
+export function writePetPreference(key: Exclude<keyof typeof PET_KEYS, "doneCustom" | "waitingCustom" | "gokuForm">, value: number | boolean) {
   const normalized = key === "fps" ? boundedInteger(value, 1, 12, 12)
     : key === "size" ? boundedInteger(value, 30, 300, 180) : value === true ? "1" : "0";
   writePetStorage(PET_KEYS[key], String(normalized));
+}
+
+export function readPetFormPreference(slug: string): string {
+  if (slug === "super-saiyan-goku") {
+    return read(`ap_pet_form_${slug}`) || read(PET_KEYS.gokuForm) || "auto";
+  }
+  return read(`ap_pet_form_${slug}`) || "auto";
+}
+
+export function writePetFormPreference(slug: string, formId: string) {
+  writePetStorage(`ap_pet_form_${slug}`, formId);
+  if (slug === "super-saiyan-goku") {
+    writePetStorage(PET_KEYS.gokuForm, formId);
+  }
 }
 
 let sizePreviewChannel: BroadcastChannel | null = null;
@@ -98,7 +114,8 @@ export function writePetStorage(key: string, value: string) {
 export function subscribePetPreferences(update: () => void): () => void {
   const onStorage = (event: StorageEvent) => {
     if (!event.key || Object.values(PET_KEYS).some(key => key === event.key)
-      || event.key.startsWith("ap_bind_") || event.key === "rust_sound_pet_slug") update();
+      || event.key.startsWith("ap_bind_") || event.key.startsWith("ap_pet_form_")
+      || event.key === "rust_sound_pet_slug") update();
   };
   window.addEventListener("storage", onStorage);
   update();

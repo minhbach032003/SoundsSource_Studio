@@ -8,13 +8,18 @@
   import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
-  import {
+import {
     playPetDoneChime,
     playPetWaitingChime,
     sendDesktopNotification,
     shouldTriggerPetAlert,
   } from "@/lib/petAudio";
-  import type { AgentSessionDto, PetCareStateDto } from "@/components/pet/types";
+  import type { AgentSessionDto, PetCareStateDto, PetFormMeta } from "@/components/pet/types";
+  import { resolvePetActiveForm } from "@/components/pet/types";
+  import {
+    readPetFormPreference,
+    writePetFormPreference,
+  } from "@/lib/petPreferences";
   import {
     Terminal,
     Bot,
@@ -203,10 +208,21 @@
   });
   const prevSessionStates = new Map<string, string>();
 
+  let formPref = $state<string>("auto");
+
+  // Read form preference for the current equipped pet and sync on storage events
   $effect(() => {
-    // Track care state for future overlay progression indicators and avoid noUnusedLocals
-    void care;
+    formPref = readPetFormPreference(petSlug);
+    const syncForm = () => {
+      formPref = readPetFormPreference(petSlug);
+    };
+    window.addEventListener("storage", syncForm);
+    return () => window.removeEventListener("storage", syncForm);
   });
+
+  const activeForm = $derived<PetFormMeta | null>(
+    resolvePetActiveForm(petSlug, care?.display_level ?? 1, formPref)
+  );
 
   // Load persisted bubble mode
   $effect(() => {
@@ -388,7 +404,7 @@
     };
 
     pollStatus();
-    const interval = setInterval(pollStatus, 1000);
+    const interval = setInterval(pollStatus, 800);
     return () => {
       active = false;
       clearInterval(interval);
@@ -855,6 +871,8 @@
           {/if}
           <AgentPetSprite
             slug={petSlug}
+            formId={activeForm?.id}
+            spritesheetPath={activeForm?.spritesheetPath}
             {mood}
             size={petSize}
             class="{petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : petSlug === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
@@ -948,6 +966,32 @@
             {/each}
           </select>
         </div>
+
+        {#if getPetArchetype(petSlug).forms && getPetArchetype(petSlug).forms!.length > 0}
+          {@const pForms = getPetArchetype(petSlug).forms!}
+          <div class="pt-1 border-t border-(--line) flex items-center justify-between px-1 text-[10px] text-(--muted)">
+            <span>Form / Tier</span>
+            <select
+              value={formPref}
+              onchange={(e) => {
+                const newForm = e.currentTarget.value;
+                writePetFormPreference(petSlug, newForm);
+                formPref = newForm;
+                toastState.info(newForm === "auto" ? "Tự động tiến hóa theo Level" : `Đã khóa dạng: ${pForms.find(f => f.id === newForm)?.name || newForm}`);
+                showActionMenu = false;
+              }}
+              class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--ink) cursor-pointer"
+              title="Chọn hình thái / cấp độ tiến hóa"
+            >
+              <option value="auto">Auto (Lv {care?.display_level ?? 1})</option>
+              {#each pForms as f}
+                <option value={f.id}>
+                  {(care?.display_level ?? 1) >= f.minLevel ? "[Active]" : "[Locked]"} {f.name} (Lv {f.minLevel})
+                </option>
+              {/each}
+            </select>
+          </div>
+        {/if}
 
         <div class="pt-1 border-t border-(--line) flex items-center justify-between px-1 text-[10px] text-(--muted)">
           <span>Scale</span>

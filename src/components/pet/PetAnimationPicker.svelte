@@ -7,10 +7,11 @@
 
   interface Props {
     slug: string;
+    formSpritesheetPath?: string;
     onBindingChange?: (state: string, clipIndex: number) => void;
   }
 
-  let { slug, onBindingChange }: Props = $props();
+  let { slug, formSpritesheetPath, onBindingChange }: Props = $props();
 
   const STATES = [
     { id: "idle", label: "Idle" },
@@ -73,9 +74,10 @@
     return Math.min(row, Math.max(0, clips.length - 1));
   });
 
-  // Load and slice spritesheet when slug changes
+  // Load and slice spritesheet when slug or formSpritesheetPath changes
   $effect(() => {
     const currentSlug = slug;
+    const currentPath = formSpritesheetPath;
     let active = true;
     loadedSlug = null;
     loadedImage = null;
@@ -85,7 +87,7 @@
     if (hoverTimer !== null) cancelAnimationFrame(hoverTimer);
     hoverTimer = null;
 
-    const { cdnUrl, localUrl } = resolvePetSpritesheetUrls(currentSlug);
+    const { cdnUrl, localUrl } = resolvePetSpritesheetUrls(currentPath || currentSlug);
     let activeImg: HTMLImageElement | null = null;
 
     const tryLoad = (url: string, onFallback?: () => void) => {
@@ -93,7 +95,7 @@
       activeImg = img;
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        if (!active || slug !== currentSlug) return;
+        if (!active || slug !== currentSlug || formSpritesheetPath !== currentPath) return;
         const sliced = slice(img);
         if (!sliced.length) {
           loadError = true;
@@ -104,7 +106,7 @@
         loadedSlug = currentSlug;
       };
       img.onerror = () => {
-        if (!active || slug !== currentSlug) return;
+        if (!active || slug !== currentSlug || formSpritesheetPath !== currentPath) return;
         if (onFallback) {
           onFallback();
         } else {

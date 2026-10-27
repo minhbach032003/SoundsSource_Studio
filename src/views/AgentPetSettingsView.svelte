@@ -24,7 +24,12 @@
     getFavoritePets,
     setFavoritePetSlot,
     getActivePets,
+    resolvePetActiveForm,
   } from "@/lib/petMapping";
+  import {
+    readPetFormPreference,
+    writePetFormPreference,
+  } from "@/lib/petPreferences";
   import { toastState } from "@/lib/toast.svelte";
   import { playPetSound } from "@/lib/petAudio";
   import { invoke, isTauri } from "@tauri-apps/api/core";
@@ -39,6 +44,11 @@
   let favoritePets = $state<string[]>(getFavoritePets());
   let isTestingAudio = $state(false);
   let mappingRevision = $state(0);
+  let formPref = $state<string>("auto");
+
+  $effect(() => {
+    formPref = readPetFormPreference(selectedPet);
+  });
 
   $effect(() => {
     const handler = () => { mappingRevision += 1; };
@@ -419,6 +429,44 @@
             {/each}
           </select>
         </div>
+
+        {#if currentPetMeta.forms && currentPetMeta.forms.length > 0}
+          <div class="pt-3 border-t border-(--line) space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-(--ink)">Hình thái & Tiến hóa (Evolution Forms)</span>
+              <span class="text-[10px] font-mono text-(--muted)">{currentPetMeta.forms.length} Hình thái</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {#each currentPetMeta.forms as f}
+                {@const isSelected = formPref === f.id}
+                <button
+                  type="button"
+                  onclick={() => {
+                    const nextVal = formPref === f.id ? "auto" : f.id;
+                    writePetFormPreference(selectedPet, nextVal);
+                    formPref = nextVal;
+                    toastState.info(nextVal === "auto" ? "Đã chuyển sang chế độ tự động theo Level" : `Đã khóa dạng: ${f.name}`);
+                  }}
+                  class="flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer {isSelected ? 'bg-(--accent)/15 border-(--accent) text-(--ink)' : 'bg-(--paper) border-(--line) hover:border-(--focus)'}"
+                >
+                  <img
+                    src={f.avatarUrl}
+                    alt={f.name}
+                    class="w-9 h-9 rounded-lg border border-(--line) object-cover bg-(--surface) shrink-0"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold truncate">{f.name}</span>
+                      <span class="text-[9px] font-mono px-1 rounded bg-(--surface) text-(--muted)">Lv {f.minLevel}</span>
+                    </div>
+                    <span class="text-[10px] text-(--muted) block truncate">{f.hairDescription}</span>
+                  </div>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

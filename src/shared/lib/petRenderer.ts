@@ -598,7 +598,21 @@ export function slice(img: HTMLImageElement): Rect[][] {
 
 export const CLOUDINARY_PETS_BASE = "https://res.cloudinary.com/mvvfpbof/image/upload/pets";
 
+interface CachedSpriteSheet {
+  img: HTMLImageElement;
+  clips: Rect[][];
+}
+const SHEET_CACHE = new Map<string, CachedSpriteSheet>();
+
 export function resolvePetSpritesheetUrls(slugOrPath: string): { cdnUrl: string; localUrl: string } {
+  // If a direct form path is passed, e.g. /pets/super-saiyan-goku/forms/ss4/spritesheet.webp
+  if (slugOrPath.startsWith("/pets/") && slugOrPath.includes("/forms/")) {
+    return {
+      cdnUrl: slugOrPath,
+      localUrl: slugOrPath,
+    };
+  }
+
   const match = slugOrPath.match(/^\/?pets\/([^/]+)\/spritesheet\.webp$/);
   const slug = match ? match[1] : slugOrPath;
   return {
@@ -671,21 +685,38 @@ export class PetRenderer {
     }
   }
 
+  getCurrentUrl(): string {
+    return this.img?.src || "";
+  }
+
   load(spritesheetUrl: string) {
     if (this.isDestroyed) return;
     const version = ++this.loadVersion;
     const isCurrent = () => !this.isDestroyed && version === this.loadVersion;
-    this.loaded = false;
-    this.clips = [];
-    this.spriteRect = null;
-    this.headroom = 0;
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     const { cdnUrl, localUrl } = resolvePetSpritesheetUrls(
       spritesheetUrl.startsWith("/pets/") ? spritesheetUrl : this.slug
     );
     const primaryUrl = spritesheetUrl.startsWith("http") ? spritesheetUrl : cdnUrl;
     const fallbackUrl = spritesheetUrl.startsWith("http") ? undefined : localUrl;
+
+    // Check in-memory sheet cache first to avoid re-slicing and canvas flickering
+    const cached = SHEET_CACHE.get(primaryUrl) || (fallbackUrl ? SHEET_CACHE.get(fallbackUrl) : undefined);
+    if (cached) {
+      this.img = cached.img;
+      this.clips = cached.clips;
+      this.frame = 0;
+      this.lastTick = performance.now();
+      this.loaded = true;
+      this.draw();
+      return;
+    }
+
+    this.loaded = false;
+    this.clips = [];
+    this.spriteRect = null;
+    this.headroom = 0;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     const tryLoad = (url: string, nextFallback?: () => void) => {
       const img = new Image();
@@ -694,6 +725,7 @@ export class PetRenderer {
         if (!isCurrent()) return;
         this.img = img;
         this.clips = slice(img);
+        SHEET_CACHE.set(url, { img, clips: this.clips });
         this.frame = 0;
         this.lastTick = performance.now();
         this.loaded = true;
@@ -710,6 +742,7 @@ export class PetRenderer {
             if (!isCurrent()) return;
             this.img = plain;
             this.clips = [];
+            SHEET_CACHE.set(url, { img: plain, clips: [] });
             this.frame = 0;
             this.lastTick = performance.now();
             this.loaded = true;
@@ -805,7 +838,7 @@ export class PetRenderer {
 
     // Smooth 60fps micro-dynamics: allow fluid redraw intervals for all states
     const isIdle = this.state === "idle";
-    const minDynamicsInterval = isIdle ? 20 : 0; // ~50fps for idle, full 60fps for actions
+    const minDynamicsInterval = isIdle ? 33 : 0; // ~30fps for idle, full 60fps for actions
     const canDrawDynamics = this.hasContinuousDynamics() && (t - this.lastDrawTime >= minDynamicsInterval);
 
     if (this.loaded && (shouldRedraw || canDrawDynamics)) {

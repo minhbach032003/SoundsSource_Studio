@@ -71,6 +71,22 @@ export interface AgentIntegrationDto {
   note?: string | null;
 }
 
+export interface PetFormMeta {
+  id: string;
+  name: string;
+  minLevel: number;
+  hairDescription?: string;
+  auraDescription?: string;
+  avatarUrl: string;
+  spritesheetPath: string;
+  themeOverride?: {
+    primaryColor?: string;
+    aura?: string;
+    sparkleType?: string;
+    backlightClass?: string;
+  };
+}
+
 export interface PetArchetype {
   id: string;
   name: string;
@@ -84,6 +100,7 @@ export interface PetArchetype {
     aura: string;
     sparkleType: string;
   };
+  forms?: PetFormMeta[];
 }
 
 export type PetMood = "idle" | "working" | "reading" | "waiting" | "done" | "celebrate" | "sleepy";
@@ -96,7 +113,7 @@ export const INSTALLED_PETS: PetArchetype[] = [
     tagline: "Neon cyber hacker cat overclocking every build",
     description: "A high-octane cyber hacker cat frantically typing code on a glowing holographic terminal, turning caffeine and keystrokes into zero-warning Rust builds.",
     unlockLevel: 1,
-    avatarUrl: "/pets/code-frenzy-cat/avatar-3d.png",
+    avatarUrl: "/pets/code-frenzy-cat/avatar.svg",
     theme: {
       primaryColor: "cyan",
       aura: "neon-cyan-pulse",
@@ -130,6 +147,35 @@ export const INSTALLED_PETS: PetArchetype[] = [
       aura: "playful-radiance",
       sparkleType: "comic-stars",
     },
+    forms: [
+      {
+        id: "kid",
+        name: "Shinchan (Kid)",
+        minLevel: 1,
+        hairDescription: "Đầu đinh cậu bé tinh nghịch",
+        auraDescription: "Vô tư hồn nhiên",
+        avatarUrl: "/pets/shinchan-3/forms/kid/avatar.png",
+        spritesheetPath: "/pets/shinchan-3/forms/kid/spritesheet.webp",
+      },
+      {
+        id: "classic",
+        name: "Shinchan (Classic)",
+        minLevel: 5,
+        hairDescription: "Tóc ngắn mắt to tròn áo đỏ quần vàng",
+        auraDescription: "Năng động vui nhộn",
+        avatarUrl: "/pets/shinchan-3/forms/classic/avatar.png",
+        spritesheetPath: "/pets/shinchan-3/forms/classic/spritesheet.webp",
+      },
+      {
+        id: "action",
+        name: "Action Mask Shinchan",
+        minLevel: 15,
+        hairDescription: "Đầu đeo kính đen & tai nghe siêu quậy",
+        auraDescription: "Chiến binh súng nước cực ngầu",
+        avatarUrl: "/pets/shinchan-3/forms/action/avatar.png",
+        spritesheetPath: "/pets/shinchan-3/forms/action/spritesheet.webp",
+      },
+    ],
   },
   {
     id: "work-blue-cat",
@@ -152,12 +198,59 @@ export const INSTALLED_PETS: PetArchetype[] = [
     tagline: "Push past runtime limits with legendary Super Saiyan focus.",
     description: "A legendary Super Saiyan martial artist radiating golden ki energy and fearless determination. Goku stands vigilant beside your workspace.",
     unlockLevel: 5,
-    avatarUrl: "/pets/super-saiyan-goku/avatar-3d.png",
+    avatarUrl: "/pets/super-saiyan-goku/avatar.svg",
     theme: {
       primaryColor: "amber",
       aura: "golden-ki",
       sparkleType: "electric-sparks",
     },
+    forms: [
+      {
+        id: "base",
+        name: "Goku (Base)",
+        minLevel: 1,
+        hairDescription: "Tóc đen nhánh đặc trưng của người Saiyan",
+        auraDescription: "Khí tự nhiên thuần khiết",
+        avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
+        spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
+      },
+      {
+        id: "ss1",
+        name: "Super Saiyan 1",
+        minLevel: 5,
+        hairDescription: "Tóc vàng dựng đứng kinh điển",
+        auraDescription: "Ki vàng Super Saiyan",
+        avatarUrl: "/pets/super-saiyan-goku/forms/ss1/avatar.png",
+        spritesheetPath: "/pets/super-saiyan-goku/forms/ss1/spritesheet.webp",
+      },
+      {
+        id: "ss2",
+        name: "Super Saiyan 2",
+        minLevel: 10,
+        hairDescription: "Tóc vàng chĩa sắc nhọn với tia điện",
+        auraDescription: "Aura vàng bốc cháy & sấm sét",
+        avatarUrl: "/pets/super-saiyan-goku/forms/ss2/avatar.png",
+        spritesheetPath: "/pets/super-saiyan-goku/forms/ss2/spritesheet.webp",
+      },
+      {
+        id: "ssblue",
+        name: "Super Saiyan Blue",
+        minLevel: 20,
+        hairDescription: "Tóc xanh lam ngọc của Ki Thần",
+        auraDescription: "Hào quang lam ngọc thần thánh",
+        avatarUrl: "/pets/super-saiyan-goku/forms/ssblue/avatar.png",
+        spritesheetPath: "/pets/super-saiyan-goku/forms/ssblue/spritesheet.webp",
+      },
+      {
+        id: "ss4",
+        name: "Super Saiyan 4",
+        minLevel: 35,
+        hairDescription: "Tóc đen dài bồng bềnh xõa sau lưng & đuôi khỉ",
+        auraDescription: "Ki đỏ rực lửa hình thái tối thượng",
+        avatarUrl: "/pets/super-saiyan-goku/forms/ss4/avatar.png",
+        spritesheetPath: "/pets/super-saiyan-goku/forms/ss4/spritesheet.webp",
+      },
+    ],
   },
   {
     id: "wode-daodun-3d",
@@ -200,6 +293,35 @@ export const INSTALLED_PETS: PetArchetype[] = [
       aura: "thunder-spark",
       sparkleType: "electric-sparks",
     },
+    forms: [
+      {
+        id: "classic",
+        name: "Pikachu (Classic)",
+        minLevel: 1,
+        hairDescription: "Phong cách Pixel Art hoài niệm",
+        auraDescription: "Tia sét pixel vui vẻ",
+        avatarUrl: "/pets/pikachu/forms/classic/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/classic/spritesheet.webp",
+      },
+      {
+        id: "studio",
+        name: "Pikachu (Studio HD)",
+        minLevel: 5,
+        hairDescription: "Tạo hình 3D Chibi Figure mịn màng",
+        auraDescription: "Luồng điện vàng chanh tỏa sáng",
+        avatarUrl: "/pets/pikachu/forms/studio/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/studio/spritesheet.webp",
+      },
+      {
+        id: "overcharge",
+        name: "Pikachu (Raichu Aura)",
+        minLevel: 15,
+        hairDescription: "Tông cam đậm Raichu & năng lượng dâng trào",
+        auraDescription: "Sấm sét siêu áp Overcharge",
+        avatarUrl: "/pets/pikachu/forms/overcharge/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/overcharge/spritesheet.webp",
+      },
+    ],
   },
 ];
 
@@ -237,6 +359,93 @@ export function getInternalLevel(xp: number): number {
     level++;
   }
   return level;
+}
+
+export type GokuFormId = "base" | "ss1" | "ss2" | "ssblue" | "ss4";
+
+export interface GokuFormMeta {
+  id: GokuFormId;
+  name: string;
+  minLevel: number;
+  hairDescription: string;
+  auraDescription: string;
+  avatarUrl: string;
+  spritesheetPath: string;
+}
+
+export const GOKU_FORMS: Record<GokuFormId, GokuFormMeta> = {
+  base: {
+    id: "base",
+    name: "Goku (Base)",
+    minLevel: 1,
+    hairDescription: "Tóc đen nhánh đặc trưng của người Saiyan",
+    auraDescription: "Khí tự nhiên thuần khiết",
+    avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
+  },
+  ss1: {
+    id: "ss1",
+    name: "Super Saiyan 1",
+    minLevel: 5,
+    hairDescription: "Tóc vàng dựng đứng kinh điển",
+    auraDescription: "Ki vàng Super Saiyan",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ss1/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ss1/spritesheet.webp",
+  },
+  ss2: {
+    id: "ss2",
+    name: "Super Saiyan 2",
+    minLevel: 10,
+    hairDescription: "Tóc vàng chĩa sắc nhọn với tia điện",
+    auraDescription: "Aura vàng bốc cháy & sấm sét",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ss2/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ss2/spritesheet.webp",
+  },
+  ssblue: {
+    id: "ssblue",
+    name: "Super Saiyan Blue",
+    minLevel: 20,
+    hairDescription: "Tóc xanh lam ngọc của Ki Thần",
+    auraDescription: "Hào quang lam ngọc thần thánh",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ssblue/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ssblue/spritesheet.webp",
+  },
+  ss4: {
+    id: "ss4",
+    name: "Super Saiyan 4",
+    minLevel: 35,
+    hairDescription: "Tóc đen dài bồng bềnh xõa sau lưng & đuôi khỉ",
+    auraDescription: "Ki đỏ rực lửa hình thái tối thượng",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ss4/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ss4/spritesheet.webp",
+  },
+};
+
+export function resolvePetActiveForm(
+  pet: PetArchetype | string,
+  level: number = 1,
+  formPreference: string = "auto"
+): PetFormMeta | null {
+  const archetype = typeof pet === "string" ? INSTALLED_PETS.find((p) => p.id === pet) : pet;
+  if (!archetype?.forms || archetype.forms.length === 0) return null;
+
+  // Manual cosmetic lock
+  if (formPreference && formPreference !== "auto") {
+    const selected = archetype.forms.find((f) => f.id === formPreference);
+    if (selected) return selected;
+  }
+
+  // Automatic level progression: select highest form with minLevel <= current level
+  const sorted = [...archetype.forms].sort((a, b) => b.minLevel - a.minLevel);
+  return sorted.find((f) => level >= f.minLevel) || sorted[sorted.length - 1]!;
+}
+
+export function resolveGokuForm(level: number, formPreference: string = "auto"): GokuFormMeta {
+  const resolved = resolvePetActiveForm("super-saiyan-goku", level, formPreference);
+  if (resolved && resolved.id in GOKU_FORMS) {
+    return GOKU_FORMS[resolved.id as GokuFormId];
+  }
+  return GOKU_FORMS.base;
 }
 
 export const SPEECH_QUOTES: Record<string, string[]> = {
