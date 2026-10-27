@@ -217,7 +217,11 @@ import {
       formPref = readPetFormPreference(petSlug);
     };
     window.addEventListener("storage", syncForm);
-    return () => window.removeEventListener("storage", syncForm);
+    const interval = setInterval(syncForm, 1000);
+    return () => {
+      window.removeEventListener("storage", syncForm);
+      clearInterval(interval);
+    };
   });
 
   const activeForm = $derived<PetFormMeta | null>(
@@ -848,6 +852,8 @@ import {
             {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, petSlug))}
             {@const sMood = petMoodFor(session, { celebrating: isInteracting || isCelebrating })}
             {@const sFx = PET_FX_THEMES[sessionPet.id] ?? petFx}
+            {@const sFormPref = readPetFormPreference(sessionPet.id)}
+            {@const sForm = resolvePetActiveForm(sessionPet.id, care?.display_level ?? 1, sFormPref)}
             <div class="relative flex items-center justify-center">
               {#if sMood === "working" || sMood === "reading" || sMood === "celebrate"}
                 <!-- Cozy ambient archetype backlight underneath pet -->
@@ -879,6 +885,8 @@ import {
               {/if}
               <AgentPetSprite
                 slug={sessionPet.id}
+                formId={sForm?.id}
+                spritesheetPath={sForm?.spritesheetPath}
                 mood={sMood}
                 size={petSize}
                 class="{sessionPet.id === 'super-saiyan-goku' ? 'pet-goku-aura' : sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : sessionPet.id === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"

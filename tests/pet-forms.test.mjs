@@ -64,4 +64,24 @@ test("resolvePetActiveForm resolves appropriate forms by level and preference ac
     const locked = resolvePetActiveForm(pet.id, 50, firstFormId);
     assert.equal(locked?.id, firstFormId, `Must respect explicit form lock`);
   }
+
+  // Level 30 Goku specifically resolves to Blue Kaio-ken x20 (minLevel 30)
+  const gokuLv30 = resolvePetActiveForm("super-saiyan-goku", 30, "auto");
+  assert.ok(gokuLv30, "Goku level 30 must resolve active form");
+  assert.equal(gokuLv30.id, "blue-kaioken", "Goku level 30 must be Blue Kaio-ken x20");
+  assert.equal(gokuLv30.minLevel, 30);
+  assert.ok(gokuLv30.spritesheetPath.includes("blue-kaioken"), "Spritesheet path must point to blue-kaioken");
+});
+
+test("PetOverlay splitPets passes resolved evolution forms to AgentPetSprite", () => {
+  const overlaySrc = readFileSync("src/views/PetOverlay.svelte", "utf8");
+  assert.ok(overlaySrc.includes("formId={sForm?.id}"), "Split pets loop must pass formId");
+  assert.ok(overlaySrc.includes("spritesheetPath={sForm?.spritesheetPath}"), "Split pets loop must pass spritesheetPath");
+  assert.ok(overlaySrc.includes("resolvePetActiveForm(sessionPet.id"), "Split pets loop must resolve form per sessionPet");
+});
+
+test("AgentPetSprite imports resolvePetActiveForm for robust fallback", () => {
+  const spriteSrc = readFileSync("src/components/AgentPetSprite.svelte", "utf8");
+  assert.ok(spriteSrc.includes("resolvePetActiveForm"), "AgentPetSprite imports resolvePetActiveForm");
+  assert.ok(spriteSrc.includes("INSTALLED_PETS"), "AgentPetSprite imports INSTALLED_PETS");
 });

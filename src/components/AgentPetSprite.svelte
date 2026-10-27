@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { PetRenderer, PET_MOTION } from "@/shared/lib/petRenderer";
+  import { INSTALLED_PETS, resolvePetActiveForm } from "@/components/pet/types";
+  import { readPetFormPreference } from "@/lib/petPreferences";
   import { Zap, Sparkles } from "@lucide/svelte";
 
   interface Props {
@@ -33,6 +35,12 @@
     if (directPath) return directPath;
     if (currentForm && currentForm !== "default" && currentForm !== "auto") {
       return `/pets/${currentSlug}/forms/${currentForm}/spritesheet.webp`;
+    }
+    const archetype = INSTALLED_PETS.find((p) => p.id === currentSlug);
+    if (archetype?.forms && archetype.forms.length > 0) {
+      const pref = currentForm && currentForm !== "default" ? currentForm : readPetFormPreference(currentSlug);
+      const active = resolvePetActiveForm(archetype, 1, pref);
+      if (active?.spritesheetPath) return active.spritesheetPath;
     }
     return `/pets/${currentSlug}/spritesheet.webp`;
   }

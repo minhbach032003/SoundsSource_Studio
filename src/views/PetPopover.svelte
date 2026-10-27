@@ -8,7 +8,8 @@
   import ToastHost from "@/components/ui/ToastHost.svelte";
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import type { AgentSessionDto, PetCareStateDto } from "@/components/pet/types";
-  import { xpToReach, getInternalLevel } from "@/components/pet/types";
+  import { xpToReach, getInternalLevel, resolvePetActiveForm } from "@/components/pet/types";
+  import { readPetFormPreference } from "@/lib/petPreferences";
   import { getPetForSession } from "@/lib/petMapping";
   import {
     PawPrint,
@@ -47,7 +48,7 @@
     };
   });
 
-  // Poll sessions and care state every 1.5s
+  // Poll sessions and care state every 800ms for responsive tracking
   $effect(() => {
     if (!isDesktop) return;
     let active = true;
@@ -69,7 +70,7 @@
     };
 
     poll();
-    const timer = setInterval(poll, 1500);
+    const timer = setInterval(poll, 800);
     return () => {
       active = false;
       clearInterval(timer);
@@ -110,6 +111,10 @@
   const spanXP = $derived(Math.max(1, ceilingXP - floorXP));
   const progressPercent = $derived(
     Math.min(100, Math.max(0, Math.round((inLevelXP / spanXP) * 100)))
+  );
+
+  const currentForm = $derived(
+    resolvePetActiveForm(petSlug, care?.display_level ?? 1, readPetFormPreference(petSlug))
   );
 
   const todayTokensLabel = $derived.by(() => {
@@ -183,6 +188,9 @@
         <Sparkles size={14} class="text-(--accent-text) shrink-0" />
         <span class="pet-name" title={petSlug.replace(/-/g, " ")}>{petSlug.replace(/-/g, " ")}</span>
         <span class="level">Lv {care?.display_level ?? 1}</span>
+        {#if currentForm}
+          <span class="form-badge" title="{currentForm.name} (Min Lv {currentForm.minLevel})">{currentForm.name}</span>
+        {/if}
         <span class="hunger">{care?.hunger ?? "Full"}</span>
       </div>
       <div class="xp-track" role="progressbar" aria-label="Level progress" aria-valuenow={progressPercent} aria-valuemin="0" aria-valuemax="100">
@@ -342,6 +350,20 @@
     color: var(--accent-text);
     font-size: 11px;
     font-weight: 600;
+  }
+  .form-badge {
+    flex-shrink: 0;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent-text);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
   }
   .hunger { margin-left: auto; flex-shrink: 0; color: var(--muted); font-size: 11px; text-transform: capitalize; }
   .xp-track { height: 4px; overflow: hidden; border-radius: 2px; margin-top: 6px; background: var(--track); }

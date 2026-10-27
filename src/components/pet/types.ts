@@ -992,7 +992,17 @@ export function getInternalLevel(xp: number): number {
   return level;
 }
 
-export type GokuFormId = "base" | "ss1" | "ss2" | "ssblue" | "ss4";
+export type GokuFormId =
+  | "base"
+  | "kaioken"
+  | "ss1"
+  | "ss2"
+  | "ss3"
+  | "god"
+  | "ssblue"
+  | "blue-kaioken"
+  | "ui-sign"
+  | "mui";
 
 export interface GokuFormMeta {
   id: GokuFormId;
@@ -1014,6 +1024,15 @@ export const GOKU_FORMS: Record<GokuFormId, GokuFormMeta> = {
     avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
     spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
   },
+  kaioken: {
+    id: "kaioken",
+    name: "Kaio-ken Power",
+    minLevel: 3,
+    hairDescription: "Khí công Kaio-ken gấp 20 lần uy lực",
+    auraDescription: "Hào quang đỏ thẫm cuộn trào bùng nổ",
+    avatarUrl: "/pets/super-saiyan-goku/forms/kaioken/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/kaioken/spritesheet.webp",
+  },
   ss1: {
     id: "ss1",
     name: "Super Saiyan 1",
@@ -1032,23 +1051,59 @@ export const GOKU_FORMS: Record<GokuFormId, GokuFormMeta> = {
     avatarUrl: "/pets/super-saiyan-goku/forms/ss2/avatar.png",
     spritesheetPath: "/pets/super-saiyan-goku/forms/ss2/spritesheet.webp",
   },
+  ss3: {
+    id: "ss3",
+    name: "Super Saiyan 3",
+    minLevel: 15,
+    hairDescription: "Tóc vàng dài chạm gót chân không chân mày",
+    auraDescription: "Sức mạnh khổng lồ rung chuyển vũ trụ",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ss3/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ss3/spritesheet.webp",
+  },
+  god: {
+    id: "god",
+    name: "Super Saiyan God",
+    minLevel: 20,
+    hairDescription: "Mái tóc đỏ rực lửa của thần linh",
+    auraDescription: "Thần khí thuần khiết bất hoại",
+    avatarUrl: "/pets/super-saiyan-goku/forms/god/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/god/spritesheet.webp",
+  },
   ssblue: {
     id: "ssblue",
     name: "Super Saiyan Blue",
-    minLevel: 20,
+    minLevel: 25,
     hairDescription: "Tóc xanh lam ngọc của Ki Thần",
     auraDescription: "Hào quang lam ngọc thần thánh",
     avatarUrl: "/pets/super-saiyan-goku/forms/ssblue/avatar.png",
     spritesheetPath: "/pets/super-saiyan-goku/forms/ssblue/spritesheet.webp",
   },
-  ss4: {
-    id: "ss4",
-    name: "Super Saiyan 4",
+  "blue-kaioken": {
+    id: "blue-kaioken",
+    name: "Blue Kaio-ken x20",
+    minLevel: 30,
+    hairDescription: "Sự kết hợp hoàn mỹ giữa Thần khí và Kaio-ken",
+    auraDescription: "Lớp hào quang kép đỏ rực bọc lấy sắc lam",
+    avatarUrl: "/pets/super-saiyan-goku/forms/blue-kaioken/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/blue-kaioken/spritesheet.webp",
+  },
+  "ui-sign": {
+    id: "ui-sign",
+    name: "Ultra Instinct -Sign-",
     minLevel: 35,
-    hairDescription: "Tóc đen dài bồng bềnh xõa sau lưng & đuôi khỉ",
-    auraDescription: "Ki đỏ rực lửa hình thái tối thượng",
-    avatarUrl: "/pets/super-saiyan-goku/forms/ss4/avatar.png",
-    spritesheetPath: "/pets/super-saiyan-goku/forms/ss4/spritesheet.webp",
+    hairDescription: "Bản Năng Vô Cực điềm báo với đôi mắt bạc",
+    auraDescription: "Nhiệt lượng vô hạn cùng chuyển động tự tại",
+    avatarUrl: "/pets/super-saiyan-goku/forms/ui-sign/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/ui-sign/spritesheet.webp",
+  },
+  mui: {
+    id: "mui",
+    name: "Mastered Ultra Instinct",
+    minLevel: 40,
+    hairDescription: "Mái tóc bạch kim sáng chói tối thượng",
+    auraDescription: "Cảnh giới tối cao cơ thể tự phản xạ",
+    avatarUrl: "/pets/super-saiyan-goku/forms/mui/avatar.png",
+    spritesheetPath: "/pets/super-saiyan-goku/forms/mui/spritesheet.webp",
   },
 };
 
