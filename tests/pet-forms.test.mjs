@@ -23,7 +23,7 @@ test("All 8 installed companions define evolution forms with existing assets", (
   assert.equal(INSTALLED_PETS.length, 8, "Must have exactly 8 installed companion archetypes");
 
   for (const pet of INSTALLED_PETS) {
-    assert.ok(pet.forms && pet.forms.length >= 3, `${pet.id} must define at least 3 evolution forms`);
+    assert.equal(pet.forms?.length, 10, `${pet.id} must define exactly 10 evolution forms`);
 
     for (const form of pet.forms) {
       assert.ok(form.id, `${pet.id} form must have id`);

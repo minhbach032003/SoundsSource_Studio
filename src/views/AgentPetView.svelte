@@ -950,8 +950,8 @@
               </button>
             </div>
 
-            <!-- Forms Cards Grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <!-- Forms Cards Grid (10 Evolution Forms) -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-5 gap-2">
               {#each currentArchetype.forms as f (f.id)}
                 {@const isUnlocked = careState.display_level >= f.minLevel}
                 {@const isCurrentActive = activeForm?.id === f.id}

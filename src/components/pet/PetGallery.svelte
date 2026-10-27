@@ -19,6 +19,7 @@
     Lock,
     Trash2,
     RotateCcw,
+    Download,
   } from "@lucide/svelte";
 
   interface Props {
@@ -109,6 +110,30 @@
     restoreAllPets();
     deletedIds = getDeletedPetIds();
     toastState.info("Restored all companions to gallery");
+  }
+
+  function handleDownloadPetBundle(pet: PetArchetype, e?: MouseEvent) {
+    e?.stopPropagation();
+    try {
+      const bundle = {
+        schema: "rust-sound-pet-v1",
+        exportedAt: new Date().toISOString(),
+        archetype: pet,
+      };
+      const json = JSON.stringify(bundle, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${pet.id}-companion-bundle.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toastState.success(`Đã tải gói pet "${pet.name}" (10 hình thái & metadata) về máy!`);
+    } catch (err) {
+      toastState.error(`Không thể tải gói pet: ${String(err)}`);
+    }
   }
 </script>
 
@@ -276,7 +301,17 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="flex items-center gap-2 shrink-0">
+      <button
+        type="button"
+        onclick={(e) => handleDownloadPetBundle(currentPet, e)}
+        class="px-2.5 py-1 rounded-lg border border-(--line) bg-(--surface) hover:bg-(--focus)/10 text-[11px] font-semibold text-(--accent-text) flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+        title="Tải gói dữ liệu và 10 hình thái của {currentPet.name} về máy"
+      >
+        <Download class="w-3 h-3 text-(--accent-text)" />
+        <span>Tải Pet Về</span>
+      </button>
+
       <span class="text-[10px] font-semibold text-(--success) flex items-center gap-1">
         <Check class="w-3 h-3 text-(--success)" />
         Equipped
