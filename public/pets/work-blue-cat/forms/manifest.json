@@ -1,0 +1,164 @@
+{
+  "forms": {
+    "classic": {
+      "shape": "none",
+      "alphaHash": "5cc8b0f46adf",
+      "opaquePixels": 1214625,
+      "hoodie": [
+        "#20402b",
+        "#366a47",
+        "#5ba374",
+        "#7ec897"
+      ],
+      "eyes": [
+        "#8a5214",
+        "#d97706",
+        "#fed073"
+      ]
+    },
+    "midnight": {
+      "shape": "mug",
+      "alphaHash": "186d1c8b6901",
+      "opaquePixels": 1221658,
+      "hoodie": [
+        "#0f141c",
+        "#1f2735",
+        "#334155",
+        "#475569"
+      ],
+      "eyes": [
+        "#853b08",
+        "#d97706",
+        "#fbb03b"
+      ]
+    },
+    "indigo": {
+      "shape": "glasses",
+      "alphaHash": "071b41f8278c",
+      "opaquePixels": 1214752,
+      "hoodie": [
+        "#111836",
+        "#1e285a",
+        "#374996",
+        "#526bcc"
+      ],
+      "eyes": [
+        "#084b6f",
+        "#06b6d4",
+        "#67e8f9"
+      ]
+    },
+    "deep-work": {
+      "shape": "headphones",
+      "alphaHash": "4200be21bc4f",
+      "opaquePixels": 1224206,
+      "hoodie": [
+        "#18181b",
+        "#27272a",
+        "#3f3f46",
+        "#52525b"
+      ],
+      "eyes": [
+        "#7f1d1d",
+        "#dc2626",
+        "#f87171"
+      ]
+    },
+    "lofi-study": {
+      "shape": "lofi",
+      "alphaHash": "b3c0d60849e9",
+      "opaquePixels": 1223415,
+      "hoodie": [
+        "#3b2434",
+        "#6d3a5a",
+        "#9d527e",
+        "#c478a5"
+      ],
+      "eyes": [
+        "#785412",
+        "#ca8a04",
+        "#fde047"
+      ]
+    },
+    "aurora": {
+      "shape": "goggles",
+      "alphaHash": "b70e411c74a7",
+      "opaquePixels": 1215338,
+      "hoodie": [
+        "#3b3310",
+        "#635818",
+        "#9ca325",
+        "#34d399"
+      ],
+      "eyes": [
+        "#78350f",
+        "#d97706",
+        "#fef08a"
+      ]
+    },
+    "amber-flow": {
+      "shape": "antennae",
+      "alphaHash": "1b68856e55b3",
+      "opaquePixels": 1219219,
+      "hoodie": [
+        "#5c1c00",
+        "#9a3412",
+        "#c2410c",
+        "#ea580c"
+      ],
+      "eyes": [
+        "#7c2d12",
+        "#ea580c",
+        "#fcd34d"
+      ]
+    },
+    "synthwave": {
+      "shape": "synth_shades",
+      "alphaHash": "122fef7fdd37",
+      "opaquePixels": 1214976,
+      "hoodie": [
+        "#3b0764",
+        "#581c87",
+        "#7e22ce",
+        "#a855f7"
+      ],
+      "eyes": [
+        "#0891b2",
+        "#00f0ff",
+        "#e0f2fe"
+      ]
+    },
+    "astral": {
+      "shape": "astral_horns",
+      "alphaHash": "27659de6c383",
+      "opaquePixels": 1222505,
+      "hoodie": [
+        "#1e1035",
+        "#311854",
+        "#4c2882",
+        "#6b3bb8"
+      ],
+      "eyes": [
+        "#0f766e",
+        "#14b8a6",
+        "#5eead4"
+      ]
+    },
+    "timeless": {
+      "shape": "halo",
+      "alphaHash": "2cc20b8f5983",
+      "opaquePixels": 1225043,
+      "hoodie": [
+        "#475569",
+        "#64748b",
+        "#94a3b8",
+        "#cbd5e1"
+      ],
+      "eyes": [
+        "#0369a1",
+        "#0ea5e9",
+        "#7dd3fc"
+      ]
+    }
+  }
+}

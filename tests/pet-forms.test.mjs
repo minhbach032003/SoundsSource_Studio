@@ -197,3 +197,114 @@ test("Goku forms draw their aura behind the sprite and never wash the sprite pix
   const sleepyDraw = ops.findIndex((o) => o.op === "drawImage");
   assert.ok(!ops.slice(0, sleepyDraw).some((o) => o.op === "moveTo"), "a sleeping Super Saiyan drops the aura");
 });
+
+// Work Blue Cat (Cyber Coding Cat) manifest and aura assertions
+const WORK_BLUE_CAT_MANIFEST = JSON.parse(
+  readFileSync("public/pets/work-blue-cat/forms/manifest.json", "utf8")
+);
+
+test("every Work Blue Cat form sheet is built with distinct silhouette or accessories", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const cat = INSTALLED_PETS.find((p) => p.id === "work-blue-cat");
+  assert.deepEqual(
+    Object.keys(WORK_BLUE_CAT_MANIFEST.forms).sort(),
+    Array.from(cat.forms, (f) => f.id).sort()
+  );
+
+  const forms = WORK_BLUE_CAT_MANIFEST.forms;
+  const silhouettes = new Set(
+    ["classic", "midnight", "indigo", "deep-work", "lofi-study", "aurora", "amber-flow", "synthwave", "astral", "timeless"].map(
+      (id) => forms[id].alphaHash
+    )
+  );
+  assert.equal(
+    silhouettes.size,
+    10,
+    "All 10 Work Blue Cat forms must have distinct alpha mask silhouettes"
+  );
+  assert.equal(forms.classic.shape, "none");
+  assert.equal(forms.midnight.shape, "mug");
+  assert.equal(forms.indigo.shape, "glasses");
+  assert.equal(forms["deep-work"].shape, "headphones");
+  assert.equal(forms["lofi-study"].shape, "lofi");
+  assert.equal(forms.aurora.shape, "goggles");
+  assert.equal(forms["amber-flow"].shape, "antennae");
+  assert.equal(forms.synthwave.shape, "synth_shades");
+  assert.equal(forms.astral.shape, "astral_horns");
+  assert.equal(forms.timeless.shape, "halo");
+});
+
+test("Work Blue Cat forms define runtime auras and only high-voltage cyber forms crackle with sparks", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const { api } = loadRenderer();
+  const cat = INSTALLED_PETS.find((p) => p.id === "work-blue-cat");
+  for (const form of cat.forms) {
+    assert.ok(api.petFormAura(cat.id, form.id), `${form.id} must define an aura`);
+  }
+  assert.ok(api.FORM_AURAS["work-blue-cat/amber-flow"].sparks);
+  assert.ok(api.FORM_AURAS["work-blue-cat/synthwave"].sparks);
+  assert.ok(api.FORM_AURAS["work-blue-cat/astral"].sparks);
+  assert.ok(api.FORM_AURAS["work-blue-cat/timeless"].sparks);
+  assert.equal(api.FORM_AURAS["work-blue-cat/classic"].sparks, undefined);
+  assert.equal(api.FORM_AURAS["work-blue-cat/midnight"].sparks, undefined);
+  assert.equal(api.FORM_AURAS["work-blue-cat/indigo"].sparks, undefined);
+});
+
+// Pikachu manifest and aura assertions
+const PIKACHU_MANIFEST = JSON.parse(
+  readFileSync("public/pets/pikachu/forms/manifest.json", "utf8")
+);
+
+test("every Pikachu form sheet is built with distinct silhouette and canon traits", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
+  assert.deepEqual(
+    Object.keys(PIKACHU_MANIFEST.forms).sort(),
+    Array.from(pikachu.forms, (f) => f.id).sort()
+  );
+
+  const forms = PIKACHU_MANIFEST.forms;
+  const silhouettes = new Set(
+    ["pichu", "classic", "spark", "studio", "electro-ball", "iron-tail", "thunderbolt", "overcharge", "gigantamax", "ash-cap"].map(
+      (id) => forms[id].alphaHash
+    )
+  );
+
+  assert.equal(
+    silhouettes.size,
+    10,
+    "All 10 Pikachu forms must have distinct alpha mask silhouettes"
+  );
+  assert.equal(forms.pichu.shapeKey, "pichu");
+  assert.equal(forms.classic.shapeKey, "classic");
+  assert.equal(forms["iron-tail"].shapeKey, "iron-tail");
+  assert.equal(forms.overcharge.shapeKey, "overcharge");
+  assert.equal(forms.gigantamax.shapeKey, "gigantamax");
+  assert.equal(forms["ash-cap"].shapeKey, "ash-cap");
+});
+
+test("Pikachu form palettes follow Pokémon canon lore", () => {
+  const forms = PIKACHU_MANIFEST.forms;
+  // Pichu has pale yellow fur
+  assert.ok(hexLightness(forms.pichu.fur[2]) > 0.75, "Pichu fur must be pale yellow");
+  // Pichu has pink cheeks
+  const pichuCheekHue = hexHue(forms.pichu.cheeks[1]);
+  assert.ok(pichuCheekHue >= 335 || pichuCheekHue <= 15, "Pichu cheeks must be pink/rose");
+  // Raichu tribute (overcharge) has yellow cheeks in canon lore!
+  const raichuCheekHue = hexHue(forms.overcharge.cheeks[1]);
+  assert.ok(raichuCheekHue >= 40 && raichuCheekHue <= 65, `Raichu cheeks must be yellow, got hue ${raichuCheekHue}`);
+});
+
+test("Pikachu forms define runtime auras and levelup animation mapping", () => {
+  const { INSTALLED_PETS } = loadPetTypes();
+  const { api } = loadRenderer();
+  const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
+  for (const form of pikachu.forms) {
+    assert.ok(api.petFormAura(pikachu.id, form.id), `${form.id} must define an aura`);
+  }
+  assert.equal(api.ARCHETYPE_STATE_ROW.pikachu.levelup, 4, "Pikachu level up must be Celebrate jump (row 4)");
+  assert.ok(api.FORM_AURAS["pikachu/thunderbolt"].sparks, "Thunderbolt must crackle with high voltage sparks");
+  assert.ok(api.FORM_AURAS["pikachu/gigantamax"].outer, "Gigantamax must have crimson outer cloud aura");
+  assert.ok(api.FORM_AURAS["pikachu/electro-ball"].outer, "Electro Ball must have outer plasma aura");
+});
+
