@@ -742,11 +742,21 @@
       <div class="lg:col-span-7 flex flex-col gap-4">
         <!-- Main Companion Stage -->
         <div class="flex flex-col items-center p-5 sm:p-6 panel relative overflow-hidden gap-3">
-          <!-- Subtle Glow Backdrop -->
+          <!-- Subtle Glow Backdrop & Dynamic Ki Aura field -->
           <div
-            class="absolute inset-0 rounded-full blur-3xl pointer-events-none opacity-20 {audioReactive
-              ? 'bg-linear-to-tr from-rose-500/20 via-pink-500/10 to-purple-500/15'
-              : 'bg-rose-500/10'}"
+            class="absolute inset-0 rounded-full blur-3xl pointer-events-none transition-all duration-500 {selectedPet === 'super-saiyan-goku'
+              ? activeForm?.id === 'kaioken' || activeForm?.id === 'god'
+                ? 'opacity-35 bg-gradient-to-tr from-rose-600/35 via-red-500/25 to-amber-500/15'
+                : activeForm?.id === 'ssblue'
+                ? 'opacity-35 bg-gradient-to-tr from-sky-500/35 via-cyan-400/25 to-blue-600/20'
+                : activeForm?.id === 'blue-kaioken'
+                ? 'opacity-40 bg-gradient-to-tr from-sky-500/40 via-purple-500/30 to-rose-600/35'
+                : activeForm?.id === 'ui-sign' || activeForm?.id === 'mui'
+                ? 'opacity-40 bg-gradient-to-tr from-slate-200/40 via-sky-200/30 to-indigo-300/25'
+                : 'opacity-35 bg-gradient-to-tr from-amber-500/35 via-yellow-400/25 to-amber-600/20'
+              : audioReactive
+              ? 'opacity-20 bg-linear-to-tr from-rose-500/20 via-pink-500/10 to-purple-500/15'
+              : 'opacity-20 bg-rose-500/10'}"
           ></div>
 
           <!-- Top Row: Pet Selector Dropdown & Switcher -->

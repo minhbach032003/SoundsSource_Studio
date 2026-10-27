@@ -834,7 +834,7 @@ import {
                 slug={sessionPet.id}
                 mood={sMood}
                 size={petSize}
-                class="{sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : sessionPet.id === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
+                class="{sessionPet.id === 'super-saiyan-goku' ? 'pet-goku-aura' : sessionPet.id === 'wode-daodun-3d' ? 'pet-smooth-aura' : sessionPet.id === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
               />
             </div>
           {/each}
@@ -875,7 +875,7 @@ import {
             spritesheetPath={activeForm?.spritesheetPath}
             {mood}
             size={petSize}
-            class="{petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : petSlug === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
+            class="{petSlug === 'super-saiyan-goku' ? 'pet-goku-aura' : petSlug === 'wode-daodun-3d' ? 'pet-smooth-aura' : petSlug === 'pikachu' ? 'pet-electric-aura' : 'pet-silhouette'} cursor-pointer"
           />
         </div>
       {/if}
@@ -1118,6 +1118,14 @@ import {
     filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent))
       drop-shadow(0 3px 12px color-mix(in srgb, var(--focus) 45%, transparent))
       drop-shadow(0 8px 18px rgba(0, 0, 0, 0.40));
+  }
+
+  /* Radiant Super Saiyan / Divine Ki Aura for Son Goku */
+  :global(.pet-goku-aura canvas) {
+    image-rendering: auto;
+    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--warning) 85%, transparent))
+      drop-shadow(0 0 26px color-mix(in srgb, var(--accent) 55%, transparent))
+      drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
   }
 
   @keyframes petParticleFloat {
