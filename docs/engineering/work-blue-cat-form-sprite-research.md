@@ -62,5 +62,5 @@ Rows:
 1. 8 x 9 grid and 192 x 208 cell dimensions preserved.
 2. WebP saved with lossy quality 92, alpha_quality 100, method 6.
 3. Every shape group produces a distinct alpha silhouette hash in `manifest.json`.
-4. Runtime auras added to `FORM_AURAS` in `src/shared/lib/petRenderer.ts`.
-5. Automated tests in `tests/pet-forms.test.mjs` verify manifests, palettes, and auras.
+5. Các hình thái `work-blue-cat` tập trung hoàn toàn vào pixel art thuần khiết, hoodie và phụ kiện vật lý (kính, tai nghe, anten, cà phê), không bị bọc ngọn lửa aura anime quanh thân như Goku.
+6. Automated tests in `tests/pet-forms.test.mjs` verify manifests and silhouettes.
