@@ -675,38 +675,107 @@ export function drawPetFrame(
       typeof ctx.lineTo === "function" &&
       typeof ctx.stroke === "function"
     ) {
-      // Thunderbolt cheek sparks & electric aura arcs
+      // Thunderbolt cheek sparks & electric tail lightning bolts
+      if (typeof ctx.globalCompositeOperation === "string") {
+        ctx.globalCompositeOperation = "source-over";
+      }
       const pulse = dynamicsOffset.glow ?? 1;
-      ctx.strokeStyle = pulse > 0.88 ? "rgba(56, 189, 248, 0.95)" : "rgba(254, 240, 138, 0.85)";
-      ctx.lineWidth = 1.6;
-      const phase = pulse * 14;
+      const isReading = state === "reading" || (state === "" && sheetRow === 8);
+      const isCelebration = isCeleb;
+      const tick = Math.floor(auraTime * (isCelebration ? 18 : isReading ? 7 : 13));
+      const j1 = ((tick * 7) % 5) - 2;
+      const j2 = ((tick * 11) % 5) - 2;
+      const j3 = ((tick * 13) % 4) - 1;
 
-      // Left cheek electric spark
-      const c1X = x + w * 0.38 + Math.sin(phase) * 2;
+      // Electric bolt styling: crisp miter joins and round caps
+      ctx.lineWidth = isCelebration ? 2.0 : 1.5;
+      if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
+      if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
+
+      // Cyan-gold alternating electric discharge
+      const cyanStroke = "rgba(56, 189, 248, 0.95)";
+      const goldStroke = "rgba(250, 204, 21, 0.95)";
+      const brightGold = "rgba(254, 240, 138, 0.95)";
+
+      // Left cheek electric zigzag bolt
+      const c1X = x + w * 0.37;
       const c1Y = y + h * 0.52;
+      ctx.strokeStyle = tick % 2 === 0 ? cyanStroke : goldStroke;
       ctx.beginPath();
       ctx.moveTo(c1X, c1Y);
-      ctx.lineTo(c1X - 3, c1Y + 3);
-      ctx.lineTo(c1X - 1, c1Y + 6);
+      ctx.lineTo(c1X - 4 + j1, c1Y + 2);
+      ctx.lineTo(c1X - 1 + j2, c1Y + 5);
+      ctx.lineTo(c1X - 5 + j3, c1Y + 8);
+      if (isCelebration) {
+        ctx.lineTo(c1X - 2, c1Y + 11);
+      }
       ctx.stroke();
 
-      // Right cheek electric spark
-      const c2X = x + w * 0.62 + Math.cos(phase) * 2;
-      const c2Y = y + h * 0.52;
-      ctx.beginPath();
-      ctx.moveTo(c2X, c2Y);
-      ctx.lineTo(c2X + 3, c2Y + 3);
-      ctx.lineTo(c2X + 1, c2Y + 6);
-      ctx.stroke();
+      // Right cheek electric zigzag bolt (mirrored)
+      if (!isReading || pulse > 0.9) {
+        const c2X = x + w * 0.63;
+        const c2Y = y + h * 0.52;
+        ctx.strokeStyle = tick % 2 === 0 ? goldStroke : cyanStroke;
+        ctx.beginPath();
+        ctx.moveTo(c2X, c2Y);
+        ctx.lineTo(c2X + 4 - j2, c2Y + 2);
+        ctx.lineTo(c2X + 1 - j1, c2Y + 5);
+        ctx.lineTo(c2X + 5 - j3, c2Y + 8);
+        if (isCelebration) {
+          ctx.lineTo(c2X + 2, c2Y + 11);
+        }
+        ctx.stroke();
+      }
 
-      // Tail lightning spark tip
-      const tX = x + w * 0.82;
-      const tY = y + h * 0.56 + Math.sin(phase * 0.8) * 3;
-      ctx.beginPath();
-      ctx.moveTo(tX, tY);
-      ctx.lineTo(tX + 4, tY - 3);
-      ctx.lineTo(tX + 2, tY - 7);
-      ctx.stroke();
+      // Tail lightning spark tip (in working and celebration)
+      if (!isReading) {
+        const tX = x + w * 0.82;
+        const tY = y + h * 0.56;
+        ctx.strokeStyle = isCelebration ? brightGold : pulse > 0.88 ? cyanStroke : goldStroke;
+        ctx.beginPath();
+        ctx.moveTo(tX, tY);
+        ctx.lineTo(tX + 4 + j3, tY - 3);
+        ctx.lineTo(tX + 1 + j1, tY - 7);
+        ctx.lineTo(tX + 5 + j2, tY - 10);
+        if (isCelebration) {
+          // Additional lightning fork branch for 100,000 Volts victory!
+          ctx.lineTo(tX + 2, tY - 14);
+          ctx.moveTo(tX + 1 + j1, tY - 7);
+          ctx.lineTo(tX - 3, tY - 10);
+        }
+        ctx.stroke();
+      }
+    } else if (
+      slug === "work-blue-cat" &&
+      (isWorkOrRead || isCeleb) &&
+      typeof ctx.fillRect === "function" &&
+      typeof ctx.createLinearGradient === "function"
+    ) {
+      // Cozy Indie Coder: Warm soft laptop screen glow & floating code reflection
+      const pulse = dynamicsOffset.glow ?? 1;
+      const screenX = x + w * 0.12;
+      const screenY = y + h * 0.70;
+      const screenW = w * 0.38;
+      const screenH = h * 0.22;
+
+      // Soft upward terminal screen ambient fan
+      const screenGrad = ctx.createLinearGradient(screenX, screenY + screenH, screenX + screenW * 0.5, screenY);
+      screenGrad.addColorStop(0, `rgba(56, 189, 248, ${(0.22 * pulse).toFixed(3)})`);
+      screenGrad.addColorStop(0.5, `rgba(52, 211, 153, ${(0.14 * pulse).toFixed(3)})`);
+      screenGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
+      ctx.fillStyle = screenGrad;
+      ctx.fillRect(screenX, screenY, screenW, screenH);
+
+      // Subtle IDE code line glimmer reflections across screen edge
+      const lineY1 = screenY + screenH * 0.35 + ((auraTime * 8) % (screenH * 0.45));
+      ctx.fillStyle = `rgba(186, 230, 253, ${(0.32 * pulse).toFixed(3)})`;
+      ctx.fillRect(screenX + 4, lineY1, screenW * 0.55, 1.2);
+
+      if (isCeleb) {
+        // Build success: warm green compiler pass flash on the laptop
+        ctx.fillStyle = `rgba(74, 222, 128, ${(0.28 * pulse).toFixed(3)})`;
+        ctx.fillRect(screenX + 2, screenY + 2, screenW - 4, screenH - 4);
+      }
     }
 
     ctx.restore();
