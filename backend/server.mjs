@@ -29,8 +29,17 @@ export function createAuthServer(auth) {
         return v.slice(7);
       };
       if (req.method === 'GET' && path.pathname === '/auth/session') return json(200, { user: await auth.session(bearer()) });
+      if (req.method === 'GET' && path.pathname === '/auth/pet/progress') return json(200, await auth.getPetProgress(bearer()));
       if (req.method !== 'POST') throw new AuthError('Not found', 404);
       if (path.pathname === '/auth/logout') { await auth.logout(bearer()); return json(200, { ok: true }); }
+      if (path.pathname === '/auth/pet/progress') {
+        if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new AuthError('JSON request required', 415);
+        let size = 0; const chunks = [];
+        for await (const chunk of req) { size += chunk.length; if (size > 65536) throw new AuthError('Request too large', 413); chunks.push(chunk); }
+        let body; try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new AuthError('Invalid request', 400); }
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AuthError('Invalid request', 400);
+        return json(200, await auth.savePetProgress(bearer(), body));
+      }
       if (!['/auth/google/start', '/auth/google/complete', '/auth/google/cancel'].includes(path.pathname)) throw new AuthError('Not found', 404);
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new AuthError('JSON request required', 415);
       let size = 0; const chunks = [];

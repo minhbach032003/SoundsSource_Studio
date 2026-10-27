@@ -482,6 +482,36 @@ impl PetCareStore {
         self.save_for_pet(None, state)
     }
 
+    pub fn load_document(&self) -> PetCareDocument {
+        let (states, selected_pet_id) = self.load_all();
+        PetCareDocument {
+            selected_pet_id,
+            states,
+            legacy_state: None,
+        }
+    }
+
+    pub fn save_document(&self, doc: &PetCareDocument) -> Result<(), std::io::Error> {
+        self.save_all(&doc.states, doc.selected_pet_id.as_deref())
+    }
+
+    pub fn merge_documents(d1: PetCareDocument, d2: PetCareDocument) -> PetCareDocument {
+        let mut merged_states = d1.states;
+        for (pet_id, s2) in d2.states {
+            if let Some(s1) = merged_states.remove(&pet_id) {
+                merged_states.insert(pet_id, Self::merge_states(s1, s2));
+            } else {
+                merged_states.insert(pet_id, s2);
+            }
+        }
+        let selected = d1.selected_pet_id.or(d2.selected_pet_id);
+        PetCareDocument {
+            selected_pet_id: selected,
+            states: merged_states,
+            legacy_state: None,
+        }
+    }
+
     pub fn merge_states(mut s1: PetCareState, s2: PetCareState) -> PetCareState {
         s1.xp = s1.xp.max(s2.xp);
         s1.total_tokens = s1.total_tokens.max(s2.total_tokens);
@@ -714,5 +744,39 @@ mod tests {
         assert!(state.unlocked_achievements.contains("nightOwl"));
 
         assert_eq!(state.unlocked_achievements.len(), 14);
+    }
+
+    #[test]
+    fn test_merge_documents_monotonic() {
+        let mut doc1 = PetCareDocument {
+            selected_pet_id: Some("goku".to_string()),
+            states: HashMap::new(),
+            legacy_state: None,
+        };
+        let mut s1 = PetCareState::default();
+        s1.xp = 120;
+        s1.total_tokens = 5000;
+        doc1.states.insert("goku".to_string(), s1);
+
+        let mut doc2 = PetCareDocument {
+            selected_pet_id: Some("cat".to_string()),
+            states: HashMap::new(),
+            legacy_state: None,
+        };
+        let mut s2 = PetCareState::default();
+        s2.xp = 360;
+        s2.total_tokens = 2000;
+        doc2.states.insert("goku".to_string(), s2);
+        let mut s3 = PetCareState::default();
+        s3.xp = 50;
+        doc2.states.insert("cat".to_string(), s3);
+
+        let merged = PetCareStore::merge_documents(doc1, doc2);
+        assert_eq!(merged.selected_pet_id, Some("goku".to_string()));
+        let goku = merged.states.get("goku").unwrap();
+        assert_eq!(goku.xp, 360);
+        assert_eq!(goku.total_tokens, 5000);
+        let cat = merged.states.get("cat").unwrap();
+        assert_eq!(cat.xp, 50);
     }
 }

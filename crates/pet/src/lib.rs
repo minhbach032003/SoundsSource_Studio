@@ -12,7 +12,7 @@ pub mod transcript;
 
 pub use activity::{ActivityFormatter, ActivityTheme};
 pub use break_clock::{BreakClock, BreakClockConfig, BreakTickResult};
-pub use care::{MEAL_XP, PetCareState, PetCareStore, PetHunger, TOKENS_PER_XP};
+pub use care::{MEAL_XP, PetCareDocument, PetCareState, PetCareStore, PetHunger, TOKENS_PER_XP};
 pub use event::{AgentEvent, AgentKind, AgentState, PetMood};
 pub use hooks::{AgentIntegrationInfo, HookManager};
 pub use pricing::ModelPricing;
@@ -24,6 +24,7 @@ pub use transcript::{TranscriptReader, UsageDelta};
 use chrono::Utc;
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct PetManager {
     care_store: Arc<Mutex<PetCareStore>>,
     sessions: Arc<Mutex<SessionStore>>,
@@ -118,6 +119,19 @@ impl PetManager {
     pub fn get_care_state_for_pet(&self, pet_id: Option<&str>) -> PetCareState {
         let store = self.care_store.lock().unwrap();
         store.load_for_pet(pet_id)
+    }
+
+    pub fn get_care_document(&self) -> PetCareDocument {
+        let store = self.care_store.lock().unwrap();
+        store.load_document()
+    }
+
+    pub fn merge_and_save_care_document(&self, remote_doc: PetCareDocument) -> PetCareDocument {
+        let store = self.care_store.lock().unwrap();
+        let local_doc = store.load_document();
+        let merged = PetCareStore::merge_documents(local_doc, remote_doc);
+        let _ = store.save_document(&merged);
+        merged
     }
 
     pub fn apply_care_action(&self, action: &str) -> PetCareState {

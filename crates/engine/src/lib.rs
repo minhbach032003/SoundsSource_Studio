@@ -33,7 +33,7 @@ pub use pet::{
     ActivityFormatter, ActivityTheme, AgentEvent, AgentIntegrationInfo, AgentKind, AgentPetServer,
     AgentSession, AgentState, BreakClock, BreakClockConfig, BreakTickResult, BridgeStatus,
     HookManager,
-    ModelPricing, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, QuestionDetector,
+    ModelPricing, PetCareDocument, PetCareState, PetCareStore, PetHunger, PetManager, PetMood, QuestionDetector,
     SessionStore, TranscriptReader, UsageDelta, MEAL_XP, TOKENS_PER_XP,
 };
 pub use preset::{AppAudioSettings, Preset, PresetStore};

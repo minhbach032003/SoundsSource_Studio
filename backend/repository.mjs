@@ -50,6 +50,79 @@ export class AuthRepository {
   async logout(claims, hash) {
     await this.pool.query('DELETE FROM auth_sessions WHERE session_id=$1 AND user_id=$2 AND token_hash=$3', [claims.session_id, claims.sub, hash]);
   }
+  async getPetProgress(userId) {
+    const r = await this.pool.query('SELECT states, selected_pet_id FROM user_pet_progress WHERE user_id=$1', [userId]);
+    if (!r.rows[0]) return { states: {}, selected_pet_id: null };
+    return { states: r.rows[0].states || {}, selected_pet_id: r.rows[0].selected_pet_id ?? null };
+  }
+  async savePetProgress(userId, incomingDoc) {
+    const db = await this.pool.connect();
+    try {
+      await db.query('BEGIN');
+      await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`pet:${userId}`]);
+      const current = await db.query('SELECT states, selected_pet_id FROM user_pet_progress WHERE user_id=$1 FOR UPDATE', [userId]);
+      const existingDoc = current.rows[0]
+        ? { states: current.rows[0].states || {}, selected_pet_id: current.rows[0].selected_pet_id }
+        : { states: {}, selected_pet_id: null };
+
+      const mergedStates = mergePetStates(existingDoc.states, incomingDoc.states || {});
+      const selectedPetId = incomingDoc.selected_pet_id || existingDoc.selected_pet_id || null;
+
+      await db.query(`
+        INSERT INTO user_pet_progress (user_id, states, selected_pet_id, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (user_id)
+        DO UPDATE SET states=$2, selected_pet_id=$3, updated_at=NOW()
+      `, [userId, JSON.stringify(mergedStates), selectedPetId]);
+
+      await db.query('COMMIT');
+      return { states: mergedStates, selected_pet_id: selectedPetId };
+    } catch (err) {
+      await db.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      db.release();
+    }
+  }
+}
+
+export function mergePetStates(s1 = {}, s2 = {}) {
+  const merged = { ...s1 };
+  for (const [petId, nextState] of Object.entries(s2)) {
+    if (!merged[petId]) {
+      merged[petId] = nextState;
+    } else {
+      const prev = merged[petId];
+      const mergedDays = { ...(prev.days || {}) };
+      if (nextState.days) {
+        for (const [dayKey, val] of Object.entries(nextState.days)) {
+          mergedDays[dayKey] = Math.max(Number(mergedDays[dayKey] || 0), Number(val || 0));
+        }
+      }
+      const achievements = Array.from(new Set([
+        ...(Array.isArray(prev.unlocked_achievements) ? prev.unlocked_achievements : []),
+        ...(Array.isArray(nextState.unlocked_achievements) ? nextState.unlocked_achievements : [])
+      ]));
+
+      merged[petId] = {
+        ...prev,
+        ...nextState,
+        xp: Math.max(Number(prev.xp || 0), Number(nextState.xp || 0)),
+        total_tokens: Math.max(Number(prev.total_tokens || 0), Number(nextState.total_tokens || 0)),
+        total_meals: Math.max(Number(prev.total_meals || 0), Number(nextState.total_meals || 0)),
+        streak_days: Math.max(Number(prev.streak_days || 0), Number(nextState.streak_days || 0)),
+        tokens_today: Math.max(Number(prev.tokens_today || 0), Number(nextState.tokens_today || 0)),
+        meals_today: Math.max(Number(prev.meals_today || 0), Number(nextState.meals_today || 0)),
+        token_carry: Math.max(Number(prev.token_carry || 0), Number(nextState.token_carry || 0)),
+        last_fed_at: (prev.last_fed_at && nextState.last_fed_at)
+          ? Math.max(prev.last_fed_at, nextState.last_fed_at)
+          : (nextState.last_fed_at || prev.last_fed_at || null),
+        days: mergedDays,
+        unlocked_achievements: achievements
+      };
+    }
+  }
+  return merged;
 }
 function publicUser(row) {
   return { id: row.id, email: row.email, name: row.name, avatar_url: row.avatar_url ?? null };

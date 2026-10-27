@@ -78,7 +78,14 @@ pub fn get_pet_care_state(state: State<'_, AppState>) -> PetCareStateDto {
 
 #[tauri::command]
 pub fn feed_pet_action(action: String, state: State<'_, AppState>) -> PetCareStateDto {
-    state.pet.apply_care_action(&action).into()
+    let result = state.pet.apply_care_action(&action);
+    let auth = state.auth.clone();
+    let pet = state.pet.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let local_doc = pet.get_care_document();
+        let _ = auth.sync_pet_progress(&local_doc);
+    });
+    result.into()
 }
 
 #[tauri::command]

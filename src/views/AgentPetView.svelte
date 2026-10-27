@@ -236,6 +236,21 @@
   $effect(() => {
     if (!isDesktop) return;
 
+    const onCloudSync = () => {
+      invoke<PetCareStateDto>("get_pet_care_state").then((c) => {
+        if (c) {
+          careState = c;
+          toastState.info("Đã đồng bộ cấp độ Pet từ tài khoản Google");
+        }
+      }).catch(() => {});
+    };
+    window.addEventListener("pet-cloud-synced", onCloudSync);
+    return () => window.removeEventListener("pet-cloud-synced", onCloudSync);
+  });
+
+  $effect(() => {
+    if (!isDesktop) return;
+
     const poll = async () => {
       try {
         const [care, sessList, integList, bridge] = await Promise.all([

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { AuthRepository } from './repository.mjs';
+import { AuthRepository, mergePetStates } from './repository.mjs';
 import { digest } from './auth.mjs';
 
 const profile = { provider_user_id: 'sub-123', email: 'verified@example.com', name: 'Verified', avatar_url: null };
@@ -36,6 +36,61 @@ for (const [label, input] of [['new account', {}], ['existing email', { email: {
 test('database failure rolls back identity and session transaction', async () => {
   const db = fakeDb({ broken: true }); await assert.rejects(new AuthRepository(db.pool).login(profile, issue));
   assert.equal(db.queries.at(-1).sql, 'ROLLBACK'); assert.equal(db.released, true);
+});
+
+test('mergePetStates monotonic max merge logic', () => {
+  const s1 = {
+    'goku': { xp: 120, total_tokens: 50000, total_meals: 2, streak_days: 3, unlocked_achievements: ['firstMeal'] }
+  };
+  const s2 = {
+    'goku': { xp: 360, total_tokens: 40000, total_meals: 5, streak_days: 2, unlocked_achievements: ['level5'] },
+    'cat': { xp: 50, total_tokens: 10000, total_meals: 1, streak_days: 1, unlocked_achievements: [] }
+  };
+  const merged = mergePetStates(s1, s2);
+  assert.equal(merged.goku.xp, 360);
+  assert.equal(merged.goku.total_tokens, 50000);
+  assert.equal(merged.goku.total_meals, 5);
+  assert.equal(merged.goku.streak_days, 3);
+  assert.deepEqual(merged.goku.unlocked_achievements.sort(), ['firstMeal', 'level5']);
+  assert.equal(merged.cat.xp, 50);
+});
+
+test('getPetProgress and savePetProgress repository transactions', async () => {
+  let stored = null;
+  const db = {
+    async query(sql, values) {
+      if (sql.includes('FROM user_pet_progress')) {
+        return { rows: stored ? [stored] : [] };
+      }
+      if (sql.includes('INSERT INTO user_pet_progress')) {
+        stored = { states: JSON.parse(values[1]), selected_pet_id: values[2] };
+        return { rows: [] };
+      }
+      return { rows: [] };
+    },
+    release() {}
+  };
+  const pool = {
+    async connect() { return db; },
+    async query(sql, values) { return db.query(sql, values); }
+  };
+  const repo = new AuthRepository(pool);
+  const initial = await repo.getPetProgress('usr-123');
+  assert.deepEqual(initial, { states: {}, selected_pet_id: null });
+
+  const saved = await repo.savePetProgress('usr-123', {
+    states: { 'boba': { xp: 200, total_tokens: 2000, total_meals: 1, streak_days: 1, unlocked_achievements: [] } },
+    selected_pet_id: 'boba'
+  });
+  assert.equal(saved.selected_pet_id, 'boba');
+  assert.equal(saved.states.boba.xp, 200);
+
+  const updated = await repo.savePetProgress('usr-123', {
+    states: { 'boba': { xp: 100, total_tokens: 5000, total_meals: 4, streak_days: 2, unlocked_achievements: [] } }
+  });
+  assert.equal(updated.states.boba.xp, 200, 'xp preserved at max');
+  assert.equal(updated.states.boba.total_tokens, 5000, 'tokens updated to max');
+  assert.equal(updated.states.boba.total_meals, 4);
 });
 
 test('disposable PostgreSQL: repeat login, persisted restore and isolated revocation', {

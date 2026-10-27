@@ -29,6 +29,9 @@ export class GoogleAuthState {
       if (revision !== this.revision) return;
       this.user = user ? profile(user) : null;
       this.dbStatus = user ? "Phiên đã được máy chủ xác thực" : "Chưa đăng nhập";
+      if (user && typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pet-cloud-synced"));
+      }
     } catch {
       if (revision === this.revision) this.dbStatus = "Chưa kết nối máy chủ đăng nhập";
     }
@@ -50,6 +53,9 @@ export class GoogleAuthState {
       this.user = profile(user);
       this.dbStatus = "Phiên đã được máy chủ xác thực";
       this.isLoginModalOpen = false;
+      if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
+        window.dispatchEvent(new CustomEvent("pet-cloud-synced"));
+      }
       return this.user;
     } catch (error) {
       if (revision !== this.revision && !(error instanceof Error)) return null;

@@ -227,6 +227,39 @@ impl RemoteAuth {
         }
         revocation
     }
+    pub fn sync_pet_progress<T: Serialize + serde::de::DeserializeOwned>(&self, local: &T) -> Result<Option<T>, String> {
+        let _guard = self.credentials.lock().unwrap();
+        let Ok(base) = self.base_url() else { return Ok(None); };
+        let Ok(account) = self.account() else { return Ok(None); };
+        let Ok(Some(token)) = sound_core::spotify::refresh_token(&account, None) else {
+            return Ok(None);
+        };
+        let client = match self.client() {
+            Ok(c) => c,
+            Err(_) => return Ok(None),
+        };
+        let response = match client
+            .post(format!("{base}/auth/pet/progress"))
+            .bearer_auth(&token)
+            .json(local)
+            .timeout(Duration::from_secs(10))
+            .send()
+        {
+            Ok(r) => r,
+            Err(_) => return Ok(None),
+        };
+        if response.status().as_u16() == 401 {
+            let _ = sound_core::spotify::refresh_token(&account, Some(None));
+            return Ok(None);
+        }
+        if !response.status().is_success() {
+            return Ok(None);
+        }
+        match response_json(response) {
+            Ok(merged) => Ok(Some(merged)),
+            Err(_) => Ok(None),
+        }
+    }
 }
 fn unavailable() -> String {
     "Không kết nối được máy chủ đăng nhập. Kiểm tra cấu hình và thử lại.".into()

@@ -19,5 +19,11 @@ test('HTTP boundary rejects cross-origin, malformed and oversized requests and s
     assert.equal(r.status, 503); assert.deepEqual(await r.json(), { error: 'Authentication service unavailable' });
     assert.equal(r.headers.get('cache-control'), 'no-store');
     r = await fetch(`${url}/auth/session`); assert.equal(r.status, 401);
+
+    // Unauthenticated pet progress requests fail closed
+    r = await fetch(`${url}/auth/pet/progress`);
+    assert.equal(r.status, 401);
+    r = await fetch(`${url}/auth/pet/progress`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(r.status, 401);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });

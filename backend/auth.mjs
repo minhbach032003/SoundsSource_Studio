@@ -138,4 +138,16 @@ export class AuthBackend {
     const claims = verifySessionToken(token, this.config, this.clock());
     try { await this.repo.logout(claims, digest(token)); } catch { fail('Authentication service unavailable', 503); }
   }
+  async getPetProgress(token) {
+    const claims = verifySessionToken(token, this.config, this.clock());
+    const valid = await this.session(token);
+    if (!valid) fail('Session invalid', 401);
+    try { return await this.repo.getPetProgress(claims.sub); } catch { fail('Authentication service unavailable', 503); }
+  }
+  async savePetProgress(token, doc) {
+    const claims = verifySessionToken(token, this.config, this.clock());
+    const valid = await this.session(token);
+    if (!valid) fail('Session invalid', 401);
+    try { return await this.repo.savePetProgress(claims.sub, doc); } catch { fail('Authentication service unavailable', 503); }
+  }
 }

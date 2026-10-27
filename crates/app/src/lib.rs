@@ -3,6 +3,7 @@ pub mod cmd_audio;
 pub mod cmd_auth;
 pub mod cmd_calendar;
 pub mod cmd_cleaner;
+pub mod cmd_desktop;
 pub mod cmd_memory;
 pub mod cmd_pet;
 pub mod cmd_system;
@@ -15,6 +16,7 @@ pub use cmd_audio::*;
 pub use cmd_auth::*;
 pub use cmd_calendar::*;
 pub use cmd_cleaner::*;
+pub use cmd_desktop::*;
 pub use cmd_memory::*;
 pub use cmd_pet::*;
 pub use cmd_system::*;
@@ -169,7 +171,13 @@ pub fn run() {
 
     let app = tauri::Builder::default()
         .manage(state)
+        .manage(DesktopControl::default())
         .invoke_handler(tauri::generate_handler![
+            desktop_set_enabled,
+            desktop_list_apps,
+            desktop_prepare,
+            desktop_approve,
+            desktop_request_chrome_permission,
             pet_notification_status,
             request_pet_notification_permission,
             send_pet_notification,
@@ -256,6 +264,7 @@ pub fn run() {
             auth_google_discard_cancelled,
             auth_session,
             auth_logout,
+            auth_sync_pet_progress,
             get_gemini_api_key,
             set_gemini_api_key,
             check_screen_capture_permission,
@@ -316,12 +325,15 @@ pub fn run() {
             get_pingloom_assets_manifest,
             google_calendar_status,
             google_calendar_login,
+            google_calendar_cancel,
             google_calendar_sync,
             google_calendar_disconnect
         ])
         .on_window_event(|window, event| {
             if window.label() == "main" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    use tauri::Manager;
+                    window.state::<DesktopControl>().disable();
                     api.prevent_close();
                     if let Err(error) = window.hide() {
                         eprintln!("Could not hide main window: {error}");
