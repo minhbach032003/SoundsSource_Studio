@@ -53,22 +53,47 @@
       renderer.setState(currentMood);
     }
   });
+  let tiltX = $state(0);
+  let tiltY = $state(0);
+  let isHovered = $state(false);
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!canvas) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    tiltX = Number((-y * 14).toFixed(1));
+    tiltY = Number((x * 14).toFixed(1));
+  }
+
+  function handleMouseLeave() {
+    isHovered = false;
+    tiltX = 0;
+    tiltY = 0;
+  }
+
+  function handleMouseEnter() {
+    isHovered = true;
+  }
 </script>
 
 <svelte:element
   this={onclick ? "button" : "div"}
   type={onclick ? "button" : undefined}
   {onclick}
+  onmousemove={handleMouseMove}
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
   role={onclick ? undefined : "img"}
   aria-label={`${slug} — ${mood}${onclick ? ", pet companion" : ""}`}
-  class={className}
-  style="width: {size}px; height: {size}px; padding: 0; border: 0; background: transparent;"
+  class="{className} pet-3d-stage"
+  style="width: {size}px; height: {size}px; padding: 0; border: 0; background: transparent; perspective: 600px;"
 >
   <canvas
     bind:this={canvas}
     width={size * 2}
     height={size * 2}
-    style="width: {size}px; height: {size}px; {(PET_MOTION[slug]?.pixel ?? true) ? 'image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;' : 'image-rendering: auto;'}"
-    class="cursor-pointer select-none"
+    style="width: {size}px; height: {size}px; transform: rotateX({tiltX}deg) rotateY({tiltY}deg) {isHovered ? 'scale(1.03)' : 'scale(1)'}; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); {(PET_MOTION[slug]?.pixel ?? true) ? 'image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;' : 'image-rendering: auto;'}"
+    class="cursor-pointer select-none drop-shadow-md"
   ></canvas>
 </svelte:element>

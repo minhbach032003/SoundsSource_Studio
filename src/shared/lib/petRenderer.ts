@@ -144,7 +144,7 @@ export const PET_MOTION: Record<string, {
     rates: [5, 12, 12, 9, 12, 5, 6, 12, 6],
     restFrame: 6,
     pixel: true,
-    dynamics: { idleBreathSpeed: 0.70, idleBreathHeight: 0.8, workBobSpeed: 2.0, workBobHeight: 1.1, swayAngle: 0.6 },
+    dynamics: { idleBreathSpeed: 0.70, idleBreathHeight: 1.4, workBobSpeed: 2.0, workBobHeight: 1.5, swayAngle: 0.8, glowPulse: true },
   },
   "work-blue-cat": {
     rates: [6, 10, 10, 7, 10, 5, 5, 12, 5],
@@ -162,7 +162,7 @@ export const PET_MOTION: Record<string, {
     rates: [5, 12, 12, 8, 12, 5, 5, 12, 5],
     restFrame: 4,
     pixel: true,
-    dynamics: { idleBreathSpeed: 0.50, idleBreathHeight: 0.7, workBobSpeed: 1.75, workBobHeight: 0.9, swayAngle: 0.35, glowPulse: true },
+    dynamics: { idleBreathSpeed: 0.50, idleBreathHeight: 1.4, workBobSpeed: 1.85, workBobHeight: 1.5, swayAngle: 0.5, glowPulse: true },
   },
   "wode-daodun-3d": {
     rates: [5, 11, 11, 7, 10, 5, 5, 9, 5],
@@ -331,7 +331,8 @@ export function drawPetFrame(
   const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
   const isCeleb = state === "celebrate" || state === "done";
 
-  // Atmospheric ground reflection aura underneath the character's feet
+  // 3D Isometric Pedestal Disc & Dynamic Floor Shadow:
+  // Rendered with subpixel squash & stretch anchored to pet vertical oscillation
   if (
     lighting &&
     typeof ctx.save === "function" &&
@@ -347,23 +348,44 @@ export function drawPetFrame(
     const baseGroundAlpha = isCeleb ? 0.95 : isAct ? 0.75 : 0.45;
     const gMult = (dynamicsOffset.glow ?? 1) * baseGroundAlpha;
     const gX = width / 2;
-    const gY = height - Math.max(2, Math.round(h * 0.04));
-    const rx = Math.max(12, Math.round(w * 0.44));
-    const ry = Math.max(4, Math.round(rx * 0.28));
+    // Ground plane sits at bottom base of canvas
+    const gY = height - Math.max(3, Math.round(h * 0.05));
+    
+    // Dynamic 3D shadow squashes/stretches inversely with vertical bobbing (height jump)
+    const normJump = Math.max(-10, Math.min(10, dynamicsOffset.offsetY));
+    const shadowFactor = Math.max(0.6, Math.min(1.4, 1.0 - normJump * 0.05));
+    const shadowAlpha = Math.max(0.2, Math.min(1.0, 1.0 + normJump * 0.04));
+
+    const rx = Math.max(14, Math.round(w * 0.46 * shadowFactor));
+    const ry = Math.max(5, Math.round(rx * 0.28));
     ctx.translate(gX, gY);
     ctx.scale(1, ry / rx);
+
+    // Outer subtle 3D glowing rim
     const gGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    gGrad.addColorStop(0, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.45 * gMult).toFixed(3)})`));
-    gGrad.addColorStop(0.55, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.20 * gMult).toFixed(3)})`));
+    gGrad.addColorStop(0, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.48 * gMult * shadowAlpha).toFixed(3)})`));
+    gGrad.addColorStop(0.55, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.22 * gMult * shadowAlpha).toFixed(3)})`));
     gGrad.addColorStop(1, lighting.groundColor.replace(/[\d.]+\)$/, "0)"));
     ctx.fillStyle = gGrad;
     ctx.beginPath();
     ctx.arc(0, 0, rx, 0, Math.PI * 2);
     ctx.fill();
+
+    // Inner contact shadow (dark ground occlusion)
+    const innerRx = Math.max(6, Math.round(rx * 0.55));
+    const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerRx);
+    innerGrad.addColorStop(0, `rgba(0, 0, 0, ${(0.42 * shadowAlpha).toFixed(3)})`);
+    innerGrad.addColorStop(0.7, `rgba(0, 0, 0, ${(0.15 * shadowAlpha).toFixed(3)})`);
+    innerGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = innerGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerRx, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
-  // For crisp pixel art: keep pixels locked to integer boundaries, avoiding rotation blur or squashing
+  // Subpixel 60fps continuous micro-dynamics (hermite interpolated)
   const effOffsetY = pixel ? Math.round(dynamicsOffset.offsetY) : dynamicsOffset.offsetY;
   const effRotation = pixel ? 0 : dynamicsOffset.rotationDeg;
   const effSquash = pixel ? 1 : dynamicsOffset.squashY;
@@ -750,6 +772,8 @@ export class PetRenderer {
     return this.clips[Math.min(this.row, this.clips.length - 1)] ?? null;
   }
 
+  // Continuous smooth micro-dynamics: dynamic redraw up to 60 FPS
+  // for active states and 45 FPS for idle breathing to preserve fluid motion
   private loop(t: number) {
     this.animId = null;
     if (this.isDestroyed || !this.animate) {
@@ -779,10 +803,9 @@ export class PetRenderer {
       if (previous !== petFrameIndex(this.slug, this.row, count, this.frame)) shouldRedraw = true;
     }
 
-    // Continuous smooth micro-dynamics: limit idle state redraw to max ~30 FPS (33ms)
-    // while allowing active states (working, reading, celebrate) to render at display refresh rate.
+    // Smooth 60fps micro-dynamics: allow fluid redraw intervals for all states
     const isIdle = this.state === "idle";
-    const minDynamicsInterval = isIdle ? 33 : 0;
+    const minDynamicsInterval = isIdle ? 20 : 0; // ~50fps for idle, full 60fps for actions
     const canDrawDynamics = this.hasContinuousDynamics() && (t - this.lastDrawTime >= minDynamicsInterval);
 
     if (this.loaded && (shouldRedraw || canDrawDynamics)) {

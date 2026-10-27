@@ -96,7 +96,7 @@ export const INSTALLED_PETS: PetArchetype[] = [
     tagline: "Neon cyber hacker cat overclocking every build",
     description: "A high-octane cyber hacker cat frantically typing code on a glowing holographic terminal, turning caffeine and keystrokes into zero-warning Rust builds.",
     unlockLevel: 1,
-    avatarUrl: "/pets/code-frenzy-cat/avatar.svg",
+    avatarUrl: "/pets/code-frenzy-cat/avatar-3d.png",
     theme: {
       primaryColor: "cyan",
       aura: "neon-cyan-pulse",
@@ -152,7 +152,7 @@ export const INSTALLED_PETS: PetArchetype[] = [
     tagline: "Push past runtime limits with legendary Super Saiyan focus.",
     description: "A legendary Super Saiyan martial artist radiating golden ki energy and fearless determination. Goku stands vigilant beside your workspace.",
     unlockLevel: 5,
-    avatarUrl: "/pets/super-saiyan-goku/avatar.svg",
+    avatarUrl: "/pets/super-saiyan-goku/avatar-3d.png",
     theme: {
       primaryColor: "amber",
       aura: "golden-ki",
