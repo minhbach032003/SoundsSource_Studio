@@ -4,6 +4,8 @@
 
 import { readPetPreferences, readPetBinding, subscribePetPreferences } from "../../lib/petPreferences";
 
+import pikachuAnchors from "../../../public/pets/pikachu/forms/anchors.json";
+
 const COLS = 8;
 const ROWS = 9;
 const ALPHA_THRESHOLD = 16;
@@ -432,216 +434,87 @@ function drawAuraLayer(
   }
 }
 
+type ElectricPoint = readonly [number, number];
+type PikachuLandmarks = readonly ElectricPoint[];
+
+// Generator-owned cell coordinates: account for the slicer's shared crop, not
+// just the row/column. The canvas pose transform then moves sprite and FX together.
+function pikachuFrameLandmarks(img: HTMLImageElement, r: Rect, aura: PetAura | null, x: number, y: number, w: number, h: number): PikachuLandmarks | null {
+  const path = (img.currentSrc || img.src || "").match(/\/pikachu\/forms\/([^/]+)\//)?.[1];
+  const form = path ?? Object.keys(FORM_AURAS).find(key => key.startsWith("pikachu/") && FORM_AURAS[key] === aura)?.slice(8);
+  const id = form === "white-belly" ? "concept-white-belly" : form === "long-tail" ? "concept-long-tail" : form;
+  const fw = img.naturalWidth / COLS, fh = img.naturalHeight / ROWS;
+  if (!id || !fw || !fh) return null;
+  const row = Math.floor(r.y / fh), col = Math.floor(r.x / fw);
+  const data = (pikachuAnchors as Record<string, number[][][]>)[id]?.[row * COLS + col];
+  return data?.map(([px, py]) => [x + (px! - r.x % fw) / r.w * w, y + (py! - r.y % fh) / r.h * h] as const) ?? null;
+}
+
+function drawPikachuBolt(ctx: CanvasRenderingContext2D, points: PikachuLandmarks, width: number, strength: number, accent?: string) {
+  // Accent is a thin low-opacity fringe; yellow and white always dominate.
+  for (const [color, weight] of [
+    ...(accent ? [[`rgba(${hexRgb(accent)}, ${Math.min(.28, strength*.2)})`, width*1.6] as const] : []),
+    [`rgba(250, 204, 21, ${Math.min(.95, strength*.85)})`, width],
+    [`rgba(255, 255, 240, ${Math.min(.98, strength)})`, width*.42],
+  ] as const) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = weight;
+    ctx.beginPath();
+    points.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
+    ctx.stroke();
+  }
+}
+
 function drawPikachuElectricEnvelope(
-  ctx: CanvasRenderingContext2D,
-  aura: PetAura,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  strength: number,
-  t: number
+  ctx: CanvasRenderingContext2D, aura: PetAura, x: number, y: number, w: number, h: number,
+  strength: number, t: number, landmarks: PikachuLandmarks | null = null
 ) {
-  if (
-    strength <= 0 ||
-    typeof ctx.save !== "function" ||
-    typeof ctx.beginPath !== "function" ||
-    typeof ctx.moveTo !== "function" ||
-    typeof ctx.lineTo !== "function" ||
-    typeof ctx.stroke !== "function"
-  ) {
-    return;
-  }
-
-  const cx = x + w / 2;
-  const cy = y + h * 0.52;
-  const rx = w * 0.38;
-  const ry = h * 0.42;
-
-  const seed = Math.floor(t * 10);
-  const outerRgb = hexRgb(aura.outer ?? aura.inner);
-
+  if (strength <= 0 || typeof ctx.save !== "function" || typeof ctx.stroke !== "function") return;
   ctx.save();
-  if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
-  if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
-
-  // Arcs on both left and right flanks of body
-  const sides = [-1, 1];
-  for (const side of sides) {
-    for (let bolt = 0; bolt < 2; bolt++) {
-      const bSeed = seed + (side < 0 ? 0 : 50) + bolt * 23;
-      const r1 = Math.abs(Math.sin(bSeed * 12.9898)) % 1;
-      const r2 = Math.abs(Math.sin(bSeed * 39.3468)) % 1;
-      const r3 = Math.abs(Math.sin(bSeed * 71.1354)) % 1;
-
-      const startX = cx + side * rx * (0.55 + 0.25 * r1);
-      const startY = cy - ry * (0.50 - 0.30 * r2);
-      // Reach stays inside the stage side inset: the outermost fork ends ~4% past the sprite box.
-      const mid1X = cx + side * rx * (0.80 + 0.30 * r2);
-      const mid1Y = startY + ry * (0.35 + 0.20 * r3);
-      const mid2X = cx + side * rx * (0.65 + 0.30 * r3);
-      const mid2Y = mid1Y + ry * (0.30 + 0.20 * r1);
-      const endX = cx + side * rx * (0.40 + 0.25 * r2);
-      const endY = cy + ry * (0.65 + 0.20 * r1);
-      const forkX = mid1X + side * w * (0.06 + 0.06 * r1);
-      const forkY = mid1Y - h * (0.08 * r3);
-
-      // Pass 1: Outer colored plasma glow
-      ctx.lineWidth = Math.max(2.6, w / 55);
-      ctx.strokeStyle = `rgba(${outerRgb}, ${(0.65 * strength).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(mid1X, mid1Y);
-      ctx.lineTo(mid2X, mid2Y);
-      ctx.lineTo(endX, endY);
-      ctx.moveTo(mid1X, mid1Y);
-      ctx.lineTo(forkX, forkY);
-      ctx.stroke();
-
-      // Pass 2: Hot white inner core
-      ctx.lineWidth = Math.max(1.2, w / 130);
-      ctx.strokeStyle = `rgba(255, 255, 240, ${(0.92 * strength).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(mid1X, mid1Y);
-      ctx.lineTo(mid2X, mid2Y);
-      ctx.lineTo(endX, endY);
-      ctx.moveTo(mid1X, mid1Y);
-      ctx.lineTo(forkX, forkY);
-      ctx.stroke();
-    }
-  }
-
+  ctx.lineCap = "round";
+  ctx.lineJoin = "miter";
+  const cheeks = landmarks?.slice(0, 2) ?? [[x+w*.37,y+h*.52], [x+w*.63,y+h*.52]];
+  const middle = (cheeks[0]![0] + cheeks[1]![0]) / 2;
+  const tick = Math.floor(t*10);
+  cheeks.forEach(([cx, cy], i) => {
+    const side = cx < middle ? -1 : 1;
+    const jitter = Math.sin(tick*7+i*3)*w*.012;
+    // Broken irregular arcs follow the cheek-to-flank contour, leaving the
+    // ear/tail negative space and face clear instead of outlining a bracket cage.
+    const elbow: ElectricPoint = [cx+side*w*.09+jitter, cy+h*.14];
+    drawPikachuBolt(ctx, [[cx,cy+h*.025], [cx+side*w*.065,cy+h*.07],
+      [cx+side*w*.025,cy+h*.10], elbow, [cx+side*w*.035,cy+h*.22],
+      [cx+side*w*.065,cy+h*.27]], Math.max(1.3,w/85), strength, aura.outer ?? aura.inner);
+    drawPikachuBolt(ctx, [elbow, [elbow[0]+side*w*.035,elbow[1]-h*.025],
+      [elbow[0]+side*w*.07,elbow[1]-h*.015]], Math.max(.9,w/120), strength*.8);
+  });
   ctx.restore();
 }
 
 function drawPikachuFrontSparks(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  u: number,
-  state: string,
-  dynamicsOffset: { glow?: number },
-  auraTime: number
+  ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, u: number,
+  state: string, auraTime: number, landmarks: PikachuLandmarks | null
 ) {
-  if (
-    typeof ctx.save !== "function" ||
-    typeof ctx.beginPath !== "function" ||
-    typeof ctx.moveTo !== "function" ||
-    typeof ctx.lineTo !== "function" ||
-    typeof ctx.stroke !== "function"
-  ) {
-    return;
-  }
-
+  if (typeof ctx.save !== "function" || typeof ctx.stroke !== "function") return;
   ctx.save();
-  const pulse = dynamicsOffset.glow ?? 1;
-  const isCelebration = state === "celebrate" || state === "levelup" || state === "done";
-  const isReading = state === "reading";
-  const tick = Math.floor(auraTime * (isCelebration ? 18 : isReading ? 7 : 13));
-  const j1 = (((tick * 7) % 5) - 2) * u;
-  const j2 = (((tick * 11) % 5) - 2) * u;
-  const j3 = (((tick * 13) % 4) - 1) * u;
-
-  if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
-  if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
-
-  const cyanStroke = "rgba(56, 189, 248, 0.95)";
-  const goldStroke = "rgba(250, 204, 21, 0.95)";
-  const brightGold = "rgba(254, 240, 138, 0.95)";
-  const whiteCore = "rgba(255, 255, 240, 0.95)";
-
-  // Left cheek electric zigzag bolt
-  const c1X = x + w * 0.37;
-  const c1Y = y + h * 0.52;
-  const c1Outer = tick % 2 === 0 ? cyanStroke : goldStroke;
-
-  // Left cheek Pass 1: outer colored stroke
-  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
-  ctx.strokeStyle = c1Outer;
-  ctx.beginPath();
-  ctx.moveTo(c1X, c1Y);
-  ctx.lineTo(c1X - 4 * u + j1, c1Y + 2 * u);
-  ctx.lineTo(c1X - 1 * u + j2, c1Y + 5 * u);
-  ctx.lineTo(c1X - 5 * u + j3, c1Y + 8 * u);
-  if (isCelebration) ctx.lineTo(c1X - 2 * u, c1Y + 11 * u);
-  ctx.stroke();
-
-  // Left cheek Pass 2: white-hot core stroke
-  ctx.lineWidth = Math.max(0.75, u);
-  ctx.strokeStyle = whiteCore;
-  ctx.beginPath();
-  ctx.moveTo(c1X, c1Y);
-  ctx.lineTo(c1X - 4 * u + j1, c1Y + 2 * u);
-  ctx.lineTo(c1X - 1 * u + j2, c1Y + 5 * u);
-  ctx.lineTo(c1X - 5 * u + j3, c1Y + 8 * u);
-  if (isCelebration) ctx.lineTo(c1X - 2 * u, c1Y + 11 * u);
-  ctx.stroke();
-
-  // Right cheek electric zigzag bolt
-  const c2X = x + w * 0.63;
-  const c2Y = y + h * 0.52;
-  const c2Outer = tick % 2 === 0 ? goldStroke : cyanStroke;
-
-  // Right cheek Pass 1: outer colored stroke
-  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
-  ctx.strokeStyle = c2Outer;
-  ctx.beginPath();
-  ctx.moveTo(c2X, c2Y);
-  ctx.lineTo(c2X + 4 * u - j2, c2Y + 2 * u);
-  ctx.lineTo(c2X + 1 * u - j1, c2Y + 5 * u);
-  ctx.lineTo(c2X + 5 * u - j3, c2Y + 8 * u);
-  if (isCelebration) ctx.lineTo(c2X + 2 * u, c2Y + 11 * u);
-  ctx.stroke();
-
-  // Right cheek Pass 2: white-hot core stroke
-  ctx.lineWidth = Math.max(0.75, u);
-  ctx.strokeStyle = whiteCore;
-  ctx.beginPath();
-  ctx.moveTo(c2X, c2Y);
-  ctx.lineTo(c2X + 4 * u - j2, c2Y + 2 * u);
-  ctx.lineTo(c2X + 1 * u - j1, c2Y + 5 * u);
-  ctx.lineTo(c2X + 5 * u - j3, c2Y + 8 * u);
-  if (isCelebration) ctx.lineTo(c2X + 2 * u, c2Y + 11 * u);
-  ctx.stroke();
-
-  // Tail lightning spark tip
-  const tX = x + w * 0.82;
-  const tY = y + h * 0.56;
-  const tailOuter = isCelebration ? brightGold : pulse > 0.88 ? cyanStroke : goldStroke;
-
-  // Tail Pass 1: outer colored stroke
-  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
-  ctx.strokeStyle = tailOuter;
-  ctx.beginPath();
-  ctx.moveTo(tX, tY);
-  ctx.lineTo(tX + 4 * u + j3, tY - 3 * u);
-  ctx.lineTo(tX + 1 * u + j1, tY - 7 * u);
-  ctx.lineTo(tX + 5 * u + j2, tY - 10 * u);
-  if (isCelebration) {
-    ctx.lineTo(tX + 2 * u, tY - 14 * u);
-    ctx.moveTo(tX + 1 * u + j1, tY - 7 * u);
-    ctx.lineTo(tX - 3 * u, tY - 10 * u);
-  }
-  ctx.stroke();
-
-  // Tail Pass 2: white-hot core stroke
-  ctx.lineWidth = Math.max(0.75, u);
-  ctx.strokeStyle = whiteCore;
-  ctx.beginPath();
-  ctx.moveTo(tX, tY);
-  ctx.lineTo(tX + 4 * u + j3, tY - 3 * u);
-  ctx.lineTo(tX + 1 * u + j1, tY - 7 * u);
-  ctx.lineTo(tX + 5 * u + j2, tY - 10 * u);
-  if (isCelebration) {
-    ctx.lineTo(tX + 2 * u, tY - 14 * u);
-    ctx.moveTo(tX + 1 * u + j1, tY - 7 * u);
-    ctx.lineTo(tX - 3 * u, tY - 10 * u);
-  }
-  ctx.stroke();
-
+  ctx.lineCap = "round";
+  const celebration = ["celebrate", "levelup", "done"].includes(state);
+  const tick = Math.floor(auraTime*(celebration ? 18 : 10));
+  const points = landmarks ?? [[x+w*.37,y+h*.52], [x+w*.63,y+h*.52], [x+w*.82,y+h*.56]];
+  const middle = (points[0]![0]+points[1]![0])/2;
+  points.forEach(([cx, cy], i) => {
+    const side = cx < middle ? -1 : 1;
+    const j = Math.sin(tick*3+i*5)*1.5*u;
+    const tail = i === 2;
+    const dy = tail ? -1 : 1;
+    const reach = (celebration ? 17 : 12)*u;
+    const bend: ElectricPoint = [cx+side*reach*.65, cy+dy*reach*.4];
+    drawPikachuBolt(ctx, [[cx,cy], [cx+side*reach*.3+j,cy+dy*reach*.16],
+      [cx+side*reach*.2,cy+dy*reach*.3], bend,
+      [cx+side*reach*.5+j,cy+dy*reach*.65], [cx+side*reach,cy+dy*reach*.85]],
+      Math.max(.9,(celebration ? 3.2 : 2.6)*u), 1);
+    drawPikachuBolt(ctx, [bend, [bend[0]+side*reach*.3,bend[1]-dy*reach*.2]], Math.max(.7,1.6*u), .9);
+  });
   ctx.restore();
 }
 
@@ -654,7 +527,8 @@ function drawFormAura(
   h: number,
   strength: number,
   t: number,
-  slug: string = ""
+  slug: string = "",
+  landmarks: PikachuLandmarks | null = null
 ) {
   if (
     strength <= 0 ||
@@ -671,7 +545,7 @@ function drawFormAura(
     return;
   }
   if (slug === "pikachu") {
-    drawPikachuElectricEnvelope(ctx, aura, x, y, w, h, strength, t);
+    drawPikachuElectricEnvelope(ctx, aura, x, y, w, h, strength, t, landmarks);
     return;
   }
   const cx = x + w / 2;
@@ -774,7 +648,9 @@ export function drawPetFrame(
     if (typeof ctx.translate === "function") ctx.translate(-pivotX, -pivotY);
   }
 
-  if (aura) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime, slug);
+  const pikachuSleeping = slug === "pikachu" && (state === "sleepy" || sheetRow === 5);
+  const landmarks = slug === "pikachu" ? pikachuFrameLandmarks(img, r, aura, x, y, w, h) : null;
+  if (aura && !pikachuSleeping) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime, slug, landmarks);
 
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
 
@@ -783,8 +659,8 @@ export function drawPetFrame(
   }
 
   // Pikachu high-voltage front sparks uncoupled from !aura, suppressed in sleepy
-  if (slug === "pikachu" && state !== "sleepy") {
-    drawPikachuFrontSparks(ctx, x, y, w, h, u, state, dynamicsOffset, auraTime);
+  if (slug === "pikachu" && !pikachuSleeping) {
+    drawPikachuFrontSparks(ctx, x, y, w, h, u, state, auraTime, landmarks);
   }
 
   // Archetype lighting and screen reflections composite (source-atop preserves sprite silhouette)
@@ -1037,6 +913,9 @@ const SHEET_CACHE = new Map<string, CachedSpriteSheet>();
 
 export function resolvePetSpritesheetUrls(slugOrPath: string): { cdnUrl: string; localUrl: string } {
   const assetPath = slugOrPath.startsWith("/pets/") ? slugOrPath : `/pets/${slugOrPath}/spritesheet.webp`;
+  // These bundled forms and their generated landmarks are one versioned unit;
+  // older downloaded blobs have different anatomy. Leave other pet installs alone.
+  if (assetPath.startsWith("/pets/pikachu/forms/")) return { cdnUrl: assetPath, localUrl: assetPath };
   const installed = typeof window !== "undefined" ? window.__PET_ASSET_URLS__?.[assetPath] : undefined;
   if (installed) return { cdnUrl: installed, localUrl: assetPath };
   // If a direct form path is passed, e.g. /pets/super-saiyan-goku/forms/ss4/spritesheet.webp

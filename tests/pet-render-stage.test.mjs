@@ -14,6 +14,7 @@ function loadRenderer() {
     document: { hidden: false, addEventListener() {}, removeEventListener() {} },
     localStorage: { getItem: () => null },
     performance: { now: () => 1000 },
+    pikachuAnchors: JSON.parse(readFileSync("public/pets/pikachu/forms/anchors.json", "utf8")),
   });
   vm.runInContext(ts.transpile(source + "\nglobalThis.api = { drawPetFrame, petFormAura };"), context);
   return context.api;

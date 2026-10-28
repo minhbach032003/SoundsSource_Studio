@@ -1,203 +1,119 @@
-# Art & Character Design Specification: The Ten Forms of the Pikachu Lineage
+# Pikachu ten-form sprite refinement
 
-## 1. Overview & Objective
+## Scope and provenance
 
-Pikachu (No. 0025) is the global mascot of Pokémon. In previous iterations of SoundsSource Studio, Pikachu's evolution forms incorrectly used attack moves or generic flat geometric stamps that suffered from silhouette leakage (ghost ears/tails poking through).
+The supplied `openspec/changes/fix-pikachu-electric-envelope-and-progression/reference/requested-forms.png` is the visual brief, not evidence for every historical claim in its labels. All ten existing IDs remain unchanged. These are original chibi illustrations, not extracted or traced official sprites.
 
-This specification establishes the authentic lore, classification, and procedural authoring for all **10 forms** illustrated in `reference/requested-forms.png`:
-- **7 Official Canon Forms**: Pichu, Classic Pikachu, Kantonian Raichu, Alolan Raichu, Gigantamax Pikachu, Mega Raichu X, and Mega Raichu Y.
-- **3 Historical Prototype / Unused Concepts**: White-Belly Pikachu (1996 Sugimori/Nishida beta), Long-Tail Pikachu (Nishida Stage 3 prototype), and Gorochu (Nishida/Sugimori scrapped 2nd evolution).
+| ID | Classification | Authored visual cues |
+|---|---|---|
+| `pichu` | Official Pokémon | Smaller baby body, oversized head, broad black-edged ears, pink cheeks, black collar and tiny black tail |
+| `classic` | Official Pokémon; stylized Pikachu | Yellow pear body, black-tipped long ears, red cheeks, connected lightning tail |
+| `raichu` | Official Pokémon | Orange athletic body, curved/scroll ears, cream oval belly, yellow cheeks, dark paws, long thin tail ending in a gold blade |
+| `alolan-raichu` | Official regional form | Caramel fur, rounded curled ears, cream belly, blue eye accents, connected cord and golden surfing tail |
+| `gigantamax` | Official Gigantamax form | Round oversized body, towering attached bolt tail, three rose-red curled Dynamax cloud wisps |
+| `mega-raichu-x` | Official Mega Evolution | Supplied reference's black swept ears with gold tips/root curls, dark paws, white abdomen, two connected gold tail blades |
+| `mega-raichu-y` | Official Mega Evolution | Orange body, lightning-shaped ear/temple tufts, blue eye accents, cream abdomen, large raised gold tail blade |
+| `concept-white-belly` | Reference concept; provenance unverified | Shorter wide-set ears, plump body, continuous curved white throat/belly patch, short broad tail |
+| `concept-long-tail` | Reference concept; provenance unverified | Longer ears, leaner proportions, extended multi-bend lightning tail |
+| `gorochu` | Artist reconstruction of an unused evolution concept | Red shaggy fur, paired cream horns, little fangs, apricot chest, dark paws and a connected spiked tail |
 
----
+### Verified Mega source
 
-## 2. Canon Classification & Verified Primary Sources
+The official Japanese Pokémon site explicitly announces both Mega Raichu X and Mega Raichu Y, describes their two different Mega Stones, and shows their designs:
 
-| Index | Form ID | Canonical Name | Classification | Primary Authority / Source |
-|---|---|---|---|---|
-| 1 | `pichu` | Pichu | Official Canon | Gen 2 baby mouse (*Gold/Silver*). Friend-evolves into Pikachu. |
-| 2 | `classic` | Pikachu Classic 1996 | Official Canon | Gen 1 mascot (*Red/Green*). Original Ken Sugimori watercolor pear body. |
-| 3 | `raichu` | Kantonian Raichu | Official Canon | Gen 1 evolution (*Red/Green*). Lt. Surge Vermilion Gym canon battle. |
-| 4 | `alolan-raichu` | Alolan Raichu | Official Canon | Gen 7 Alola regional variant (*Sun/Moon*). Electric/Psychic pancake surfing. |
-| 5 | `gigantamax` | Gigantamax Pikachu | Official Canon | Gen 8 Galar Power Spot (*Sword/Shield*). Colossal Chonkachu mass & skyward tail. |
-| 6 | `mega-raichu-x` | Mega Raichu X | Official Canon | *Pokémon Legends: Z-A – Mega Dimension* DLC / Anime *HZ138*. Raichunite X. |
-| 7 | `mega-raichu-y` | Mega Raichu Y | Official Canon | *Pokémon Legends: Z-A – Mega Dimension* DLC / Anime *HZ138*. Raichunite Y. |
-| 8 | `concept-white-belly` | White-Belly Pikachu | Beta Prototype | Atsuko Nishida 1996 early design / Gen 1 watercolor illustration. |
-| 9 | `concept-long-tail` | Long-Tail Pikachu | Beta Prototype | Atsuko Nishida Stage 3 prototype with 5-segment trailing tail (*Yomiuri 2018*). |
-| 10 | `gorochu` | Gorochu Horned Raichu | Scrapped Concept | Nishida & Sugimori scrapped final evolution (*TCRF 175* / *Yomiuri 2018*). |
+- <https://www.pokemon.co.jp/ex/legends_z-a_dlc/ja/pokemon/250912_01/> (retrieved successfully during this refinement).
+- English official page supplied by the coordinator: <https://legends.pokemon.com/en-gb/news/mega-dimension-hoopa>. The loopback virtual host was not reachable from this writer session; the Japanese primary source independently establishes that these Megas exist.
 
-*Note on Mega Raichu X & Y*: Official canon introduced in *Pokémon Legends: Z-A – Mega Dimension* DLC and animated in *Pokémon Horizons (HZ138)*.
+The prior review's claim that Mega Raichu X/Y do not exist is outdated. They must **not** be relabeled as fan forms. Conversely, the reference's red Gorochu reconstruction is not treated as an officially published red design. White-belly and long-tail references do not establish a dated prototype or creator attribution.
 
----
+Removed unsupported HZ138/anime assertions, voltage figures, claims tying the white-belly/long-tail art to specific 1996 prototypes or Nishida stages, and unsupported historical/artist attribution. No anime chronology, electrical measurements, or speculation about the history of these concept illustrations is needed for this asset pass.
 
-## 3. Character Design Specifications for All 10 Forms
+## Authoring method
 
-### Form 01: Pichu (`pichu`)
-- **Silhouette**: Diminutive baby rodent with large 1.2:1 head proportion. Slender short limbs.
-- **Anatomy**:
-  - *Ears*: Broad triangular diamond ears with thick continuous black borders (`#1c1917`) and butter-yellow interior (`#fdf192`). Cleanly erases Pikachu's upright ear tips.
-  - *Face*: Soft pink cheek pouches (`#f78398`), expressive large circular eyes.
-  - *Neck*: Jagged black 3-point zig-zag collar band encircling the neck.
-  - *Tail*: Short miniature spiky black tail wedge.
-- **Palette**: Fur `#fffde0` / `#fdf192` / `#ecd757`; Cheeks `#f78398`; Collar/Ear Edges `#1c1917`.
-- **Electric Envelope**: Mild intermittent electrostatic micro-sparks jumping between ear tips and cheeks.
+`scripts/build-pikachu-forms.py` replaces raster extraction and primitive overlays with fully authored cubic/quadratic Bézier paths painted by Pillow at 4× resolution, then downsampled once with Lanczos. A single warm outline/material style is shared by the ten designs; distinct body proportions, connected ear roots, tail geometry and fur patches establish the forms. Fur and cheeks use the existing four-stop palette metadata. Palette-controlled shadows follow flank contours and highlights follow the head dome; cream/white areas are curved silhouettes rather than rectangular masks.
 
-### Form 02: Classic Pikachu (`classic`)
-- **Silhouette**: Grounded pear-shaped bipedal mouse with 1:1 head-to-body proportion (Chonkachu).
-- **Anatomy**:
-  - *Ears*: Upright oval-tapered ears with diagonal black tips.
-  - *Face*: Vermilion red cheek circles (`#ef4444`), warm dark eyes.
-  - *Belly/Back*: Bilateral pear body expansion; two horizontal dark umber dorsal stripes (`#78350f`) across upper back.
-  - *Tail*: Classic segmented lightning-bolt tail with warm brown fur block at root.
-- **Palette**: Fur `#ffd700` / `#f9e066` / `#dfb83b`; Cheeks `#ef4444`; Back Stripes `#78350f`.
-- **Electric Envelope**: Crisp branching yellow-white discharge radiating across shoulders and tail.
+No source pixels survive, so old ears, flat skull cuts, detached tails, capture lines, and ghosts cannot leak through. Tails begin inside the pelvis and are painted behind the body. The default front-three-quarter pose does not expose the dorsal stripes: they are deliberately omitted instead of painting back stripes on the face/chest. Dynamax clouds are opaque authored cloud motifs, not electrical aura. There is no baked electricity, cyan board glow, glow halo or ground rectangle.
 
-### Form 03: Kantonian Raichu (`raichu`)
-- **Silhouette**: Dynamic athletic kangaroo-mouse build with curved back posture and elongated hind feet.
-- **Anatomy**:
-  - *Ears*: Curled outer ear flaps with signature spiral interior horn-scrolls in bright lemon-gold (`#ffcc00`) and rich amber borders (`#9a3412`). Cleanly erases Pikachu ears.
-  - *Face*: Circular bright yellow cheek sacs (`#ffcc00` / `#facc15`).
-  - *Belly*: Broad creamy ivory-white oval patch (`#fffbeb`) covering chest and belly, shaded with 3D luminance volume.
-  - *Tail*: Cleanly erases Pikachu tail; long whip-thin black wire tail emerging from spine and terminating in a broad flat golden lightning-bolt blade (`#eab308`).
-- **Palette**: Fur `#f58e1e` / `#cf6d0a` / `#964802`; Belly `#fffbeb` / `#fef3c7`; Cheeks `#ffcc00`; Tail Blade `#eab308`.
-- **Electric Envelope**: Amber/gold lightning crackling along whip tail and surging through the blade.
+### Runtime grid contract
 
-### Form 04: Alolan Raichu (`alolan-raichu`)
-- **Silhouette**: Buoyant, floating psychic pose levitating above its curved surfboard tail.
-- **Anatomy**:
-  - *Ears*: Broad, soft, rounded ear fans with gentle inner gold curls. Cleanly erases Pikachu ears.
-  - *Face*: Pale yellow cheek pads (`#fde047`); bright sapphire/azure psychic eyes (`#2563eb` / `#38bdf8`).
-  - *Belly*: Round marshmallow-cream belly patch (`#fffbeb`).
-  - *Tail*: Broad golden lightning surfboard beneath feet with cyan psychic levitation shimmer (`#38bdf8`) and spiral cord base.
-- **Palette**: Fur `#f5a742` / `#d47b19` (caramel); Eyes `#38bdf8` / `#2563eb`; Belly `#fefce8`; Surfboard `#fbbf24`.
-- **Electric Envelope**: Dual-element envelope: cyan psychic shimmer beneath board with yellow electric arcs.
+Validated against `src/shared/lib/petRenderer.ts` (`DEFAULT_STATE_ROW` / `ARCHETYPE_STATE_ROW.pikachu`), not the inaccurate previous contact-sheet labels:
 
-### Form 05: Gigantamax Pikachu (`gigantamax`)
-- **Silhouette**: Monumental retro Gen 1 "Chonkachu" mass. Colossal rotund pear belly with multi-tone shading.
-- **Anatomy**:
-  - *Ears*: Upright swept ears with glowing incandescent gold tips (`#fef08a`).
-  - *Face*: Vivid crimson cheek sacs (`#ff3d3d`) with luminous core.
-  - *Belly*: Enormous spherical golden belly with soft cream highlight center.
-  - *Tail*: Skyward-towering colossal lightning spine reaching toward top boundary with bright yellow fill and red outline.
-  - *Clouds*: Three swirling crimson Dynamax clouds (`#dc2626` / `#991b1b` with `#fca5a5` wisps) around shoulders.
-- **Palette**: Fur `#f7a523` / `#d67c0f`; Cheeks `#ff3d3d`; Clouds `#dc2626`.
-- **Electric Envelope**: Atmospheric storm wrapping around Dynamax clouds and surging up the colossal tail.
+| Row | Authored behavior |
+|---|---|
+| 0 | Idle breathing and blink |
+| 1 | Run right: forward lean, opposed foot/arm strides, bob and tail sway |
+| 2 | Run left: exact alpha mirror of row 1 at every frame |
+| 3 | Done/wave: raised waving arm and smile |
+| 4 | Celebrate/levelup: both arms raised, happy eyes/open mouth and looping jump |
+| 5 | Sleepy: tucked/squashed resting pose, folded ears, closed eyelids throughout, subtle breathing |
+| 6 | Waiting: quiet breathing/look with blink |
+| 7 | Working: hands reaching to a small muted laptop, typing motion and blink |
+| 8 | Reading: open cream-page book and blink |
 
-### Form 06: Mega Raichu X (`mega-raichu-x`)
-- **Silhouette**: Muscular bipedal combat build forming an **"X" silhouette** with reinforced stance.
-- **Anatomy**:
-  - *Ears*: Swept-back aerodynamic ears with solid black bases, golden tips, and antenna coils at roots.
-  - *Face*: Bright crimson red cheeks (`#ef4444`), fierce glowing crimson eyes (`#dc2626`).
-  - *Belly*: Defined circular white abdomen shield patch (`#ffffff`).
-  - *Tail*: **Dual Lightning Tails**: Splits into two massive thunder-blades forming an "X" profile.
-- **Palette**: Fur `#facc15` / `#eab308`; Ears `#18181b` / `#facc15`; Cheeks `#ef4444`; Eyes `#dc2626`.
-- **Electric Envelope**: High-voltage electromagnetic field bridging both tail blades into an "X" mesh.
+The grid stays 8×9 with 192×208 cells (1536×1872 sheets). Shipped sheets use WebP `quality=92`, `alpha_quality=100`, `method=6`; avatars are 128×128 RGBA. Aliases `white-belly` and `long-tail` receive identical corresponding assets. Existing legacy cap directories are preserved, never pruned or redrawn. Subset builds touch only requested forms, their aliases, manifest metadata and the temporary contact sheet.
 
-### Form 07: Mega Raichu Y (`mega-raichu-y`)
-- **Silhouette**: Sleek, hyper-fast aerodynamic build forming a **"Y" silhouette**.
-- **Anatomy**:
-  - *Ears & Horns*: Solid orange ears with black tips. Two prominent forward lightning-bolt fur horns jut forward from temples with spiral base curls (`#fde047`).
-  - *Face*: Canonical bright yellow cheek sacs (`#facc15`), luminous azure-blue eyes (`#0284c7`).
-  - *Belly*: Slim oval white chest plate.
-  - *Tail*: Extended lightning whip tail with oversized vertical blade vectoring upward to form the stem of the "Y".
-- **Palette**: Fur `#ea580c` / `#c2410c`; Horns `#fde047`; Cheeks `#facc15`; Eyes `#0284c7`; Belly `#fefce8`.
-- **Electric Envelope**: Razor-sharp lightning arcing directly between twin brow horns and the vertical tail blade.
+## Reproduction and visual review
 
-### Form 08: White-Belly Pikachu Concept (`concept-white-belly`)
-- **Silhouette**: 1996 Ken Sugimori watercolor proportions. Plump, rotund "daifuku" body shape with short stubby limbs.
-- **Anatomy**:
-  - *Ears*: Short wide-set ears with soft charcoal-gray tips (`#374151`).
-  - *Face*: Soft round rosy cheeks (`#f43f5e`), gentle dark eyes.
-  - *Belly*: **Distinct pure white belly patch** (`#ffffff` / `#fef9c3`) from lower throat to groin, shaded with underlying body volume.
-  - *Tail*: Broad stubby lightning tail with soft edge transitions.
-- **Palette**: Fur `#fef08a` / `#fde047`; Belly `#ffffff`; Cheeks `#f43f5e`; Ear tips `#374151`.
-- **Electric Envelope**: Soft golden-white ambient static ripples across belly margins.
+```sh
+python3 -I scripts/build-pikachu-forms.py pichu raichu
+python3 -I scripts/build-pikachu-forms.py
+python3 -I scripts/build-pikachu-forms.py --check
+node --test tests/pet-forms.test.mjs
+node scripts/upload-pets-cloudinary.mjs --dry-run
+```
 
-### Form 09: Long-Tail Pikachu Concept (`concept-long-tail`)
-- **Silhouette**: Agile forward-leaning running silhouette emphasizing speed.
-- **Anatomy**:
-  - *Ears*: Extra-long narrow swept-back ears.
-  - *Face*: High-set red cheek discs (`#dc2626`).
-  - *Tail*: **Elongated 5-Segment Tail**: Extends 1.5× body length with 5 distinct trailing zig-zag segments.
-- **Palette**: Fur `#facc15` / `#eab308`; Cheeks `#dc2626`; Tail `#facc15` with `#78350f` root stripe.
-- **Electric Envelope**: Trailing high-velocity electric wake tracking along extended tail bends.
+The reproducible contact sheet is `/tmp/pikachu-refined-ten-forms.png` (idle 0/0, run-right 1/2, celebrate 4/3, sleep 5/0). Work/read/wave and frame-strip inspection is also useful: numerical checks alone cannot accept visual quality.
 
-### Form 10: Gorochu Concept (`gorochu`)
-- **Silhouette**: Feral predatory final stage. Heavily muscled bipedal beast with broad shoulders and aggressive stance.
-- **Anatomy**:
-  - *Horns & Ears*: **Pair of sharp brow horns** (`#fef08a` / `#78350f`) curving backward above small spiky ear tufts.
-  - *Face*: Menacing feral grin with upper and lower sharp canine fangs; slitted amber-red eyes (`#b91c1c`).
-  - *Body & Fur*: Pale apricot underbelly (`#fed7aa`); shaggy spiky fur tufts along nape and shoulders.
-  - *Tail*: Muscular sinuous tail terminating in a massive spiked thunder-mace / mace-blade.
-- **Palette**: Fur `#c2410c` / `#9a3412` (crimson-amber); Underbelly `#fed7aa`; Horns/Fangs `#fef08a`; Mace Spikes `#451a03`.
-- **Electric Envelope**: Violent crimson-gold lightning storms crackling between brow horns and discharging from the spiked mace tail.
+### RED and iteration evidence
 
----
+- Visual RED: the rejected `/tmp/pikachu-ten-forms-contact-sheet.png` visibly has chopped skull domes, disconnected ears/tails, hard rectangular belly patches, back stripes on the chest and awake sleep frames. Those findings are real regardless of prior manifest test success.
+- First redraw: inspected the all-ten sheet; geometry check caught run-frame margin overflow. Broadened Pichu ears into baby wedges, curled Raichu ears, widened the Mega blades, reddened/shagged Gorochu and reduced the framing scale rather than deleting edge pixels.
+- Second redraw: inspected again; check caught Raichu's sleep-tail excursion. Reduced sleep shear rather than masking/cropping the tail; rounded the Alolan ears further and narrowed the adult Raichu skull smoothly.
+- Third framing iteration: mirrored Mega Y run bounds exposed the asymmetric left/right alpha budget. Reduced the overall framing scale to 0.86 (without cropping); all 720 cells then passed. Inspected the final idle/run/celebrate/sleep and supplemental wave/work/read contact sheets.
+- Final validation: `--check` passed all 720 cells and ten silhouettes; `node --test tests/pet-forms.test.mjs` passed 14/14; upload dry-run passed with 8 pets and 168 assets. A subset rebuild of Pichu/Raichu produced bit-identical asset and manifest hashes. All avatars were checked at 128×128 and both compatibility aliases were byte-equal to their targets.
+- The runnable `--check` validates every cell's safety margin, sheet size, substantial-alpha anatomy connectivity in the idle sample (cloud components allowed for GMax), exact left/right run alpha mirroring, a genuinely different sleep silhouette and ten unique decoded sheet silhouettes. These checks catch detached overlays/margin cuts, but are not a substitute for reviewing all poses.
 
-## 4. Animation Grid & Safe Frame Margins
+## Limits and acceptance
 
-- **Grid Dimensions**: 8 columns (frames) × 9 rows (behavioral states) = 72 cells.
-- **Cell Size**: 192 px width × 208 px height. Spritesheet: 1536 × 1872 px.
-- **Safe Inner Bounding Box**:
-  - Horizontal: `x = 24` to `x = 168` (144 px maximum asset width).
-  - Vertical: `y = 16` to `y = 196` (180 px maximum asset height).
-  - Baseline Foot Plane: `y = 192` across standing frames (eliminates floor jitter).
-- **Enforced Outer Alpha Margin**:
-  - Border pixels `x < 8`, `x > 184`, `y < 6`, `y > 202` have alpha strictly `0`.
+These are intentionally flat, outlined chibi/cel illustrations rather than the reference's rendered 3D models. They simplify fine fur detail and Mega blade size to fit companion cells, and they use a common pose rig rather than ten separate skeletal animation systems. Resting is a tucked seated pose, not fully horizontal lying. Waiting and idle are closely related. The run cycle is stylized and front-three-quarter rather than a fully rotated profile. Cloud motifs are stylized. The follow-up below changes Pikachu runtime effects, not progression logic.
 
----
+The coordinator and independent reviewer inspected the refined contact sheets and the real 96/200px dark/light render grid, accepting the structural artistic repair. Final deployment/publication remains a separate gate; structural tests alone do not prove visual functionality.
 
-## 5. Electric FX System Architecture
+### Integration corrections after independent review
 
-In `src/shared/lib/petRenderer.ts`, generic upward bezier ki flames (`drawAuraLayer`) are replaced with two-pass high-voltage branching lightning:
-1. **Pass 1 — Outer Plasma Glow (Diffuse)**:
-   - Stroke width: 3.5–5.0 px.
-   - Form-specific hue (`#facc15` yellow for classic/raichu; `#38bdf8` cyan for Alola; `#dc2626` crimson for Gigantamax/Gorochu).
-   - Global alpha: `0.35 * strength`.
-2. **Pass 2 — Inner Arc Core (Hot White)**:
-   - Stroke width: 1.2–1.8 px.
-   - Luminance white core (`rgba(255, 255, 240, 0.95)`).
-3. **Behavioral Dynamics**:
-   - Sleep state (`state === "sleepy"`): strictly 0% opacity (zero strokes).
-   - Anchors: Connected to cheeks, ear tips, and tail terminal.
-   - Decoupled Cheek/Tail Sparks: Discharges fire in front of the sprite even when a form aura is active.
-   - Avoids destructive `source-atop` wash to keep authored sprite pixels intact.
+The renderer activity VM fixture now strips every import and injects generated anchor data; the pre-fix test failed with `exports is not defined`. The full Node suite detects this integration regression.
 
----
+Eye painting now consumes the declared form iris palette rather than unrelated hardcoded blue/brown. `--check` inspects decoded iris-region pixels and the pre-WebP illustration against the palette: the authored color tolerance is 15 RGB-distance units, while decoded q92 WebP allows 75 because chroma subsampling reduces tiny saturated iris detail. The pre-fix art failed the new check. This verifies a real painted accent, not just manifest values.
 
-## 6. Progression Architecture & Unlock Mapping
+Bundled Pikachu form sheets and compiled generated landmarks must stay paired. `resolvePetSpritesheetUrls` selects bundled `/pets/pikachu/forms/` assets ahead of old installed blob overrides; stale downloaded geometry otherwise displays with new cheek/tail anchors. Other companions' installed blob resolution is unchanged. No cache is deleted and no cloud upload or global catalog migration is performed.
 
-To avoid an unnatural linear biological morph from Pichu into Gorochu, progression is strictly split into automatic base milestones and manual cosmetic branches:
+## Skill-led motion and landmark polish
 
-| Level | Form ID | Classification | Access Mode | Description |
-|---|---|---|---|---|
-| 1 | `pichu` | Official Canon | Auto Milestone | Starting baby companion form |
-| 5 | `classic` | Official Canon | Auto Milestone | Standard iconic companion form |
-| 10 | `concept-white-belly` | Prototype | Manual Cosmetic | 1996 Sugimori watercolor prototype |
-| 15 | `concept-long-tail` | Prototype | Manual Cosmetic | Atsuko Nishida Stage 3 prototype |
-| 20 | `raichu` | Official Canon | Manual Cosmetic | Kantonian Thunder Stone evolution |
-| 25 | `alolan-raichu` | Official Canon | Manual Cosmetic | Alolan pancake surfing variant |
-| 30 | `gigantamax` | Official Canon | Manual Cosmetic | Galar Power Spot Gigantamax form |
-| 35 | `mega-raichu-x` | Official Canon | Manual Cosmetic | Legends Z-A Mega Evolution X |
-| 40 | `mega-raichu-y` | Official Canon | Manual Cosmetic | Legends Z-A Mega Evolution Y |
-| 50 | `gorochu` | Scrapped Concept | Manual Cosmetic | Final horned thunder beast prototype |
+Applied the discovered `character-design`, `pixel-art-sprites` and `appeal-mastery` skills after reading their bodies and the first two skills' patterns, sharp edges and validations. The relevant constraints are three-read hierarchy, silhouette/negative-space landmarks, cohesive family variation, stable sprite grids/key poses, distinctive secondary-motion rhythm and a clear face focal point. Hard-pixel/no-AA/PNG-only rules do not describe these smooth chibi illustrations; q92 WebP and transparent antialiasing remain intentional.
 
-### Backwards-Compatible Aliases
-Legacy preferences and alternate IDs map cleanly in `resolvePetActiveForm`:
-- `thunderbolt` → `classic`
-- `z-move` → `classic`
-- `original-cap`, `hoenn-cap`, `kalos-cap`, `alola-cap`, `ash-cap` → `classic`
-- `white-belly` → `concept-white-belly`
-- `long-tail` → `concept-long-tail`
-- `gmax` → `gigantamax`
-- `mega-x` → `mega-raichu-x`
-- `mega-y` → `mega-raichu-y`
-- `horned-raichu` → `gorochu`
+### Concrete application
 
----
+- Kept the accepted anatomy, warm outlines, facial proportions and existing nine actions. No new frames, particles, timers, runtime pixel scans or animation framework.
+- The generator's `MOTION` table varies idle amplitude and second-harmonic timing, ear fold amplitude/lag and tail sway amplitude/lag. Pichu has a quick double-accent bob and wide ear response; Alolan Raichu has a gentler flowing drift with delayed surfing-tail follow-through; Gigantamax is heavy/slow with a restrained giant tail; Mega X is taut and accented, Mega Y lighter/snappier; Gorochu has a compact weighted pulse. Classic, white-belly and long-tail retain family unity but differ in secondary-motion lag/amplitude. All curves remain periodic within eight cells and left-run mirrors the full authored pose.
+- `forms/anchors.json` contains three cell-space points (left cheek, right cheek, tail tip) for each of 720 cells, generated through the exact `pose_transform` and `tail_point` functions used to paint the art. The row-2 points are mirrored with the artwork. `--check` rejects stale coordinates and requires each point to touch substantial alpha within a 5×5 neighborhood. This is generated data, not copied runtime geometry math.
+- Runtime identifies the form from the loaded sheet path, with the existing aura identity as fallback for opaque installed/CDN URLs. It subtracts the slicer's shared cell crop, then maps to the same stage rectangle and canvas pose transform as the sprite. Aliases normalize only for anchor lookup; progression/resolution APIs remain unchanged. Unknown and legacy sheets retain approximate relative-anchor fallback instead of throwing. `drawPetFrame`'s signature is unchanged, so picker previews also receive precise anchors without a component API change.
+- Replaced detached parallel bracket-like lines with broken cheek-to-flank branching arcs behind the body. Front cheek and tail-tip discharges always render for waking Pikachu, including with a non-null aura. Yellow strokes and narrower white cores dominate; form hue is only a faint wider fringe and existing floor accent. No Goku tongues or sprite tint. Eyes/mouth and ear/tail negative space stay clear.
+- Sleep suppression uses both explicit `sleepy` state and actual sheet row 5, covering `PetAnimationPicker`'s empty-state caller and custom bindings. No Goku/non-Pikachu sleep or flame behavior changed. Existing animation preference/reduced-motion lifecycle already cancels RAFs; tested without adding a new scheduler.
+- Runtime descriptions now call classic a stylized Pikachu, label unverified marking/tail concepts honestly and label red Gorochu as an artist reconstruction. Removed unsupported dates/creator attribution, HZ138 and voltage claims while preserving the officially documented Mega X/Y labels.
 
-## 7. Quality Assurance & Verification Results
+### Three-read evidence and limits
 
-1. **Master Contact Sheet**: Saved to `/tmp/pikachu-ten-forms-contact-sheet.png` (928×2112 px, 10 forms across 4 key poses: Idle 0, Run 2, Celebrate 3, Sleep 0).
-2. **Bounds Audit**: 100% of cells across all 10 forms pass border alpha audit (`arr[:, :, 3] == 0` for `x < 8`, `x > 184`, `y < 6`, `y > 202`).
-3. **Silhouette Diversity**: 10 out of 10 unique alpha hashes generated. Every form has distinct physical geometry without simple color-only swaps.
-4. **Cloudinary Asset Contract**: `node scripts/upload-pets-cloudinary.mjs --dry-run` successfully loads all declared companion assets with 0 errors.
+Temporary `/tmp/pikachu-three-read-32-64-light-dark.png` shows actual 32px black silhouettes and 64px color renders on light/dark plates. Baby wedge ears, the Alolan low surf tail, GMax cloud/tail mass, paired Mega X blades and Gorochu horns/shag remain the strongest large-scale landmarks. At 32px the classic, white-belly and long-tail group can be confused; **white-belly is intentionally the same species silhouette, primarily a marking variation**, not a separate species identifiable from shadow alone. At 64px the white abdomen and dark paws/cream abdomen separate color groups; tiny ear curls/eye accents are not promised at this size. Black silhouette-on-dark is deliberately low contrast, a shape diagnostic rather than a shipped palette. Actual colored outlines remain readable on both backgrounds.
+
+Inspected `/tmp/pikachu-ten-forms-browser-preview.png` (1720×1486, full grid, all ten at 200px and 96px on dark/light) and `/tmp/pikachu-ten-forms-sleep-preview.png`. The last column is no longer cropped. Faces remain unobscured, tail sparks start at their different actual landmarks, no rectangular belly masks or detached cages, no clipped stage-edge FX. The same screenshot includes the unchanged Goku SS2 flame path as a control. Contact sheet `/tmp/pikachu-refined-ten-forms.png` was regenerated and inspected after the timing pass. This is a restrained motion/electricity polish, not a second anatomy redraw or a claim of exact official-model fidelity.
+
+### Focused validation
+
+- Meaningful RED before runtime changes: picker row 5 emitted six electrical strokes without a state; authored cheek/tail landmark assertion missed the old relative anchors. Both tests exited 1 in `/tmp/pikachu-polish-red.log`.
+- GREEN: `python3 -I scripts/build-pikachu-forms.py --check` passed all 720 cells, anchor-to-art checks, connected sampled anatomy, exact run mirroring, margins and distinct sleep.
+- GREEN: `node --test tests/pet-forms.test.mjs tests/pet-render-stage.test.mjs` passed 24/24. Added crop/cell/facing/alias/unknown fallback landmark checks and runtime provenance regression. The stage test's only change is a one-line generated-JSON injection in its import-stripping VM fixture, approved by the coordinator.
+- GREEN: `pnpm build` completed (`tsc` and Vite); existing >500kB chunk-size warning remains.
+- GREEN: `node tests/pikachu-ten-forms-browser.mjs` uses `agent-browser` against a temporary Vite fixture. Audits 1,440 real sliced canvas frames (720 cells × two sizes), exact discharge start positions, both facings, picker-row and explicit-state sleep, transparent outer canvas edges; preserves alias expectations. Animation-on positive control changes pixels/draw count. Preference-off and reduced-motion each freeze pixel data across 450ms and produce no draws/null RAFs. Destroy leaves no renderer RAF; browser always closes in `finally`. Error/rejection listeners are registered, checked, and complemented by the CLI error buffer.
+- Host caveat: Chrome 156's native `getImageData` returned randomly different RGB values by exactly one channel unit even on two immediate reads with no drawing. The fixture therefore compares raw pixels with a measured ±1 readback tolerance **and independently requires zero production draw calls**. It does not claim bit-identical browser readbacks. Real animation must exceed that floor in the positive control.
+
+Full-suite review, desktop integration, production rebuild/deployment/publication and coordinator acceptance remain outside this worker's scope. Pre-existing untracked `scripts/__pycache__` is preserved and must not be staged.

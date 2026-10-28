@@ -16,12 +16,12 @@
         "#f78398",
         "#ffccd5"
       ],
-      "alphaHash": "3b87b62f713db09d",
-      "opaquePixels": 930596
+      "alphaHash": "9b89b781268b50f5",
+      "opaquePixels": 374503
     },
     "classic": {
       "shapeKey": "classic",
-      "name": "Pikachu Classic 1996",
+      "name": "Pikachu Classic",
       "fur": [
         "#b88e1a",
         "#dfb83b",
@@ -34,26 +34,8 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "a582063dc5e65c8b",
-      "opaquePixels": 1147577
-    },
-    "gigantamax": {
-      "shapeKey": "gigantamax",
-      "name": "Gigantamax Pikachu",
-      "fur": [
-        "#a65805",
-        "#d67c0f",
-        "#f7a523",
-        "#ffdb8a"
-      ],
-      "cheeks": [
-        "#c70c0c",
-        "#f01616",
-        "#ff3d3d",
-        "#ffa3a3"
-      ],
-      "alphaHash": "53c90f6a0680cc85",
-      "opaquePixels": 1336896
+      "alphaHash": "e06034b744ecb2b2",
+      "opaquePixels": 663797
     },
     "raichu": {
       "shapeKey": "raichu",
@@ -70,8 +52,8 @@
         "#ffe600",
         "#fff380"
       ],
-      "alphaHash": "8748bb9e35edb4c0",
-      "opaquePixels": 974059
+      "alphaHash": "3f832966e84c5610",
+      "opaquePixels": 644877
     },
     "alolan-raichu": {
       "shapeKey": "alolan-raichu",
@@ -88,14 +70,32 @@
         "#fde047",
         "#fef08a"
       ],
-      "alphaHash": "e319d29b34500995",
-      "opaquePixels": 1032325,
       "eyes": [
         "#1d4ed8",
         "#2563eb",
         "#38bdf8",
         "#bae6fd"
-      ]
+      ],
+      "alphaHash": "cde5a038455d0126",
+      "opaquePixels": 723865
+    },
+    "gigantamax": {
+      "shapeKey": "gigantamax",
+      "name": "Gigantamax Pikachu",
+      "fur": [
+        "#a65805",
+        "#d67c0f",
+        "#f7a523",
+        "#ffdb8a"
+      ],
+      "cheeks": [
+        "#c70c0c",
+        "#f01616",
+        "#ff3d3d",
+        "#ffa3a3"
+      ],
+      "alphaHash": "a423230247be11f5",
+      "opaquePixels": 916857
     },
     "mega-raichu-x": {
       "shapeKey": "mega-raichu-x",
@@ -112,14 +112,14 @@
         "#ef4444",
         "#ff9494"
       ],
-      "alphaHash": "b6e651122ef103b5",
-      "opaquePixels": 1012950,
       "eyes": [
         "#7f1d1d",
         "#b91c1c",
         "#dc2626",
         "#fca5a5"
-      ]
+      ],
+      "alphaHash": "c5c4ce0504da1006",
+      "opaquePixels": 693218
     },
     "mega-raichu-y": {
       "shapeKey": "mega-raichu-y",
@@ -136,14 +136,14 @@
         "#fde047",
         "#fef08a"
       ],
-      "alphaHash": "7c9205a11c5cf5ce",
-      "opaquePixels": 871454,
       "eyes": [
         "#0369a1",
         "#0284c7",
         "#38bdf8",
         "#bae6fd"
-      ]
+      ],
+      "alphaHash": "947ea69b6a947db3",
+      "opaquePixels": 733831
     },
     "concept-white-belly": {
       "shapeKey": "concept-white-belly",
@@ -160,8 +160,8 @@
         "#f43f5e",
         "#fda4af"
       ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
+      "alphaHash": "4cf8470db1ab35fc",
+      "opaquePixels": 587683
     },
     "concept-long-tail": {
       "shapeKey": "concept-long-tail",
@@ -178,32 +178,32 @@
         "#dc2626",
         "#ff9494"
       ],
-      "alphaHash": "86ab1d707a716de6",
-      "opaquePixels": 923366
+      "alphaHash": "7f15a4852dd60981",
+      "opaquePixels": 615903
     },
     "gorochu": {
       "shapeKey": "gorochu",
-      "name": "Gorochu Horned Raichu",
+      "name": "Gorochu Reconstruction",
       "fur": [
-        "#7c2d12",
-        "#9a3412",
-        "#c2410c",
-        "#fed7aa"
+        "#7c2d26",
+        "#ae382f",
+        "#df5941",
+        "#ffb08a"
       ],
       "cheeks": [
-        "#78350f",
-        "#92400e",
-        "#b45309",
-        "#fcd34d"
+        "#9d4a23",
+        "#dba239",
+        "#f7c866",
+        "#ffe5a1"
       ],
-      "alphaHash": "efe042a65d26e1e1",
-      "opaquePixels": 888807,
       "horns": [
         "#78350f",
         "#a16207",
         "#ca8a04",
         "#fef08a"
-      ]
+      ],
+      "alphaHash": "ef6838683805cf8e",
+      "opaquePixels": 683488
     }
   }
 }

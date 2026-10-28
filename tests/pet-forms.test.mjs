@@ -171,9 +171,10 @@ function loadRenderer() {
     document: { hidden: false, addEventListener() {}, removeEventListener() {} },
     localStorage: { getItem: () => null },
     performance: { now: () => 1000 },
+    pikachuAnchors: JSON.parse(readFileSync("public/pets/pikachu/forms/anchors.json", "utf8")),
   });
-  vm.runInContext(ts.transpile(source + "\nglobalThis.api = { drawPetFrame, petFormAura, FORM_AURAS, ARCHETYPE_STATE_ROW };"), context);
-  return { api: context.api, ctx, ops };
+  vm.runInContext(ts.transpile(source + "\nglobalThis.api = { drawPetFrame, petFormAura, FORM_AURAS, ARCHETYPE_STATE_ROW, resolvePetSpritesheetUrls };"), context);
+  return { api: context.api, ctx, ops, window: context.window };
 }
 
 test("Goku forms draw their aura behind the sprite and never wash the sprite pixels", () => {
@@ -395,7 +396,7 @@ test("Pikachu actual form draws white-core lightning instead of filled ki flames
     ops.length = 0;
     api.drawPetFrame(ctx, img, rect, 'pikachu', ctx.canvas, undefined, state, api.petFormAura('pikachu','classic'));
     const at = ops.findIndex(o => o.op === 'drawImage');
-    assert.ok(ops.slice(0,at).some(o => o.op === 'stroke'), 'electric envelope behind sprite');
+    assert.ok(ops.slice(0,at).some(o => o.op === 'stroke'), `electric envelope behind sprite ${state}`);
     assert.ok(ops.slice(at).filter(o => o.op === 'stroke').length >= 6, 'cheek/tail gold and white strokes despite non-null aura');
     assert.ok(!ops.some(o => o.op === 'quadraticCurveTo'), 'no Goku flame tongues');
     assert.ok(!ops.some(o => o.composite === 'source-atop'), 'no sprite tint');
@@ -439,3 +440,73 @@ test("Pikachu electric spark canvas effects react to state and drop when sleepy"
 });
 
 
+
+
+test("Pikachu authored form geometry does not use stale downloaded sprites with new landmarks", () => {
+  const { api, window } = loadRenderer();
+  const path = "/pets/pikachu/forms/classic/spritesheet.webp";
+  const other = "/pets/super-saiyan-goku/forms/ss3/spritesheet.webp";
+  window.__PET_ASSET_URLS__ = { [path]: "blob:stale-pikachu", [other]: "blob:installed-goku" };
+  assert.equal(api.resolvePetSpritesheetUrls(path).cdnUrl, path, "bundled art and generated landmarks must stay paired");
+  assert.equal(api.resolvePetSpritesheetUrls(other).cdnUrl, "blob:installed-goku", "other installed pets remain unchanged");
+});
+
+test("Pikachu picker sleep row suppresses every electrical stroke even without state", () => {
+  const { api, ctx, ops } = loadRenderer();
+  for (const aura of [null, api.petFormAura("pikachu", "classic")]) {
+    ops.length = 0;
+    api.drawPetFrame(ctx, { naturalWidth: 1536, naturalHeight: 1872 },
+      { x: 17, y: 5 * 208 + 10, w: 160, h: 184 }, "pikachu", ctx.canvas, undefined, "", aura, 1);
+    assert.equal(ops.filter(o => o.op === "stroke").length, 0, "picker row 5 must not discharge");
+  }
+});
+
+test("Pikachu front discharge starts on authored cheeks and tail, not old relative positions", () => {
+  const { api, ctx, ops } = loadRenderer();
+  const r = { x: 17, y: 10, w: 160, h: 184 };
+  api.drawPetFrame(ctx, { naturalWidth: 1536, naturalHeight: 1872, src: "/pets/pikachu/forms/classic/spritesheet.webp" },
+    r, "pikachu", ctx.canvas, undefined, "idle", api.petFormAura("pikachu", "classic"), 1);
+  const at = ops.findIndex(o => o.op === "drawImage");
+  const [, , , , , x, y, w, h] = ops[at].args;
+  const starts = ops.slice(at).filter(o => o.op === "moveTo").map(o => o.args);
+  for (const [cx, cy] of [[61.34, 120.36], [108.64, 120.36], [161.96, 116.92]]) {
+    const expected = [x + (cx - r.x) / r.w * w, y + (cy - r.y) / r.h * h];
+    assert.ok(starts.some(([px, py]) => Math.hypot(px - expected[0], py - expected[1]) < 0.1),
+      `discharge missing authored landmark ${cx},${cy}`);
+  }
+});
+
+
+test("Pikachu generated landmarks track cropped cells, mirrored runs, aliases and legacy fallback", () => {
+  const { api, ctx, ops } = loadRenderer();
+  const anchors = JSON.parse(readFileSync("public/pets/pikachu/forms/anchors.json", "utf8"));
+  for (const [id, cells] of Object.entries(anchors)) {
+    for (const row of [0, 1, 2, 4, 7, 8]) for (const frame of [0, 3, 7]) {
+      const r = { x: frame*192+12, y: row*208+9, w: 168, h: 190 };
+      ops.length=0;
+      api.drawPetFrame(ctx, { naturalWidth:1536, naturalHeight:1872, src:`/pets/pikachu/forms/${id}/spritesheet.webp` },
+        r, "pikachu", ctx.canvas, undefined, "", null, 1);
+      const at=ops.findIndex(o=>o.op==="drawImage");
+      const [, , , , , x,y,w,h]=ops[at].args;
+      const starts=ops.slice(at).filter(o=>o.op==="moveTo").map(o=>o.args);
+      for(const [px,py] of cells[row*8+frame]) assert.ok(starts.some(([sx,sy])=>
+        Math.hypot(sx-(x+(px-12)/168*w),sy-(y+(py-9)/190*h))<.001), `${id}/${row}/${frame}`);
+    }
+  }
+  for(const id of ["white-belly","long-tail","unknown","original-cap"]) {
+    ops.length=0;
+    api.drawPetFrame(ctx,{naturalWidth:1536,naturalHeight:1872,src:`/pets/pikachu/forms/${id}/spritesheet.webp`},
+      {x:0,y:0,w:192,h:208},"pikachu",ctx.canvas,undefined,"idle",null,1);
+    assert.ok(ops.some(o=>o.op==="stroke"), `${id} remains drawable`);
+    assert.ok(ops.filter(o=>o.op==="moveTo"||o.op==="lineTo").every(o=>o.args.every(Number.isFinite)));
+  }
+});
+
+test("Pikachu runtime descriptions distinguish reference concepts without unsupported history", () => {
+  const { INSTALLED_PETS }=loadPetTypes();
+  const pet=INSTALLED_PETS.find(p=>p.id==="pikachu");
+  const text=JSON.stringify(pet.forms);
+  assert.doesNotMatch(text,/1996|HZ138|50 triệu|Yomiuri|TCRF|Nishida|Sugimori/);
+  for(const id of ["mega-raichu-x","mega-raichu-y"]) assert.match(pet.forms.find(f=>f.id===id).hairDescription,/Official Canon/);
+  assert.match(pet.forms.find(f=>f.id==="gorochu").hairDescription,/Artist Reconstruction/);
+});

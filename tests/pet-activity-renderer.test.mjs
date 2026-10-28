@@ -8,8 +8,8 @@ test('actual desktop mood expression drives real renderer rows for agent activit
   const overlay=readFileSync('src/views/PetOverlay.svelte','utf8');
   const start=overlay.indexOf('  const mood = $derived<');
   const expression=overlay.slice(start,overlay.indexOf('\n  const projectName',start)).replace('const mood =','globalThis.mood =');
-  const rendererSource=readFileSync('src/lib/petPreferences.ts','utf8').replaceAll('export ','') + '\n' + readFileSync('src/shared/lib/petRenderer.ts','utf8').replace(/^import .*;\n/m,'').replaceAll('export ','');
-  const context=vm.createContext({window:{addEventListener:()=>{},removeEventListener:()=>{}},performance:{now:()=>0},Image:class {},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{},
+  const rendererSource=readFileSync('src/lib/petPreferences.ts','utf8').replaceAll('export ','') + '\n' + readFileSync('src/shared/lib/petRenderer.ts','utf8').replace(/^import .*;\n/gm,'').replaceAll('export ','');
+  const context=vm.createContext({pikachuAnchors:JSON.parse(readFileSync('public/pets/pikachu/forms/anchors.json','utf8')),window:{addEventListener:()=>{},removeEventListener:()=>{}},performance:{now:()=>0},Image:class {},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{},
     localStorage:{getItem:()=>null},$derived:value=>value,isInteracting:false,isCelebrating:false,sessions:[],
     canvas:{getContext:()=>({})}});
   vm.runInContext(ts.transpile(rendererSource+'\nglobalThis.renderer = new PetRenderer(canvas, "work-blue-cat");'),context);
