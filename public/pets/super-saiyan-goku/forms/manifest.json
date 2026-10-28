@@ -23,8 +23,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "98d646a93ecfd341",
+      "opaquePixels": 876412
     },
     "kaioken": {
       "hairShape": "base",
@@ -40,8 +40,8 @@
       ],
       "skinTint": "#ff4a3d",
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "98d646a93ecfd341",
+      "opaquePixels": 876412
     },
     "ss1": {
       "hairShape": "ssj",
@@ -80,19 +80,19 @@
     "ss3": {
       "hairShape": "ssj3",
       "hair": [
-        "#946a05",
-        "#b8860b",
-        "#f5c842",
-        "#fff0a0"
+        "#964802",
+        "#cf7808",
+        "#ffd214",
+        "#fff6a0"
       ],
       "iris": [
-        "#1f8c7c",
-        "#2fae9c"
+        "#0c6355",
+        "#10b981"
       ],
       "skinTint": null,
       "browsVisible": false,
-      "alphaHash": "7965f343f55a444b",
-      "opaquePixels": 1100281
+      "alphaHash": "5c71f0524acb246e",
+      "opaquePixels": 1410718
     },
     "god": {
       "hairShape": "lifted",
@@ -176,8 +176,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "e140838d6b23df40",
-      "opaquePixels": 901492
+      "alphaHash": "5be350bbda17269c",
+      "opaquePixels": 901584
     }
   }
 }

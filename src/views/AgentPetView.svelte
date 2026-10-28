@@ -996,7 +996,7 @@
                     <img
                       src={f.avatarUrl}
                       alt={f.name}
-                      class="w-full h-full object-cover"
+                      class="w-full h-full object-contain p-0.5"
                     />
                   </div>
 
