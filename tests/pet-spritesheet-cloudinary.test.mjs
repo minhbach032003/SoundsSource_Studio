@@ -21,5 +21,6 @@ test("Pet spritesheet Cloudinary CDN resolver and upload script integrity", () =
 
   // Upload script integrity
   assert.ok(uploadSrc.includes("mvvfpbof"), "upload script targets mvvfpbof cloud");
-  assert.ok(uploadSrc.includes("pets/${slug}/spritesheet"), "uploads with structured public_id");
+  assert.ok(uploadSrc.includes("pets/${pet.id}/spritesheet.webp"), "uploads with structured public_id");
+  assert.ok(uploadSrc.includes('upload("pets/catalog.json"'), "publishes public catalog after image uploads");
 });

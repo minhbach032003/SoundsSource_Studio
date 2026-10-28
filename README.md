@@ -122,6 +122,23 @@ pnpm tauri build
 
 ---
 
+## Cloudinary Pet Downloads
+
+The companion gallery's **Pet trên Cloudinary** section lists published supported pets. **Tải về** stores the base sprite and all 10 evolution sheets/avatars in the app's persistent webview storage. Installed sprites work after restart without a network connection, including desktop pet windows. Downloading does not automatically equip a pet; clearing application website data removes offline installations. The eight supported archetypes remain bundled as fallbacks.
+
+Publish the current assets and public catalog with the existing Cloudinary account (Node.js 20.12+). Keep `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET` in the ignored `.env` or shell; never put them in `VITE_*` variables. The configured cloud is `mvvfpbof`.
+
+```bash
+pnpm pets:upload --dry-run  # inspect counts/size without uploading
+pnpm pets:upload            # upload images, then publish pets/catalog.json
+node --test tests/pet-cloud.test.mjs
+node tests/pet-cloud-browser.mjs        # real UI/storage, fixture CDN responses
+node tests/pet-cloud-browser.mjs --live # real Cloudinary download + offline restart
+node tests/pet-cloud-browser.mjs --live --native # macOS WKWebView storage + image decoding
+```
+
+A failed publication leaves the previous catalog in place. A failed download or storage write preserves complete local installations; the gallery offers retry. No Cloudinary management credentials are included in the desktop frontend.
+
 ## Test & Verification Suite
 
 We enforce a 100% test pass rate across the full workspace before committing and releasing:

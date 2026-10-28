@@ -75,8 +75,16 @@
     return Math.min(row, Math.max(0, clips.length - 1));
   });
 
+  let assetRevision = $state(0);
+  $effect(() => {
+    const update = () => assetRevision++;
+    window.addEventListener("pet-assets-changed", update);
+    return () => window.removeEventListener("pet-assets-changed", update);
+  });
+
   // Load and slice spritesheet when slug or formSpritesheetPath changes
   $effect(() => {
+    void assetRevision;
     const currentSlug = slug;
     const currentPath = formSpritesheetPath;
     let active = true;

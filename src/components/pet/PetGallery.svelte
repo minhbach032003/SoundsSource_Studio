@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { fetchPetCatalog, installCloudPet, installedPetIds, type PetCloudEntry } from "@/lib/petCloud";
   import AgentPetSprite from "@/components/AgentPetSprite.svelte";
   import Modal from "@/components/ui/Modal.svelte";
   import {
@@ -20,6 +22,8 @@
     Trash2,
     RotateCcw,
     Download,
+    CloudDownload,
+    LoaderCircle,
   } from "@lucide/svelte";
 
   interface Props {
@@ -112,28 +116,52 @@
     toastState.info("Restored all companions to gallery");
   }
 
-  function handleDownloadPetBundle(pet: PetArchetype, e?: MouseEvent) {
-    e?.stopPropagation();
+  let cloudPets = $state<PetCloudEntry[]>([]);
+  let cloudLoading = $state(true);
+  let cloudError = $state("");
+  let installedIds = $state<string[]>([]);
+  let downloadingId = $state<string | null>(null);
+  let downloadProgress = $state(0);
+  let downloadError = $state("");
+  let alive = true;
+
+  async function loadCloudPets() {
+    cloudLoading = true;
+    cloudError = "";
     try {
-      const bundle = {
-        schema: "rust-sound-pet-v1",
-        exportedAt: new Date().toISOString(),
-        archetype: pet,
-      };
-      const json = JSON.stringify(bundle, null, 2);
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${pet.id}-companion-bundle.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toastState.success(`Đã tải metadata của pet "${pet.name}" (danh sách hình thái, không gồm ảnh) về máy!`);
-    } catch (err) {
-      toastState.error(`Không thể tải gói pet: ${String(err)}`);
-    }
+      const pets = await fetchPetCatalog();
+      if (alive) cloudPets = pets;
+    } catch {
+      if (alive) cloudError = "Không tải được danh mục Cloudinary. Kiểm tra kết nối hoặc chạy pnpm pets:upload để xuất bản danh mục.";
+    } finally { if (alive) cloudLoading = false; }
+  }
+
+  onMount(() => {
+    alive = true;
+    const sync = () => installedIds = installedPetIds();
+    sync();
+    window.addEventListener("pet-assets-changed", sync);
+    void loadCloudPets();
+    return () => { alive = false; window.removeEventListener("pet-assets-changed", sync); };
+  });
+
+  async function handleDownloadPet(entry: PetCloudEntry) {
+    if (downloadingId || installedIds.includes(entry.id)) return;
+    downloadingId = entry.id;
+    downloadProgress = 0;
+    downloadError = "";
+    try {
+      await installCloudPet(entry, (done, total) => { if (alive) downloadProgress = Math.round(done / total * 100); });
+      if (alive) {
+        installedIds = installedPetIds();
+        toastState.success(`Đã tải ${INSTALLED_PETS.find(p => p.id === entry.id)?.name} để dùng offline.`);
+      }
+    } catch (error) {
+      if (alive) {
+        downloadError = `Không thể lưu pet: ${String(error)} Bấm Tải về để thử lại.`;
+        toastState.error("Tải pet thất bại. Pet đã cài vẫn được giữ nguyên.");
+      }
+    } finally { if (alive) downloadingId = null; }
   }
 </script>
 
@@ -149,7 +177,7 @@
           Companion Showcase Gallery
         </h4>
         <p class="text-[10px] text-(--muted) m-0">
-          7 Authentic Pixel-Art Archetypes · 1-Click Equip
+          {INSTALLED_PETS.length} Authentic Pixel-Art Archetypes · 1-Click Equip
         </p>
       </div>
     </div>
@@ -296,29 +324,62 @@
         <div class="flex items-center gap-1.5 flex-wrap">
           <span class="font-bold text-(--ink) text-xs truncate">{currentPet.name}</span>
           <span class="badge text-[9px] px-1.5 py-0">{currentPet.tag}</span>
-          <span class="text-[10px] text-(--accent-text) font-medium truncate">· {currentPet.tagline}</span>
+          <span class="text-[10px] text-(--accent-text) font-medium truncate max-w-full">· {currentPet.tagline}</span>
         </div>
         <p class="text-[10px] text-(--muted) m-0 truncate mt-0.5">{currentPet.description}</p>
       </div>
     </div>
 
     <div class="flex items-center gap-2 shrink-0">
-      <button
-        type="button"
-        onclick={(e) => handleDownloadPetBundle(currentPet, e)}
-        class="px-2.5 py-1 rounded-lg border border-(--line) bg-(--surface) hover:bg-(--focus)/10 text-[11px] font-semibold text-(--accent-text) flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
-        title="Tải gói dữ liệu và 10 hình thái của {currentPet.name} về máy"
-      >
-        <Download class="w-3 h-3 text-(--accent-text)" />
-        <span>Tải Pet Về</span>
-      </button>
-
       <span class="text-[10px] font-semibold text-(--success) flex items-center gap-1">
         <Check class="w-3 h-3 text-(--success)" />
         Equipped
       </span>
     </div>
   </div>
+  <section aria-label="Pet trên Cloudinary" class="border-t border-(--line) pt-3 space-y-3">
+    <div class="flex items-center justify-between gap-3">
+      <h4 class="flex items-center gap-2 text-xs font-bold text-(--ink) m-0"><CloudDownload class="w-4 h-4" aria-hidden="true" />Pet trên Cloudinary</h4>
+      <button type="button" onclick={() => { if (!cloudLoading) void loadCloudPets(); }} aria-disabled={cloudLoading} aria-busy={cloudLoading} class="min-h-8 px-2 border border-(--line) rounded-lg text-xs text-(--ink) hover:bg-(--surface) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--focus)">Làm mới</button>
+    </div>
+    <p class="text-xs text-(--muted) m-0">Tải ảnh gốc và đủ 10 hình thái về máy để dùng khi mất mạng.</p>
+    {#if cloudLoading}
+      <p role="status" class="text-xs text-(--muted)">Đang tải danh mục pet…</p>
+    {:else if cloudError}
+      <div role="alert" class="text-xs text-(--error) space-y-2">
+        <p class="m-0">{cloudError}</p>
+        <button type="button" onclick={() => void loadCloudPets()} class="min-h-8 px-2 rounded-lg border border-(--line) text-(--ink) hover:bg-(--surface) cursor-pointer">Thử lại</button>
+      </div>
+    {:else if cloudPets.length === 0}
+      <p class="text-xs text-(--muted)">Chưa có pet được xuất bản trên cloud.</p>
+    {:else}
+      <ul class="list-none p-0 m-0 divide-y divide-(--line)">
+        {#each cloudPets as entry (entry.id)}
+          {@const pet = INSTALLED_PETS.find(p => p.id === entry.id)!}
+          {@const installed = installedIds.includes(entry.id)}
+          <li class="flex items-center justify-between gap-3 py-2">
+            <div class="min-w-0 space-y-1">
+              <span class="block text-xs font-semibold text-(--ink)">{pet.name}</span>
+              <span class="block text-[11px] text-(--muted)">{pet.forms?.length} hình thái · {(entry.assets.reduce((n,a) => n + a.bytes, 0) / 1024 / 1024).toFixed(1)} MB</span>
+            </div>
+            <button type="button" onclick={() => void handleDownloadPet(entry)} aria-label="Tải {pet.name} về máy" aria-disabled={installed || !!downloadingId} aria-busy={downloadingId === entry.id} class="min-h-9 min-w-28 px-2 rounded-lg border border-(--line) text-xs text-(--accent-text) hover:bg-(--surface) flex items-center justify-center gap-1.5 shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-(--focus)">
+              {#if installed}
+                <Check class="w-3.5 h-3.5 text-(--success)" aria-hidden="true" />Đã tải offline
+              {:else}
+                {#if downloadingId === entry.id}<LoaderCircle class="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />{:else}<Download class="w-3.5 h-3.5" aria-hidden="true" />{/if}
+                Tải về
+              {/if}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    {#if downloadingId}
+      <div role="status" aria-live="polite" class="text-xs text-(--muted) tabular-nums">{downloadProgress === 100 ? "Đang lưu vào máy…" : `Đang tải pet… ${downloadProgress}%`}</div>
+      <progress class="w-full h-1.5 accent-(--accent)" value={downloadProgress} max="100" aria-label="Tiến độ tải pet"></progress>
+    {/if}
+    {#if downloadError}<p role="alert" class="text-xs text-(--error)">{downloadError}</p>{/if}
+  </section>
 </div>
 
 <!-- Modal Confirmation for Deleting / Removing Companion -->

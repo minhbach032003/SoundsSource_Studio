@@ -5,6 +5,7 @@ import PetOverlay from "./views/PetOverlay.svelte";
 import PetPopover from "./views/PetPopover.svelte";
 import PingOverlay from "./views/PingOverlay.svelte";
 import "./styles.css";
+import { restoreInstalledPets, subscribePetInstallations } from "./lib/petCloud";
 
 const isPingOverlay =
   typeof window !== "undefined" &&
@@ -52,14 +53,19 @@ const isPopover =
 
 const rootElement = document.getElementById("root")!;
 
-if (isBreakOverlay) {
-  mount(BreakOverlay, { target: rootElement });
-} else if (isPopover) {
-  mount(PetPopover, { target: rootElement });
-} else if (isPetOverlay) {
-  mount(PetOverlay, { target: rootElement });
-} else if (isPingOverlay) {
-  mount(PingOverlay, { target: rootElement });
-} else {
-  mount(App, { target: rootElement });
+async function start() {
+  try { await restoreInstalledPets(); } catch (error) { console.warn("Offline pet storage unavailable:", error); }
+  subscribePetInstallations();
+  if (isBreakOverlay) {
+    mount(BreakOverlay, { target: rootElement });
+  } else if (isPopover) {
+    mount(PetPopover, { target: rootElement });
+  } else if (isPetOverlay) {
+    mount(PetOverlay, { target: rootElement });
+  } else if (isPingOverlay) {
+    mount(PingOverlay, { target: rootElement });
+  } else {
+    mount(App, { target: rootElement });
+  }
 }
+void start();

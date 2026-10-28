@@ -24,7 +24,6 @@
     getFavoritePets,
     setFavoritePetSlot,
     getActivePets,
-    resolvePetActiveForm,
   } from "@/lib/petMapping";
   import {
     readPetFormPreference,
