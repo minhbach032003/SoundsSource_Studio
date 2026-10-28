@@ -331,6 +331,17 @@ export const FORM_AURAS: Record<string, PetAura> = {
   "super-saiyan-goku/blue-kaioken": { inner: "#3ecbff", outer: "#e0232b", intensity: 1.15 },
   "super-saiyan-goku/ui-sign": { inner: "#e8f2ff", outer: "#5aa9ff", calm: true },
   "super-saiyan-goku/mui": { inner: "#f4f7ff", outer: "#bcd6ff", calm: true },
+  // Pikachu canon forms: electric yellow, psychic cyan/blue, Dynamax crimson/gold, champion sparkles
+  "pikachu/pichu": { inner: "#fef08a", sparks: "#facc15", intensity: 0.65 },
+  "pikachu/classic": { inner: "#fde047", intensity: 0.75 },
+  "pikachu/original-cap": { inner: "#facc15", sparks: "#4ade80", intensity: 0.85 },
+  "pikachu/hoenn-cap": { inner: "#facc15", sparks: "#22c55e", intensity: 0.90 },
+  "pikachu/kalos-cap": { inner: "#facc15", sparks: "#60a5fa", intensity: 0.95 },
+  "pikachu/alola-cap": { inner: "#fde047", outer: "#38bdf8", sparks: "#facc15", intensity: 1.10 },
+  "pikachu/raichu": { inner: "#f59e0b", outer: "#ea580c", sparks: "#fbbf24", intensity: 1.15 },
+  "pikachu/alolan-raichu": { inner: "#38bdf8", outer: "#818cf8", sparks: "#fde047", intensity: 1.10 },
+  "pikachu/gigantamax": { inner: "#ef4444", outer: "#f59e0b", sparks: "#dc2626", intensity: 1.35 },
+  "pikachu/ash-cap": { inner: "#fde047", outer: "#60a5fa", sparks: "#f59e0b", intensity: 1.25 },
 };
 
 export function petFormAura(slug: string, formId: string | null | undefined): PetAura | null {
@@ -838,6 +849,9 @@ interface CachedSpriteSheet {
 const SHEET_CACHE = new Map<string, CachedSpriteSheet>();
 
 export function resolvePetSpritesheetUrls(slugOrPath: string): { cdnUrl: string; localUrl: string } {
+  const assetPath = slugOrPath.startsWith("/pets/") ? slugOrPath : `/pets/${slugOrPath}/spritesheet.webp`;
+  const installed = typeof window !== "undefined" ? window.__PET_ASSET_URLS__?.[assetPath] : undefined;
+  if (installed) return { cdnUrl: installed, localUrl: assetPath };
   // If a direct form path is passed, e.g. /pets/super-saiyan-goku/forms/ss4/spritesheet.webp
   if (slugOrPath.startsWith("/pets/") && slugOrPath.includes("/forms/")) {
     return {
@@ -878,6 +892,8 @@ export class PetRenderer {
   private onPlaybackChange = () => this.refreshPreferences();
   private isDestroyed = false;
   private loadVersion = 0;
+  private requestedUrl = "";
+  private onAssetsChanged = () => { if (this.requestedUrl) this.load(this.requestedUrl); };
   private animId: number | null = null;
 
   public headroom = 0;
@@ -909,6 +925,7 @@ export class PetRenderer {
       } catch {}
     }
     this.unsubscribe = subscribePetPreferences(() => this.refreshPreferences());
+    window.addEventListener?.("pet-assets-changed", this.onAssetsChanged);
   }
 
   setSlug(slug: string) {
@@ -932,6 +949,7 @@ export class PetRenderer {
 
   load(spritesheetUrl: string) {
     if (this.isDestroyed) return;
+    this.requestedUrl = spritesheetUrl;
     const version = ++this.loadVersion;
     const isCurrent = () => !this.isDestroyed && version === this.loadVersion;
 
@@ -1200,6 +1218,7 @@ export class PetRenderer {
 
   destroy() {
     this.isDestroyed = true;
+    window.removeEventListener?.("pet-assets-changed", this.onAssetsChanged);
     this.unsubscribe();
     this.observer?.disconnect();
     this.reducedMotion?.removeEventListener("change", this.onPlaybackChange);

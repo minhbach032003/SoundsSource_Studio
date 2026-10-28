@@ -250,10 +250,29 @@ test("every Pikachu form sheet is built with clean assets matching form specs", 
   const forms = PIKACHU_MANIFEST.forms;
   assert.equal(forms.pichu.shapeKey, "pichu");
   assert.equal(forms.classic.shapeKey, "classic");
-  assert.equal(forms["iron-tail"].shapeKey, "iron-tail");
-  assert.equal(forms.overcharge.shapeKey, "overcharge");
+  assert.equal(forms["original-cap"].shapeKey, "cap");
+  assert.equal(forms["hoenn-cap"].shapeKey, "cap");
+  assert.equal(forms["kalos-cap"].shapeKey, "cap");
+  assert.equal(forms["alola-cap"].shapeKey, "cap");
+  assert.equal(forms.raichu.shapeKey, "raichu");
+  assert.equal(forms["alolan-raichu"].shapeKey, "alolan-raichu");
   assert.equal(forms.gigantamax.shapeKey, "gigantamax");
-  assert.equal(forms["ash-cap"].shapeKey, "ash-cap");
+  assert.equal(forms["ash-cap"].shapeKey, "cap");
+
+  // Distinct shape groups must have distinct silhouette alpha hashes
+  const shapeGroupHashes = new Set([
+    forms.pichu.alphaHash,
+    forms.classic.alphaHash,
+    forms["original-cap"].alphaHash,
+    forms.raichu.alphaHash,
+    forms["alolan-raichu"].alphaHash,
+    forms.gigantamax.alphaHash,
+  ]);
+  assert.equal(
+    shapeGroupHashes.size,
+    6,
+    "Pichu, Classic, Caps, Raichu, Alolan Raichu, and Gigantamax must have distinct silhouette alpha hashes"
+  );
 });
 
 test("Pikachu form palettes follow Pokémon canon lore", () => {
@@ -263,20 +282,43 @@ test("Pikachu form palettes follow Pokémon canon lore", () => {
   // Pichu has pink cheeks
   const pichuCheekHue = hexHue(forms.pichu.cheeks[1]);
   assert.ok(pichuCheekHue >= 335 || pichuCheekHue <= 15, "Pichu cheeks must be pink/rose");
-  // Raichu tribute (overcharge) has yellow cheeks in canon lore!
-  const raichuCheekHue = hexHue(forms.overcharge.cheeks[1]);
+  // Raichu has warm orange fur
+  const raichuFurHue = hexHue(forms.raichu.fur[1]);
+  assert.ok(raichuFurHue >= 20 && raichuFurHue <= 45, `Raichu fur must be orange, got hue ${raichuFurHue}`);
+  // Raichu has yellow cheeks in canon lore!
+  const raichuCheekHue = hexHue(forms.raichu.cheeks[1]);
   assert.ok(raichuCheekHue >= 40 && raichuCheekHue <= 65, `Raichu cheeks must be yellow, got hue ${raichuCheekHue}`);
+  // Alolan Raichu has psychic blue eyes
+  assert.ok(forms["alolan-raichu"].eyes, "Alolan Raichu must define psychic eyes palette");
+  const alolanEyeHue = hexHue(forms["alolan-raichu"].eyes[1]);
+  assert.ok(alolanEyeHue >= 190 && alolanEyeHue <= 240, `Alolan Raichu eyes must be psychic blue, got hue ${alolanEyeHue}`);
 });
 
-test("Pikachu forms define levelup animation mapping without unnatural body aura", () => {
+test("Pikachu forms define levelup animation and custom FORM_AURAS", () => {
   const { INSTALLED_PETS } = loadPetTypes();
   const { api } = loadRenderer();
   const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
   assert.equal(api.ARCHETYPE_STATE_ROW.pikachu.levelup, 4, "Pikachu level up must be Celebrate jump (row 4)");
-  // Pikachu has no whole-body aura envelope (auras are for ki pets like Goku), so petFormAura returns null
+
+  // FORM_AURAS entries exist for all 10 Pikachu forms
   for (const form of pikachu.forms) {
-    assert.equal(api.petFormAura(pikachu.id, form.id), null, "Pikachu forms do not have a whole-body aura");
+    const aura = api.petFormAura(pikachu.id, form.id);
+    assert.ok(aura, `Pikachu form ${form.id} must define an entry in FORM_AURAS`);
+    assert.ok(aura.inner, `Pikachu form ${form.id} aura must define an inner color`);
   }
+
+  // Canon color aura traits
+  assert.ok(
+    api.FORM_AURAS["pikachu/gigantamax"].inner.includes("ef4444") ||
+    api.FORM_AURAS["pikachu/gigantamax"].outer?.includes("f59e0b"),
+    "Gigantamax has Dynamax crimson/gold aura"
+  );
+  assert.ok(
+    api.FORM_AURAS["pikachu/alolan-raichu"].inner.includes("38bdf8") ||
+    api.FORM_AURAS["pikachu/alolan-raichu"].outer?.includes("818cf8"),
+    "Alolan Raichu has psychic cyan/blue aura"
+  );
+  assert.ok(api.FORM_AURAS["pikachu/ash-cap"].sparks, "World Champion Cap Pikachu has champion sparks");
 });
 
 test("Pikachu electric spark canvas effects react to state and drop when sleepy", () => {

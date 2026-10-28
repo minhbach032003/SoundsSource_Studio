@@ -16,12 +16,12 @@
         "#f78398",
         "#ffccd5"
       ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
+      "alphaHash": "8cfcf3174d3773f5",
+      "opaquePixels": 950368
     },
     "classic": {
       "shapeKey": "classic",
-      "name": "Pikachu (Classic)",
+      "name": "Pikachu Classic 1996",
       "fur": [
         "#b88e1a",
         "#dfb83b",
@@ -34,120 +34,12 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "spark": {
-      "shapeKey": "spark",
-      "name": "Spark Volt",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#bd0909",
-        "#e81515",
-        "#ff3333",
-        "#ff8f8f"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "studio": {
-      "shapeKey": "studio",
-      "name": "Pikachu (Studio HD)",
-      "fur": [
-        "#a86d05",
-        "#d9930f",
-        "#ffc425",
-        "#ffec99"
-      ],
-      "cheeks": [
-        "#ab1111",
-        "#d41c1c",
-        "#f03535",
-        "#ff8585"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "electro-ball": {
-      "shapeKey": "electro-ball",
-      "name": "Electro Ball",
-      "fur": [
-        "#a37000",
-        "#d49700",
-        "#ffc400",
-        "#fffa9e"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "iron-tail": {
-      "shapeKey": "iron-tail",
-      "name": "Iron Tail Strike",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "thunderbolt": {
-      "shapeKey": "thunderbolt",
-      "name": "Thunderbolt 100K Volts",
-      "fur": [
-        "#b58500",
-        "#e6b000",
-        "#ffe600",
-        "#ffffff"
-      ],
-      "cheeks": [
-        "#c70c0c",
-        "#f01616",
-        "#ff3d3d",
-        "#ffa3a3"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
-    },
-    "overcharge": {
-      "shapeKey": "overcharge",
-      "name": "Pikachu (Raichu Aura)",
-      "fur": [
-        "#964802",
-        "#cf6d0a",
-        "#f5911e",
-        "#ffd18c"
-      ],
-      "cheeks": [
-        "#d49700",
-        "#ffcc00",
-        "#ffe600",
-        "#fff380"
-      ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
+      "alphaHash": "3963bc11433dee0f",
+      "opaquePixels": 1147746
     },
     "gigantamax": {
       "shapeKey": "gigantamax",
-      "name": "Gigantamax Thunder",
+      "name": "Gigantamax Pikachu",
       "fur": [
         "#a65805",
         "#d67c0f",
@@ -160,12 +52,12 @@
         "#ff3d3d",
         "#ffa3a3"
       ],
-      "alphaHash": "5ac7b8277589f60f",
-      "opaquePixels": 1069194
+      "alphaHash": "0c1827ccda02aa5c",
+      "opaquePixels": 1346583
     },
     "ash-cap": {
-      "shapeKey": "ash-cap",
-      "name": "Champion Cap Pikachu",
+      "shapeKey": "cap",
+      "name": "World Champion Cap Pikachu",
       "fur": [
         "#b37a08",
         "#e6a312",
@@ -180,6 +72,120 @@
       ],
       "alphaHash": "1d1e587fc6f82584",
       "opaquePixels": 1075056
+    },
+    "original-cap": {
+      "shapeKey": "cap",
+      "name": "Original Cap Pikachu",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#ffd700",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#f74a4a",
+        "#ff9494"
+      ],
+      "alphaHash": "1d1e587fc6f82584",
+      "opaquePixels": 1075056
+    },
+    "hoenn-cap": {
+      "shapeKey": "cap",
+      "name": "Hoenn Cap Pikachu",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#ffd700",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#f74a4a",
+        "#ff9494"
+      ],
+      "alphaHash": "1d1e587fc6f82584",
+      "opaquePixels": 1075056
+    },
+    "kalos-cap": {
+      "shapeKey": "cap",
+      "name": "Kalos Cap Pikachu",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#ffd700",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#f74a4a",
+        "#ff9494"
+      ],
+      "alphaHash": "1d1e587fc6f82584",
+      "opaquePixels": 1075056
+    },
+    "alola-cap": {
+      "shapeKey": "cap",
+      "name": "Alola Cap Pikachu",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#ffd700",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#f74a4a",
+        "#ff9494"
+      ],
+      "alphaHash": "1d1e587fc6f82584",
+      "opaquePixels": 1075056
+    },
+    "raichu": {
+      "shapeKey": "raichu",
+      "name": "Raichu Kanto",
+      "fur": [
+        "#964802",
+        "#cf6d0a",
+        "#f58e1e",
+        "#ffd18c"
+      ],
+      "cheeks": [
+        "#d49700",
+        "#ffcc00",
+        "#ffe600",
+        "#fff380"
+      ],
+      "alphaHash": "a52574d7ca648219",
+      "opaquePixels": 1162407
+    },
+    "alolan-raichu": {
+      "shapeKey": "alolan-raichu",
+      "name": "Alolan Raichu",
+      "fur": [
+        "#9a520e",
+        "#d47b19",
+        "#f5a742",
+        "#ffe0a3"
+      ],
+      "cheeks": [
+        "#d49700",
+        "#facc15",
+        "#fde047",
+        "#fef08a"
+      ],
+      "alphaHash": "d3b9d3b2061ddad2",
+      "opaquePixels": 1243271,
+      "eyes": [
+        "#1d4ed8",
+        "#2563eb",
+        "#38bdf8",
+        "#bae6fd"
+      ]
     }
   }
 }
