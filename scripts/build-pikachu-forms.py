@@ -29,8 +29,9 @@ FORMS = {
     "pichu": {
         "shapeKey": "pichu",
         "name": "Pichu Spark",
-        "fur": ["#cfae25", "#ecd757", "#fdf192", "#fffde0"],
-        "cheeks": ["#b52a46", "#db4d68", "#f78398", "#ffccd5"],
+        "fur": ["#c29f2e", "#edd05a", "#fff29c", "#fffde8"],
+        "cheeks": ["#b8354c", "#e86278", "#faa8b5", "#ffe4e8"],
+        "eyes": ["#22150f", "#5c2a16", "#df802c", "#fffdfa"],
     },
     "classic": {
         "shapeKey": "classic",
@@ -107,7 +108,7 @@ MOTION = {
     "gorochu": (.7, .28, 1.2, .7, 2.5, .3),
 }
 TAIL_TIPS = {
-    "pichu": (137, 163), "classic": (174, 106), "raichu": (174, 33),
+    "pichu": (136, 162), "classic": (174, 106), "raichu": (174, 33),
     "alolan-raichu": (155, 185), "gigantamax": (138, 22),
     "mega-raichu-x": (179, 81), "mega-raichu-y": (174, 25),
     "concept-white-belly": (150, 117), "concept-long-tail": (174, 70),
@@ -189,7 +190,7 @@ class Ink:
 def pose_transform(form_id, row, frame):
     phase = frame * math.tau / COLS
     baby = form_id == "pichu"
-    scale = .86 * (.79 if baby else (.94 if form_id == "concept-long-tail" else 1))
+    scale = .86 * (.84 if baby else (.94 if form_id == "concept-long-tail" else 1))
     amplitude, harmonic, *_ = MOTION[form_id]
     rhythm = math.sin(phase) + harmonic*math.sin(2*phase)
     bob = rhythm * (amplitude if row in (0, 6, 8) else 2)
@@ -222,8 +223,9 @@ def tail(ink, form_id, fur, phase, row):
     p = Ink(ink.image, tail_transform)
     light, shade = fur[2], fur[1]
     if form_id == "pichu":
-        p.path([("M",102,160),("L",124,150),("L",121,160),("L",137,163),
-                ("L",128,174),("L",113,167),("L",102,172),("Z",)], DARK)
+        p.path([("M", 96, 160), ("L", 118, 150), ("L", 114, 160), ("L", 136, 162),
+                ("L", 126, 174), ("L", 110, 167), ("L", 96, 173), ("Z",)], DARK, OUTLINE, 1.8)
+        p.path([("M", 116, 153), ("L", 128, 162), ("L", 122, 169)], None, "#4a3528", 1.2)
     elif form_id in ("classic", "concept-white-belly", "concept-long-tail", "gigantamax"):
         if form_id == "gigantamax":
             points = [(111,166),(145,150),(137,119),(159,120),(149,91),(174,90),
@@ -295,11 +297,32 @@ def ears(ink, form_id, fur, phase, row):
             return ink.transform(85+side*(x-85), y + fold*max(0, (72-y)/50))
         p = Ink(ink.image, transform)
         if form_id == "pichu":
-            p.path([("M",101,83),("Q",102,63,116,36),("Q",130,39,143,43),
-                    ("Q",141,66,112,91),("Z",)],DARK)
-            p.path([("M",109,77),("Q",110,60,120,47),("L",133,50),
-                    ("Q",129,66,116,78),("Z",)],fur[2],None)
-            p.path([("M",116,68),("Q",119,58,124,53)],None,fur[3],2)
+            ear_full = [
+                ("M", 97, 78),
+                ("Q", 106, 58, 122, 36),
+                ("L", 146, 12),
+                ("L", 172, 22),
+                ("L", 166, 56),
+                ("Q", 140, 75, 114, 87),
+                ("Z",)
+            ]
+            p.path(ear_full, fur[2], OUTLINE, 2.0)
+            p.path([("M", 104, 76),
+                    ("Q", 112, 58, 122, 42),
+                    ("L", 136, 54),
+                    ("Q", 134, 70, 114, 82),
+                    ("Z",)], fur[1], None)
+            ear_black_tip = [
+                ("M", 119, 40),
+                ("L", 146, 12),
+                ("L", 172, 22),
+                ("L", 166, 56),
+                ("L", 138, 59),
+                ("L", 128, 48),
+                ("Z",)
+            ]
+            p.path(ear_black_tip, DARK, OUTLINE, 2.0)
+            p.path([("M", 145, 16), ("L", 168, 24), ("L", 163, 50)], None, "#503b2c", 1.4)
         elif form_id == "raichu":
             p.path([("M",104,85),("C",112,67,113,42,139,28),
                     ("C",128,44,136,48,139,55),("C",147,71,124,80,121,66),
@@ -353,10 +376,10 @@ def body(ink, form_id, fur, phase, row):
     gmax = form_id == "gigantamax"
     athletic = form_id in ("raichu", "mega-raichu-y")
     shaggy = form_id == "gorochu"
-    width = 47 if gmax else (22 if baby else (28 if athletic else 34))
+    width = 47 if gmax else (25 if baby else (28 if athletic else 34))
     if form_id == "concept-white-belly":
         width = 38
-    top, bottom = (103,184) if gmax else ((119,176) if baby else (108,177))
+    top, bottom = (103,184) if gmax else ((118,178) if baby else (108,177))
     if shaggy:
         outline = [("M",66,111),("L",54,116),("L",58,123),("L",45,133),
                    ("L",54,134),("L",48,147),("L",56,144),("C",48,166,59,180,84,181),
@@ -391,9 +414,9 @@ def body(ink, form_id, fur, phase, row):
             ink.path([("M",99,141),("C",109,164,99,171,80,174),
                       ("C",101,181,113,166,99,141),("Z",)],"#e8d4b5",None)
     if baby:
-        ink.path([("M",61,121),("Q",83,130,108,121),("L",104,135),
-                  ("L",95,131),("L",89,139),("L",80,132),("L",73,137),
-                  ("L",69,130),("L",63,132),("Z",)],DARK)
+        ink.path([("M", 60, 121), ("Q", 85, 131, 110, 121), ("L", 105, 137),
+                  ("L", 96, 132), ("L", 90, 142), ("L", 80, 133), ("L", 72, 139),
+                  ("L", 68, 131), ("L", 62, 133), ("Z",)], DARK, OUTLINE, 1.6)
     if form_id == "mega-raichu-x":
         ink.path([("M",77,121),("Q",85,116,93,124),("L",91,139),
                   ("L",78,136),("Z",)],"#a56c3d",None)
@@ -412,16 +435,21 @@ def body(ink, form_id, fur, phase, row):
 def head(ink, form_id, fur, cheek, phase, row, frame):
     gmax = form_id == "gigantamax"
     baby = form_id == "pichu"
-    head_w = 36 if baby else (39 if gmax else 34)
+    head_w = 38 if baby else (39 if gmax else 34)
     center_y = 96 if not gmax else 94
     # Smooth complete dome with fuller cheek lobes and a short, rounded muzzle.
-    ink.path([("M",85,68),("C",106,65,85+head_w,79,85+head_w,99),
-              ("C",85+head_w+4,119,103,129,85,128),
-              ("C",63,131,47,120,49,104),("C",48,81,62,68,85,68),("Z",)],fur[2])
-    ink.path([("M",109,80),("C",123,100,116,119,96,124),
-              ("Q",74,132,58,119),("C",77,139,129,131,119,98),
-              ("Q",117,87,109,80),("Z",)],fur[1],None)
-    ink.path([("M",59,89),("C",62,76,79,70,90,73)],None,fur[3],3)
+    ink.path([("M",85,66 if baby else 68),("C",108 if baby else 106,63 if baby else 65,85+head_w,77 if baby else 79,85+head_w,98 if baby else 99),
+              ("C",85+head_w+3 if baby else 85+head_w+4,118 if baby else 119,104 if baby else 103,129,85,128),
+              ("C",64 if baby else 63,131,46 if baby else 47,118 if baby else 120,48 if baby else 49,103 if baby else 104),("C",47 if baby else 48,80 if baby else 81,62,66 if baby else 68,85,66 if baby else 68),("Z",)],fur[2])
+    if baby:
+        ink.path([("M", 108, 84), ("C", 120, 100, 115, 116, 96, 122),
+                  ("Q", 80, 128, 64, 120), ("C", 78, 132, 118, 128, 116, 98),
+                  ("Q", 114, 88, 108, 84), ("Z",)], fur[1], None)
+    else:
+        ink.path([("M",109,80),("C",123,100,116,119,96,124),
+                  ("Q",74,132,58,119),("C",77,139,129,131,119,98),
+                  ("Q",117,87,109,80),("Z",)],fur[1],None)
+        ink.path([("M",59,89),("C",62,76,79,70,90,73)],None,fur[3],3)
     if form_id == "gorochu":
         for side in (-1,1):
             def tr(x,y,side=side):
@@ -430,39 +458,63 @@ def head(ink, form_id, fur, cheek, phase, row, frame):
             p.path([("M",111,98),("L",125,96),("L",121,105),("L",131,108),
                     ("L",120,113),("L",124,119),("L",111,119),("Z",)],fur[2])
     # Oval cheek pads sit entirely on the face, never on body/back stripes.
-    for x in (57,112):
-        ink.ellipse(x,110,7.5 if not baby else 8,6.8,cheek[1],None)
-        ink.ellipse(x-1.7,107.8,3.2,1.6,cheek[3],None)
+    if baby:
+        for x in (56, 113):
+            ink.ellipse(x, 110, 9.2, 8.2, cheek[2], None)
+            ink.ellipse(x, 110, 7.0, 6.0, cheek[1], None)
+            ink.ellipse(x, 110, 4.0, 3.4, cheek[0], None)
+    else:
+        for x in (57,112):
+            ink.ellipse(x,110,7.5,6.8,cheek[1],None)
+            ink.ellipse(x-1.7,107.8,3.2,1.6,cheek[3],None)
     sleeping = row == 5
     blink = row in (0,6,7,8) and frame == 6
-    for x in (69,100):
+    for x in ((68, 101) if baby else (69, 100)):
         if sleeping or blink:
-            ink.path([("M",x-5,98),("Q",x,103,x+5,98)],None,DARK,2.2)
+            ink.path([("M",x-6,97 if baby else 98),("Q",x,103.5 if baby else 103,x+6,97 if baby else 98)],None,DARK,2.4 if baby else 2.2)
+            if baby:
+                ink.path([("M", x + 4, 98), ("L", x + 7, 95)], None, DARK, 1.4)
         elif row == 4:
-            ink.path([("M",x-5,99),("Q",x,89,x+5,99)],None,DARK,2.3)
+            ink.path([("M",x-6,99),("Q",x,89,x+6,99)],None,DARK,2.4 if baby else 2.3)
         else:
-            ink.ellipse(x,96,5.3 if not baby else 6,7.2,DARK,None)
-            iris = FORMS[form_id].get('eyes')
-            if iris:
-                ink.ellipse(x,98.4,3.5,3.6,iris[1],None)
-                ink.ellipse(x,96.3,2.0,4.2,DARK,None)
+            if baby:
+                ink.ellipse(x, 96, 6.6, 8.0, DARK, OUTLINE, 1.5)
+                iris = FORMS[form_id].get('eyes')
+                iris_col = iris[1] if iris else "#5c2a16"
+                glow_col = iris[2] if iris else "#df802c"
+                ink.ellipse(x, 98.2, 5.0, 5.2, iris_col, None)
+                ink.ellipse(x, 99.8, 4.2, 3.2, glow_col, None)
+                ink.ellipse(x, 96.5, 2.8, 4.0, DARK, None)
+                ink.ellipse(x - 2.0, 93.4, 2.4, 2.8, "#fffdfa", None)
+                ink.ellipse(x + 2.2, 98.4, 1.1, 1.1, "#fffdfa", None)
             else:
-                ink.ellipse(x,99.3,3.3,2.7,"#815442",None)
-            ink.ellipse(x-1.5,93.4,1.9,2.3,"#fffdf5",None)
-            ink.ellipse(x+2,98, .8,.8,"#fffdf5",None)
-    ink.path([("M",82,106),("Q",85,104,88,106),("Q",85,109,82,106),("Z",)],DARK,None)
+                ink.ellipse(x,96,5.3,7.2,DARK,None)
+                iris = FORMS[form_id].get('eyes')
+                if iris:
+                    ink.ellipse(x,98.4,3.5,3.6,iris[1],None)
+                    ink.ellipse(x,96.3,2.0,4.2,DARK,None)
+                else:
+                    ink.ellipse(x,99.3,3.3,2.7,"#815442",None)
+                ink.ellipse(x-1.5,93.4,1.9,2.3,"#fffdf5",None)
+                ink.ellipse(x+2,98, .8,.8,"#fffdf5",None)
+    ink.ellipse(85, 106.5 if baby else 106, 1.2 if baby else 1.5, 0.9 if baby else 1.2, DARK, None)
     if row == 4 or row == 3:
-        ink.path([("M",77,113),("Q",85,116,93,112),("Q",90,126,83,123),
-                  ("Q",78,122,77,113),("Z",)],"#703d36",DARK,1.2)
-        ink.path([("M",81,120),("Q",86,116,90,119),("Q",87,126,81,120),("Z",)],"#ee9391",None)
+        ink.path([("M",78,112),("Q",85,115,92,112),("Q",89,123,85,121),
+                  ("Q",81,123,78,112),("Z",)],"#703d36",DARK,1.2)
+        ink.path([("M",81,118),("Q",85,115,89,118),("Q",86,122,81,118),("Z",)],"#ee9391",None)
     else:
-        ink.path([("M",77,113),("Q",80,117,85,113),("Q",90,117,94,112)],None,DARK,1.4)
+        if baby:
+            ink.path([("M", 78, 112.5), ("Q", 81.5, 116.0, 85, 113.0),
+                      ("Q", 88.5, 116.0, 92, 112.5)], None, DARK, 1.5)
+        else:
+            ink.path([("M",77,113),("Q",80,117,85,113),("Q",90,117,94,112)],None,DARK,1.4)
     if form_id == "gorochu" and not sleeping:
         for x in (79,91):
             ink.path([("M",x-2,114),("L",x,120),("L",x+2,114),("Z",)],"#fff4dc",None)
 
 
 def arms(ink, form_id, fur, phase, row):
+    baby = form_id == "pichu"
     color = "#6b4537" if form_id in ("raichu","mega-raichu-x","gorochu") else fur[2]
     for side in (-1,1):
         def tr(x,y,side=side):
@@ -470,10 +522,11 @@ def arms(ink, form_id, fur, phase, row):
         p=Ink(ink.image,tr)
         if row == 4 or (row == 3 and side == 1):
             wave=math.sin(phase)*5
-            p.path([("M",108,127),("C",123,122,126,109+wave,131,107+wave),
-                    ("C",140,105+wave,140,115+wave,133,122+wave),
-                    ("Q",126,139,112,143),("Z",)],fur[2])
-            p.ellipse(132,114+wave,6,7,color,None)
+            p.path([("M",108 if not baby else 102,127 if not baby else 126),
+                    ("C",123,122,126,109+wave,131 if not baby else 124,107+wave if not baby else 106+wave),
+                    ("C",140,105+wave,140,115+wave,133 if not baby else 126,122+wave if not baby else 120+wave),
+                    ("Q",126,139,112 if not baby else 105,143 if not baby else 140),("Z",)],fur[2],OUTLINE,1.8 if baby else None)
+            p.ellipse(132 if not baby else 125,114+wave if not baby else 112+wave,6 if not baby else 5,7 if not baby else 5.5,color,None)
             p.path([("M",133,110+wave),("L",135,111+wave)],None,fur[3],1.3)
         elif row in (7,8):
             reach=math.sin(phase)*2 if row==7 else 0
@@ -484,11 +537,18 @@ def arms(ink, form_id, fur, phase, row):
             p.path([("M",108,132),("Q",119,146,107,158),
                     ("Q",96,160,96,152),("Q",103,146,102,136),("Z",)],fur[2])
         else:
-            stride=math.cos(phase)*6*side if row in (1,2) else math.sin(phase)*1.3
-            p.path([("M",108,128),("C",121,134,119,144+stride,109,152+stride),
-                    ("Q",101,157+stride,100,150+stride),("Q",104,138,101,133),("Z",)],fur[2])
-            p.ellipse(107,149+stride,5,5.7,color,None)
-            p.path([("M",107,145+stride),("Q",111,142+stride,112,137)],None,fur[3],1.4)
+            if baby:
+                p.path([("M", 100, 127),
+                        ("C", 112, 132, 110, 148, 99, 150),
+                        ("C", 91, 151, 88, 140, 96, 131),
+                        ("Z",)], fur[2], OUTLINE, 1.8)
+                p.path([("M", 96, 138), ("Q", 103, 146, 97, 149)], None, fur[1], 1.2)
+            else:
+                stride=math.cos(phase)*6*side if row in (1,2) else math.sin(phase)*1.3
+                p.path([("M",108,128),("C",121,134,119,144+stride,109,152+stride),
+                        ("Q",101,157+stride,100,150+stride),("Q",104,138,101,133),("Z",)],fur[2])
+                p.ellipse(107,149+stride,5,5.7,color,None)
+                p.path([("M",107,145+stride),("Q",111,142+stride,112,137)],None,fur[3],1.4)
 
 
 def props(ink, row, phase):
