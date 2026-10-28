@@ -12,48 +12,48 @@
     "base": {
       "hairShape": "base",
       "hair": [
-        "#06060a",
-        "#121219",
-        "#23232c",
-        "#3a3f55"
+        "#0a0a10",
+        "#161620",
+        "#282a38",
+        "#464b5f"
       ],
       "iris": [
-        "#0b0b0b",
-        "#1c1c22"
+        "#0a0a0f",
+        "#141923"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "98d646a93ecfd341",
-      "opaquePixels": 876412
+      "alphaHash": "c5a58062c0b89ab5",
+      "opaquePixels": 813964
     },
     "kaioken": {
       "hairShape": "base",
       "hair": [
-        "#06060a",
-        "#121219",
-        "#23232c",
-        "#3a3f55"
+        "#1c0a0e",
+        "#341016",
+        "#581923",
+        "#872a37"
       ],
       "iris": [
-        "#0b0b0b",
-        "#1c1c22"
+        "#0f0508",
+        "#230c12"
       ],
-      "skinTint": "#ff4a3d",
+      "skinTint": "#ff5f5f",
       "browsVisible": true,
-      "alphaHash": "98d646a93ecfd341",
-      "opaquePixels": 876412
+      "alphaHash": "c5a58062c0b89ab5",
+      "opaquePixels": 813964
     },
     "ss1": {
       "hairShape": "ssj",
       "hair": [
-        "#a8700c",
-        "#c9951c",
-        "#fde05a",
-        "#fff3a6"
+        "#784600",
+        "#b97d0a",
+        "#f5c31e",
+        "#fff078"
       ],
       "iris": [
-        "#1f8c7c",
-        "#2fae9c"
+        "#146e5f",
+        "#28b49b"
       ],
       "skinTint": null,
       "browsVisible": true,
@@ -63,65 +63,65 @@
     "ss2": {
       "hairShape": "ssj2",
       "hair": [
-        "#b07a06",
-        "#d19a12",
-        "#ffe14d",
-        "#fff6b8"
+        "#824b00",
+        "#c8870c",
+        "#ffd223",
+        "#fff88c"
       ],
       "iris": [
-        "#1f8c7c",
-        "#2fae9c"
+        "#146e5f",
+        "#28b49b"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "d13c1c97739160ab",
-      "opaquePixels": 942865
+      "alphaHash": "b69714bf4d5e8146",
+      "opaquePixels": 909686
     },
     "ss3": {
       "hairShape": "ssj3",
       "hair": [
-        "#964802",
-        "#cf7808",
-        "#ffd214",
-        "#fff6a0"
+        "#8c4200",
+        "#c87604",
+        "#ffc408",
+        "#ffea70"
       ],
       "iris": [
         "#0c6355",
-        "#10b981"
+        "#14af87"
       ],
       "skinTint": null,
       "browsVisible": false,
-      "alphaHash": "5c71f0524acb246e",
-      "opaquePixels": 1410718
+      "alphaHash": "4fecc4bc5fe58a7b",
+      "opaquePixels": 1225728
     },
     "god": {
       "hairShape": "lifted",
       "hair": [
-        "#5e0820",
-        "#8c0f2e",
-        "#d4204a",
-        "#ff6b85"
+        "#500a19",
+        "#8c142d",
+        "#d7234b",
+        "#ff6987"
       ],
       "iris": [
-        "#a3122b",
-        "#e0304a"
+        "#a0122a",
+        "#e1304b"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "e140838d6b23df40",
-      "opaquePixels": 901492
+      "alphaHash": "b3fd93adb71beb6c",
+      "opaquePixels": 839715
     },
     "ssblue": {
       "hairShape": "ssj",
       "hair": [
-        "#0e5288",
-        "#1679b8",
+        "#0e4b7d",
+        "#1678b9",
         "#34c6f0",
         "#a8ecff"
       ],
       "iris": [
         "#0f5f9e",
-        "#1f8fd6"
+        "#2391d7"
       ],
       "skinTint": null,
       "browsVisible": true,
@@ -131,16 +131,16 @@
     "blue-kaioken": {
       "hairShape": "ssj",
       "hair": [
-        "#0e5288",
-        "#1679b8",
-        "#34c6f0",
-        "#a8ecff"
+        "#145087",
+        "#2382c3",
+        "#46cdf5",
+        "#c3f2ff"
       ],
       "iris": [
-        "#0f5f9e",
-        "#1f8fd6"
+        "#1469aa",
+        "#2da0e6"
       ],
-      "skinTint": "#ff6f7d",
+      "skinTint": "#ff7d91",
       "browsVisible": true,
       "alphaHash": "05c3cb6806d2ce13",
       "opaquePixels": 934597
@@ -148,36 +148,36 @@
     "ui-sign": {
       "hairShape": "base",
       "hair": [
-        "#06060a",
-        "#121219",
-        "#23232c",
-        "#3a3f55"
+        "#0c0c12",
+        "#1a1c26",
+        "#373c4e",
+        "#6e768c"
       ],
       "iris": [
-        "#7d8597",
-        "#c7ccd8"
+        "#737a8a",
+        "#b9c0d0"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "7e7a9fe1ed84ffea",
+      "opaquePixels": 813962
     },
     "mui": {
       "hairShape": "lifted",
       "hair": [
-        "#6d7588",
-        "#9aa3b5",
-        "#d9dde6",
+        "#646c7d",
+        "#949caf",
+        "#d2d7e2",
         "#ffffff"
       ],
       "iris": [
-        "#9aa3b5",
-        "#e6e9f0"
+        "#9198a8",
+        "#e1e6f0"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "5be350bbda17269c",
-      "opaquePixels": 901584
+      "alphaHash": "b3fd93adb71beb6c",
+      "opaquePixels": 839715
     }
   }
 }
