@@ -12,19 +12,20 @@
     "base": {
       "hairShape": "base",
       "hair": [
-        "#06060a",
-        "#121219",
-        "#23232c",
-        "#3a3f55"
+        "#1a1c22",
+        "#181a1e",
+        "#2a2e35",
+        "#3e3e44"
       ],
       "iris": [
-        "#0b0b0b",
-        "#1c1c22"
+        "#8b0000",
+        "#d43828",
+        "#ff5544"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "af4dbd149f869e74",
+      "opaquePixels": 1387368
     },
     "kaioken": {
       "hairShape": "base",
@@ -91,8 +92,8 @@
       ],
       "skinTint": null,
       "browsVisible": false,
-      "alphaHash": "56abfd632de1c46b",
-      "opaquePixels": 1280803
+      "alphaHash": "4180d38a64b5c2e6",
+      "opaquePixels": 1105009
     },
     "god": {
       "hairShape": "lifted",

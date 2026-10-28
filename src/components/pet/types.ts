@@ -548,10 +548,10 @@ export const INSTALLED_PETS: PetArchetype[] = [
     forms: [
       {
         id: "base",
-        name: "Goku (Base)",
+        name: "Goku (Great Ape Oozaru)",
         minLevel: 1,
-        hairDescription: "Tóc đen nhánh xoè sang hai bên, mắt đen",
-        auraDescription: "Không bùng khí khi nghỉ, chớp trắng nhẹ khi dồn lực",
+        hairDescription: "Bộ lông vượn đen xám đậm than, mõm khỉ xám, đuôi dài, mắt đỏ rực",
+        auraDescription: "Hào quang trăng tròn ánh xám bạc ôm lấy cơ thể khỉ đột khổng lồ",
         avatarUrl: "/pets/super-saiyan-goku/forms/base/avatar.png",
         spritesheetPath: "/pets/super-saiyan-goku/forms/base/spritesheet.webp",
       },

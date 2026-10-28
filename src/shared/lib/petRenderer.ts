@@ -323,16 +323,16 @@ export interface PetAura {
 // Ki aura per evolution form, keyed "<slug>/<formId>". Colours follow
 // docs/engineering/goku-form-sprite-redesign-research.md (3.3).
 export const FORM_AURAS: Record<string, PetAura> = {
-  "super-saiyan-goku/base": { inner: "#f4f7ff", intensity: 0.45 },
-  "super-saiyan-goku/kaioken": { inner: "#e0232b", intensity: 0.9 },
-  "super-saiyan-goku/ss1": { inner: "#ffd23f" },
-  "super-saiyan-goku/ss2": { inner: "#ffd23f", sparks: "#9fe8ff", intensity: 1.05 },
-  "super-saiyan-goku/ss3": { inner: "#ffc72c", sparks: "#9fe8ff", intensity: 1.2 },
-  "super-saiyan-goku/god": { inner: "#ff4d2e", outer: "#ffb347", intensity: 0.85 },
-  "super-saiyan-goku/ssblue": { inner: "#3ecbff" },
-  "super-saiyan-goku/blue-kaioken": { inner: "#3ecbff", outer: "#e0232b", intensity: 1.15 },
-  "super-saiyan-goku/ui-sign": { inner: "#e8f2ff", outer: "#5aa9ff", calm: true },
-  "super-saiyan-goku/mui": { inner: "#f4f7ff", outer: "#bcd6ff", calm: true },
+  "super-saiyan-goku/base": { inner: "#f1f5f9", outer: "#64748b", intensity: 1.15 },
+  "super-saiyan-goku/kaioken": { inner: "#ef4444", outer: "#b91c1c", intensity: 1.15 },
+  "super-saiyan-goku/ss1": { inner: "#fde047", outer: "#eab308", intensity: 0.95 },
+  "super-saiyan-goku/ss2": { inner: "#fef08a", outer: "#eab308", sparks: "#38bdf8", intensity: 1.15 },
+  "super-saiyan-goku/ss3": { inner: "#fef08a", outer: "#ca8a04", sparks: "#38bdf8", intensity: 1.35 },
+  "super-saiyan-goku/god": { inner: "#f97316", outer: "#dc2626", intensity: 1.05 },
+  "super-saiyan-goku/ssblue": { inner: "#38bdf8", outer: "#0284c7", intensity: 1.10 },
+  "super-saiyan-goku/blue-kaioken": { inner: "#38bdf8", outer: "#dc2626", sparks: "#f43f5e", intensity: 1.35 },
+  "super-saiyan-goku/ui-sign": { inner: "#e0f2fe", outer: "#3b82f6", calm: true, intensity: 0.9 },
+  "super-saiyan-goku/mui": { inner: "#ffffff", outer: "#93c5fd", sparks: "#e0e7ff", calm: true, intensity: 1.25 },
   // Pikachu canon and concept forms: electric yellow, psychic cyan/blue, Dynamax crimson/gold, champion sparks
   "pikachu/pichu": { inner: "#fef08a", outer: "#facc15", sparks: "#facc15", intensity: 0.65 },
   "pikachu/classic": { inner: "#fde047", outer: "#facc15", sparks: "#facc15", intensity: 0.85 },
