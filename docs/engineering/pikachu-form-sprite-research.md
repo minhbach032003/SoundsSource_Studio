@@ -1,105 +1,203 @@
-# Research: Authentic Pokémon Canon Evolution Forms for Pikachu
+# Art & Character Design Specification: The Ten Forms of the Pikachu Lineage
 
 ## 1. Overview & Objective
 
-Pikachu (No. 0025) is the global mascot of Pokémon and the steadfast partner of Ash Ketchum (Satoshi) across 25 years of anime history (1997–2023). In previous iterations of SoundsSource Studio, Pikachu's evolution forms incorrectly used attack moves (`spark`, `electro-ball`, `iron-tail`, `thunderbolt`) and non-canon concepts (`studio`, `overcharge` with "Raichu Aura") without distinct silhouettes (TINT-ONLY).
+Pikachu (No. 0025) is the global mascot of Pokémon. In previous iterations of SoundsSource Studio, Pikachu's evolution forms incorrectly used attack moves or generic flat geometric stamps that suffered from silhouette leakage (ghost ears/tails poking through).
 
-This document establishes the authentic Pokémon canon lore for Pikachu's 10 evolution forms, tracking the character's genuine chronological journey from wild baby Pichu in Kanto to the World Monarch Champion. Each form is categorized by visual traits, distinct silhouettes, canon color ramps, and runtime canvas auras.
-
----
-
-## 2. Chronological Canon Lore of Pikachu
-
-### 2.1. Childhood in Kanto as Pichu (The Kangaskhan Family)
-As revealed in the *Pokémon Journeys* premiere (*Enter Pikachu!*), Pikachu was originally a lonely wild **Pichu** wandering the forests of Kanto. Falling off a cliff, he was adopted by a maternal wild Kangaskhan and raised alongside the baby Kangaskhan in her pouch. Realizing his growing weight burdened the mother as her natural child grew, Pichu voluntarily left during the night. Overwhelmed by gratitude and deep emotional bond, Pichu achieved maximum Friendship (*Natsuki*) and evolved into Pikachu.
-
-### 2.2. Meeting Ash Ketchum as Chubby Gen 1 Pikachu (Chonkachu)
-In 1996–1997 (*Pokémon Red/Blue* and EP001 *Pokémon - I Choose You!*), Pikachu was designed by Atsuko Nishida and Ken Sugimori with a distinctly rotund, pear-shaped silhouette affectionately known by fans as **Chonkachu** or Classic Chubby Pikachu. Initially rebellious, suspicious, and refusing to enter a Pokéball, Pikachu bonded with 10-year-old Ash Ketchum when Ash shielded him with his own body from a flock of enraged Spearow, prompting Pikachu to unleash a titanic lightning bolt that cemented their lifelong partnership.
-
-### 2.3. The Vermilion Gym Battle: Refusing the Thunder Stone
-In EP014 (*Electric Shock Showdown*), Ash and Pikachu faced Vermilion City Gym Leader Lt. Surge and his brutal, towering **Raichu**. Crushed in their first match, Nurse Joy offered Ash a Thunder Stone to forcefully evolve Pikachu into Raichu to match Surge's raw power. Pikachu slapped the Thunder Stone away with his tail: he refused to compromise his identity or dignity to win, choosing instead to defeat Surge's Raichu through superior Agility and Quick Attack speed (which Lt. Surge's early-evolved Raichu lacked). This pivotal canon event established that Pikachu would never evolve via Thunder Stone.
-
-### 2.4. Journey Across Regions Wearing Ash's Iconic Caps
-Throughout their travels across the Pokémon world, Pikachu celebrated their milestones by donning Ash Ketchum's regional caps (officially introduced in *Pokémon Sun & Moon* and *Sword & Shield* as Cap Pikachu event distributions):
-- **Original Cap (Kanto / Johto)**: Ash's cherished white-and-red cap featuring the green Pokémon League Expo crest, won by mailing in a million postcards.
-- **Hoenn Cap (Advanced Generation)**: Ash's sleek black crown cap with red headband, visor, and emerald green Pokéball silhouette arc.
-- **Kalos Cap (XY / XYZ)**: Ash's aerodynamic vibrant red cap with white front panel and visor, worn during his master-class battles and runner-up finish in the Lumiose Conference.
-- **Alola Cap (Sun & Moon)**: Ash's navy blue and white cap with red visor, worn when Ash became the inaugural Champion of the Alola Pokémon League and mastered the legendary 10,000,000 Volt Thunderbolt Z-Move with Pikashunium Z.
-
-### 2.5. Species Evolutions: Kanto Raichu & Alolan Raichu
-In the Pokémon biological species canon:
-- **Kanto Raichu**: When exposed to a Thunder Stone, Pikachu evolves into the Electric mouse Raichu: warm orange fur, yellow electrical cheek sacs, white belly, and a long slender wire tail terminating in an oversized flat golden lightning bolt.
-- **Alolan Raichu (Electric/Psychic)**: In the tropical Alola region, Pikachu evolves into Alolan Raichu by feeding on fluffy sweet Alolan pancakes and basking in psychic aura. Alolan Raichu has rounded spiral ears, bright psychic blue eyes, golden caramel fur, and telekinetically floats through the air while surfing on its broad, rounded golden tail.
-
-### 2.6. Gigantamax Pikachu (Kyodaimax in Galar)
-Introduced in *Pokémon Sword & Shield*, certain rare Pokémon possess the Gigantamax Factor. When Ash's Pikachu dynamaxes in Galar power spots, he does not merely grow larger—he transforms into **Gigantamax Pikachu**:
-- A colossal return to the chubby Gen 1 silhouette, with an enormous belly and deep golden-red energy tones.
-- A towering, skyscraper-sized lightning tail extending high into the storm sky, crackling with pure electric plasma.
-- Three swirling red Dynamax clouds orbiting his shoulders.
-- **Crucial Canon Lore**: Under official Pokémon game rules, any Pikachu possessing the Gigantamax Factor is physically incapable of evolving into Raichu. This canon mechanic provides the perfect in-universe lore for why Pikachu remains in his Pikachu form forever.
-
-### 2.7. World Champion Cap Pikachu (Journeys: The Monarch)
-In the climax of *Pokémon Journeys* at the Masters Eight Tournament in Wyndon Stadium, Ash Ketchum faced undefeated World Monarch Leon and his Gigantamax Charizard. Wearing his official World Champion Cap, Pikachu unlocked his ultimate power: the **10,000,000 Volt Thunderbolt**, clashing against Charizard's G-Max Wildfire and winning the battle. Ash and Pikachu were crowned the **World Monarchs**—the strongest Pokémon trainer and partner in the world.
+This specification establishes the authentic lore, classification, and procedural authoring for all **10 forms** illustrated in `reference/requested-forms.png`:
+- **7 Official Canon Forms**: Pichu, Classic Pikachu, Kantonian Raichu, Alolan Raichu, Gigantamax Pikachu, Mega Raichu X, and Mega Raichu Y.
+- **3 Historical Prototype / Unused Concepts**: White-Belly Pikachu (1996 Sugimori/Nishida beta), Long-Tail Pikachu (Nishida Stage 3 prototype), and Gorochu (Nishida/Sugimori scrapped 2nd evolution).
 
 ---
 
-## 3. The 10 Canon Forms Specification
+## 2. Canon Classification & Verified Primary Sources
 
-| Level | Form ID | Canon Form Name | Vietnamese Subtitle | Silhouette / Shape Group | Key Color Ramps | Runtime Aura & Canvas FX |
-|---|---|---|---|---|---|---|
-| **1** | `pichu` | Pichu Spark | Cấp sơ sinh | Diamond ears, neck bib, tiny tail (`pichu`) | Fur: `#fdf192`, Cheeks: `#f78398` | Gentle electric baby sparks (`#fef08a`) |
-| **3** | `classic` | Pikachu Classic 1996 | Chonkachu Hoài Niệm | Retro chubby Gen 1 pear body, back stripes (`classic`) | Fur: `#f9e066`, Cheeks: `#f74a4a`, Stripes: `#78350f` | Warm retro golden glow (`#fde047`) |
-| **5** | `original-cap` | Original Cap Pikachu | Mũ Kanto / Johto Expo | Ash's Kanto Cap with green Expo crest (`cap`) | Fur: `#ffd700`, Cap: Red/White/Green | Electric yellow aura (`#facc15`), green spark (`#4ade80`) |
-| **8** | `hoenn-cap` | Hoenn Cap Pikachu | Mũ Hoenn (AG) | Ash's AG Cap (black crown, green arc) (`cap`) | Fur: `#ffd700`, Cap: Black/Red/Green | Electric yellow aura (`#facc15`), emerald spark (`#22c55e`) |
-| **12** | `kalos-cap` | Kalos Cap Pikachu | Mũ Kalos (XY) | Ash's XY Cap (red crown, white front) (`cap`) | Fur: `#ffd700`, Cap: Red/White | High-voltage yellow aura (`#facc15`), blue spark (`#60a5fa`) |
-| **15** | `alola-cap` | Alola Cap Pikachu | Mũ Alola (Vô Địch Đảo) | Ash's SM Cap (navy/white/red emblem) (`cap`) | Fur: `#ffd700`, Cap: Navy/Red | Z-Move oceanic cyan aura (`#38bdf8`) + gold (`#fde047`) |
-| **20** | `raichu` | Raichu Kanto | Tiến Hoá Đá Lôi | Curled spiral ears, thin wire tail + bolt, white belly (`raichu`) | Fur: `#f58e1e`, Cheeks: `#ffcc00`, Belly: `#fff7ed` | Thunder Stone amber-orange surge (`#f59e0b` / `#ea580c`) |
-| **25** | `alolan-raichu` | Alolan Raichu | Lướt Sóng Siêu Linh | Rounded ears, psychic blue eyes, surfboard tail (`alolan-raichu`) | Fur: `#f5a742`, Cheeks: `#fde047`, Eyes: `#2563eb` | Psychic cyan/indigo levitation glow (`#38bdf8` / `#818cf8`) |
-| **30** | `gigantamax` | Gigantamax Pikachu | Thần Sấm Khổng Lồ | Colossal fat body, towering skyward tail, red Dynamax clouds (`gigantamax`) | Fur: `#f7a523`, Cheeks: `#ff3d3d`, Clouds: `#ef4444` | Dynamax crimson/gold storm aura (`#ef4444` / `#f59e0b`) |
-| **35** | `ash-cap` | World Champion Cap Pikachu | Quán Quân Thế Giới | Ash's World Champion Cap with victory emblem (`cap`) | Fur: `#ffd700`, Cap: Blue/White/Gold | World Monarch gold prestige radiance & champion sparks (`#fde047` / `#60a5fa`) |
+| Index | Form ID | Canonical Name | Classification | Primary Authority / Source |
+|---|---|---|---|---|
+| 1 | `pichu` | Pichu | Official Canon | Gen 2 baby mouse (*Gold/Silver*). Friend-evolves into Pikachu. |
+| 2 | `classic` | Pikachu Classic 1996 | Official Canon | Gen 1 mascot (*Red/Green*). Original Ken Sugimori watercolor pear body. |
+| 3 | `raichu` | Kantonian Raichu | Official Canon | Gen 1 evolution (*Red/Green*). Lt. Surge Vermilion Gym canon battle. |
+| 4 | `alolan-raichu` | Alolan Raichu | Official Canon | Gen 7 Alola regional variant (*Sun/Moon*). Electric/Psychic pancake surfing. |
+| 5 | `gigantamax` | Gigantamax Pikachu | Official Canon | Gen 8 Galar Power Spot (*Sword/Shield*). Colossal Chonkachu mass & skyward tail. |
+| 6 | `mega-raichu-x` | Mega Raichu X | Official Canon | *Pokémon Legends: Z-A – Mega Dimension* DLC / Anime *HZ138*. Raichunite X. |
+| 7 | `mega-raichu-y` | Mega Raichu Y | Official Canon | *Pokémon Legends: Z-A – Mega Dimension* DLC / Anime *HZ138*. Raichunite Y. |
+| 8 | `concept-white-belly` | White-Belly Pikachu | Beta Prototype | Atsuko Nishida 1996 early design / Gen 1 watercolor illustration. |
+| 9 | `concept-long-tail` | Long-Tail Pikachu | Beta Prototype | Atsuko Nishida Stage 3 prototype with 5-segment trailing tail (*Yomiuri 2018*). |
+| 10 | `gorochu` | Gorochu Horned Raichu | Scrapped Concept | Nishida & Sugimori scrapped final evolution (*TCRF 175* / *Yomiuri 2018*). |
 
----
-
-## 4. Distinct Shape Groups
-
-In adherence to the `pet-form-sprites` skill and project standards, forms are strictly grouped by physical silhouette geometry rather than simple color tints:
-
-1. **Shape Group 1 (`pichu`)**:
-   - Oversized diamond-shaped rhombus ears with thick black perimeter.
-   - Black jagged triangular collar bib beneath the chin.
-   - Removal of Pikachu's large lightning tail in favor of a cute, diminutive black spiky tail.
-2. **Shape Group 2 (`classic`)**:
-   - Bilateral horizontal torso expansion recreating the iconic pear-shaped belly of Gen 1 Chonkachu.
-   - Dual dark brown horizontal dorsal stripes across the back.
-3. **Shape Group 3 (`cap`)** — *Applied to original-cap, hoenn-cap, kalos-cap, alola-cap, ash-cap*:
-   - Fitted cap seated naturally between the ears across all 9 animation rows with forehead occlusion shadowing.
-   - Distinctive crown geometry, visor profile, and regional crest insignias.
-4. **Shape Group 4 (`raichu`)**:
-   - Large curled spiral ears with amber-brown outer rim and yellow interior.
-   - Slender wire tail extending outward with oversized flat golden lightning bolt terminal.
-   - Cream-colored ventral belly patch.
-5. **Shape Group 5 (`alolan-raichu`)**:
-   - Soft rounded circular droplet ears.
-   - Vibrant psychic blue irises replacing dark pupils.
-   - Broad rounded golden surfboard tail composited behind and beneath the feet.
-6. **Shape Group 6 (`gigantamax`)**:
-   - Massive bilateral and vertical torso expansion (colossal Chonkachu scale).
-   - Towering colossal lightning tail extending skyward towards the upper cell boundary.
-   - Trio of swirling crimson Dynamax clouds hovering around shoulders and head.
+*Note on Mega Raichu X & Y*: Official canon introduced in *Pokémon Legends: Z-A – Mega Dimension* DLC and animated in *Pokémon Horizons (HZ138)*.
 
 ---
 
-## 5. Color Palette & Mask Engineering
+## 3. Character Design Specifications for All 10 Forms
 
-- **Standard Yellow Body**: `#b37a08` → `#e6a312` → `#ffd700` → `#fff28f`
-- **Pichu Baby Fur**: `#cfae25` → `#ecd757` → `#fdf192` → `#fffde0`
-- **Classic Pastel Fur**: `#b88e1a` → `#dfb83b` → `#f9e066` → `#fff4b3`
-- **Raichu Amber Fur**: `#964802` → `#cf6d0a` → `#f58e1e` → `#ffd18c`
-- **Alolan Raichu Caramel Fur**: `#9a520e` → `#d47b19` → `#f5a742` → `#ffe0a3`
-- **Gigantamax Dynamax Fur**: `#a65805` → `#d67c0f` → `#f7a523` → `#ffdb8a`
-- **Pichu Baby Pink Cheeks**: `#b52a46` → `#db4d68` → `#f78398` → `#ffccd5`
-- **Pikachu Crimson Cheeks**: `#b51515` → `#db2424` → `#f74a4a` → `#ff9494`
-- **Raichu Canon Yellow Cheeks**: `#d49700` → `#ffcc00` → `#ffe600` → `#fff380`
-- **Alolan Raichu Psychic Blue Eyes**: `#1d4ed8` → `#2563eb` → `#38bdf8` → `#bae6fd`
+### Form 01: Pichu (`pichu`)
+- **Silhouette**: Diminutive baby rodent with large 1.2:1 head proportion. Slender short limbs.
+- **Anatomy**:
+  - *Ears*: Broad triangular diamond ears with thick continuous black borders (`#1c1917`) and butter-yellow interior (`#fdf192`). Cleanly erases Pikachu's upright ear tips.
+  - *Face*: Soft pink cheek pouches (`#f78398`), expressive large circular eyes.
+  - *Neck*: Jagged black 3-point zig-zag collar band encircling the neck.
+  - *Tail*: Short miniature spiky black tail wedge.
+- **Palette**: Fur `#fffde0` / `#fdf192` / `#ecd757`; Cheeks `#f78398`; Collar/Ear Edges `#1c1917`.
+- **Electric Envelope**: Mild intermittent electrostatic micro-sparks jumping between ear tips and cheeks.
 
-Generated via `scripts/build-pikachu-forms.py` with lossy WebP (`quality=92, alpha_quality=100, method=6`) and validated via `tests/pet-forms.test.mjs`.
+### Form 02: Classic Pikachu (`classic`)
+- **Silhouette**: Grounded pear-shaped bipedal mouse with 1:1 head-to-body proportion (Chonkachu).
+- **Anatomy**:
+  - *Ears*: Upright oval-tapered ears with diagonal black tips.
+  - *Face*: Vermilion red cheek circles (`#ef4444`), warm dark eyes.
+  - *Belly/Back*: Bilateral pear body expansion; two horizontal dark umber dorsal stripes (`#78350f`) across upper back.
+  - *Tail*: Classic segmented lightning-bolt tail with warm brown fur block at root.
+- **Palette**: Fur `#ffd700` / `#f9e066` / `#dfb83b`; Cheeks `#ef4444`; Back Stripes `#78350f`.
+- **Electric Envelope**: Crisp branching yellow-white discharge radiating across shoulders and tail.
+
+### Form 03: Kantonian Raichu (`raichu`)
+- **Silhouette**: Dynamic athletic kangaroo-mouse build with curved back posture and elongated hind feet.
+- **Anatomy**:
+  - *Ears*: Curled outer ear flaps with signature spiral interior horn-scrolls in bright lemon-gold (`#ffcc00`) and rich amber borders (`#9a3412`). Cleanly erases Pikachu ears.
+  - *Face*: Circular bright yellow cheek sacs (`#ffcc00` / `#facc15`).
+  - *Belly*: Broad creamy ivory-white oval patch (`#fffbeb`) covering chest and belly, shaded with 3D luminance volume.
+  - *Tail*: Cleanly erases Pikachu tail; long whip-thin black wire tail emerging from spine and terminating in a broad flat golden lightning-bolt blade (`#eab308`).
+- **Palette**: Fur `#f58e1e` / `#cf6d0a` / `#964802`; Belly `#fffbeb` / `#fef3c7`; Cheeks `#ffcc00`; Tail Blade `#eab308`.
+- **Electric Envelope**: Amber/gold lightning crackling along whip tail and surging through the blade.
+
+### Form 04: Alolan Raichu (`alolan-raichu`)
+- **Silhouette**: Buoyant, floating psychic pose levitating above its curved surfboard tail.
+- **Anatomy**:
+  - *Ears*: Broad, soft, rounded ear fans with gentle inner gold curls. Cleanly erases Pikachu ears.
+  - *Face*: Pale yellow cheek pads (`#fde047`); bright sapphire/azure psychic eyes (`#2563eb` / `#38bdf8`).
+  - *Belly*: Round marshmallow-cream belly patch (`#fffbeb`).
+  - *Tail*: Broad golden lightning surfboard beneath feet with cyan psychic levitation shimmer (`#38bdf8`) and spiral cord base.
+- **Palette**: Fur `#f5a742` / `#d47b19` (caramel); Eyes `#38bdf8` / `#2563eb`; Belly `#fefce8`; Surfboard `#fbbf24`.
+- **Electric Envelope**: Dual-element envelope: cyan psychic shimmer beneath board with yellow electric arcs.
+
+### Form 05: Gigantamax Pikachu (`gigantamax`)
+- **Silhouette**: Monumental retro Gen 1 "Chonkachu" mass. Colossal rotund pear belly with multi-tone shading.
+- **Anatomy**:
+  - *Ears*: Upright swept ears with glowing incandescent gold tips (`#fef08a`).
+  - *Face*: Vivid crimson cheek sacs (`#ff3d3d`) with luminous core.
+  - *Belly*: Enormous spherical golden belly with soft cream highlight center.
+  - *Tail*: Skyward-towering colossal lightning spine reaching toward top boundary with bright yellow fill and red outline.
+  - *Clouds*: Three swirling crimson Dynamax clouds (`#dc2626` / `#991b1b` with `#fca5a5` wisps) around shoulders.
+- **Palette**: Fur `#f7a523` / `#d67c0f`; Cheeks `#ff3d3d`; Clouds `#dc2626`.
+- **Electric Envelope**: Atmospheric storm wrapping around Dynamax clouds and surging up the colossal tail.
+
+### Form 06: Mega Raichu X (`mega-raichu-x`)
+- **Silhouette**: Muscular bipedal combat build forming an **"X" silhouette** with reinforced stance.
+- **Anatomy**:
+  - *Ears*: Swept-back aerodynamic ears with solid black bases, golden tips, and antenna coils at roots.
+  - *Face*: Bright crimson red cheeks (`#ef4444`), fierce glowing crimson eyes (`#dc2626`).
+  - *Belly*: Defined circular white abdomen shield patch (`#ffffff`).
+  - *Tail*: **Dual Lightning Tails**: Splits into two massive thunder-blades forming an "X" profile.
+- **Palette**: Fur `#facc15` / `#eab308`; Ears `#18181b` / `#facc15`; Cheeks `#ef4444`; Eyes `#dc2626`.
+- **Electric Envelope**: High-voltage electromagnetic field bridging both tail blades into an "X" mesh.
+
+### Form 07: Mega Raichu Y (`mega-raichu-y`)
+- **Silhouette**: Sleek, hyper-fast aerodynamic build forming a **"Y" silhouette**.
+- **Anatomy**:
+  - *Ears & Horns*: Solid orange ears with black tips. Two prominent forward lightning-bolt fur horns jut forward from temples with spiral base curls (`#fde047`).
+  - *Face*: Canonical bright yellow cheek sacs (`#facc15`), luminous azure-blue eyes (`#0284c7`).
+  - *Belly*: Slim oval white chest plate.
+  - *Tail*: Extended lightning whip tail with oversized vertical blade vectoring upward to form the stem of the "Y".
+- **Palette**: Fur `#ea580c` / `#c2410c`; Horns `#fde047`; Cheeks `#facc15`; Eyes `#0284c7`; Belly `#fefce8`.
+- **Electric Envelope**: Razor-sharp lightning arcing directly between twin brow horns and the vertical tail blade.
+
+### Form 08: White-Belly Pikachu Concept (`concept-white-belly`)
+- **Silhouette**: 1996 Ken Sugimori watercolor proportions. Plump, rotund "daifuku" body shape with short stubby limbs.
+- **Anatomy**:
+  - *Ears*: Short wide-set ears with soft charcoal-gray tips (`#374151`).
+  - *Face*: Soft round rosy cheeks (`#f43f5e`), gentle dark eyes.
+  - *Belly*: **Distinct pure white belly patch** (`#ffffff` / `#fef9c3`) from lower throat to groin, shaded with underlying body volume.
+  - *Tail*: Broad stubby lightning tail with soft edge transitions.
+- **Palette**: Fur `#fef08a` / `#fde047`; Belly `#ffffff`; Cheeks `#f43f5e`; Ear tips `#374151`.
+- **Electric Envelope**: Soft golden-white ambient static ripples across belly margins.
+
+### Form 09: Long-Tail Pikachu Concept (`concept-long-tail`)
+- **Silhouette**: Agile forward-leaning running silhouette emphasizing speed.
+- **Anatomy**:
+  - *Ears*: Extra-long narrow swept-back ears.
+  - *Face*: High-set red cheek discs (`#dc2626`).
+  - *Tail*: **Elongated 5-Segment Tail**: Extends 1.5× body length with 5 distinct trailing zig-zag segments.
+- **Palette**: Fur `#facc15` / `#eab308`; Cheeks `#dc2626`; Tail `#facc15` with `#78350f` root stripe.
+- **Electric Envelope**: Trailing high-velocity electric wake tracking along extended tail bends.
+
+### Form 10: Gorochu Concept (`gorochu`)
+- **Silhouette**: Feral predatory final stage. Heavily muscled bipedal beast with broad shoulders and aggressive stance.
+- **Anatomy**:
+  - *Horns & Ears*: **Pair of sharp brow horns** (`#fef08a` / `#78350f`) curving backward above small spiky ear tufts.
+  - *Face*: Menacing feral grin with upper and lower sharp canine fangs; slitted amber-red eyes (`#b91c1c`).
+  - *Body & Fur*: Pale apricot underbelly (`#fed7aa`); shaggy spiky fur tufts along nape and shoulders.
+  - *Tail*: Muscular sinuous tail terminating in a massive spiked thunder-mace / mace-blade.
+- **Palette**: Fur `#c2410c` / `#9a3412` (crimson-amber); Underbelly `#fed7aa`; Horns/Fangs `#fef08a`; Mace Spikes `#451a03`.
+- **Electric Envelope**: Violent crimson-gold lightning storms crackling between brow horns and discharging from the spiked mace tail.
+
+---
+
+## 4. Animation Grid & Safe Frame Margins
+
+- **Grid Dimensions**: 8 columns (frames) × 9 rows (behavioral states) = 72 cells.
+- **Cell Size**: 192 px width × 208 px height. Spritesheet: 1536 × 1872 px.
+- **Safe Inner Bounding Box**:
+  - Horizontal: `x = 24` to `x = 168` (144 px maximum asset width).
+  - Vertical: `y = 16` to `y = 196` (180 px maximum asset height).
+  - Baseline Foot Plane: `y = 192` across standing frames (eliminates floor jitter).
+- **Enforced Outer Alpha Margin**:
+  - Border pixels `x < 8`, `x > 184`, `y < 6`, `y > 202` have alpha strictly `0`.
+
+---
+
+## 5. Electric FX System Architecture
+
+In `src/shared/lib/petRenderer.ts`, generic upward bezier ki flames (`drawAuraLayer`) are replaced with two-pass high-voltage branching lightning:
+1. **Pass 1 — Outer Plasma Glow (Diffuse)**:
+   - Stroke width: 3.5–5.0 px.
+   - Form-specific hue (`#facc15` yellow for classic/raichu; `#38bdf8` cyan for Alola; `#dc2626` crimson for Gigantamax/Gorochu).
+   - Global alpha: `0.35 * strength`.
+2. **Pass 2 — Inner Arc Core (Hot White)**:
+   - Stroke width: 1.2–1.8 px.
+   - Luminance white core (`rgba(255, 255, 240, 0.95)`).
+3. **Behavioral Dynamics**:
+   - Sleep state (`state === "sleepy"`): strictly 0% opacity (zero strokes).
+   - Anchors: Connected to cheeks, ear tips, and tail terminal.
+   - Decoupled Cheek/Tail Sparks: Discharges fire in front of the sprite even when a form aura is active.
+   - Avoids destructive `source-atop` wash to keep authored sprite pixels intact.
+
+---
+
+## 6. Progression Architecture & Unlock Mapping
+
+To avoid an unnatural linear biological morph from Pichu into Gorochu, progression is strictly split into automatic base milestones and manual cosmetic branches:
+
+| Level | Form ID | Classification | Access Mode | Description |
+|---|---|---|---|---|
+| 1 | `pichu` | Official Canon | Auto Milestone | Starting baby companion form |
+| 5 | `classic` | Official Canon | Auto Milestone | Standard iconic companion form |
+| 10 | `concept-white-belly` | Prototype | Manual Cosmetic | 1996 Sugimori watercolor prototype |
+| 15 | `concept-long-tail` | Prototype | Manual Cosmetic | Atsuko Nishida Stage 3 prototype |
+| 20 | `raichu` | Official Canon | Manual Cosmetic | Kantonian Thunder Stone evolution |
+| 25 | `alolan-raichu` | Official Canon | Manual Cosmetic | Alolan pancake surfing variant |
+| 30 | `gigantamax` | Official Canon | Manual Cosmetic | Galar Power Spot Gigantamax form |
+| 35 | `mega-raichu-x` | Official Canon | Manual Cosmetic | Legends Z-A Mega Evolution X |
+| 40 | `mega-raichu-y` | Official Canon | Manual Cosmetic | Legends Z-A Mega Evolution Y |
+| 50 | `gorochu` | Scrapped Concept | Manual Cosmetic | Final horned thunder beast prototype |
+
+### Backwards-Compatible Aliases
+Legacy preferences and alternate IDs map cleanly in `resolvePetActiveForm`:
+- `thunderbolt` → `classic`
+- `z-move` → `classic`
+- `original-cap`, `hoenn-cap`, `kalos-cap`, `alola-cap`, `ash-cap` → `classic`
+- `white-belly` → `concept-white-belly`
+- `long-tail` → `concept-long-tail`
+- `gmax` → `gigantamax`
+- `mega-x` → `mega-raichu-x`
+- `mega-y` → `mega-raichu-y`
+- `horned-raichu` → `gorochu`
+
+---
+
+## 7. Quality Assurance & Verification Results
+
+1. **Master Contact Sheet**: Saved to `/tmp/pikachu-ten-forms-contact-sheet.png` (928×2112 px, 10 forms across 4 key poses: Idle 0, Run 2, Celebrate 3, Sleep 0).
+2. **Bounds Audit**: 100% of cells across all 10 forms pass border alpha audit (`arr[:, :, 3] == 0` for `x < 8`, `x > 184`, `y < 6`, `y > 202`).
+3. **Silhouette Diversity**: 10 out of 10 unique alpha hashes generated. Every form has distinct physical geometry without simple color-only swaps.
+4. **Cloudinary Asset Contract**: `node scripts/upload-pets-cloudinary.mjs --dry-run` successfully loads all declared companion assets with 0 errors.

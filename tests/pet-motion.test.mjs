@@ -109,5 +109,6 @@ test('sampling is restored on every draw and 3D uses smooth scaling without chan
   f.run('renderer.setSlug("wode-daodun-3d"); renderer.draw()');
   assert.equal(f.ctx.imageSmoothingEnabled, true);
   const [, , width, height] = f.draws.at(-1).slice(5);
-  assert.equal(width, 360); assert.equal(height, 360);
+  // The frame fills the safe stage (top 8%, bottom 6% inset), not the whole canvas.
+  assert.equal(width, Math.round(360 * 0.86)); assert.equal(height, Math.round(360 * 0.86));
 });

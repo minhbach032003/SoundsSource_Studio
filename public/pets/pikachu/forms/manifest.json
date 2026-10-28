@@ -16,8 +16,8 @@
         "#f78398",
         "#ffccd5"
       ],
-      "alphaHash": "8cfcf3174d3773f5",
-      "opaquePixels": 950368
+      "alphaHash": "3b87b62f713db09d",
+      "opaquePixels": 930596
     },
     "classic": {
       "shapeKey": "classic",
@@ -34,8 +34,8 @@
         "#f74a4a",
         "#ff9494"
       ],
-      "alphaHash": "3963bc11433dee0f",
-      "opaquePixels": 1147746
+      "alphaHash": "a582063dc5e65c8b",
+      "opaquePixels": 1147577
     },
     "gigantamax": {
       "shapeKey": "gigantamax",
@@ -52,98 +52,8 @@
         "#ff3d3d",
         "#ffa3a3"
       ],
-      "alphaHash": "0c1827ccda02aa5c",
-      "opaquePixels": 1346583
-    },
-    "ash-cap": {
-      "shapeKey": "cap",
-      "name": "World Champion Cap Pikachu",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "1d1e587fc6f82584",
-      "opaquePixels": 1075056
-    },
-    "original-cap": {
-      "shapeKey": "cap",
-      "name": "Original Cap Pikachu",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "1d1e587fc6f82584",
-      "opaquePixels": 1075056
-    },
-    "hoenn-cap": {
-      "shapeKey": "cap",
-      "name": "Hoenn Cap Pikachu",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "1d1e587fc6f82584",
-      "opaquePixels": 1075056
-    },
-    "kalos-cap": {
-      "shapeKey": "cap",
-      "name": "Kalos Cap Pikachu",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "1d1e587fc6f82584",
-      "opaquePixels": 1075056
-    },
-    "alola-cap": {
-      "shapeKey": "cap",
-      "name": "Alola Cap Pikachu",
-      "fur": [
-        "#b37a08",
-        "#e6a312",
-        "#ffd700",
-        "#fff28f"
-      ],
-      "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
-      ],
-      "alphaHash": "1d1e587fc6f82584",
-      "opaquePixels": 1075056
+      "alphaHash": "53c90f6a0680cc85",
+      "opaquePixels": 1336896
     },
     "raichu": {
       "shapeKey": "raichu",
@@ -160,8 +70,8 @@
         "#ffe600",
         "#fff380"
       ],
-      "alphaHash": "a52574d7ca648219",
-      "opaquePixels": 1162407
+      "alphaHash": "8748bb9e35edb4c0",
+      "opaquePixels": 974059
     },
     "alolan-raichu": {
       "shapeKey": "alolan-raichu",
@@ -178,13 +88,121 @@
         "#fde047",
         "#fef08a"
       ],
-      "alphaHash": "d3b9d3b2061ddad2",
-      "opaquePixels": 1243271,
+      "alphaHash": "e319d29b34500995",
+      "opaquePixels": 1032325,
       "eyes": [
         "#1d4ed8",
         "#2563eb",
         "#38bdf8",
         "#bae6fd"
+      ]
+    },
+    "mega-raichu-x": {
+      "shapeKey": "mega-raichu-x",
+      "name": "Mega Raichu X",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#facc15",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#ef4444",
+        "#ff9494"
+      ],
+      "alphaHash": "b6e651122ef103b5",
+      "opaquePixels": 1012950,
+      "eyes": [
+        "#7f1d1d",
+        "#b91c1c",
+        "#dc2626",
+        "#fca5a5"
+      ]
+    },
+    "mega-raichu-y": {
+      "shapeKey": "mega-raichu-y",
+      "name": "Mega Raichu Y",
+      "fur": [
+        "#964802",
+        "#cf6d0a",
+        "#ea580c",
+        "#fed7aa"
+      ],
+      "cheeks": [
+        "#d49700",
+        "#facc15",
+        "#fde047",
+        "#fef08a"
+      ],
+      "alphaHash": "7c9205a11c5cf5ce",
+      "opaquePixels": 871454,
+      "eyes": [
+        "#0369a1",
+        "#0284c7",
+        "#38bdf8",
+        "#bae6fd"
+      ]
+    },
+    "concept-white-belly": {
+      "shapeKey": "concept-white-belly",
+      "name": "White-Belly Pikachu",
+      "fur": [
+        "#ca8a04",
+        "#eab308",
+        "#fde047",
+        "#fef08a"
+      ],
+      "cheeks": [
+        "#be123c",
+        "#e11d48",
+        "#f43f5e",
+        "#fda4af"
+      ],
+      "alphaHash": "5ac7b8277589f60f",
+      "opaquePixels": 1069194
+    },
+    "concept-long-tail": {
+      "shapeKey": "concept-long-tail",
+      "name": "Long-Tail Pikachu",
+      "fur": [
+        "#b37a08",
+        "#e6a312",
+        "#facc15",
+        "#fff28f"
+      ],
+      "cheeks": [
+        "#b51515",
+        "#db2424",
+        "#dc2626",
+        "#ff9494"
+      ],
+      "alphaHash": "86ab1d707a716de6",
+      "opaquePixels": 923366
+    },
+    "gorochu": {
+      "shapeKey": "gorochu",
+      "name": "Gorochu Horned Raichu",
+      "fur": [
+        "#7c2d12",
+        "#9a3412",
+        "#c2410c",
+        "#fed7aa"
+      ],
+      "cheeks": [
+        "#78350f",
+        "#92400e",
+        "#b45309",
+        "#fcd34d"
+      ],
+      "alphaHash": "efe042a65d26e1e1",
+      "opaquePixels": 888807,
+      "horns": [
+        "#78350f",
+        "#a16207",
+        "#ca8a04",
+        "#fef08a"
       ]
     }
   }

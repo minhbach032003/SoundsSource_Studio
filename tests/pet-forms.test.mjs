@@ -160,6 +160,7 @@ function loadRenderer() {
       set(target, key, value) {
         target[key] = value;
         if (key === "globalCompositeOperation") ops.push({ op: "composite", composite: value });
+        if (key === 'strokeStyle') ops.push({ op: 'strokeStyle', args: [value] });
         return true;
       },
     }
@@ -250,28 +251,23 @@ test("every Pikachu form sheet is built with clean assets matching form specs", 
   const forms = PIKACHU_MANIFEST.forms;
   assert.equal(forms.pichu.shapeKey, "pichu");
   assert.equal(forms.classic.shapeKey, "classic");
-  assert.equal(forms["original-cap"].shapeKey, "cap");
-  assert.equal(forms["hoenn-cap"].shapeKey, "cap");
-  assert.equal(forms["kalos-cap"].shapeKey, "cap");
-  assert.equal(forms["alola-cap"].shapeKey, "cap");
+  assert.equal(forms["concept-white-belly"].shapeKey, "concept-white-belly");
+  assert.equal(forms["concept-long-tail"].shapeKey, "concept-long-tail");
   assert.equal(forms.raichu.shapeKey, "raichu");
   assert.equal(forms["alolan-raichu"].shapeKey, "alolan-raichu");
   assert.equal(forms.gigantamax.shapeKey, "gigantamax");
-  assert.equal(forms["ash-cap"].shapeKey, "cap");
+  assert.equal(forms["mega-raichu-x"].shapeKey, "mega-raichu-x");
+  assert.equal(forms["mega-raichu-y"].shapeKey, "mega-raichu-y");
+  assert.equal(forms.gorochu.shapeKey, "gorochu");
 
-  // Distinct shape groups must have distinct silhouette alpha hashes
-  const shapeGroupHashes = new Set([
-    forms.pichu.alphaHash,
-    forms.classic.alphaHash,
-    forms["original-cap"].alphaHash,
-    forms.raichu.alphaHash,
-    forms["alolan-raichu"].alphaHash,
-    forms.gigantamax.alphaHash,
-  ]);
+  // Distinct shape groups must have distinct silhouette alpha hashes (10 out of 10)
+  const shapeGroupHashes = new Set(
+    Object.values(forms).map((f) => f.alphaHash)
+  );
   assert.equal(
     shapeGroupHashes.size,
-    6,
-    "Pichu, Classic, Caps, Raichu, Alolan Raichu, and Gigantamax must have distinct silhouette alpha hashes"
+    10,
+    "All 10 Pikachu lineage forms must have distinct silhouette alpha hashes"
   );
 });
 
@@ -318,7 +314,95 @@ test("Pikachu forms define levelup animation and custom FORM_AURAS", () => {
     api.FORM_AURAS["pikachu/alolan-raichu"].outer?.includes("818cf8"),
     "Alolan Raichu has psychic cyan/blue aura"
   );
-  assert.ok(api.FORM_AURAS["pikachu/ash-cap"].sparks, "World Champion Cap Pikachu has champion sparks");
+  assert.ok(
+    api.FORM_AURAS["pikachu/mega-raichu-x"].outer?.includes("38bdf8") ||
+    api.FORM_AURAS["pikachu/mega-raichu-x"].sparks?.includes("ef4444"),
+    "Mega Raichu X has high-voltage combat aura"
+  );
+  assert.ok(
+    api.FORM_AURAS["pikachu/gorochu"].inner.includes("c2410c"),
+    "Gorochu has fierce crimson-amber thunder aura"
+  );
+});
+
+test("Pikachu auto milestones progression and manual cosmetic unlock branching", () => {
+  const { INSTALLED_PETS, resolvePetActiveForm } = loadPetTypes();
+  const pikachu = INSTALLED_PETS.find((p) => p.id === "pikachu");
+
+  // Automatic progression milestones: Level 1 -> pichu, Level 5+ -> classic
+  // Auto NEVER transforms into Raichu, Megas, or Concepts (no false biological ladder)
+  for (const [level, id] of [
+    [1, "pichu"],
+    [3, "pichu"],
+    [4, "pichu"],
+    [5, "classic"],
+    [10, "classic"],
+    [15, "classic"],
+    [20, "classic"],
+    [35, "classic"],
+    [50, "classic"],
+    [99, "classic"],
+  ]) {
+    assert.equal(resolvePetActiveForm(pikachu, level, "auto")?.id, id);
+  }
+
+  // Manual-only unlock forms:
+  const manualForms = [
+    "concept-white-belly",
+    "concept-long-tail",
+    "raichu",
+    "alolan-raichu",
+    "gigantamax",
+    "mega-raichu-x",
+    "mega-raichu-y",
+    "gorochu",
+  ];
+  for (const id of manualForms) {
+    const meta = pikachu.forms.find((f) => f.id === id);
+    assert.ok(meta, `Must define form meta for ${id}`);
+    assert.equal(meta.manualOnly, true, `${id} must be manualOnly: true`);
+    assert.equal(resolvePetActiveForm(pikachu, 99, id)?.id, id, `Explicit preference for ${id} resolves to ${id}`);
+  }
+
+  // Legacy aliases map cleanly to canon/concept forms
+  assert.equal(resolvePetActiveForm(pikachu, 99, "thunderbolt")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "z-move")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "original-cap")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "hoenn-cap")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "kalos-cap")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "alola-cap")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "ash-cap")?.id, "classic");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "white-belly")?.id, "concept-white-belly");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "long-tail")?.id, "concept-long-tail");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "gmax")?.id, "gigantamax");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "mega-x")?.id, "mega-raichu-x");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "mega-y")?.id, "mega-raichu-y");
+  assert.equal(resolvePetActiveForm(pikachu, 99, "horned-raichu")?.id, "gorochu");
+
+  // All 10 forms point to existing authored assets
+  for (const form of pikachu.forms) {
+    assert.ok(form.avatarUrl.startsWith("/pets/pikachu/forms/"));
+    assert.ok(form.spritesheetPath.startsWith("/pets/pikachu/forms/"));
+  }
+});
+
+test("Pikachu actual form draws white-core lightning instead of filled ki flames", () => {
+  const { api, ctx, ops } = loadRenderer();
+  const img = { naturalWidth: 1536, naturalHeight: 1872 };
+  const rect = { x:0, y:0, w:192, h:208 };
+  for (const state of ['idle','working','celebrate','levelup']) {
+    ops.length = 0;
+    api.drawPetFrame(ctx, img, rect, 'pikachu', ctx.canvas, undefined, state, api.petFormAura('pikachu','classic'));
+    const at = ops.findIndex(o => o.op === 'drawImage');
+    assert.ok(ops.slice(0,at).some(o => o.op === 'stroke'), 'electric envelope behind sprite');
+    assert.ok(ops.slice(at).filter(o => o.op === 'stroke').length >= 6, 'cheek/tail gold and white strokes despite non-null aura');
+    assert.ok(!ops.some(o => o.op === 'quadraticCurveTo'), 'no Goku flame tongues');
+    assert.ok(!ops.some(o => o.composite === 'source-atop'), 'no sprite tint');
+    assert.ok(ops.some(o => o.op === 'strokeStyle' && o.args[0].includes('255, 255, 240')), 'white-hot core');
+  }
+  ops.length = 0;
+  api.drawPetFrame(ctx, img, rect, 'pikachu', ctx.canvas, undefined, 'sleepy', api.petFormAura('pikachu','classic'));
+  assert.equal(ops.filter(o => o.op === 'stroke').length,0);
 });
 
 test("Pikachu electric spark canvas effects react to state and drop when sleepy", () => {
@@ -341,7 +425,7 @@ test("Pikachu electric spark canvas effects react to state and drop when sleepy"
   const celebSparks = ops.slice(celebDrawAt).filter((o) => o.op === "stroke");
   assert.ok(celebSparks.length >= 2, "Pikachu celebrate state must draw electric sparks");
   assert.ok(
-    ctx.strokeStyle.includes("56, 189, 248") || ctx.strokeStyle.includes("250, 204, 21") || ctx.strokeStyle.includes("254, 240, 138"),
+    ctx.strokeStyle.includes("255, 255, 240") || ctx.strokeStyle.includes("250, 204, 21"),
     "Pikachu spark stroke styles must use electric cyan or gold tones"
   );
 

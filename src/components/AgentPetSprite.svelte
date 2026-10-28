@@ -43,7 +43,8 @@
   function computeSpritesheetPath(currentSlug: string, currentForm?: string, directPath?: string): string {
     if (directPath) return directPath;
     if (currentForm && currentForm !== "default" && currentForm !== "auto") {
-      return `/pets/${currentSlug}/forms/${currentForm}/spritesheet.webp`;
+      return resolveForm(currentSlug, currentForm, level)?.spritesheetPath
+        ?? `/pets/${currentSlug}/forms/${currentForm}/spritesheet.webp`;
     }
     return resolveForm(currentSlug, currentForm, level)?.spritesheetPath ?? `/pets/${currentSlug}/spritesheet.webp`;
   }
@@ -88,9 +89,22 @@
     };
   });
 
+  // Backing store in device pixels, so the pet is equally crisp on 1x, 2x and 3x displays.
+  const readDpr = () => Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+  let dpr = $state(readDpr());
+  // Moving the window to a display with another pixel ratio flips this query.
+  $effect(() => {
+    const query = window.matchMedia?.(`(resolution: ${dpr}dppx)`);
+    if (!query) return;
+    const update = () => (dpr = readDpr());
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  });
+
   // Canvas dimension changes clear its pixels, including while animation is frozen.
   $effect(() => {
     void size;
+    void dpr;
     renderer?.draw();
   });
 
@@ -149,8 +163,8 @@
 >
   <canvas
     bind:this={canvas}
-    width={size * 2}
-    height={size * 2}
+    width={Math.round(size * dpr)}
+    height={Math.round(size * dpr)}
     style="width: {size}px; height: {size}px; transform: rotateX({tiltX}deg) rotateY({tiltY}deg) {isHovered ? 'scale(1.03)' : 'scale(1)'}; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); {(PET_MOTION[slug]?.pixel ?? true) ? 'image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; image-rendering: pixelated;' : 'image-rendering: auto;'}"
     class="cursor-pointer select-none drop-shadow-md relative z-10"
   ></canvas>

@@ -42,3 +42,19 @@
   4. Throttle idle pet dynamics redraws to ~30 FPS.
 - **Regression:** `node --test tests/long-running-perf.test.mjs` verifies all 4 fixes.
 
+
+## PET-RENDER-001 — Pet frame fit edge-to-edge, clipping effects and washing colours
+
+- **Status:** fixed and verified in automated + scratch browser render; deployed via `pnpm rebuild:app` (stable identity) 2026-10-28; OpenSpec archive `2026-10-28-improve-pet-canvas-rendering`.
+- **Scope:** `src/shared/lib/petRenderer.ts` (`drawPetFrame`), `src/components/AgentPetSprite.svelte`; base `b75c692` plus the uncommitted Pikachu envelope work.
+- **Reproduction:** render 7 pets x 4 states at 200/56 px (scratch harness driving `drawPetFrame` via Vite + agent-browser). Goku SS3 hair and auras cut at the top/sides, floor shadow half below the canvas, Wode/Eddy bleached when celebrating, fixed 2x canvas aliased on a 1x display, Pikachu sparks fixed in pixels.
+- **Cause:** fit used `min(W/r.w, H/r.h)` with `y = H - h` on envelopes that already fill 95% of the 192x208 cell; lighting stops reached 0.55 x 1.35 alpha with `source-atop`, also landing on the earlier-drawn shadow; effect literals were tuned for a ~400 px sprite.
+- **Fix:** stage inset (top 8%, sides 5%, bottom 6%); shadow composited last with `destination-over` and bounded by the bottom inset; lighting stops capped at 0.2; effects/motion scaled by `h / 400`; canvas backing store `size x devicePixelRatio` with a resolution media query.
+- **Regression:** `node --test tests/pet-render-stage.test.mjs` (6 tests): all failed before the fix (inset, shadow order, wash, size drift, DPR, envelope reach), all pass after. `tests/pet-motion.test.mjs` expectation updated from full-canvas to stage fit (intended).
+- **Limits:** pets render ~14% smaller in the same box. Native multi-display DPR switching was not exercised.
+
+## PET-BROWSER-001 — Two pet browser suites fail on clean HEAD
+
+- **Status:** suspected, out of scope, pending.
+- **Observation (2026-10-28, HEAD `b75c692` in a clean worktree):** `node tests/pet-motion-browser.mjs` times out waiting for 49 renderers to load (25 s); `node tests/pet-animation-identity-browser.mjs` cannot find Gallery buttons `button[title^="Cyber Coding Cat —"]` / `"Code Frenzy Cat —"`. Identical failures with and without `improve-pet-canvas-rendering`.
+- **Cause:** unknown. Hypotheses only: the first loads the Cloudinary URL before the local fallback; the second may depend on renamed gallery titles.

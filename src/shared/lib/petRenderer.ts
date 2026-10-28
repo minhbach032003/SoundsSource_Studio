@@ -331,16 +331,25 @@ export const FORM_AURAS: Record<string, PetAura> = {
   "super-saiyan-goku/blue-kaioken": { inner: "#3ecbff", outer: "#e0232b", intensity: 1.15 },
   "super-saiyan-goku/ui-sign": { inner: "#e8f2ff", outer: "#5aa9ff", calm: true },
   "super-saiyan-goku/mui": { inner: "#f4f7ff", outer: "#bcd6ff", calm: true },
-  // Pikachu canon forms: electric yellow, psychic cyan/blue, Dynamax crimson/gold, champion sparkles
-  "pikachu/pichu": { inner: "#fef08a", sparks: "#facc15", intensity: 0.65 },
-  "pikachu/classic": { inner: "#fde047", intensity: 0.75 },
+  // Pikachu canon and concept forms: electric yellow, psychic cyan/blue, Dynamax crimson/gold, champion sparks
+  "pikachu/pichu": { inner: "#fef08a", outer: "#facc15", sparks: "#facc15", intensity: 0.65 },
+  "pikachu/classic": { inner: "#fde047", outer: "#facc15", sparks: "#facc15", intensity: 0.85 },
+  "pikachu/concept-white-belly": { inner: "#fef08a", outer: "#fde047", sparks: "#fde047", intensity: 0.70 },
+  "pikachu/concept-long-tail": { inner: "#facc15", outer: "#eab308", sparks: "#facc15", intensity: 0.85 },
+  "pikachu/raichu": { inner: "#f59e0b", outer: "#ea580c", sparks: "#fbbf24", intensity: 1.15 },
+  "pikachu/alolan-raichu": { inner: "#38bdf8", outer: "#818cf8", sparks: "#fde047", intensity: 1.10 },
+  "pikachu/gigantamax": { inner: "#ef4444", outer: "#f59e0b", sparks: "#dc2626", intensity: 1.35 },
+  "pikachu/mega-raichu-x": { inner: "#facc15", outer: "#38bdf8", sparks: "#ef4444", intensity: 1.30 },
+  "pikachu/mega-raichu-y": { inner: "#ea580c", outer: "#facc15", sparks: "#38bdf8", intensity: 1.30 },
+  "pikachu/gorochu": { inner: "#c2410c", outer: "#f59e0b", sparks: "#ef4444", intensity: 1.35 },
+  // Compatibility aliases
+  "pikachu/white-belly": { inner: "#fef08a", outer: "#fde047", sparks: "#fde047", intensity: 0.70 },
+  "pikachu/long-tail": { inner: "#facc15", outer: "#eab308", sparks: "#facc15", intensity: 0.85 },
+  // Legacy regional caps (retained for backward compatibility)
   "pikachu/original-cap": { inner: "#facc15", sparks: "#4ade80", intensity: 0.85 },
   "pikachu/hoenn-cap": { inner: "#facc15", sparks: "#22c55e", intensity: 0.90 },
   "pikachu/kalos-cap": { inner: "#facc15", sparks: "#60a5fa", intensity: 0.95 },
   "pikachu/alola-cap": { inner: "#fde047", outer: "#38bdf8", sparks: "#facc15", intensity: 1.10 },
-  "pikachu/raichu": { inner: "#f59e0b", outer: "#ea580c", sparks: "#fbbf24", intensity: 1.15 },
-  "pikachu/alolan-raichu": { inner: "#38bdf8", outer: "#818cf8", sparks: "#fde047", intensity: 1.10 },
-  "pikachu/gigantamax": { inner: "#ef4444", outer: "#f59e0b", sparks: "#dc2626", intensity: 1.35 },
   "pikachu/ash-cap": { inner: "#fde047", outer: "#60a5fa", sparks: "#f59e0b", intensity: 1.25 },
 };
 
@@ -423,7 +432,230 @@ function drawAuraLayer(
   }
 }
 
-function drawFormAura(ctx: CanvasRenderingContext2D, aura: PetAura, x: number, y: number, w: number, h: number, strength: number, t: number) {
+function drawPikachuElectricEnvelope(
+  ctx: CanvasRenderingContext2D,
+  aura: PetAura,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  strength: number,
+  t: number
+) {
+  if (
+    strength <= 0 ||
+    typeof ctx.save !== "function" ||
+    typeof ctx.beginPath !== "function" ||
+    typeof ctx.moveTo !== "function" ||
+    typeof ctx.lineTo !== "function" ||
+    typeof ctx.stroke !== "function"
+  ) {
+    return;
+  }
+
+  const cx = x + w / 2;
+  const cy = y + h * 0.52;
+  const rx = w * 0.38;
+  const ry = h * 0.42;
+
+  const seed = Math.floor(t * 10);
+  const outerRgb = hexRgb(aura.outer ?? aura.inner);
+
+  ctx.save();
+  if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
+  if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
+
+  // Arcs on both left and right flanks of body
+  const sides = [-1, 1];
+  for (const side of sides) {
+    for (let bolt = 0; bolt < 2; bolt++) {
+      const bSeed = seed + (side < 0 ? 0 : 50) + bolt * 23;
+      const r1 = Math.abs(Math.sin(bSeed * 12.9898)) % 1;
+      const r2 = Math.abs(Math.sin(bSeed * 39.3468)) % 1;
+      const r3 = Math.abs(Math.sin(bSeed * 71.1354)) % 1;
+
+      const startX = cx + side * rx * (0.55 + 0.25 * r1);
+      const startY = cy - ry * (0.50 - 0.30 * r2);
+      // Reach stays inside the stage side inset: the outermost fork ends ~4% past the sprite box.
+      const mid1X = cx + side * rx * (0.80 + 0.30 * r2);
+      const mid1Y = startY + ry * (0.35 + 0.20 * r3);
+      const mid2X = cx + side * rx * (0.65 + 0.30 * r3);
+      const mid2Y = mid1Y + ry * (0.30 + 0.20 * r1);
+      const endX = cx + side * rx * (0.40 + 0.25 * r2);
+      const endY = cy + ry * (0.65 + 0.20 * r1);
+      const forkX = mid1X + side * w * (0.06 + 0.06 * r1);
+      const forkY = mid1Y - h * (0.08 * r3);
+
+      // Pass 1: Outer colored plasma glow
+      ctx.lineWidth = Math.max(2.6, w / 55);
+      ctx.strokeStyle = `rgba(${outerRgb}, ${(0.65 * strength).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(mid1X, mid1Y);
+      ctx.lineTo(mid2X, mid2Y);
+      ctx.lineTo(endX, endY);
+      ctx.moveTo(mid1X, mid1Y);
+      ctx.lineTo(forkX, forkY);
+      ctx.stroke();
+
+      // Pass 2: Hot white inner core
+      ctx.lineWidth = Math.max(1.2, w / 130);
+      ctx.strokeStyle = `rgba(255, 255, 240, ${(0.92 * strength).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(mid1X, mid1Y);
+      ctx.lineTo(mid2X, mid2Y);
+      ctx.lineTo(endX, endY);
+      ctx.moveTo(mid1X, mid1Y);
+      ctx.lineTo(forkX, forkY);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawPikachuFrontSparks(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  u: number,
+  state: string,
+  dynamicsOffset: { glow?: number },
+  auraTime: number
+) {
+  if (
+    typeof ctx.save !== "function" ||
+    typeof ctx.beginPath !== "function" ||
+    typeof ctx.moveTo !== "function" ||
+    typeof ctx.lineTo !== "function" ||
+    typeof ctx.stroke !== "function"
+  ) {
+    return;
+  }
+
+  ctx.save();
+  const pulse = dynamicsOffset.glow ?? 1;
+  const isCelebration = state === "celebrate" || state === "levelup" || state === "done";
+  const isReading = state === "reading";
+  const tick = Math.floor(auraTime * (isCelebration ? 18 : isReading ? 7 : 13));
+  const j1 = (((tick * 7) % 5) - 2) * u;
+  const j2 = (((tick * 11) % 5) - 2) * u;
+  const j3 = (((tick * 13) % 4) - 1) * u;
+
+  if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
+  if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
+
+  const cyanStroke = "rgba(56, 189, 248, 0.95)";
+  const goldStroke = "rgba(250, 204, 21, 0.95)";
+  const brightGold = "rgba(254, 240, 138, 0.95)";
+  const whiteCore = "rgba(255, 255, 240, 0.95)";
+
+  // Left cheek electric zigzag bolt
+  const c1X = x + w * 0.37;
+  const c1Y = y + h * 0.52;
+  const c1Outer = tick % 2 === 0 ? cyanStroke : goldStroke;
+
+  // Left cheek Pass 1: outer colored stroke
+  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
+  ctx.strokeStyle = c1Outer;
+  ctx.beginPath();
+  ctx.moveTo(c1X, c1Y);
+  ctx.lineTo(c1X - 4 * u + j1, c1Y + 2 * u);
+  ctx.lineTo(c1X - 1 * u + j2, c1Y + 5 * u);
+  ctx.lineTo(c1X - 5 * u + j3, c1Y + 8 * u);
+  if (isCelebration) ctx.lineTo(c1X - 2 * u, c1Y + 11 * u);
+  ctx.stroke();
+
+  // Left cheek Pass 2: white-hot core stroke
+  ctx.lineWidth = Math.max(0.75, u);
+  ctx.strokeStyle = whiteCore;
+  ctx.beginPath();
+  ctx.moveTo(c1X, c1Y);
+  ctx.lineTo(c1X - 4 * u + j1, c1Y + 2 * u);
+  ctx.lineTo(c1X - 1 * u + j2, c1Y + 5 * u);
+  ctx.lineTo(c1X - 5 * u + j3, c1Y + 8 * u);
+  if (isCelebration) ctx.lineTo(c1X - 2 * u, c1Y + 11 * u);
+  ctx.stroke();
+
+  // Right cheek electric zigzag bolt
+  const c2X = x + w * 0.63;
+  const c2Y = y + h * 0.52;
+  const c2Outer = tick % 2 === 0 ? goldStroke : cyanStroke;
+
+  // Right cheek Pass 1: outer colored stroke
+  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
+  ctx.strokeStyle = c2Outer;
+  ctx.beginPath();
+  ctx.moveTo(c2X, c2Y);
+  ctx.lineTo(c2X + 4 * u - j2, c2Y + 2 * u);
+  ctx.lineTo(c2X + 1 * u - j1, c2Y + 5 * u);
+  ctx.lineTo(c2X + 5 * u - j3, c2Y + 8 * u);
+  if (isCelebration) ctx.lineTo(c2X + 2 * u, c2Y + 11 * u);
+  ctx.stroke();
+
+  // Right cheek Pass 2: white-hot core stroke
+  ctx.lineWidth = Math.max(0.75, u);
+  ctx.strokeStyle = whiteCore;
+  ctx.beginPath();
+  ctx.moveTo(c2X, c2Y);
+  ctx.lineTo(c2X + 4 * u - j2, c2Y + 2 * u);
+  ctx.lineTo(c2X + 1 * u - j1, c2Y + 5 * u);
+  ctx.lineTo(c2X + 5 * u - j3, c2Y + 8 * u);
+  if (isCelebration) ctx.lineTo(c2X + 2 * u, c2Y + 11 * u);
+  ctx.stroke();
+
+  // Tail lightning spark tip
+  const tX = x + w * 0.82;
+  const tY = y + h * 0.56;
+  const tailOuter = isCelebration ? brightGold : pulse > 0.88 ? cyanStroke : goldStroke;
+
+  // Tail Pass 1: outer colored stroke
+  ctx.lineWidth = Math.max(0.75, (isCelebration ? 2.5 : 1.8) * u);
+  ctx.strokeStyle = tailOuter;
+  ctx.beginPath();
+  ctx.moveTo(tX, tY);
+  ctx.lineTo(tX + 4 * u + j3, tY - 3 * u);
+  ctx.lineTo(tX + 1 * u + j1, tY - 7 * u);
+  ctx.lineTo(tX + 5 * u + j2, tY - 10 * u);
+  if (isCelebration) {
+    ctx.lineTo(tX + 2 * u, tY - 14 * u);
+    ctx.moveTo(tX + 1 * u + j1, tY - 7 * u);
+    ctx.lineTo(tX - 3 * u, tY - 10 * u);
+  }
+  ctx.stroke();
+
+  // Tail Pass 2: white-hot core stroke
+  ctx.lineWidth = Math.max(0.75, u);
+  ctx.strokeStyle = whiteCore;
+  ctx.beginPath();
+  ctx.moveTo(tX, tY);
+  ctx.lineTo(tX + 4 * u + j3, tY - 3 * u);
+  ctx.lineTo(tX + 1 * u + j1, tY - 7 * u);
+  ctx.lineTo(tX + 5 * u + j2, tY - 10 * u);
+  if (isCelebration) {
+    ctx.lineTo(tX + 2 * u, tY - 14 * u);
+    ctx.moveTo(tX + 1 * u + j1, tY - 7 * u);
+    ctx.lineTo(tX - 3 * u, tY - 10 * u);
+  }
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawFormAura(
+  ctx: CanvasRenderingContext2D,
+  aura: PetAura,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  strength: number,
+  t: number,
+  slug: string = ""
+) {
   if (
     strength <= 0 ||
     typeof ctx.save !== "function" ||
@@ -436,6 +668,10 @@ function drawFormAura(ctx: CanvasRenderingContext2D, aura: PetAura, x: number, y
     typeof ctx.scale !== "function" ||
     typeof ctx.translate !== "function"
   ) {
+    return;
+  }
+  if (slug === "pikachu") {
+    drawPikachuElectricEnvelope(ctx, aura, x, y, w, h, strength, t);
     return;
   }
   const cx = x + w / 2;
@@ -471,6 +707,14 @@ function drawAuraSparks(ctx: CanvasRenderingContext2D, color: string, x: number,
   ctx.restore();
 }
 
+// Stage insets, as canvas fractions: room for hair, auras, sparks and the floor shadow.
+// The bottom inset also bounds the shadow's half-height, so the ellipse never leaves the canvas.
+export const PET_STAGE_INSET = { top: 0.08, side: 0.05, bottom: 0.06 } as const;
+// Motion and effect literals were tuned on a sprite drawn ~400 px tall (200 px pet on a 2x canvas).
+const EFFECT_REFERENCE_PX = 400;
+// Lighting is a tint, not a wash: no stop may cover the sprite's own colours beyond this opacity.
+const LIGHT_STOP_MAX = 0.2;
+
 export function drawPetFrame(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -479,15 +723,22 @@ export function drawPetFrame(
   canvas = ctx.canvas,
   dynamicsOffset: { offsetY: number; rotationDeg: number; squashY: number; glow?: number } = { offsetY: 0, rotationDeg: 0, squashY: 1, glow: 1 },
   state: string = "",
-  aura: PetAura | null = null
+  aura: PetAura | null = null,
+  auraTimeOverride?: number
 ): Rect {
   const { width, height } = canvas;
-  const scale = Math.min(width / r.w, height / r.h);
+  const baseline = Math.round(height * (1 - PET_STAGE_INSET.bottom));
+  const scale = Math.min(
+    (width * (1 - 2 * PET_STAGE_INSET.side)) / r.w,
+    (height * (1 - PET_STAGE_INSET.top - PET_STAGE_INSET.bottom)) / r.h
+  );
   // Nearest-neighbor sampling keeps pixel art crisp without whole-step size jumps
   // when resizing. The shaded 3D pet alone uses smooth resampling.
   const pixel = PET_MOTION[slug]?.pixel ?? true;
   const w = Math.round(r.w * scale), h = Math.round(r.h * scale);
-  const x = Math.round((width - w) / 2), y = height - h;
+  const x = Math.round((width - w) / 2), y = baseline - h;
+  // One unit per reference pixel: effects and motion keep their composition at every size.
+  const u = h / EFFECT_REFERENCE_PX;
   ctx.imageSmoothingEnabled = !pixel;
   ctx.clearRect(0, 0, width, height);
 
@@ -496,92 +747,51 @@ export function drawPetFrame(
   const lighting = aura && archetypeLighting
     ? { ...archetypeLighting, groundColor: `rgba(${hexRgb(aura.outer ?? aura.inner)}, 0.35)` }
     : archetypeLighting;
-  const auraTime = typeof performance !== "undefined" ? performance.now() / 1000 : 0;
+  const auraTime = typeof auraTimeOverride === "number"
+    ? auraTimeOverride
+    : typeof performance !== "undefined"
+      ? performance.now() / 1000
+      : 0;
   const sheetRow = img.naturalHeight ? Math.floor((r.y + 1) / (img.naturalHeight / ROWS)) : -1;
   const isWorkOrRead = state === "working" || state === "reading" || (state === "" && (sheetRow === 7 || sheetRow === 8));
   const isCeleb = state === "celebrate" || state === "done";
 
-  // 3D Isometric Pedestal Disc & Dynamic Floor Shadow:
-  // Rendered with subpixel squash & stretch anchored to pet vertical oscillation
-  if (
-    lighting &&
-    typeof ctx.save === "function" &&
-    typeof ctx.createRadialGradient === "function" &&
-    typeof ctx.beginPath === "function" &&
-    typeof ctx.arc === "function" &&
-    typeof ctx.fill === "function" &&
-    typeof ctx.scale === "function" &&
-    typeof ctx.translate === "function"
-  ) {
-    ctx.save();
-    const isAct = isWorkOrRead || isCeleb;
-    const baseGroundAlpha = isCeleb ? 0.95 : isAct ? 0.75 : 0.45;
-    const gMult = (dynamicsOffset.glow ?? 1) * baseGroundAlpha;
-    const gX = width / 2;
-    // Ground plane sits at bottom base of canvas
-    const gY = height - Math.max(3, Math.round(h * 0.05));
-    
-    // Dynamic 3D shadow squashes/stretches inversely with vertical bobbing (height jump)
-    const normJump = Math.max(-10, Math.min(10, dynamicsOffset.offsetY));
-    const shadowFactor = Math.max(0.6, Math.min(1.4, 1.0 - normJump * 0.05));
-    const shadowAlpha = Math.max(0.2, Math.min(1.0, 1.0 + normJump * 0.04));
-
-    const rx = Math.max(14, Math.round(w * 0.46 * shadowFactor));
-    const ry = Math.max(5, Math.round(rx * 0.28));
-    ctx.translate(gX, gY);
-    ctx.scale(1, ry / rx);
-
-    // Outer subtle 3D glowing rim
-    const gGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    gGrad.addColorStop(0, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.48 * gMult * shadowAlpha).toFixed(3)})`));
-    gGrad.addColorStop(0.55, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.22 * gMult * shadowAlpha).toFixed(3)})`));
-    gGrad.addColorStop(1, lighting.groundColor.replace(/[\d.]+\)$/, "0)"));
-    ctx.fillStyle = gGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, rx, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Inner contact shadow (dark ground occlusion)
-    const innerRx = Math.max(6, Math.round(rx * 0.55));
-    const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerRx);
-    innerGrad.addColorStop(0, `rgba(0, 0, 0, ${(0.42 * shadowAlpha).toFixed(3)})`);
-    innerGrad.addColorStop(0.7, `rgba(0, 0, 0, ${(0.15 * shadowAlpha).toFixed(3)})`);
-    innerGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = innerGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, innerRx, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
   // Subpixel 60fps continuous micro-dynamics (hermite interpolated)
-  const effOffsetY = pixel ? Math.round(dynamicsOffset.offsetY) : dynamicsOffset.offsetY;
+  const scaledOffsetY = dynamicsOffset.offsetY * u;
+  const effOffsetY = pixel ? Math.round(scaledOffsetY) : scaledOffsetY;
   const effRotation = pixel ? 0 : dynamicsOffset.rotationDeg;
   const effSquash = pixel ? 1 : dynamicsOffset.squashY;
   const hasTransform = (effOffsetY !== 0 || effRotation !== 0 || effSquash !== 1) && typeof ctx.save === "function";
 
   if (hasTransform) {
     ctx.save();
-    // Pivot around bottom center of sprite so ground contacts stay anchored
+    // Pivot around the feet so ground contacts stay anchored
     const pivotX = width / 2;
-    const pivotY = height;
+    const pivotY = baseline;
     if (typeof ctx.translate === "function") ctx.translate(pivotX, pivotY + effOffsetY);
     if (effRotation !== 0 && typeof ctx.rotate === "function") ctx.rotate((effRotation * Math.PI) / 180);
     if (effSquash !== 1 && typeof ctx.scale === "function") ctx.scale(1 / Math.sqrt(effSquash), effSquash);
     if (typeof ctx.translate === "function") ctx.translate(-pivotX, -pivotY);
   }
 
-  if (aura) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime);
+  if (aura) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime, slug);
 
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
 
-  if (aura?.sparks && state !== "sleepy") drawAuraSparks(ctx, aura.sparks, x, y, w, h, auraTime);
+  if (slug !== "pikachu" && aura?.sparks && state !== "sleepy") {
+    drawAuraSparks(ctx, aura.sparks, x, y, w, h, auraTime);
+  }
+
+  // Pikachu high-voltage front sparks uncoupled from !aura, suppressed in sleepy
+  if (slug === "pikachu" && state !== "sleepy") {
+    drawPikachuFrontSparks(ctx, x, y, w, h, u, state, dynamicsOffset, auraTime);
+  }
 
   // Archetype lighting and screen reflections composite (source-atop preserves sprite silhouette)
   if (
     lighting &&
     !aura &&
+    slug !== "pikachu" &&
     typeof ctx.save === "function" &&
     typeof ctx.createRadialGradient === "function" &&
     typeof ctx.beginPath === "function" &&
@@ -590,14 +800,14 @@ export function drawPetFrame(
   ) {
     ctx.save();
     const glowMult = dynamicsOffset.glow ?? 1;
-    const stateAlpha = isCeleb ? 1.35 : (state === "working" || sheetRow === 7) ? 1.0 : isWorkOrRead ? 0.8 : 0.42;
-    const effGlow = glowMult * stateAlpha;
+    const stateAlpha = isCeleb ? 1.0 : (state === "working" || sheetRow === 7) ? 0.85 : isWorkOrRead ? 0.7 : 0.45;
+    const effGlow = glowMult * stateAlpha * 0.45;
 
     const screenX = x + w * lighting.coreX;
     const screenY = y + h * lighting.coreY;
     const glowRadius = Math.max(w, h) * lighting.radiusRatio;
 
-    const grad = ctx.createRadialGradient(screenX, screenY, 2, screenX, screenY - h * 0.08, glowRadius);
+    const grad = ctx.createRadialGradient(screenX, screenY, 2 * u, screenX, screenY - h * 0.08, glowRadius);
     for (const [pos, col] of lighting.stops) {
       if (pos === 1) {
         grad.addColorStop(1, col);
@@ -605,7 +815,7 @@ export function drawPetFrame(
         const match = col.match(/^rgba\(([\d\s,]+),\s*([\d.]+)\)$/);
         if (match) {
           const rgb = match[1];
-          const a = (parseFloat(match[2]!) * effGlow).toFixed(3);
+          const a = Math.min(LIGHT_STOP_MAX, parseFloat(match[2]!) * effGlow).toFixed(3);
           grad.addColorStop(pos, `rgba(${rgb}, ${a})`);
         } else {
           grad.addColorStop(pos, col);
@@ -630,22 +840,22 @@ export function drawPetFrame(
       typeof ctx.stroke === "function"
     ) {
       ctx.strokeStyle = (dynamicsOffset.glow ?? 1) > 0.85 ? "rgba(103, 232, 249, 0.85)" : "rgba(254, 240, 138, 0.75)";
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = Math.max(0.75, 1.5 * u);
       const sparkPhase = (dynamicsOffset.glow ?? 1) * 12;
-      const sparkX1 = x + w * 0.35 + Math.sin(sparkPhase) * 3;
+      const sparkX1 = x + w * 0.35 + Math.sin(sparkPhase) * 3 * u;
       const sparkY1 = y + h * 0.22;
       ctx.beginPath();
       ctx.moveTo(sparkX1, sparkY1);
-      ctx.lineTo(sparkX1 + 3, sparkY1 + 4);
-      ctx.lineTo(sparkX1 - 2, sparkY1 + 8);
+      ctx.lineTo(sparkX1 + 3 * u, sparkY1 + 4 * u);
+      ctx.lineTo(sparkX1 - 2 * u, sparkY1 + 8 * u);
       ctx.stroke();
 
-      const sparkX2 = x + w * 0.65 + Math.cos(sparkPhase) * 3;
+      const sparkX2 = x + w * 0.65 + Math.cos(sparkPhase) * 3 * u;
       const sparkY2 = y + h * 0.26;
       ctx.beginPath();
       ctx.moveTo(sparkX2, sparkY2);
-      ctx.lineTo(sparkX2 - 3, sparkY2 + 4);
-      ctx.lineTo(sparkX2 + 2, sparkY2 + 8);
+      ctx.lineTo(sparkX2 - 3 * u, sparkY2 + 4 * u);
+      ctx.lineTo(sparkX2 + 2 * u, sparkY2 + 8 * u);
       ctx.stroke();
     } else if (
       slug === "code-frenzy-cat" &&
@@ -654,8 +864,8 @@ export function drawPetFrame(
     ) {
       const pulse = dynamicsOffset.glow ?? 1;
       ctx.fillStyle = `rgba(103, 232, 249, ${(0.28 * pulse).toFixed(3)})`;
-      const scanY = y + h * 0.68 + (pulse * 6) % 10;
-      ctx.fillRect(x + w * 0.28, scanY, w * 0.44, 1.5);
+      const scanY = y + h * 0.68 + ((pulse * 6) % 10) * u;
+      ctx.fillRect(x + w * 0.28, scanY, w * 0.44, Math.max(1, 1.5 * u));
     } else if (
       slug === "wode-daodun-3d" &&
       (isWorkOrRead || isCeleb) &&
@@ -666,7 +876,7 @@ export function drawPetFrame(
       const pulse = dynamicsOffset.glow ?? 1;
       const glintX = x + w * 0.35;
       const glintY = y + h * 0.42;
-      const glintR = 2.5 + pulse * 1.5;
+      const glintR = (2.5 + pulse * 1.5) * u;
       ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       ctx.beginPath();
       ctx.arc(glintX, glintY, glintR, 0, Math.PI * 2);
@@ -677,85 +887,8 @@ export function drawPetFrame(
       const shieldY = y + h * 0.62;
       ctx.fillStyle = `rgba(186, 230, 253, ${(0.35 * pulse).toFixed(3)})`;
       ctx.beginPath();
-      ctx.arc(shieldX, shieldY, 4 * pulse, 0, Math.PI * 2);
+      ctx.arc(shieldX, shieldY, 4 * pulse * u, 0, Math.PI * 2);
       ctx.fill();
-    } else if (
-      slug === "pikachu" &&
-      (isWorkOrRead || isCeleb) &&
-      typeof ctx.moveTo === "function" &&
-      typeof ctx.lineTo === "function" &&
-      typeof ctx.stroke === "function"
-    ) {
-      // Thunderbolt cheek sparks & electric tail lightning bolts
-      if (typeof ctx.globalCompositeOperation === "string") {
-        ctx.globalCompositeOperation = "source-over";
-      }
-      const pulse = dynamicsOffset.glow ?? 1;
-      const isReading = state === "reading" || (state === "" && sheetRow === 8);
-      const isCelebration = isCeleb;
-      const tick = Math.floor(auraTime * (isCelebration ? 18 : isReading ? 7 : 13));
-      const j1 = ((tick * 7) % 5) - 2;
-      const j2 = ((tick * 11) % 5) - 2;
-      const j3 = ((tick * 13) % 4) - 1;
-
-      // Electric bolt styling: crisp miter joins and round caps
-      ctx.lineWidth = isCelebration ? 2.0 : 1.5;
-      if (typeof ctx.lineCap === "string") ctx.lineCap = "round";
-      if (typeof ctx.lineJoin === "string") ctx.lineJoin = "miter";
-
-      // Cyan-gold alternating electric discharge
-      const cyanStroke = "rgba(56, 189, 248, 0.95)";
-      const goldStroke = "rgba(250, 204, 21, 0.95)";
-      const brightGold = "rgba(254, 240, 138, 0.95)";
-
-      // Left cheek electric zigzag bolt
-      const c1X = x + w * 0.37;
-      const c1Y = y + h * 0.52;
-      ctx.strokeStyle = tick % 2 === 0 ? cyanStroke : goldStroke;
-      ctx.beginPath();
-      ctx.moveTo(c1X, c1Y);
-      ctx.lineTo(c1X - 4 + j1, c1Y + 2);
-      ctx.lineTo(c1X - 1 + j2, c1Y + 5);
-      ctx.lineTo(c1X - 5 + j3, c1Y + 8);
-      if (isCelebration) {
-        ctx.lineTo(c1X - 2, c1Y + 11);
-      }
-      ctx.stroke();
-
-      // Right cheek electric zigzag bolt (mirrored)
-      if (!isReading || pulse > 0.9) {
-        const c2X = x + w * 0.63;
-        const c2Y = y + h * 0.52;
-        ctx.strokeStyle = tick % 2 === 0 ? goldStroke : cyanStroke;
-        ctx.beginPath();
-        ctx.moveTo(c2X, c2Y);
-        ctx.lineTo(c2X + 4 - j2, c2Y + 2);
-        ctx.lineTo(c2X + 1 - j1, c2Y + 5);
-        ctx.lineTo(c2X + 5 - j3, c2Y + 8);
-        if (isCelebration) {
-          ctx.lineTo(c2X + 2, c2Y + 11);
-        }
-        ctx.stroke();
-      }
-
-      // Tail lightning spark tip (in working and celebration)
-      if (!isReading) {
-        const tX = x + w * 0.82;
-        const tY = y + h * 0.56;
-        ctx.strokeStyle = isCelebration ? brightGold : pulse > 0.88 ? cyanStroke : goldStroke;
-        ctx.beginPath();
-        ctx.moveTo(tX, tY);
-        ctx.lineTo(tX + 4 + j3, tY - 3);
-        ctx.lineTo(tX + 1 + j1, tY - 7);
-        ctx.lineTo(tX + 5 + j2, tY - 10);
-        if (isCelebration) {
-          // Additional lightning fork branch for 100,000 Volts victory!
-          ctx.lineTo(tX + 2, tY - 14);
-          ctx.moveTo(tX + 1 + j1, tY - 7);
-          ctx.lineTo(tX - 3, tY - 10);
-        }
-        ctx.stroke();
-      }
     } else if (
       slug === "work-blue-cat" &&
       (isWorkOrRead || isCeleb) &&
@@ -771,21 +904,21 @@ export function drawPetFrame(
 
       // Soft upward terminal screen ambient fan
       const screenGrad = ctx.createLinearGradient(screenX, screenY + screenH, screenX + screenW * 0.5, screenY);
-      screenGrad.addColorStop(0, `rgba(56, 189, 248, ${(0.22 * pulse).toFixed(3)})`);
-      screenGrad.addColorStop(0.5, `rgba(52, 211, 153, ${(0.14 * pulse).toFixed(3)})`);
+      screenGrad.addColorStop(0, `rgba(56, 189, 248, ${Math.min(LIGHT_STOP_MAX, 0.22 * pulse).toFixed(3)})`);
+      screenGrad.addColorStop(0.5, `rgba(52, 211, 153, ${Math.min(LIGHT_STOP_MAX, 0.14 * pulse).toFixed(3)})`);
       screenGrad.addColorStop(1, "rgba(56, 189, 248, 0)");
       ctx.fillStyle = screenGrad;
       ctx.fillRect(screenX, screenY, screenW, screenH);
 
       // Subtle IDE code line glimmer reflections across screen edge
-      const lineY1 = screenY + screenH * 0.35 + ((auraTime * 8) % (screenH * 0.45));
+      const lineY1 = screenY + screenH * 0.35 + ((auraTime * 8 * u) % (screenH * 0.45));
       ctx.fillStyle = `rgba(186, 230, 253, ${(0.32 * pulse).toFixed(3)})`;
-      ctx.fillRect(screenX + 4, lineY1, screenW * 0.55, 1.2);
+      ctx.fillRect(screenX + 4 * u, lineY1, screenW * 0.55, Math.max(1, 1.2 * u));
 
       if (isCeleb) {
         // Build success: warm green compiler pass flash on the laptop
         ctx.fillStyle = `rgba(74, 222, 128, ${(0.28 * pulse).toFixed(3)})`;
-        ctx.fillRect(screenX + 2, screenY + 2, screenW - 4, screenH - 4);
+        ctx.fillRect(screenX + 2 * u, screenY + 2 * u, screenW - 4 * u, screenH - 4 * u);
       }
     }
 
@@ -793,6 +926,60 @@ export function drawPetFrame(
   }
 
   if (hasTransform) {
+    ctx.restore();
+  }
+
+  // Floor shadow last, composited behind the pet and its effects so lighting never lands on it.
+  // A contact ellipse under the feet; it squashes/stretches inversely with the vertical bob.
+  if (
+    lighting &&
+    typeof ctx.save === "function" &&
+    typeof ctx.createRadialGradient === "function" &&
+    typeof ctx.beginPath === "function" &&
+    typeof ctx.arc === "function" &&
+    typeof ctx.fill === "function" &&
+    typeof ctx.scale === "function" &&
+    typeof ctx.translate === "function"
+  ) {
+    ctx.save();
+    if (typeof ctx.globalCompositeOperation === "string") {
+      ctx.globalCompositeOperation = "destination-over";
+    }
+    const isAct = isWorkOrRead || isCeleb;
+    const baseGroundAlpha = isCeleb ? 0.95 : isAct ? 0.75 : 0.45;
+    const gMult = (dynamicsOffset.glow ?? 1) * baseGroundAlpha;
+    const gX = width / 2;
+    const gY = baseline;
+
+    const normJump = Math.max(-10, Math.min(10, dynamicsOffset.offsetY));
+    const shadowFactor = Math.max(0.6, Math.min(1.4, 1.0 - normJump * 0.05));
+    const shadowAlpha = Math.max(0.2, Math.min(1.0, 1.0 + normJump * 0.04));
+
+    const rx = Math.max(4, Math.min(width / 2 - 1, Math.round(w * 0.46 * shadowFactor)));
+    const ry = Math.max(2, Math.min(rx * 0.2, height - baseline - 1));
+    ctx.translate(gX, gY);
+    ctx.scale(1, ry / rx);
+
+    // Inner contact shadow (dark ground occlusion), then the tinted rim behind it
+    const innerRx = Math.max(3, Math.round(rx * 0.55));
+    const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, innerRx);
+    innerGrad.addColorStop(0, `rgba(0, 0, 0, ${(0.42 * shadowAlpha).toFixed(3)})`);
+    innerGrad.addColorStop(0.7, `rgba(0, 0, 0, ${(0.15 * shadowAlpha).toFixed(3)})`);
+    innerGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = innerGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerRx, 0, Math.PI * 2);
+    ctx.fill();
+
+    const gGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    gGrad.addColorStop(0, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.48 * gMult * shadowAlpha).toFixed(3)})`));
+    gGrad.addColorStop(0.55, lighting.groundColor.replace(/[\d.]+\)$/, `${(0.22 * gMult * shadowAlpha).toFixed(3)})`));
+    gGrad.addColorStop(1, lighting.groundColor.replace(/[\d.]+\)$/, "0)"));
+    ctx.fillStyle = gGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
@@ -1141,8 +1328,9 @@ export class PetRenderer {
 
     // Compute subpixel procedural dynamics for ultra-smooth 60fps motion
     const dynamicsOffset = this.computeDynamicsOffset();
+    const timeOverride = !this.animate ? (this.lastRafTime ?? (this.lastTick / 1000)) : undefined;
 
-    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset, this.state, this.aura);
+    this.spriteRect = drawPetFrame(this.ctx, this.img, r, this.slug, this.canvas, dynamicsOffset, this.state, this.aura, timeOverride);
     this.headroom = this.spriteRect.y / H;
   }
 

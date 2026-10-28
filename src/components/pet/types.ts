@@ -75,6 +75,8 @@ export interface PetFormMeta {
   id: string;
   name: string;
   minLevel: number;
+  /** Costume or temporary appearance, excluded from automatic progression. */
+  manualOnly?: boolean;
   hairDescription?: string;
   auraDescription?: string;
   avatarUrl: string;
@@ -866,7 +868,7 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "pichu",
         name: "Pichu Spark",
         minLevel: 1,
-        hairDescription: "Chú chuột điện sơ sinh đáng yêu với đôi tai kim cương và yếm cổ đen",
+        hairDescription: "[Official Canon] Chú chuột điện sơ sinh đáng yêu với đôi tai kim cương và yếm cổ đen (Gen 2)",
         auraDescription: "Tia điện tí hon nảy lách tách từ tình bạn đầu đời",
         avatarUrl: "/pets/pikachu/forms/pichu/avatar.png",
         spritesheetPath: "/pets/pikachu/forms/pichu/spritesheet.webp",
@@ -874,54 +876,39 @@ export const INSTALLED_PETS: PetArchetype[] = [
       {
         id: "classic",
         name: "Pikachu Classic 1996",
-        minLevel: 3,
-        hairDescription: "Vóc dáng Chonkachu tròn trĩnh hoài niệm cùng hai vệt sọc lưng nguyên bản",
-        auraDescription: "Điện năng ấm áp gợi nhớ những thước phim hoạt hình đầu tiên",
+        minLevel: 5,
+        hairDescription: "[Official Canon] Vóc dáng Chonkachu tròn trĩnh hoài niệm cùng hai vệt sọc lưng Ken Sugimori (Gen 1)",
+        auraDescription: "Điện năng phân nhánh vàng óng với lõi trắng rực rỡ phóng quanh hai má và đuôi sấm sét",
         avatarUrl: "/pets/pikachu/forms/classic/avatar.png",
         spritesheetPath: "/pets/pikachu/forms/classic/spritesheet.webp",
       },
       {
-        id: "original-cap",
-        name: "Original Cap Pikachu",
-        minLevel: 5,
-        hairDescription: "Chiếc mũ Kanto/Johto Expo xanh lá biểu tượng đồng hành cùng Satoshi",
-        auraDescription: "Luồng sét tốc độ vượt qua Raichu tại Gym Vermilion",
-        avatarUrl: "/pets/pikachu/forms/original-cap/avatar.png",
-        spritesheetPath: "/pets/pikachu/forms/original-cap/spritesheet.webp",
+        id: "concept-white-belly",
+        name: "White-Belly Pikachu",
+        minLevel: 10,
+        manualOnly: true,
+        hairDescription: "[Beta Prototype / Concept] Thiết kế sơ khai 1996 của Atsuko Nishida với vệt bụng trắng tinh khôi và đuôi ngắn",
+        auraDescription: "Vầng sáng tĩnh điện vàng phấn dịu êm lan tỏa quanh bờ bụng và hai má hoa hồng",
+        avatarUrl: "/pets/pikachu/forms/concept-white-belly/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/concept-white-belly/spritesheet.webp",
       },
       {
-        id: "hoenn-cap",
-        name: "Hoenn Cap Pikachu",
-        minLevel: 8,
-        hairDescription: "Mũ chiến binh AG vòm xanh ngọc cùng dải băng đỏ nhiệt huyết",
-        auraDescription: "Điện tích bão tố rực cháy trên các đỉnh núi vùng Hoenn",
-        avatarUrl: "/pets/pikachu/forms/hoenn-cap/avatar.png",
-        spritesheetPath: "/pets/pikachu/forms/hoenn-cap/spritesheet.webp",
-      },
-      {
-        id: "kalos-cap",
-        name: "Kalos Cap Pikachu",
-        minLevel: 12,
-        hairDescription: "Mũ đỏ Kalos sắc sảo biểu trưng cho tinh thần chiến thuật đỉnh cao",
-        auraDescription: "Sóng xung kích hoàng kim rền vang khắp đấu trường Lumiose",
-        avatarUrl: "/pets/pikachu/forms/kalos-cap/avatar.png",
-        spritesheetPath: "/pets/pikachu/forms/kalos-cap/spritesheet.webp",
-      },
-      {
-        id: "alola-cap",
-        name: "Alola Cap Pikachu",
+        id: "concept-long-tail",
+        name: "Long-Tail Pikachu",
         minLevel: 15,
-        hairDescription: "Mũ xanh đại dương Alola cùng biểu tượng giải đấu vô địch vùng hải đảo",
-        auraDescription: "Tuyệt kỹ Z-Move 10.000.000 Volt Thunderbolt rực sáng bảy sắc cầu vồng",
-        avatarUrl: "/pets/pikachu/forms/alola-cap/avatar.png",
-        spritesheetPath: "/pets/pikachu/forms/alola-cap/spritesheet.webp",
+        manualOnly: true,
+        hairDescription: "[Beta Prototype / Concept] Nguyên mẫu giai đoạn 3 của Atsuko Nishida (Yomiuri 2018) với chiếc đuôi 5 khúc dài gấp rưỡi thân",
+        auraDescription: "Dòng điện cao tốc rẽ quạt chạy dọc theo 5 khúc đuôi tia chớp vươn dài phía sau",
+        avatarUrl: "/pets/pikachu/forms/concept-long-tail/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/concept-long-tail/spritesheet.webp",
       },
       {
         id: "raichu",
-        name: "Raichu Kanto",
+        name: "Kantonian Raichu",
         minLevel: 20,
-        hairDescription: "Bộ lông cam hổ phách, đôi tai xoắn nâu và đuôi tia chớp dây đồng dài uy lực",
-        auraDescription: "Điện áp cao phóng đại sấm sét với sức mạnh nguyên bản từ Đá Lôi",
+        manualOnly: true,
+        hairDescription: "[Official Canon] Dạng tiến hóa sấm sét Kanto kiêu hãnh với đôi tai xoắn ốc vàng chanh và đuôi roi lưỡi sét (Gen 1)",
+        auraDescription: "Luồng sét hổ phách vàng rực cuộn trào dọc theo đuôi roi và phóng đại qua phiến sét kim loại",
         avatarUrl: "/pets/pikachu/forms/raichu/avatar.png",
         spritesheetPath: "/pets/pikachu/forms/raichu/spritesheet.webp",
       },
@@ -929,8 +916,9 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "alolan-raichu",
         name: "Alolan Raichu",
         minLevel: 25,
-        hairDescription: "Lông caramel mịn màng, mắt xanh siêu linh và chiếc đuôi lướt sóng mềm mại",
-        auraDescription: "Hào quang tâm linh màu lam ngọc nâng cơ thể bay lơ lửng giữa không trung",
+        manualOnly: true,
+        hairDescription: "[Official Canon] Biến thể hệ Điện/Tâm linh vùng nhiệt đới Alola lướt sóng trên chiếc đuôi vàng tròn mềm mại (Gen 7)",
+        auraDescription: "Sự kết hợp kép giữa vầng hào quang tâm linh xanh ngọc lam nâng bổng cơ thể và tia sét vàng óng",
         avatarUrl: "/pets/pikachu/forms/alolan-raichu/avatar.png",
         spritesheetPath: "/pets/pikachu/forms/alolan-raichu/spritesheet.webp",
       },
@@ -938,19 +926,41 @@ export const INSTALLED_PETS: PetArchetype[] = [
         id: "gigantamax",
         name: "Gigantamax Pikachu",
         minLevel: 30,
-        hairDescription: "Hình thái Kyodaimax khổng lồ với chiếc đuôi sét chọc trời và ba dải mây đỏ Dynamax",
-        auraDescription: "Bão sấm sét đỏ thẫm rung chuyển toàn bộ không gian Galar",
+        manualOnly: true,
+        hairDescription: "[Official Canon] Hình thái Kyodaimax khổng lồ vùng Galar với chiếc đuôi sét chọc trời và ba dải mây đỏ Dynamax (Gen 8)",
+        auraDescription: "Bão sấm sét đỏ thẫm rung chuyển không gian, phóng những tia sét trắng rực qua các tầng mây Dynamax",
         avatarUrl: "/pets/pikachu/forms/gigantamax/avatar.png",
         spritesheetPath: "/pets/pikachu/forms/gigantamax/spritesheet.webp",
       },
       {
-        id: "ash-cap",
-        name: "World Champion Cap Pikachu",
+        id: "mega-raichu-x",
+        name: "Mega Raichu X",
         minLevel: 35,
-        hairDescription: "Mũ Quán Quân Thế Giới World Coronation Series khẳng định vị thế Bậc Thầy",
-        auraDescription: "Tia sét vàng rực vương giả kết tinh từ hành trình 25 năm bền bỉ bất diệt",
-        avatarUrl: "/pets/pikachu/forms/ash-cap/avatar.png",
-        spritesheetPath: "/pets/pikachu/forms/ash-cap/spritesheet.webp",
+        manualOnly: true,
+        hairDescription: "[Official Canon] Tiến hóa Mega thể X (Legends Z-A / HZ138) tạo hình chữ X dũng mãnh cùng cặp đuôi sét song kiếm",
+        auraDescription: "Mạng lưới điện trường 50 triệu vôn đan chéo chữ X màu vàng kim và mắt đỏ rực lửa chiến đấu",
+        avatarUrl: "/pets/pikachu/forms/mega-raichu-x/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/mega-raichu-x/spritesheet.webp",
+      },
+      {
+        id: "mega-raichu-y",
+        name: "Mega Raichu Y",
+        minLevel: 40,
+        manualOnly: true,
+        hairDescription: "[Official Canon] Tiến hóa Mega thể Y (Legends Z-A / HZ138) thanh thoát tốc độ với cặp sừng sét trên trán và mắt xanh ngọc",
+        auraDescription: "Tia chớp zig-zag sắc bén kết nối giữa cặp sừng sét thái dương và phiến đuôi dựng đứng hình chữ Y",
+        avatarUrl: "/pets/pikachu/forms/mega-raichu-y/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/mega-raichu-y/spritesheet.webp",
+      },
+      {
+        id: "gorochu",
+        name: "Gorochu Horned Raichu",
+        minLevel: 50,
+        manualOnly: true,
+        hairDescription: "[Scrapped Concept / Prototype] Bản thiết kế cấp tiến hóa thứ 3 bị lược bỏ của Nishida & Sugimori (TCRF 175) với cặp sừng trâu, răng nanh và lông tua tủa",
+        auraDescription: "Cơn bão lôi đình đỏ thẫm hung bạo gầm rú giữa hai sừng nhọn và chiếc đuôi chùy gai sấm sét",
+        avatarUrl: "/pets/pikachu/forms/gorochu/avatar.png",
+        spritesheetPath: "/pets/pikachu/forms/gorochu/spritesheet.webp",
       },
     ],
   },
@@ -992,6 +1002,25 @@ export function getInternalLevel(xp: number): number {
   return level;
 }
 
+export const PIKACHU_LEGACY_ALIASES: Record<string, string> = {
+  // Superseded interim tokens
+  thunderbolt: "classic",
+  "z-move": "classic",
+  // Legacy regional caps
+  "original-cap": "classic",
+  "hoenn-cap": "classic",
+  "kalos-cap": "classic",
+  "alola-cap": "classic",
+  "ash-cap": "classic",
+  // Alternate aliases
+  "white-belly": "concept-white-belly",
+  "long-tail": "concept-long-tail",
+  gmax: "gigantamax",
+  "mega-x": "mega-raichu-x",
+  "mega-y": "mega-raichu-y",
+  "horned-raichu": "gorochu",
+};
+
 export function resolvePetActiveForm(
   pet: PetArchetype | string,
   level: number = 1,
@@ -1002,12 +1031,15 @@ export function resolvePetActiveForm(
 
   // Manual cosmetic lock
   if (formPreference && formPreference !== "auto") {
-    const selected = archetype.forms.find((f) => f.id === formPreference);
+    const preference = archetype.id === "pikachu"
+      ? (PIKACHU_LEGACY_ALIASES[formPreference] ?? formPreference)
+      : formPreference;
+    const selected = archetype.forms.find((f) => f.id === preference);
     if (selected) return selected;
   }
 
   // Automatic level progression: select highest form with minLevel <= current level
-  const sorted = [...archetype.forms].sort((a, b) => b.minLevel - a.minLevel);
+  const sorted = archetype.forms.filter((f) => !f.manualOnly).sort((a, b) => b.minLevel - a.minLevel);
   return sorted.find((f) => level >= f.minLevel) || sorted[sorted.length - 1]!;
 }
 
