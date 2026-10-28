@@ -25,6 +25,20 @@ Set the public `RUST_SOUND_AUTH_URL` to the backend origin before `pnpm rebuild:
 
 Previous desktop code contained credential defaults. **Rotate the formerly embedded Neon password and signing secret through your provider**, then update server-only configuration. Removing source defaults cannot revoke old app bundles or git copies. No rotation, production SQL or backend deployment is automated here.
 
+## Safe login diagnostics
+
+Login start/completion emits JSON receipt and outcome entries containing only fixed `operation`/`outcome`, numeric HTTP `status`, and an optional allowlisted `code`. No request body, query, verifier, Google code/token, profile, connection string or exception message is logged. A `google_complete` receipt proves the desktop reached the backend; a failed outcome identifies the stage, not a successful login.
+
+- `LOGIN_EXPIRED`: invalid/expired handoff, including pending state lost on restart; begin a fresh login.
+- `GOOGLE_TOKEN_EXCHANGE_FAILED`: Google token transport, timeout or malformed response.
+- `GOOGLE_CODE_REJECTED`: Google returned `invalid_grant`; begin a fresh login and check the desktop redirect/PKCE configuration if repeated.
+- `GOOGLE_CLIENT_REJECTED`: Google returned `invalid_client`; verify the server's OAuth credentials without sharing them in chat.
+- `GOOGLE_KEYS_FAILED`: Google signing-key retrieval failed.
+- `GOOGLE_IDENTITY_REJECTED`: identity signature/claims verification failed.
+- `AUTH_DATABASE_FAILED`: verified identity could not be persisted as a session.
+
+The desktop translates known codes into local Vietnamese messages and uses an HTTP-status fallback for unknown/malformed errors. Backend transport failures remain distinct. Logs and messages must never be treated as proof the underlying live Google issue is fixed; retry from the installed app after deploying/restarting the backend. Restart discards pending login handoffs, so do not reuse an old callback URL or code.
+
 ## Checks and acceptance
 
 `npm test` runs offline token-signature, claim, handoff, replay, revocation and HTTP-boundary tests using an ephemeral RSA key and in-memory test doubles only. `AUTH_TEST_DATABASE_URL=... AUTH_TEST_DATABASE_CONFIRM=disposable node --test repository.test.mjs` additionally exercises repository persistence against an explicitly supplied disposable TLS PostgreSQL database with reviewed schema. It uses unique test identities and cleans up its own rows; never point it at production.

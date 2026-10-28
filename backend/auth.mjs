@@ -1,9 +1,12 @@
 import { createHash, createHmac, createPublicKey, randomBytes, randomUUID, timingSafeEqual, verify } from 'node:crypto';
 
+const diagnosticCodes = new Set(['LOGIN_EXPIRED', 'GOOGLE_TOKEN_EXCHANGE_FAILED', 'GOOGLE_CODE_REJECTED',
+  'GOOGLE_CLIENT_REJECTED', 'GOOGLE_KEYS_FAILED', 'GOOGLE_IDENTITY_REJECTED', 'AUTH_DATABASE_FAILED']);
+export const safeErrorCode = code => diagnosticCodes.has(code) ? code : undefined;
 export class AuthError extends Error {
-  constructor(message, status = 400) { super(message); this.status = status; }
+  constructor(message, status = 400, code) { super(message); this.status = status; this.code = safeErrorCode(code); }
 }
-const fail = (message, status) => { throw new AuthError(message, status); };
+const fail = (message, status, code) => { throw new AuthError(message, status, code); };
 const random = () => randomBytes(32).toString('base64url');
 export const digest = value => createHash('sha256').update(value).digest('base64url');
 const equal = (a, b) => typeof a === 'string' && typeof b === 'string' && Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -43,7 +46,7 @@ export function verifyGoogleToken(token, { clientId, nonce, keys, now = Date.now
     let avatar;
     try { const u = new URL(c.picture); if (u.protocol === 'https:' && !u.username && !u.password) avatar = u.href; } catch {}
     return { provider_user_id: c.sub, email: c.email.toLowerCase(), name: bounded(c.name, 200) ? c.name : c.email, avatar_url: avatar ?? null };
-  } catch { fail('Google identity rejected', 401); }
+  } catch { fail('Google identity rejected', 401, 'GOOGLE_IDENTITY_REJECTED'); }
 }
 
 function signSession(user, config, now) {
@@ -91,20 +94,34 @@ export class AuthBackend {
   }
   proof(id, verifier) {
     this.prune(); const p = this.pending.get(id);
-    if (!p || !bounded(verifier, 128) || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier) || !equal(digest(verifier), p.challenge)) fail('Login expired or invalid', 401);
+    if (!p || !bounded(verifier, 128) || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier) || !equal(digest(verifier), p.challenge)) fail('Login expired or invalid', 401, 'LOGIN_EXPIRED');
     return p;
   }
   async googleJson(url, options = {}) {
+    let code = url === 'https://oauth2.googleapis.com/token' ? 'GOOGLE_TOKEN_EXCHANGE_FAILED' : 'GOOGLE_KEYS_FAILED';
     try {
       const res = await this.fetcher(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(10000) });
-      if (!res.ok) throw new Error();
-      const text = await res.text(); if (text.length > 131072) throw new Error();
-      return JSON.parse(text);
-    } catch { fail('Google login failed', 502); }
+      const reader = res.body.getReader(); let text = ''; let size = 0; const decoder = new TextDecoder();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read(); if (done) break;
+          size += value.length; if (size > 131072) throw new Error();
+          text += decoder.decode(value, { stream: true });
+        }
+        text += decoder.decode();
+      } finally { await reader.cancel().catch(() => {}); }
+      const data = JSON.parse(text);
+      if (!res.ok) {
+        if (code === 'GOOGLE_TOKEN_EXCHANGE_FAILED' && data?.error === 'invalid_grant') code = 'GOOGLE_CODE_REJECTED';
+        if (code === 'GOOGLE_TOKEN_EXCHANGE_FAILED' && data?.error === 'invalid_client') code = 'GOOGLE_CLIENT_REJECTED';
+        throw new Error();
+      }
+      return data;
+    } catch { fail('Google login failed', 502, code); }
   }
   async complete(id, verifier, { code, state } = {}) {
     const p = this.proof(id, verifier);
-    if (!equal(p.state, state)) fail('Login expired or invalid', 401);
+    if (!equal(p.state, state)) fail('Login expired or invalid', 401, 'LOGIN_EXPIRED');
     if (!bounded(code, 4096)) fail('Invalid authorization code');
     this.pending.delete(id); // Consume before any await: only one Google exchange/session is possible.
     const token = await this.googleJson('https://oauth2.googleapis.com/token', { method: 'POST', body: new URLSearchParams({
@@ -112,20 +129,20 @@ export class AuthBackend {
       redirect_uri: p.redirectUri, grant_type: 'authorization_code' }) });
       if (!this.jwks || this.keysExpire <= this.clock()) {
         const data = await this.googleJson('https://www.googleapis.com/oauth2/v3/certs');
-        if (!Array.isArray(data.keys) || data.keys.length > 10) fail('Google login failed', 502);
+        if (!Array.isArray(data?.keys) || data.keys.length > 10) fail('Google login failed', 502, 'GOOGLE_KEYS_FAILED');
         this.jwks = data.keys; this.keysExpire = this.clock() + 5 * 60000;
       }
       // Google can rotate keys during the cache lifetime; refresh once for an unknown kid.
-      let kid; try { kid = JSON.parse(Buffer.from(token.id_token.split('.')[0], 'base64url')).kid; } catch {}
+      let kid; try { kid = JSON.parse(Buffer.from(token?.id_token.split('.')[0], 'base64url')).kid; } catch {}
       if (kid && !this.jwks.some(k => k.kid === kid)) {
         const data = await this.googleJson('https://www.googleapis.com/oauth2/v3/certs');
-        if (!Array.isArray(data.keys) || data.keys.length > 10) fail('Google login failed', 502);
+        if (!Array.isArray(data?.keys) || data.keys.length > 10) fail('Google login failed', 502, 'GOOGLE_KEYS_FAILED');
         this.jwks = data.keys;
       }
-    const profile = verifyGoogleToken(token.id_token, { clientId: this.config.clientId, nonce: p.nonce, keys: this.jwks, now: this.clock() });
-    if (p.expires <= this.clock()) fail('Login expired or invalid', 401);
+    const profile = verifyGoogleToken(token?.id_token, { clientId: this.config.clientId, nonce: p.nonce, keys: this.jwks, now: this.clock() });
+    if (p.expires <= this.clock()) fail('Login expired or invalid', 401, 'LOGIN_EXPIRED');
     try { return await this.repo.login(profile, user => signSession(user, this.config, this.clock())); }
-    catch { fail('Authentication service unavailable', 503); }
+    catch { fail('Authentication service unavailable', 503, 'AUTH_DATABASE_FAILED'); }
   }
   async cancel(id, verifier) { this.proof(id, verifier); this.pending.delete(id); }
   async session(token) {

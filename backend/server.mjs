@@ -1,17 +1,27 @@
 import { createServer } from 'node:http';
-import { AuthError } from './auth.mjs';
+import { AuthError, safeErrorCode } from './auth.mjs';
 
-export function createAuthServer(auth) {
+export function createAuthServer(auth, log = entry => console.info(JSON.stringify(entry))) {
   const rates = new Map();
   const server = createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
-    const json = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    let operation;
+    const outcome = (entry) => { if (operation) { try { log({ operation, ...entry }); } catch {} } };
+    const json = (code, body) => {
+      outcome({ outcome: code < 400 ? 'succeeded' : 'failed', status: code, ...(safeErrorCode(body.code) ? { code: body.code } : {}) });
+      res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body));
+    };
     try {
       if (!req.url || req.url.length > 8192) throw new AuthError('Invalid request', 400);
       const path = new URL(req.url, auth.config.publicUrl);
+      if (req.method === 'POST') {
+        if (path.pathname === '/auth/google/start') operation = 'google_start';
+        if (path.pathname === '/auth/google/complete') operation = 'google_complete';
+      }
+      outcome({ outcome: 'received' });
       if (req.headers.origin && req.headers.origin !== auth.config.publicUrl) throw new AuthError('Request not allowed', 403);
       const now = Date.now();
       for (const [key, rate] of rates) if (rate.until <= now) rates.delete(key);
@@ -50,7 +60,11 @@ export function createAuthServer(auth) {
       if (path.pathname === '/auth/google/cancel') { await auth.cancel(body.login_id, body.verifier); return json(200, { ok: true }); }
       json(200, await auth.complete(body.login_id, body.verifier, { code: body.code, state: body.state }));
     } catch (error) {
-      json(error instanceof AuthError ? error.status : 503, { error: error instanceof AuthError ? error.message : 'Authentication service unavailable' });
+      const code = error instanceof AuthError ? safeErrorCode(error.code) : undefined;
+      json(error instanceof AuthError ? error.status : 503, {
+        error: error instanceof AuthError ? error.message : 'Authentication service unavailable',
+        ...(code ? { code } : {}),
+      });
     }
   });
   server.requestTimeout = 15000; server.headersTimeout = 10000; server.timeout = 45000;

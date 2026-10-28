@@ -120,6 +120,52 @@ test('login state validates challenges and enforces capacity bounds', () => {
   f.advance(); assert.ok(f.start().login_id);
 });
 
+test('completion failures identify safe stages without exposing upstream or database details', async () => {
+  for (const [stage, status, code, reply] of [
+    ['token', 502, 'GOOGLE_TOKEN_EXCHANGE_FAILED', null],
+    ['token', 502, 'GOOGLE_CODE_REJECTED', { error: 'invalid_grant', error_description: 'private-code' }],
+    ['token', 502, 'GOOGLE_CLIENT_REJECTED', { error: 'invalid_client', error_description: 'private-secret' }],
+    ['keys', 502, 'GOOGLE_KEYS_FAILED', null],
+    ['identity', 401, 'GOOGLE_IDENTITY_REJECTED', null],
+    ['database', 503, 'AUTH_DATABASE_FAILED', null],
+    ['handoff', 401, 'LOGIN_EXPIRED', null],
+  ]) {
+    const f = fixture(); const started = f.start(); const body = f.reply(started);
+    const original = f.auth.fetcher;
+    f.auth.fetcher = async (url, options) => {
+      if ((stage === 'token' && url.endsWith('/token')) || (stage === 'keys' && url.endsWith('/certs'))) {
+        if (reply) return new Response(JSON.stringify(reply), { status: 400 });
+        throw new Error('private-code token verifier database-password');
+      }
+      return original(url, options);
+    };
+    if (stage === 'identity') f.reply(started, { nonce: 'wrong' });
+    if (stage === 'database') f.auth.repo.login = async () => { throw new Error('postgres://private'); };
+    if (stage === 'handoff') f.advance();
+    await assert.rejects(f.auth.complete(started.login_id, f.verifier, body), e => {
+      assert.equal(e.status, status); assert.equal(e.code, code);
+      assert.doesNotMatch(e.message, /private|verifier|password/);
+      return true;
+    });
+    assert.equal(f.logins, 0);
+  }
+});
+
+test('malformed and oversized Google responses retain safe stage codes and cannot persist identity', async () => {
+  for (const [atToken, response, expected] of [
+    [true, () => new Response('not-json private-token'), 'GOOGLE_TOKEN_EXCHANGE_FAILED'],
+    [true, () => new Response('x'.repeat(131073)), 'GOOGLE_TOKEN_EXCHANGE_FAILED'],
+    [false, () => new Response('null'), 'GOOGLE_KEYS_FAILED'],
+    [false, () => new Response('{"keys":"private-value"}'), 'GOOGLE_KEYS_FAILED'],
+    [true, () => new Response('null'), 'GOOGLE_IDENTITY_REJECTED'],
+  ]) {
+    const f = fixture(); const s = f.start(); const reply = f.reply(s); const original = f.auth.fetcher;
+    f.auth.fetcher = (url, opts) => url.endsWith(atToken ? '/token' : '/certs') ? response() : original(url, opts);
+    await assert.rejects(f.auth.complete(s.login_id, f.verifier, reply), e => e.code === expected && !e.message.includes('private'));
+    assert.equal(f.logins, 0);
+  }
+});
+
 test('invalid server configuration fails closed without revealing secrets', () => {
   assert.throws(() => loadConfig({}), /Authentication backend is not configured/);
   const env = { GOOGLE_CLIENT_ID: cfg.clientId, GOOGLE_CLIENT_SECRET: cfg.clientSecret,

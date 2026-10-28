@@ -280,18 +280,28 @@ fn response_json<T: serde::de::DeserializeOwned>(
 ) -> Result<T, String> {
     use std::io::Read;
     let status = response.status();
+    let mut body = Vec::new();
+    let read = response.take(65537).read_to_end(&mut body);
     if !status.is_success() {
-        return Err(match status.as_u16() {
-            400 | 401 => "Đăng nhập bị từ chối hoặc đã hết hạn. Hãy thử lại.".into(),
-            429 => "Có quá nhiều yêu cầu đăng nhập. Vui lòng đợi rồi thử lại.".into(),
-            _ => unavailable(),
+        // Never reflect backend error text or unbounded/unparseable response bodies.
+        let code = if read.is_ok() && body.len() <= 65536 {
+            serde_json::from_slice::<serde_json::Value>(&body).ok()
+                .and_then(|value| value.get("code")?.as_str().map(str::to_owned))
+        } else { None };
+        return Err(match (status.as_u16(), code.as_deref()) {
+            (502, Some("GOOGLE_TOKEN_EXCHANGE_FAILED")) => "Máy chủ không đổi mã xác thực với Google được. Hãy thử đăng nhập lại.".into(),
+            (502, Some("GOOGLE_CODE_REJECTED")) => "Google từ chối mã xác thực (hết hạn hoặc không hợp lệ). Hãy bắt đầu đăng nhập lại.".into(),
+            (502, Some("GOOGLE_CLIENT_REJECTED")) => "Google từ chối OAuth client. Cần kiểm tra Client ID và Client Secret trên máy chủ.".into(),
+            (502, Some("GOOGLE_KEYS_FAILED")) => "Máy chủ không tải được khóa xác minh Google. Hãy kiểm tra kết nối máy chủ rồi thử lại.".into(),
+            (401, Some("GOOGLE_IDENTITY_REJECTED")) => "Máy chủ không xác minh được danh tính Google. Hãy đăng nhập lại.".into(),
+            (503, Some("AUTH_DATABASE_FAILED")) => "Google đã xác thực nhưng máy chủ không lưu được phiên vào cơ sở dữ liệu. Cần kiểm tra database.".into(),
+            (401, Some("LOGIN_EXPIRED")) => "Yêu cầu đăng nhập đã hết hạn hoặc không hợp lệ. Hãy bắt đầu lại.".into(),
+            (400 | 401, _) => "Đăng nhập bị từ chối hoặc đã hết hạn. Hãy thử lại.".into(),
+            (429, _) => "Có quá nhiều yêu cầu đăng nhập. Vui lòng đợi rồi thử lại.".into(),
+            (code, _) => format!("Máy chủ đăng nhập trả về lỗi HTTP {code}. Hãy kiểm tra log máy chủ và thử lại."),
         });
     }
-    let mut body = Vec::new();
-    response
-        .take(65537)
-        .read_to_end(&mut body)
-        .map_err(|_| unavailable())?;
+    read.map_err(|_| unavailable())?;
     if body.len() > 65536 {
         return Err(unavailable());
     }
@@ -317,6 +327,51 @@ mod tests {
         ] {
             assert!(RemoteAuth::new(bad).base_url().is_err());
         }
+    }
+    fn failed_response(status: u16, body: &str) -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = body.to_owned();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut request = [0; 4096];
+            stream.read(&mut request).unwrap();
+            write!(stream, "HTTP/1.1 {status} Error\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        });
+        let response = Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap()
+            .get(format!("http://{address}")).send().unwrap();
+        let error = response_json::<serde_json::Value>(response).unwrap_err();
+        server.join().unwrap();
+        error
+    }
+    #[test]
+    fn backend_failures_identify_stage_without_reflecting_remote_text() {
+        for (status, code, message) in [
+            (502, "GOOGLE_TOKEN_EXCHANGE_FAILED", "đổi mã xác thực"),
+            (502, "GOOGLE_CODE_REJECTED", "Google từ chối mã"),
+            (502, "GOOGLE_CLIENT_REJECTED", "OAuth client"),
+            (502, "GOOGLE_KEYS_FAILED", "khóa xác minh"),
+            (401, "GOOGLE_IDENTITY_REJECTED", "danh tính Google"),
+            (503, "AUTH_DATABASE_FAILED", "cơ sở dữ liệu"),
+            (401, "LOGIN_EXPIRED", "hết hạn"),
+        ] {
+            let error = failed_response(status, &format!(r#"{{"code":"{code}","error":"private-secret"}}"#));
+            assert!(error.contains(message), "{code}: {error}");
+            assert!(!error.contains("private-secret"));
+            assert_ne!(error, unavailable());
+        }
+        for body in [r#"{"code":"private-secret","error":"private-secret"}"#.to_owned(),
+            "not-json private-secret".to_owned(), "x".repeat(65537)] {
+            let error = failed_response(502, &body);
+            assert!(error.contains("HTTP 502"));
+            assert!(!error.contains("private-secret"));
+        }
+        assert!(failed_response(503, "{}").contains("HTTP 503"));
+        assert!(failed_response(429, "{}").contains("quá nhiều"));
+        // An untrusted backend cannot relabel a different HTTP failure with a known code.
+        assert!(failed_response(500, r#"{"code":"AUTH_DATABASE_FAILED"}"#).contains("HTTP 500"));
     }
     #[test]
     fn cancellation_is_registered_before_blocking_worker_starts() {
