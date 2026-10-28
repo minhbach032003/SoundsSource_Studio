@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Build the ten Son Goku form spritesheets with distinct silhouettes and authentic canon outfits.
+"""Build the ten Son Goku form spritesheets from the Super Saiyan 1 source sheet.
 
-Key principles:
-1. Distinct hair silhouettes: Base (squashed & widened), Lifted (God/MUI), SSJ, SSJ2 (taller & sharper), SSJ3 (long flowing mane).
-2. Clean material classification: NEVER treat forehead skin highlights as hair.
-3. Authentic outfits: Base/Kaio-ken Kanji, SS1/SS2 classic gi, Whis Gi for SS Blue, Torn navy undershirt for UI-Sign, and Shirtless for MUI.
-4. Sharp pixel art without blur or halos.
+Each form gets its own hair silhouette, hair/eyebrow/iris colours and skin tint,
+derived per frame from the source art instead of a whole-image hue shift. The gi is
+never recoloured. Auras are drawn at runtime by the renderer, not baked in.
+
+Usage: python3 -I scripts/build-goku-forms.py [form-id ...]   (needs Pillow + numpy)
+Writes public/pets/super-saiyan-goku/forms/<id>/{spritesheet.webp,avatar.png}
+and forms/manifest.json (read by tests/pet-forms.test.mjs).
 """
 
 import hashlib
@@ -24,77 +26,80 @@ COLS, ROWS = 8, 9
 CELL_W, CELL_H = 192, 208
 AVATAR = 128
 
-# Palettes (Darkest to Lightest)
-PALETTES = {
+# Hair ramps run dark -> light; the source hair lightness is remapped onto them.
+# Hex proposals come from docs/engineering/goku-form-sprite-redesign-research.md (3.3).
+BLACK_HAIR = ["#06060a", "#121219", "#23232c", "#3a3f55"]
+FORMS = {
     "base": {
-        "hairShape": "base",
-        "hair": [(10, 10, 16), (22, 22, 32), (40, 42, 56), (70, 75, 95)],
-        "iris": [(10, 10, 15), (20, 25, 35)],
-        "outline": (10, 10, 15, 255),
+        "hairShape": "base", "hair": BLACK_HAIR, "outline": "#000000",
+        "iris": ["#0b0b0b", "#1c1c22"], "skin": None,
     },
     "kaioken": {
-        "hairShape": "base",
-        "hair": [(28, 10, 14), (52, 16, 22), (88, 25, 35), (135, 42, 55)],
-        "iris": [(15, 5, 8), (35, 12, 18)],
-        "outline": (30, 8, 12, 255),
+        "hairShape": "base", "hair": BLACK_HAIR, "outline": "#000000",
+        "iris": ["#0b0b0b", "#1c1c22"], "skin": ("#ff4a3d", 0.45),
     },
     "ss1": {
-        "hairShape": "ssj",
-        "hair": [(120, 70, 0), (185, 125, 10), (245, 195, 30), (255, 240, 120)],
-        "iris": [(20, 110, 95), (40, 180, 155)],
-        "outline": (60, 32, 0, 255),
+        "hairShape": "ssj", "hair": ["#a8700c", "#c9951c", "#fde05a", "#fff3a6"], "outline": "#5a3a00",
+        "iris": ["#1f8c7c", "#2fae9c"], "skin": None,
     },
     "ss2": {
-        "hairShape": "ssj2",
-        "hair": [(130, 75, 0), (200, 135, 12), (255, 210, 35), (255, 248, 140)],
-        "iris": [(20, 110, 95), (40, 180, 155)],
-        "outline": (60, 32, 0, 255),
+        "hairShape": "ssj2", "hair": ["#b07a06", "#d19a12", "#ffe14d", "#fff6b8"], "outline": "#5a3a00",
+        "iris": ["#1f8c7c", "#2fae9c"], "skin": None,
     },
     "ss3": {
-        "hairShape": "ssj3",
-        "hair": [(140, 66, 0), (200, 118, 4), (255, 196, 8), (255, 234, 112)],
-        "iris": [(12, 99, 85), (20, 175, 135)],
-        "outline": (52, 24, 0, 255),
+        "hairShape": "ssj3", "hair": ["#946a05", "#b8860b", "#f5c842", "#fff0a0"], "outline": "#4f3300",
+        "iris": ["#1f8c7c", "#2fae9c"], "skin": None,
     },
     "god": {
-        "hairShape": "lifted",
-        "hair": [(80, 10, 25), (140, 20, 45), (215, 35, 75), (255, 105, 135)],
-        "iris": [(160, 18, 42), (225, 48, 75)],
-        "outline": (42, 5, 15, 255),
+        "hairShape": "lifted", "hair": ["#5e0820", "#8c0f2e", "#d4204a", "#ff6b85"], "outline": "#2a0010",
+        "iris": ["#a3122b", "#e0304a"], "skin": None,
     },
     "ssblue": {
-        "hairShape": "ssj",
-        "hair": [(14, 75, 125), (22, 120, 185), (52, 198, 240), (168, 236, 255)],
-        "iris": [(15, 95, 158), (35, 145, 215)],
-        "outline": (6, 40, 75, 255),
+        "hairShape": "ssj", "hair": ["#0e5288", "#1679b8", "#34c6f0", "#a8ecff"], "outline": "#06284a",
+        "iris": ["#0f5f9e", "#1f8fd6"], "skin": None,
     },
     "blue-kaioken": {
-        "hairShape": "ssj",
-        "hair": [(20, 80, 135), (35, 130, 195), (70, 205, 245), (195, 242, 255)],
-        "iris": [(20, 105, 170), (45, 160, 230)],
-        "outline": (10, 45, 80, 255),
+        "hairShape": "ssj", "hair": ["#0e5288", "#1679b8", "#34c6f0", "#a8ecff"], "outline": "#06284a",
+        "iris": ["#0f5f9e", "#1f8fd6"], "skin": ("#ff6f7d", 0.32),
     },
     "ui-sign": {
-        "hairShape": "base",
-        "hair": [(12, 12, 18), (26, 28, 38), (55, 60, 78), (110, 118, 140)],
-        "iris": [(115, 122, 138), (185, 192, 208)],
-        "outline": (10, 10, 15, 255),
+        "hairShape": "base", "hair": BLACK_HAIR, "outline": "#000000",
+        "iris": ["#7d8597", "#c7ccd8"], "skin": None,
     },
     "mui": {
-        "hairShape": "lifted",
-        "hair": [(100, 108, 125), (148, 156, 175), (210, 215, 226), (255, 255, 255)],
-        "iris": [(145, 152, 168), (225, 230, 240)],
-        "outline": (45, 50, 65, 255),
+        "hairShape": "lifted", "hair": ["#6d7588", "#9aa3b5", "#d9dde6", "#ffffff"], "outline": "#2c3140",
+        "iris": ["#9aa3b5", "#e6e9f0"], "skin": None,
     },
 }
 
+# Vertical scale / horizontal scale applied to the hair above the hairline.
 SHAPE_SCALE = {
-    "base": (0.60, 1.14),
+    "base": (0.6, 1.14),
     "lifted": (0.76, 1.08),
-    "ssj": (1.00, 1.00),
+    "ssj": (1.0, 1.0),
     "ssj2": (1.08, 0.97),
-    "ssj3": (1.00, 1.00),
+    "ssj3": (1.06, 1.02),
 }
+
+
+def hex_rgb(value):
+    value = value.lstrip("#")
+    return np.array([int(value[i:i + 2], 16) for i in (0, 2, 4)], dtype=np.float32)
+
+
+def hls_planes(rgb):
+    """Vectorised colorsys.rgb_to_hls: returns (hue 0-1, lightness, saturation) planes."""
+    c = rgb.astype(np.float32) / 255.0
+    r, g, b = c[..., 0], c[..., 1], c[..., 2]
+    mx, mn = c.max(axis=-1), c.min(axis=-1)
+    light = (mx + mn) / 2
+    delta = mx - mn
+    safe = np.where(delta == 0, 1, delta)
+    sat = np.where(delta == 0, 0, np.where(light <= 0.5, delta / np.maximum(mx + mn, 1e-6), delta / np.maximum(2 - mx - mn, 1e-6)))
+    hue = np.where(mx == r, ((g - b) / safe) % 6, np.where(mx == g, (b - r) / safe + 2, (r - g) / safe + 4)) / 6
+    hue = np.where(delta == 0, 0, hue)
+    return [hue, light, sat]
+
 
 def dilate(mask, steps=1):
     out = mask.copy()
@@ -107,50 +112,133 @@ def dilate(mask, steps=1):
         out = grown
     return out
 
-def classify_cell(cell):
-    r, g, b, a = cell[:, :, 0], cell[:, :, 1], cell[:, :, 2], cell[:, :, 3]
-    cx = 96
-    
-    # Precise Hair: Golden pixels strictly above neck (y < 105 or outer side flares)
-    # Exclude skin! Skin has B >= 110 (e.g. B=174)
-    is_upper_hair_region = (np.arange(CELL_H)[:, None] < 105) | (
-        (np.arange(CELL_H)[:, None] < 125) & (np.abs(np.arange(CELL_W)[None, :] - cx) > 42)
-    )
-    is_hair = (a > 96) & is_upper_hair_region & (b <= 85) & (g >= 40) & (r >= 80) & (r > b + 40)
-    is_hair_outline = (a > 96) & is_upper_hair_region & (r < 50) & (g < 40) & (b < 30)
-    
-    # Skin: high R, high G, and B >= 110
-    skin = (a > 96) & (r > 185) & (g > 130) & (b > 90) & (b >= 110)
-    
-    # Hairline estimation
-    hair_ys, hair_xs = np.nonzero(is_hair)
-    hairline = 70
-    if len(hair_ys) > 0:
-        hairline = int(np.percentile(hair_ys, 85))
-        
+
+def drop_small_components(mask, min_size):
+    """4-connected flood fill; removes stray gi pixels that share a hair hue."""
+    seen = np.zeros_like(mask)
+    keep = np.zeros_like(mask)
+    h, w = mask.shape
+    for y, x in zip(*np.nonzero(mask)):
+        if seen[y, x]:
+            continue
+        stack, comp = [(y, x)], []
+        seen[y, x] = True
+        while stack:
+            cy, cx = stack.pop()
+            comp.append((cy, cx))
+            for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+                if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        if len(comp) >= min_size:
+            for cy, cx in comp:
+                keep[cy, cx] = True
+    return keep
+
+
+def near_largest(mask, reach):
+    """Keeps the largest component plus pieces within `reach` px of it."""
+    if not mask.any():
+        return mask
+    seen = np.zeros_like(mask)
+    best = None
+    h, w = mask.shape
+    for y, x in zip(*np.nonzero(mask)):
+        if seen[y, x]:
+            continue
+        stack, comp = [(y, x)], []
+        seen[y, x] = True
+        while stack:
+            cy, cx = stack.pop()
+            comp.append((cy, cx))
+            for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+                if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        if best is None or len(comp) > len(best):
+            best = comp
+    core = np.zeros_like(mask)
+    for cy, cx in best:
+        core[cy, cx] = True
+    # Strands are split by inner line art, so chain outward piece by piece.
+    while True:
+        grown = mask & dilate(core, reach)
+        if (grown == core).all():
+            return core
+        core = grown
+
+
+def ramp_color(ramp, t):
+    """Piecewise-linear lookup into a dark -> light ramp, t in [0, 1]."""
+    stops = [hex_rgb(c) for c in ramp]
+    t = np.clip(t, 0.0, 1.0) * (len(stops) - 1)
+    lo = np.floor(t).astype(int)
+    hi = np.minimum(lo + 1, len(stops) - 1)
+    frac = (t - lo)[..., None]
+    table = np.stack(stops)
+    return table[lo] * (1 - frac) + table[hi] * frac
+
+
+def classify(cell):
+    rgb = cell[:, :, :3]
+    alpha = cell[:, :, 3]
+    hue, light, sat = hls_planes(rgb)
+    hue = hue * 360
+    opaque = alpha > 96
+    hair = opaque & (sat > 0.35) & (light > 0.28) & (hue >= 37.5) & (hue <= 68)
+    hair = drop_small_components(hair, 10)
+    hair = near_largest(hair, 10)
+    # Hair shadows share the gi's orange hue, so grow into them only from lit hair,
+    # a few pixels at a time; the dark outline between hair and gi stops the growth.
+    shadow = opaque & (sat > 0.5) & (hue >= 25) & (hue < 37.5) & (light > 0.3) & (light < 0.56)
+    for _ in range(6):
+        hair = hair | (shadow & dilate(hair, 1))
+    iris = opaque & (sat > 0.25) & (hue >= 140) & (hue <= 205) & (light > 0.12) & (light < 0.8)
+    skin = opaque & ~hair & (hue >= 8) & (hue <= 36) & (light > 0.62) & (sat > 0.25)
+    dark = opaque & (light < 0.3)
+    hair_outline = dark & dilate(hair, 1) & ~iris
+    blue = drop_small_components(opaque & (sat > 0.4) & (light > 0.18) & (hue >= 200) & (hue <= 250), 12)
+    return {"hair": hair, "iris": iris, "skin": skin, "blue": blue, "outline": hair_outline, "light": light, "opaque": opaque}
+
+
+def head_metrics(cls):
+    ys, xs = np.nonzero(cls["hair"])
+    cx = float(np.median(xs))
+    hair_top = int(ys.min())
+    skin_ys, skin_xs = np.nonzero(cls["skin"])
+    near = (np.abs(skin_xs - cx) <= 22) & (skin_ys > hair_top + 6)
+    if near.any():
+        hairline = int(skin_ys[near].min())
+    else:
+        hairline = int(hair_top + (ys.max() - hair_top) * 0.6)
+    body_ys, body_xs = np.nonzero(cls["opaque"] & ~cls["hair"])
     return {
-        "hair": is_hair,
-        "hair_outline": is_hair_outline,
-        "skin": skin,
         "cx": cx,
         "hairline": hairline,
+        "hair_top": hair_top,
+        "hair_w": int(xs.max() - xs.min() + 1),
+        "head": (float(xs.mean()), float(ys.mean())),
+        "face_x": float(skin_xs[near].mean()) if near.any() else cx,
+        "body": (float(body_xs.mean()), float(body_ys.mean())) if len(body_xs) else (cx, hairline + 60),
+        "bottom": int(np.nonzero(cls["opaque"])[0].max()),
     }
 
-def reshape_hair(cell, cls, vscale, hscale):
+
+def reshape_top_hair(cell, cls, m, vscale, hscale):
+    """Scale the hair above the hairline about (cx, hairline); returns the new cell + hair mask."""
     if vscale == 1.0 and hscale == 1.0:
         return cell, cls["hair"].copy()
     h, w = cls["hair"].shape
     top = np.zeros((h, w), dtype=bool)
-    line = cls["hairline"]
-    top[:line, :] = True
-    
-    keep = dilate(cls["skin"], 2)
-    movable = top & dilate(cls["hair"], 6) & (cell[:, :, 3] > 0) & ~keep
+    top[: m["hairline"], :] = True
+    # Everything around the hair above the hairline moves with it, including the
+    # antialiased outer outline, so no ghost of the old silhouette is left behind.
+    keep = dilate(cls["skin"] | cls["blue"], 2)
+    movable = top & dilate(cls["hair"], 8) & (cell[:, :, 3] > 0) & ~keep & ~cls["iris"]
     out = cell.copy()
     out[movable] = 0
     hair = cls["hair"] & ~top
-    cx = cls["cx"]
-    
+    cx, line = m["cx"], m["hairline"]
     for y in range(0, line):
         sy = int(round(line - (line - y) / vscale))
         if sy < 0 or sy >= line:
@@ -164,220 +252,179 @@ def reshape_hair(cell, cls, vscale, hscale):
                 hair[y, x] = cls["hair"][sy, sx]
     return out, hair
 
-def build_cell(cell, form_id="base", row=0, col=0):
+
+def outline_mask(mask, canvas_alpha):
+    return dilate(mask, 1) & ~mask & (canvas_alpha == 0)
+
+
+def draw_polygon_mask(shape, points):
+    img = Image.new("L", (shape[1], shape[0]), 0)
+    ImageDraw.Draw(img).polygon([(float(x), float(y)) for x, y in points], fill=255)
+    return np.array(img) > 0
+
+
+def erode(mask, steps=1):
+    return ~dilate(~mask, steps)
+
+
+def ssj3_mane(shape, m):
+    """Waist-length mane hanging from the back of the head toward the body.
+
+    Returns the mask and a 0-1 shade plane: dark rim, mid body, a few lit strands.
+    """
+    hx, hy = m["head"]
+    bx, by = m["body"]
+    dx, dy = bx - hx, by - hy
+    # When running, the face leads the hair: let the mane trail behind the head.
+    lead = m["face_x"] - hx
+    if abs(lead) > 12:
+        dx -= math.copysign(0.7 * math.hypot(dx, dy), lead)
+    norm = math.hypot(dx, dy) or 1.0
+    dx, dy = dx / norm, dy / norm
+    nx, ny = -dy, dx
+    width = m["hair_w"] * 0.92
+    length = max(82.0, (m["bottom"] - m["hair_top"]) * 0.88)
+    ox, oy = hx, hy
+
+    def at(along, across):
+        return (ox + dx * along + nx * across, oy + dy * along + ny * across)
+
+    # Clockwise outline: one flank with outward spikes, a row of tips, the other flank.
+    left = [at(0, -width * 0.5)]
+    # Flank locks point down and only slightly outward, like hair falling down the back.
+    for k, a in enumerate((0.2, 0.4, 0.6)):
+        spread = width * (0.52 + 0.08 * k)
+        left += [at(length * (a - 0.08), -spread), at(length * (a + 0.09), -spread - 7), at(length * a, -spread + 3)]
+    tips = []
+    span = width * 1.1
+    count = 5
+    for i in range(count):
+        l = -span / 2 + span * i / count
+        r = l + span / count
+        tip = length * (1.0 if i in (1, 3) else 0.94 if i == 2 else 0.86)
+        tips += [at(length * 0.8, l), at(tip, (l + r) / 2 + 3)]
+    tips.append(at(length * 0.8, span / 2))
+    right = []
+    for x, y in reversed(left):
+        a = (x - ox) * dx + (y - oy) * dy
+        c = (x - ox) * nx + (y - oy) * ny
+        right.append(at(a, -c))
+    mask = draw_polygon_mask(shape, left + tips + right)
+    ys, xs = np.mgrid[0 : shape[0], 0 : shape[1]]
+    along = (xs - ox) * dx + (ys - oy) * dy
+    across = (xs - ox) * nx + (ys - oy) * ny
+    shade = np.full(shape, 0.74, dtype=np.float32)
+    strands = (np.abs(((across + 3) % 11) - 5.5) < 1.1) & (along > 8)
+    shade[strands] = 0.92
+    shade -= 0.2 * np.clip(along / length, 0, 1)
+    rim = mask & ~erode(mask, 2)
+    shade[rim] = 0.36
+    return mask, np.clip(shade, 0.05, 0.95)
+
+
+def ssj2_bang(shape, m):
+    cx, line = m["cx"], m["hairline"]
+    pts = [(cx - 1, line - 3), (cx + 4, line - 2), (cx + 1, line + 6), (cx - 3, line + 13), (cx - 4, line + 6)]
+    return draw_polygon_mask(shape, pts)
+
+
+def recolor(cell, cls, hair_mask, form):
+    out = cell.astype(np.float32)
+    light = cls["light"]
+    if hair_mask.any():
+        lo, hi = 0.3, 0.9
+        t = (light - lo) / (hi - lo)
+        out[hair_mask, :3] = ramp_color(form["hair"], t)[hair_mask]
+    out[cls["outline"], :3] = hex_rgb(form["outline"])
+    iris = cls["iris"]
+    if iris.any():
+        t = (light - 0.25) / 0.4
+        out[iris, :3] = ramp_color(form["iris"], t)[iris]
+    if form["skin"]:
+        tint, amount = form["skin"]
+        skin = cls["skin"]
+        out[skin, :3] = out[skin, :3] * (1 - amount) + hex_rgb(tint) * amount
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def remove_brows(out, cls):
+    """Super Saiyan 3 has no eyebrows: paint the dark brow strokes over with skin shadow."""
+    ys, xs = np.nonzero(cls["iris"])
+    if len(ys) < 6:
+        return
+    top, x0, x1 = ys.min(), xs.min(), xs.max()
+    hue, light, sat = hls_planes(out[:, :, :3])
+    white = (light > 0.85) & (sat < 0.6)
+    band = np.zeros_like(cls["iris"])
+    band[max(0, top - 4) : top + 5, max(0, x0 - 2) : x1 + 3] = True
+    brows = band & (light < 0.3) & (out[:, :, 3] > 96) & ~dilate(white | cls["iris"], 1) & ~dilate(cls["hair"], 1)
+    fill_px = band & ~brows & (light >= 0.3) & ~white & ~cls["iris"] & (out[:, :, 3] > 96)
+    if not brows.any() or not fill_px.any():
+        return
+    out[brows, :3] = np.median(out[fill_px, :3], axis=0).astype(np.uint8)
+
+
+def build_cell(cell, form):
     if (cell[:, :, 3] > 0).sum() == 0:
         return cell
-        
-    cls = classify_cell(cell)
-    cx = cls["cx"]
-    vscale, hscale = SHAPE_SCALE[PALETTES[form_id]["hairShape"]]
-    
-    # Reshape hair silhouette
-    shaped_cell, hair_mask = reshape_hair(cell, cls, vscale, hscale)
-    out = shaped_cell.copy()
-    
-    r_val, g_val, b_val, a_val = out[:, :, 0], out[:, :, 1], out[:, :, 2], out[:, :, 3]
-    
-    # 1. Recolor hair
-    pal = PALETTES[form_id]
-    h_stops = pal["hair"]
-    c_arr = np.array(h_stops, dtype=float)
-    
-    hair_lum = (r_val.astype(float) * 0.299 + g_val.astype(float) * 0.587 + b_val.astype(float) * 0.114) / 255.0
-    t = np.clip((hair_lum - 0.25) / 0.55, 0.0, 1.0)
-    idx = t * 3.0
-    i0 = np.clip(np.floor(idx).astype(int), 0, 2)
-    i1 = np.clip(i0 + 1, 0, 3)
-    f = (idx - i0)[..., None]
-    hair_rgb = c_arr[i0] * (1 - f) + c_arr[i1] * f
-    out[hair_mask, :3] = hair_rgb[hair_mask].astype(np.uint8)
-    
-    # Hair outline recolor
-    out_mask = (a_val > 96) & (r_val < 50) & (g_val < 40) & (b_val < 30) & (np.arange(CELL_H)[:, None] < cls["hairline"])
-    out[out_mask, :3] = pal["outline"][:3]
-    
-    # 2. Perfect Iris Recolor (ONLY actual teal iris pixels in source sprite):
-    is_iris = (a_val > 96) & (g_val > 150) & (b_val > 150) & (r_val < 100)
-    iris_stops = pal["iris"]
-    iris_lum = np.clip((g_val.astype(float) - 150) / 60.0, 0.0, 1.0)[..., None]
-    iris_rgb = np.array(iris_stops[0], dtype=float) * (1 - iris_lum) + np.array(iris_stops[1], dtype=float) * iris_lum
-    out[is_iris, :3] = iris_rgb[is_iris].astype(np.uint8)
-    
-    # 3. Kaio-ken / Blue Kaio-ken skin glow
-    if form_id in ("kaioken", "blue-kaioken"):
-        skin_mask = (a_val > 96) & (r_val > 185) & (g_val > 130) & (b_val > 90) & (b_val >= 110) & ~hair_mask
-        tint = np.array([255, 95, 95] if form_id == "kaioken" else [255, 125, 145], dtype=float)
-        factor = 0.20 if form_id == "kaioken" else 0.14
-        out[skin_mask, :3] = np.clip(out[skin_mask, :3].astype(float) * (1 - factor) + tint * factor, 0, 255).astype(np.uint8)
+    cls = classify(cell)
+    if not cls["hair"].any():
+        return cell
+    m = head_metrics(cls)
+    vscale, hscale = SHAPE_SCALE[form["hairShape"]]
+    shaped, hair = reshape_top_hair(cell, cls, m, vscale, hscale)
+    # Re-run light/outline on the reshaped pixels so recolouring follows the moved hair.
+    moved = dict(cls)
+    rgb_light = hls_planes(shaped[:, :, :3])[1]
+    moved["light"] = rgb_light
+    moved["outline"] = (cls["outline"] & ~(np.arange(cell.shape[0])[:, None] < m["hairline"])) | (
+        (shaped[:, :, 3] > 96) & (rgb_light < 0.3) & dilate(hair, 1) & ~hair
+    )
+    out = recolor(shaped, moved, hair, form)
+    hair_rgb = lambda t: ramp_color(form["hair"], t)
 
-    # 4. Outfits: STRICTLY THE SHIRT (between neck and belt, y=115..142)
-    orange_shirt = (a_val > 96) & (r_val > 130) & (g_val > 55) & (g_val < 175) & (b_val < 65) & (r_val > g_val + 25) & (np.arange(CELL_H)[:, None] < 143) & (np.arange(CELL_H)[:, None] >= 115) & (np.abs(np.arange(CELL_W)[None, :] - cx) < 30)
-    blue_chest = (a_val > 96) & (b_val > 100) & (r_val < 75) & (g_val < 100) & (np.arange(CELL_H)[:, None] < 142)
+    if form["hairShape"] == "ssj2":
+        bang = ssj2_bang(hair.shape, m)
+        out[bang, :3] = hair_rgb(np.full(hair.shape, 0.7))[bang]
+        out[bang, 3] = 255
+        edge = dilate(bang, 1) & ~bang & ~hair
+        out[edge, :3] = hex_rgb(form["outline"])
+        out[edge, 3] = 255
+        hair = hair | bang
 
-    fx = Image.fromarray(out)
-    draw = ImageDraw.Draw(fx)
-    
-    if form_id == "base":
-        draw.ellipse([80, 124, 90, 134], fill=(250, 250, 250, 255), outline=(20, 20, 20, 255), width=1)
-        draw.line([(83, 127), (87, 127)], fill=(20, 20, 20, 255), width=1)
-        draw.line([(85, 127), (85, 132)], fill=(20, 20, 20, 255), width=1)
-        draw.line([(83, 129), (87, 129)], fill=(20, 20, 20, 255), width=1)
-        draw.line([(83, 132), (87, 132)], fill=(20, 20, 20, 255), width=1)
-        return np.array(fx)
-        
-    elif form_id == "kaioken":
-        draw.ellipse([80, 124, 90, 134], fill=(250, 250, 250, 255), outline=(140, 20, 20, 255), width=1)
-        draw.line([(83, 127), (87, 127)], fill=(140, 20, 20, 255), width=1)
-        draw.line([(85, 126), (85, 133)], fill=(140, 20, 20, 255), width=1)
-        draw.line([(82, 130), (88, 130)], fill=(140, 20, 20, 255), width=1)
-        return np.array(fx)
-        
-    elif form_id in ("ss1", "ss2"):
-        if form_id == "ss2":
-            draw.polygon([(cx - 2, 70), (cx + 3, 70), (cx + 5, 82), (cx + 1, 92), (cx - 2, 95), (cx, 84)], fill=(255, 210, 35, 255), outline=(60, 32, 0, 255))
-            draw.line([(cx + 2, 72), (cx + 3, 84), (cx, 93)], fill=(255, 248, 140, 255), width=1)
-            draw.line([(cx - 22, 120), (cx - 25, 125), (cx - 20, 128)], fill=(100, 240, 255, 255), width=2)
-            draw.line([(cx + 24, 130), (cx + 28, 134), (cx + 23, 140)], fill=(100, 240, 255, 255), width=2)
-        return np.array(fx)
-        
-    elif form_id == "ss3":
-        res = out.copy()
-        # Remove brows (y=83..89, x=80..112)
-        brows = (np.arange(CELL_H)[:, None] >= 83) & (np.arange(CELL_H)[:, None] <= 89) & (np.abs(np.arange(CELL_W)[None, :] - cx) <= 16) & (res[:, :, 3] > 0) & (res[:, :, :3].mean(axis=-1) < 80)
-        res[brows, :3] = [254, 212, 174]
-        
-        back_img = Image.new("RGBA", (CELL_W, CELL_H), (0, 0, 0, 0))
-        b_draw = ImageDraw.Draw(back_img)
-        
-        C_OUTLINE = (52, 24, 0, 255)
-        C_MID = (200, 118, 4, 255)
-        C_BASE = (255, 196, 8, 255)
-        C_HI = (255, 234, 112, 255)
-        
-        # Massive, thick layered cascading mane with rich volume flowing to mid-thigh (>1.25x SSJ1 volume)
-        downward_locks = [
-            ([(cx - 35, 65), (cx - 52, 75), (cx - 64, 98), (cx - 52, 106), (cx - 35, 85)], [(cx - 45, 78), (cx - 58, 96)]),
-            ([(cx - 34, 88), (cx - 58, 104), (cx - 72, 128), (cx - 56, 138), (cx - 32, 112)], [(cx - 48, 104), (cx - 65, 126)]),
-            ([(cx - 32, 114), (cx - 62, 132), (cx - 76, 158), (cx - 58, 168), (cx - 30, 138)], [(cx - 50, 132), (cx - 68, 156)]),
-            ([(cx - 28, 140), (cx - 56, 160), (cx - 68, 188), (cx - 50, 194), (cx - 24, 162)], [(cx - 45, 158), (cx - 60, 185)]),
-            ([(cx - 24, 158), (cx - 48, 178), (cx - 54, 202), (cx - 36, 200), (cx - 18, 175)], [(cx - 38, 176), (cx - 46, 198)]),
-        ]
-        for poly_l, spine_l in downward_locks:
-            b_draw.polygon(poly_l, fill=C_BASE, outline=C_OUTLINE)
-            b_draw.line([poly_l[0], poly_l[1]], fill=C_MID, width=2)
-            b_draw.line(spine_l, fill=C_HI, width=2)
-            poly_r = [(2 * cx - x, y) for (x, y) in poly_l]
-            spine_r = [(2 * cx - x, y) for (x, y) in spine_l]
-            b_draw.polygon(poly_r, fill=C_BASE, outline=C_OUTLINE)
-            b_draw.line([poly_r[0], poly_r[1]], fill=C_MID, width=2)
-            b_draw.line(spine_r, fill=C_HI, width=2)
-            
-        center_tips = [
-            ([(cx - 12, 154), (cx - 14, 176), (cx - 10, 195), (cx - 5, 172), (cx - 6, 156)], [(cx - 10, 166), (cx - 10, 188)]),
-            ([(cx - 5, 158), (cx - 2, 180), (cx, 198), (cx + 2, 180), (cx + 5, 158)], [(cx, 168), (cx, 192)]),
-            ([(cx + 6, 156), (cx + 5, 172), (cx + 10, 195), (cx + 14, 176), (cx + 12, 154)], [(cx + 10, 166), (cx + 10, 188)]),
-        ]
-        for poly_c, spine_c in center_tips:
-            b_draw.polygon(poly_c, fill=C_BASE, outline=C_OUTLINE)
-            b_draw.line(spine_c, fill=C_HI, width=2)
-            
-        front_img = Image.new("RGBA", (CELL_W, CELL_H), (0, 0, 0, 0))
-        f_draw = ImageDraw.Draw(front_img)
-        line = 68
-        main_bang = [
-            (cx - 3, line - 4), (cx + 5, line - 2), (cx + 8, line + 10), (cx + 5, line + 22),
-            (cx + 1, line + 28), (cx - 2, line + 32), (cx - 1, line + 18), (cx + 3, line + 6), (cx - 3, line + 2),
-        ]
-        f_draw.polygon(main_bang, fill=C_BASE, outline=C_OUTLINE)
-        f_draw.line([(cx + 3, line), (cx + 5, line + 12), (cx + 1, line + 26)], fill=C_HI, width=2)
-        f_draw.line([(cx - 2, line), (cx - 1, line + 16)], fill=C_MID, width=2)
-        
-        final = np.array(back_img)
-        body_px = res[:, :, 3] > 0
-        final[body_px] = res[body_px]
-        front_px = np.array(front_img)[:, :, 3] > 0
-        final[front_px] = np.array(front_img)[front_px]
-        return final
+    # Close outline gaps left by nearest-neighbour scaling.
+    if SHAPE_SCALE[form["hairShape"]] != (1.0, 1.0):
+        gap = outline_mask(hair, out[:, :, 3])
+        out[gap, :3] = hex_rgb(form["outline"])
+        out[gap, 3] = 255
 
-    elif form_id in ("ssblue", "blue-kaioken"):
-        # Whis Gi: No blue undershirt! Orange fabric wrap with Whis signature
-        res = out.copy()
-        light = (cell[:, :, :3].astype(float).mean(axis=-1) / 255.0)
-        orange_shadow = np.array([170, 75, 10], dtype=float)
-        orange_mid = np.array([220, 115, 20], dtype=float)
-        orange_hi = np.array([250, 155, 35], dtype=float)
-        t = np.clip((light - 0.25) / 0.45, 0.0, 1.0)
-        orange_shaded = np.where(t[..., None] < 0.5,
-                                 orange_shadow * (1 - t[..., None] * 2) + orange_mid * (t[..., None] * 2),
-                                 orange_mid * (1 - (t[..., None] - 0.5) * 2) + orange_hi * ((t[..., None] - 0.5) * 2))
-        res[blue_chest, :3] = orange_shaded[blue_chest].astype(np.uint8)
-        
-        fx = Image.fromarray(res)
-        draw = ImageDraw.Draw(fx)
-        draw.arc([82, 126, 90, 134], start=30, end=330, fill=(20, 15, 10, 255), width=2)
-        draw.line([(86, 130), (86, 133)], fill=(20, 15, 10, 255), width=2)
-        return np.array(fx)
-        
-    elif form_id == "ui-sign":
-        # UI -Sign-: Shredded orange gi showing dark navy undershirt with tears
-        res = out.copy()
-        light = (cell[:, :, :3].astype(float).mean(axis=-1) / 255.0)
-        navy_shadow = np.array([18, 32, 74], dtype=float)
-        navy_mid = np.array([30, 56, 128], dtype=float)
-        navy_hi = np.array([55, 95, 185], dtype=float)
-        t = np.clip((light - 0.25) / 0.45, 0.0, 1.0)
-        navy_shaded = np.where(t[..., None] < 0.5,
-                               navy_shadow * (1 - t[..., None] * 2) + navy_mid * (t[..., None] * 2),
-                               navy_mid * (1 - (t[..., None] - 0.5) * 2) + navy_hi * ((t[..., None] - 0.5) * 2))
-        res[orange_shirt, :3] = navy_shaded[orange_shirt].astype(np.uint8)
-        
-        fx = Image.fromarray(res)
-        draw = ImageDraw.Draw(fx)
-        draw.polygon([(82, 122), (86, 126), (84, 129), (80, 124)], fill=(254, 212, 174, 255))
-        draw.polygon([(106, 124), (111, 122), (112, 127), (108, 129)], fill=(254, 212, 174, 255))
-        draw.polygon([(93, 135), (99, 133), (97, 138), (91, 137)], fill=(254, 212, 174, 255))
-        return np.array(fx)
-        
-    elif form_id == "mui":
-        # Mastered Ultra Instinct: BARE CHEST / CỞI TRẦN CHIẾN ĐẤU!
-        res = out.copy()
-        torso_mask = orange_shirt | blue_chest
-        light = (cell[:, :, :3].astype(float).mean(axis=-1) / 255.0)
-        shadow_skin = np.array([195, 120, 85], dtype=float)
-        mid_skin = np.array([238, 175, 135], dtype=float)
-        hi_skin = np.array([254, 212, 174], dtype=float)
-        t = np.clip((light - 0.25) / 0.45, 0.0, 1.0)
-        skin_shaded = np.where(t[..., None] < 0.5,
-                               shadow_skin * (1 - t[..., None] * 2) + mid_skin * (t[..., None] * 2),
-                               mid_skin * (1 - (t[..., None] - 0.5) * 2) + hi_skin * ((t[..., None] - 0.5) * 2))
-        res[torso_mask, :3] = skin_shaded[torso_mask].astype(np.uint8)
-        
-        fx = Image.fromarray(res)
-        draw = ImageDraw.Draw(fx)
-        draw.line([(96, 122), (96, 138)], fill=(160, 95, 65, 255), width=1)
-        draw.arc([86, 125, 96, 135], start=0, end=180, fill=(160, 95, 65, 255), width=1)
-        draw.arc([96, 125, 106, 135], start=0, end=180, fill=(160, 95, 65, 255), width=1)
-        draw.line([(88, 126), (98, 133)], fill=(180, 50, 40, 255), width=1)
-        draw.line([(89, 128), (95, 132)], fill=(140, 30, 25, 255), width=1)
-        return np.array(fx)
-        
+    if form["hairShape"] == "ssj3":
+        remove_brows(out, cls)
+        mane, shade = ssj3_mane(hair.shape, m)
+        behind = mane & (out[:, :, 3] == 0)
+        mane_rgb = hair_rgb(shade)
+        out[behind, :3] = mane_rgb[behind]
+        out[behind, 3] = 255
+        rim = dilate(mane | (out[:, :, 3] > 0), 1) & (out[:, :, 3] == 0) & dilate(behind, 1)
+        out[rim, :3] = hex_rgb(form["outline"])
+        out[rim, 3] = 255
     return out
+
 
 def avatar_from(cell):
     ys, xs = np.nonzero(cell[:, :, 3] > 0)
     if len(ys) == 0 or len(xs) == 0:
         return Image.new("RGBA", (AVATAR, AVATAR), (0, 0, 0, 0))
     crop = Image.fromarray(cell[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1])
-    max_dim = AVATAR - 24
+    max_dim = AVATAR - 16
     scale = min(max_dim / crop.width, max_dim / crop.height)
     new_w = max(1, round(crop.width * scale))
     new_h = max(1, round(crop.height * scale))
     crop = crop.resize((new_w, new_h), Image.LANCZOS)
     canvas = Image.new("RGBA", (AVATAR, AVATAR), (0, 0, 0, 0))
-    ox = (AVATAR - new_w) // 2
-    oy = (AVATAR - new_h) // 2
-    canvas.alpha_composite(crop, (ox, oy))
+    canvas.alpha_composite(crop, ((AVATAR - new_w) // 2, (AVATAR - new_h) // 2))
     return canvas
+
 
 def main():
     sheet = np.array(Image.open(SOURCE).convert("RGBA"))
@@ -386,8 +433,7 @@ def main():
     previous = json.loads(manifest_path.read_text())["forms"] if manifest_path.exists() else {}
     manifest = {"source": "spritesheet.webp", "cell": [CELL_W, CELL_H], "grid": [COLS, ROWS], "forms": {}}
     only = set(sys.argv[1:])
-
-    for form_id in PALETTES.keys():
+    for form_id, form in FORMS.items():
         if only and form_id not in only:
             if form_id in previous:
                 manifest["forms"][form_id] = previous[form_id]
@@ -397,34 +443,24 @@ def main():
             for c in range(COLS):
                 y0, x0 = r * CELL_H, c * CELL_W
                 cell = sheet[y0 : y0 + CELL_H, x0 : x0 + CELL_W]
-                out[y0 : y0 + CELL_H, x0 : x0 + CELL_W] = build_cell(cell, form_id=form_id, row=r, col=c)
-
+                out[y0 : y0 + CELL_H, x0 : x0 + CELL_W] = build_cell(cell, form)
         target = PET_DIR / "forms" / form_id
         target.mkdir(parents=True, exist_ok=True)
         Image.fromarray(out).save(target / "spritesheet.webp", quality=92, alpha_quality=100, method=6)
         avatar_from(out[0:CELL_H, 0:CELL_W]).save(target / "avatar.png", optimize=True)
         alpha = (out[:, :, 3] > 0).astype(np.uint8)
-        
-        # Determine shape name for manifest tests
-        shape_name = "ssj3" if form_id == "ss3" else "ssj2" if form_id == "ss2" else "lifted" if form_id in ("god", "mui") else "base" if form_id in ("base", "kaioken", "ui-sign") else "ssj"
-        
-        # Palettes in hex for manifest
-        hair_hex = [f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}" for c in PALETTES[form_id]["hair"]]
-        iris_hex = [f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}" for c in PALETTES[form_id]["iris"]]
-        
         manifest["forms"][form_id] = {
-            "hairShape": "ssj3" if form_id == "ss3" else "base" if form_id in ("base", "kaioken", "ui-sign") else "ssj" if form_id in ("ss1", "ssblue", "blue-kaioken") else "ssj2" if form_id == "ss2" else "lifted",
-            "hair": hair_hex,
-            "iris": iris_hex,
-            "skinTint": "#ff5f5f" if form_id == "kaioken" else "#ff7d91" if form_id == "blue-kaioken" else None,
-            "browsVisible": form_id != "ss3",
+            "hairShape": form["hairShape"],
+            "hair": form["hair"],
+            "iris": form["iris"],
+            "skinTint": form["skin"][0] if form["skin"] else None,
+            "browsVisible": form["hairShape"] != "ssj3",
             "alphaHash": hashlib.sha1(alpha.tobytes()).hexdigest()[:16],
             "opaquePixels": int(alpha.sum()),
         }
-        print(f"{form_id}: {manifest['forms'][form_id]['opaquePixels']} px (shape={manifest['forms'][form_id]['hairShape']})")
-
+        print(f"{form_id}: {manifest['forms'][form_id]['opaquePixels']} px")
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-    print("Done building all Goku forms!")
+
 
 if __name__ == "__main__":
     main()
