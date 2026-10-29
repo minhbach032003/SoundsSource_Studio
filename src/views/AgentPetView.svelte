@@ -67,6 +67,10 @@
     Eye,
     Layers,
     Lock,
+    Play,
+    Coffee,
+    BookOpen,
+    CheckCircle2,
   } from "@lucide/svelte";
 
   // The 5 rank hues preserved verbatim
@@ -388,8 +392,12 @@
       : currentQuote
   );
 
+  // Interactive / Manual Action Preview
+  let manualActionMood = $state<PetMood | null>(null);
+
   const currentMood = $derived<PetMood>(
-    isInteracting
+    manualActionMood ??
+    (isInteracting
       ? interactionAction === "purring"
         ? "celebrate"
         : interactionAction === "sleep"
@@ -403,7 +411,7 @@
         : topActiveSession.state === "done"
         ? "done"
         : "idle"
-      : "idle"
+      : "idle")
   );
 
   // Level & XP Progression calculations
@@ -690,6 +698,43 @@
       >
         <RotateCcw class="w-3.5 h-3.5" />
       </button>
+    </div>
+  </div>
+
+  <!-- Companion Quick-Switch Avatar Strip -->
+  <div class="panel p-2 flex items-center gap-2 overflow-x-auto no-scrollbar shadow-xs">
+    <div class="flex items-center gap-1.5 shrink-0 pl-1 pr-2 border-r border-(--line)/60">
+      <Bot class="w-4 h-4 text-(--accent-text)" />
+      <span class="text-[11px] font-bold text-(--ink)">Roster</span>
+      <span class="text-[9px] font-mono px-1 py-0 rounded bg-(--surface) border border-(--line) text-(--muted)">
+        {getActivePets().length}
+      </span>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      {#each getActivePets() as pet}
+        {@const isCurrent = displayPet === pet.id}
+        {@const isEquipped = selectedPet === pet.id}
+        <button
+          type="button"
+          onclick={() => equipPet(pet.id)}
+          class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer group text-left {isCurrent
+            ? 'bg-(--accent)/15 border-(--accent) text-(--ink) ring-1 ring-(--accent)/40 shadow-xs'
+            : 'bg-(--surface)/40 border-(--line)/70 text-(--muted) hover:text-(--ink) hover:bg-(--surface)/80 hover:border-(--focus)'}"
+          title="{pet.name} ({pet.tag})"
+        >
+          <div class="relative w-7 h-7 rounded-lg overflow-hidden border border-(--line) bg-(--paper) shrink-0 group-hover:scale-105 transition-transform">
+            <img src={pet.avatarUrl} alt={pet.name} class="w-full h-full object-cover" />
+            {#if isEquipped}
+              <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-(--paper)"></span>
+            {/if}
+          </div>
+          <div class="min-w-0 pr-1">
+            <div class="text-[11px] font-bold truncate max-w-28 leading-tight">{pet.name}</div>
+            <div class="text-[9px] text-(--muted) truncate max-w-28 capitalize">{pet.tag || "Companion"}</div>
+          </div>
+        </button>
+      {/each}
     </div>
   </div>
 
@@ -1016,6 +1061,81 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Action States Interactive Controller -->
+          <div class="p-2.5 rounded-2xl bg-(--surface)/50 border border-(--line) relative z-10 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-(--ink) flex items-center gap-1.5">
+                <Play class="w-3.5 h-3.5 text-emerald-400" />
+                <span>Simulate Actions & Moods</span>
+              </span>
+              {#if manualActionMood}
+                <button
+                  type="button"
+                  onclick={() => manualActionMood = null}
+                  class="text-[10px] text-(--accent-text) hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <RotateCcw class="w-2.5 h-2.5" />
+                  <span>Resume Live AI Session</span>
+                </button>
+              {:else}
+                <span class="text-[10px] text-(--muted) flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Live AI Sync
+                </span>
+              {/if}
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <button
+                type="button"
+                onclick={() => manualActionMood = manualActionMood === "working" ? null : "working"}
+                class="px-2 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer transition-all {currentMood === "working" && manualActionMood === "working"
+                  ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400 ring-1 ring-emerald-500/40 shadow-xs"
+                  : "bg-(--paper) border-(--line)/70 text-(--muted) hover:text-(--ink) hover:bg-(--surface)"}"
+                title="Working: Typing code / executing terminal tool"
+              >
+                <Terminal class="w-3.5 h-3.5 text-emerald-400" />
+                <span>Working</span>
+              </button>
+
+              <button
+                type="button"
+                onclick={() => manualActionMood = manualActionMood === "reading" ? null : "reading"}
+                class="px-2 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer transition-all {currentMood === "reading" && manualActionMood === "reading"
+                  ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400 ring-1 ring-cyan-500/40 shadow-xs"
+                  : "bg-(--paper) border-(--line)/70 text-(--muted) hover:text-(--ink) hover:bg-(--surface)"}"
+                title="Reading: Reviewing diff or reading documentation"
+              >
+                <BookOpen class="w-3.5 h-3.5 text-cyan-400" />
+                <span>Reading</span>
+              </button>
+
+              <button
+                type="button"
+                onclick={() => manualActionMood = manualActionMood === "waiting" ? null : "waiting"}
+                class="px-2 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer transition-all {currentMood === "waiting" && manualActionMood === "waiting"
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400 ring-1 ring-amber-500/40 shadow-xs"
+                  : "bg-(--paper) border-(--line)/70 text-(--muted) hover:text-(--ink) hover:bg-(--surface)"}"
+                title="Waiting: Waiting for user prompt or approval"
+              >
+                <Coffee class="w-3.5 h-3.5 text-amber-400" />
+                <span>Waiting</span>
+              </button>
+
+              <button
+                type="button"
+                onclick={() => manualActionMood = manualActionMood === "done" ? null : "done"}
+                class="px-2 py-1.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer transition-all {currentMood === "done" && manualActionMood === "done"
+                  ? "bg-purple-500/20 border-purple-500/50 text-purple-400 ring-1 ring-purple-500/40 shadow-xs"
+                  : "bg-(--paper) border-(--line)/70 text-(--muted) hover:text-(--ink) hover:bg-(--surface)"}"
+                title="Done: Finished prompt or task successfully"
+              >
+                <CheckCircle2 class="w-3.5 h-3.5 text-purple-400" />
+                <span>Done</span>
+              </button>
             </div>
           </div>
 
