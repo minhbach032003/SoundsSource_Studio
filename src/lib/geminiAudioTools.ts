@@ -214,6 +214,18 @@ export const GEMINI_AUDIO_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
   },
 ];
 
+/** Read-only, so it stays available even when Agent Control is off. */
+export const NOTES_TOOL: GeminiFunctionDeclaration = {
+  name: "search_notes",
+  description:
+    "Tìm trong ghi chú Obsidian của người dùng. Gọi trước khi trả lời câu hỏi kiến thức; truyền vài từ khoá chính, không truyền cả câu.",
+  parameters: {
+    type: "OBJECT",
+    properties: { query: { type: "STRING", description: "Từ khoá chính, ví dụ: rust ownership" } },
+    required: ["query"],
+  },
+};
+
 export const GEMINI_AUDIO_TOOL_NAMES: readonly string[] = GEMINI_AUDIO_TOOL_DECLARATIONS.map(
   (d) => d.name
 );
@@ -379,6 +391,15 @@ export async function runGeminiAudioTool(
           ok: true,
           summary: `${applied ? "Đã bypass" : "Đã kích hoạt"} EQ master`,
           data: { bypass: applied },
+        };
+      }
+
+      case "search_notes": {
+        const notes = await invoke<{ path: string; excerpt: string }[]>("search_notes", { query: String(args.query ?? "") });
+        return {
+          ok: true,
+          summary: notes.length ? `Tìm thấy ${notes.length} ghi chú: ${notes.map((n) => n.path).join(", ")}` : "Không có ghi chú phù hợp",
+          data: { notes },
         };
       }
 

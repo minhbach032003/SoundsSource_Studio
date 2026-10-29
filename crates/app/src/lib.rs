@@ -272,6 +272,7 @@ pub fn run() {
             open_screen_capture_settings,
             capture_screen_jpeg,
             app_signing_identity,
+            search_notes,
             memory_snapshot,
             memory_areas,
             memory_clean,
