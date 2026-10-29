@@ -5,43 +5,43 @@
       "shapeKey": "pichu",
       "name": "Pichu Spark",
       "fur": [
-        "#c29f2e",
-        "#edd05a",
-        "#fff29c",
-        "#fffde8"
+        "#b5a02e",
+        "#ded04e",
+        "#fff085",
+        "#fffce0"
       ],
       "cheeks": [
-        "#b8354c",
-        "#e86278",
-        "#faa8b5",
-        "#ffe4e8"
+        "#ba4567",
+        "#e58ea5",
+        "#f5bccc",
+        "#ffebf2"
       ],
       "eyes": [
-        "#22150f",
-        "#5c2a16",
-        "#df802c",
-        "#fffdfa"
+        "#1a1c1a",
+        "#262826",
+        "#3d4240",
+        "#ffffff"
       ],
-      "alphaHash": "c77f6c444a0a27d6",
-      "opaquePixels": 560414
+      "alphaHash": "020d84fa46e5c48f",
+      "opaquePixels": 564727
     },
     "classic": {
       "shapeKey": "classic",
       "name": "Pikachu Classic",
       "fur": [
-        "#b88e1a",
-        "#dfb83b",
-        "#f9e066",
-        "#fff4b3"
+        "#b87a14",
+        "#e2a325",
+        "#fed430",
+        "#ffea75"
       ],
       "cheeks": [
-        "#b51515",
-        "#db2424",
-        "#f74a4a",
-        "#ff9494"
+        "#b32015",
+        "#dc3522",
+        "#e8492b",
+        "#ffa090"
       ],
-      "alphaHash": "e06034b744ecb2b2",
-      "opaquePixels": 663797
+      "alphaHash": "6f99d1d059f9fa6c",
+      "opaquePixels": 668761
     },
     "raichu": {
       "shapeKey": "raichu",
