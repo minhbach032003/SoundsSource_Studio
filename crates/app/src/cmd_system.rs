@@ -288,16 +288,39 @@ fn collect_markdown(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-/// Keyword match over (relative path, text): a note qualifies when it holds at least half
-/// of the query's terms; the excerpt is the matching paragraphs, capped for a voice turn.
-// ponytail: plain keyword match, swap for embeddings if notes are phrased too differently from questions.
+fn tokens(s: &str) -> impl Iterator<Item = String> + '_ {
+    s.split(|c: char| !(c.is_alphanumeric() || c == '_')).filter(|w| !w.is_empty()).map(str::to_lowercase)
+}
+
+/// BM25 over (relative path, text), the file name counting three times, so a rare term
+/// outweighs a common one; the excerpt is the matching paragraphs, capped for a voice turn.
+// ponytail: lexical BM25, swap for embeddings if questions use synonyms the notes never contain.
 pub fn rank_notes(query: &str, notes: &[(String, String)]) -> Vec<NoteHit> {
-    let terms: Vec<String> = query.to_lowercase().split_whitespace().filter(|t| t.chars().count() >= 2).map(Into::into).collect();
-    if terms.is_empty() { return Vec::new(); }
-    let mut scored: Vec<(usize, NoteHit)> = notes.iter().filter_map(|(path, text)| {
-        let hay = format!("{path}\n{text}").to_lowercase();
-        let score = terms.iter().filter(|t| hay.contains(t.as_str())).count();
-        if score * 2 < terms.len() { return None; }
+    use std::collections::{HashMap, HashSet};
+    let terms: HashSet<String> = tokens(query).collect();
+    if terms.is_empty() || notes.is_empty() { return Vec::new(); }
+    let docs: Vec<(HashMap<&String, f64>, f64)> = notes.iter().map(|(path, text)| {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        let (mut tf, mut len) = (HashMap::new(), 0.0);
+        for (w, weight) in tokens(name).map(|w| (w, 3.0)).chain(tokens(text).map(|w| (w, 1.0))) {
+            len += weight;
+            if let Some(t) = terms.get(&w) { *tf.entry(t).or_insert(0.0) += weight; }
+        }
+        (tf, len)
+    }).collect();
+    let n = docs.len() as f64;
+    let avg = docs.iter().map(|d| d.1).sum::<f64>() / n;
+    let idf: HashMap<&String, f64> = terms.iter().map(|t| {
+        let df = docs.iter().filter(|d| d.0.contains_key(t)).count() as f64;
+        (t, (1.0 + (n - df + 0.5) / (df + 0.5)).ln())
+    }).collect();
+    let mut scored: Vec<(f64, usize)> = docs.iter().enumerate().filter_map(|(i, (tf, len))| {
+        let s: f64 = tf.iter().map(|(t, f)| idf[t] * f * 2.2 / (f + 1.2 * (0.25 + 0.75 * len / avg))).sum();
+        (s > 0.0).then_some((s, i))
+    }).collect();
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0));
+    scored.into_iter().take(3).map(|(_, i)| {
+        let (path, text) = &notes[i];
         let mut excerpt = String::new();
         for para in text.split("\n\n").filter(|p| terms.iter().any(|t| p.to_lowercase().contains(t.as_str()))) {
             if excerpt.chars().count() > 1500 { break; }
@@ -305,10 +328,8 @@ pub fn rank_notes(query: &str, notes: &[(String, String)]) -> Vec<NoteHit> {
             excerpt.push_str("\n\n");
         }
         let source = if excerpt.is_empty() { text.as_str() } else { excerpt.as_str() };
-        Some((score, NoteHit { path: path.clone(), excerpt: source.chars().take(1800).collect() }))
-    }).collect();
-    scored.sort_by(|a, b| b.0.cmp(&a.0));
-    scored.into_iter().take(3).map(|(_, hit)| hit).collect()
+        NoteHit { path: path.clone(), excerpt: source.chars().take(1800).collect() }
+    }).collect()
 }
 
 /// Lets Gemini Live answer from the user's own Obsidian notes before its own knowledge.
@@ -341,5 +362,12 @@ mod notes_tests {
         assert_eq!(hits[0].path, "Rust/ownership.md");
         assert!(hits[0].excerpt.contains("Borrow checker") && !hits[0].excerpt.contains("recipe"));
         assert!(rank_notes("kubernetes", &notes).is_empty());
+
+        // A rare term outranks a term every note shares.
+        let notes = vec![
+            ("a.md".to_string(), "query query query".to_string()),
+            ("b.md".to_string(), "useMutation query".to_string()),
+        ];
+        assert_eq!(rank_notes("useMutation query", &notes)[0].path, "b.md");
     }
 }

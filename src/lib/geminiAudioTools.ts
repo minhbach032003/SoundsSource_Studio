@@ -218,7 +218,7 @@ export const GEMINI_AUDIO_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
 export const NOTES_TOOL: GeminiFunctionDeclaration = {
   name: "search_notes",
   description:
-    "Tìm trong ghi chú Obsidian của người dùng. Gọi trước khi trả lời câu hỏi kiến thức; truyền vài từ khoá chính, không truyền cả câu.",
+    "Tìm trong ghi chú Obsidian của người dùng. Gọi trước khi trả lời câu hỏi kiến thức; truyền vài từ khoá chính, không truyền cả câu, kèm thuật ngữ tiếng Anh nếu có (ví dụ: xoá mềm soft delete).",
   parameters: {
     type: "OBJECT",
     properties: { query: { type: "STRING", description: "Từ khoá chính, ví dụ: rust ownership" } },
