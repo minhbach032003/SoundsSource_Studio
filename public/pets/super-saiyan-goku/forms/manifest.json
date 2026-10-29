@@ -41,8 +41,8 @@
       ],
       "skinTint": "#ff4a3d",
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "904170ee7d4039f1",
+      "opaquePixels": 820423
     },
     "ss1": {
       "hairShape": "ssj",
@@ -75,8 +75,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "d13c1c97739160ab",
-      "opaquePixels": 942865
+      "alphaHash": "48b7431e452cd8a0",
+      "opaquePixels": 951587
     },
     "ss3": {
       "hairShape": "ssj3",
@@ -92,8 +92,8 @@
       ],
       "skinTint": null,
       "browsVisible": false,
-      "alphaHash": "4180d38a64b5c2e6",
-      "opaquePixels": 1105009
+      "alphaHash": "168184f894c7e12f",
+      "opaquePixels": 1136495
     },
     "god": {
       "hairShape": "lifted",
@@ -109,8 +109,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "e140838d6b23df40",
-      "opaquePixels": 901492
+      "alphaHash": "538f9176eed033c9",
+      "opaquePixels": 869886
     },
     "ssblue": {
       "hairShape": "ssj",
@@ -160,8 +160,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "5c035fa3a5422009",
-      "opaquePixels": 876411
+      "alphaHash": "904170ee7d4039f1",
+      "opaquePixels": 820423
     },
     "mui": {
       "hairShape": "lifted",
@@ -177,8 +177,8 @@
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "e140838d6b23df40",
-      "opaquePixels": 901492
+      "alphaHash": "538f9176eed033c9",
+      "opaquePixels": 869886
     }
   }
 }

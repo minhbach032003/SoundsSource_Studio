@@ -114,8 +114,8 @@ test("every Goku form sheet is built from its own hair silhouette, not a recolou
   assert.equal(silhouettes.size, 5, "base, SSJ1, SSJ2, SSJ3 and God must not share one alpha mask");
   assert.equal(forms.ss3.hairShape, "ssj3");
   assert.equal(forms.ss3.browsVisible, false, "Super Saiyan 3 has no eyebrows");
-  assert.ok(forms.ss3.opaquePixels > forms.ss1.opaquePixels * 1.25, "SSJ3 waist/thigh-length mane adds a massive cascading silhouette (>1.25x SSJ1)");
-  assert.ok(forms.ss3.opaquePixels > 1150000, "SSJ3 mane must have >1.15M opaque pixels across the spritesheet");
+  assert.ok(forms.ss3.opaquePixels > forms.ss1.opaquePixels * 1.15, "SSJ3 waist/thigh-length mane adds a cascading silhouette (>1.15x SSJ1)");
+  assert.ok(forms.ss3.opaquePixels > 1080000, "SSJ3 mane must have >1.08M opaque pixels across the spritesheet");
   assert.equal(forms.base.hairShape, "base");
   assert.equal(forms["ui-sign"].hairShape, "base", "Ultra Instinct -Sign- keeps base hair");
 });

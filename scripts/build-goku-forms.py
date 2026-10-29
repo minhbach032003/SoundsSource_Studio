@@ -185,32 +185,95 @@ def classify(cell):
     hue, light, sat = hls_planes(rgb)
     hue = hue * 360
     opaque = alpha > 96
-    hair = opaque & (sat > 0.35) & (light > 0.28) & (hue >= 37.5) & (hue <= 68)
-    hair = drop_small_components(hair, 10)
-    hair = near_largest(hair, 10)
-    # Hair shadows share the gi's orange hue, so grow into them only from lit hair,
-    # a few pixels at a time; the dark outline between hair and gi stops the growth.
-    shadow = opaque & (sat > 0.5) & (hue >= 25) & (hue < 37.5) & (light > 0.3) & (light < 0.56)
-    for _ in range(6):
-        hair = hair | (shadow & dilate(hair, 1))
+
+    # 1. Precise Iris (Teal / Emerald in source SSJ)
     iris = opaque & (sat > 0.25) & (hue >= 140) & (hue <= 205) & (light > 0.12) & (light < 0.8)
-    skin = opaque & ~hair & (hue >= 8) & (hue <= 36) & (light > 0.62) & (sat > 0.25)
+
+    # 2. Skin (peach/tan): filter isolated hair highlights with drop_small_components
+    skin_raw = opaque & ~iris & (hue >= 8) & (hue <= 39) & (light > 0.58) & (sat > 0.20) & (rgb[:, :, 2] > 75)
+    skin = drop_small_components(skin_raw, 25)
+
+    # 3. Blue accessories (belt, wristbands, boots, undershirt)
+    blue = drop_small_components(opaque & (sat > 0.35) & (light > 0.15) & (hue >= 200) & (hue <= 255), 10)
+
+    # 4. Detect lying frames (Row 5 col 4: head horizontal on ground)
+    cys, cxs = np.nonzero(opaque)
+    if len(cys) == 0:
+        return {
+            "hair": np.zeros_like(opaque), "iris": np.zeros_like(opaque), "skin": np.zeros_like(opaque),
+            "blue": np.zeros_like(opaque), "outline": np.zeros_like(opaque), "light": light, "opaque": opaque,
+            "is_lying": False,
+        }
+    is_lying = (cys.min() > 12) and (cys.max() - cys.min() < 180) and (cxs.max() - cxs.min() > 130)
+
+    if is_lying:
+        dogi = opaque & (np.arange(cell.shape[0])[:, None] >= 115) & (np.arange(cell.shape[1])[None, :] >= 135) & (rgb[:, :, 0] > 140) & (hue < 32) & ~skin & ~blue
+        hair = opaque & ~skin & ~blue & ~dogi
+    else:
+        # Dogi strictly below collar/chest straps (y >= 99)
+        gi_raw = opaque & (hue >= 15) & (hue <= 42) & (sat > 0.40) & (light > 0.25) & (np.arange(cell.shape[0])[:, None] >= 99) & ~skin & ~blue
+        gi = drop_small_components(gi_raw, 20)
+
+        gold = opaque & (sat > 0.30) & (light > 0.26) & (hue >= 35.0) & (hue <= 72.0)
+        highlight = opaque & (light > 0.65) & (sat > 0.04) & (hue >= 25.0) & (hue <= 75.0) & (rgb[:, :, 2] < 210) & ~skin
+        shadow = opaque & (sat > 0.40) & (hue >= 22.0) & (hue < 37.0) & (light > 0.16) & (light < 0.58) & (rgb[:, :, 2] < 70)
+
+        hair_candidates = (gold | highlight | shadow) & ~skin & ~blue & ~iris & ~gi
+
+        top_y = cys.min()
+        seed = hair_candidates & (np.arange(cell.shape[0])[:, None] <= top_y + 45)
+        seen = np.zeros_like(hair_candidates)
+        stack = list(zip(*np.nonzero(seed)))
+        for y, x in stack:
+            seen[y, x] = True
+        h, w = hair_candidates.shape
+        while stack:
+            cy, cx = stack.pop()
+            for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
+                if 0 <= ny < h and 0 <= nx < w and hair_candidates[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((ny, nx))
+        for _ in range(6):
+            grown = seen | (hair_candidates & dilate(seen, 6))
+            if (grown == seen).all():
+                break
+            seen = grown
+
+        head_shadow = opaque & (np.arange(cell.shape[0])[:, None] <= 104) & ~skin & ~blue & ~iris & (hue >= 22) & (hue <= 75) & (sat > 0.20)
+        for _ in range(4):
+            grown = seen | (head_shadow & dilate(seen, 2))
+            if (grown == seen).all():
+                break
+            seen = grown
+        hair = seen
+
     dark = opaque & (light < 0.3)
-    hair_outline = dark & dilate(hair, 1) & ~iris
-    blue = drop_small_components(opaque & (sat > 0.4) & (light > 0.18) & (hue >= 200) & (hue <= 250), 12)
-    return {"hair": hair, "iris": iris, "skin": skin, "blue": blue, "outline": hair_outline, "light": light, "opaque": opaque}
+    hair_outline = dark & dilate(hair, 1) & ~iris & ~skin & ~blue
+    return {
+        "hair": hair, "iris": iris, "skin": skin, "blue": blue,
+        "outline": hair_outline, "light": light, "opaque": opaque,
+        "is_lying": is_lying,
+    }
 
 
 def head_metrics(cls):
     ys, xs = np.nonzero(cls["hair"])
     cx = float(np.median(xs))
     hair_top = int(ys.min())
-    skin_ys, skin_xs = np.nonzero(cls["skin"])
-    near = (np.abs(skin_xs - cx) <= 22) & (skin_ys > hair_top + 6)
-    if near.any():
-        hairline = int(skin_ys[near].min())
+
+    if cls.get("is_lying", False):
+        hairline = int(hair_top + (ys.max() - hair_top) * 0.75)
+        face_cx = cx
     else:
-        hairline = int(hair_top + (ys.max() - hair_top) * 0.6)
+        skin_ys, skin_xs = np.nonzero(cls["skin"])
+        near = (np.abs(skin_xs - cx) <= 22) & (skin_ys > hair_top + 10)
+        if near.any():
+            hairline = int(skin_ys[near].min())
+            face_cx = float(skin_xs[near].mean())
+        else:
+            hairline = int(hair_top + (ys.max() - hair_top) * 0.6)
+            face_cx = cx
+
     body_ys, body_xs = np.nonzero(cls["opaque"] & ~cls["hair"])
     return {
         "cx": cx,
@@ -218,26 +281,27 @@ def head_metrics(cls):
         "hair_top": hair_top,
         "hair_w": int(xs.max() - xs.min() + 1),
         "head": (float(xs.mean()), float(ys.mean())),
-        "face_x": float(skin_xs[near].mean()) if near.any() else cx,
+        "face_x": face_cx,
         "body": (float(body_xs.mean()), float(body_ys.mean())) if len(body_xs) else (cx, hairline + 60),
         "bottom": int(np.nonzero(cls["opaque"])[0].max()),
+        "is_lying": cls.get("is_lying", False),
     }
 
 
 def reshape_top_hair(cell, cls, m, vscale, hscale):
     """Scale the hair above the hairline about (cx, hairline); returns the new cell + hair mask."""
-    if vscale == 1.0 and hscale == 1.0:
+    if (vscale == 1.0 and hscale == 1.0) or cls.get("is_lying", False):
         return cell, cls["hair"].copy()
     h, w = cls["hair"].shape
     top = np.zeros((h, w), dtype=bool)
     top[: m["hairline"], :] = True
-    # Everything around the hair above the hairline moves with it, including the
-    # antialiased outer outline, so no ghost of the old silhouette is left behind.
+    side_hair = (np.arange(h)[:, None] >= m["hairline"]) & (np.arange(h)[:, None] <= 104) & (np.abs(np.arange(w)[None, :] - m["cx"]) > 16) & cls["hair"]
+
     keep = dilate(cls["skin"] | cls["blue"], 2)
-    movable = top & dilate(cls["hair"], 8) & (cell[:, :, 3] > 0) & ~keep & ~cls["iris"]
+    movable = (top & dilate(cls["hair"], 8) & (cell[:, :, 3] > 0) & ~keep & ~cls["iris"]) | side_hair
     out = cell.copy()
     out[movable] = 0
-    hair = cls["hair"] & ~top
+    hair = cls["hair"] & ~movable
     cx, line = m["cx"], m["hairline"]
     for y in range(0, line):
         sy = int(round(line - (line - y) / vscale))
@@ -250,6 +314,9 @@ def reshape_top_hair(cell, cls, m, vscale, hscale):
             if out[y, x, 3] == 0:
                 out[y, x] = cell[sy, sx]
                 hair[y, x] = cls["hair"][sy, sx]
+
+    out[side_hair] = cell[side_hair]
+    hair[side_hair] = cls["hair"][side_hair]
     return out, hair
 
 
@@ -282,8 +349,8 @@ def ssj3_mane(shape, m):
     norm = math.hypot(dx, dy) or 1.0
     dx, dy = dx / norm, dy / norm
     nx, ny = -dy, dx
-    width = m["hair_w"] * 0.92
-    length = max(82.0, (m["bottom"] - m["hair_top"]) * 0.88)
+    width = m["hair_w"] * 0.76
+    length = max(78.0, (m["bottom"] - m["hair_top"]) * 0.86)
     ox, oy = hx, hy
 
     def at(along, across):
@@ -292,9 +359,9 @@ def ssj3_mane(shape, m):
     # Clockwise outline: one flank with outward spikes, a row of tips, the other flank.
     left = [at(0, -width * 0.5)]
     # Flank locks point down and only slightly outward, like hair falling down the back.
-    for k, a in enumerate((0.2, 0.4, 0.6)):
-        spread = width * (0.52 + 0.08 * k)
-        left += [at(length * (a - 0.08), -spread), at(length * (a + 0.09), -spread - 7), at(length * a, -spread + 3)]
+    for k, a in enumerate((0.22, 0.42, 0.62, 0.80)):
+        spread = width * (0.46 + 0.06 * k)
+        left += [at(length * (a - 0.07), -spread), at(length * (a + 0.05), -spread - 6), at(length * a, -spread + 3)]
     tips = []
     span = width * 1.1
     count = 5
@@ -408,6 +475,19 @@ def build_cell(cell, form):
         rim = dilate(mane | (out[:, :, 3] > 0), 1) & (out[:, :, 3] == 0) & dilate(behind, 1)
         out[rim, :3] = hex_rgb(form["outline"])
         out[rim, 3] = 255
+
+        # Add the iconic SS3 curved front bang across the forehead
+        cx, line = int(m["cx"]), int(m["hairline"])
+        bang_pts = [
+            (cx - 2, line - 2), (cx + 3, line - 1), (cx + 5, line + 7), (cx + 3, line + 16),
+            (cx, line + 22), (cx - 2, line + 26), (cx - 1, line + 15), (cx + 2, line + 5), (cx - 2, line + 2)
+        ]
+        bang_mask = draw_polygon_mask(hair.shape, bang_pts)
+        out[bang_mask, :3] = hair_rgb(np.full(hair.shape, 0.75))[bang_mask]
+        out[bang_mask, 3] = 255
+        bang_edge = dilate(bang_mask, 1) & ~bang_mask
+        out[bang_edge, :3] = hex_rgb(form["outline"])
+        out[bang_edge, 3] = 255
     return out
 
 
