@@ -451,17 +451,32 @@ function pikachuFrameLandmarks(img: HTMLImageElement, r: Rect, aura: PetAura | n
 }
 
 function drawPikachuBolt(ctx: CanvasRenderingContext2D, points: PikachuLandmarks, width: number, strength: number, accent?: string) {
-  // Accent is a thin low-opacity fringe; yellow and white always dominate.
-  for (const [color, weight] of [
-    ...(accent ? [[`rgba(${hexRgb(accent)}, ${Math.min(.28, strength*.2)})`, width*1.6] as const] : []),
-    [`rgba(250, 204, 21, ${Math.min(.95, strength*.85)})`, width],
-    [`rgba(255, 255, 240, ${Math.min(.98, strength)})`, width*.42],
-  ] as const) {
+  // 3-layer electric bolt: outer glow → core yellow → white-hot center
+  // Each layer uses shadowBlur for volumetric plasma depth on real canvases.
+  const hasShadow = typeof ctx.shadowBlur === "number";
+  const layers: [string, number, number, string][] = [
+    ...(accent ? [[`rgba(${hexRgb(accent)}, ${Math.min(.22, strength*.15)})`, width*2.2, width*6, accent] as [string, number, number, string]] : []),
+    [`rgba(250, 204, 21, ${Math.min(.85, strength*.75)})`, width*1.4, width*4, "#facc15"],
+    [`rgba(255, 250, 120, ${Math.min(.92, strength*.88)})`, width*.85, width*2.5, "#fffb80"],
+    [`rgba(255, 255, 240, ${Math.min(.98, strength)})`, width*.35, 0, "#ffffff"],
+  ];
+  for (const [color, weight, blur, glowColor] of layers) {
     ctx.strokeStyle = color;
     ctx.lineWidth = weight;
+    if (hasShadow && blur > 0) {
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = blur;
+    } else if (hasShadow) {
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+    }
     ctx.beginPath();
     points.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
     ctx.stroke();
+  }
+  if (hasShadow) {
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
   }
 }
 
