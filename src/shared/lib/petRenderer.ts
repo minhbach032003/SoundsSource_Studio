@@ -467,7 +467,8 @@ function drawPikachuBolt(ctx: CanvasRenderingContext2D, points: PikachuLandmarks
 
 function drawPikachuElectricEnvelope(
   ctx: CanvasRenderingContext2D, aura: PetAura, x: number, y: number, w: number, h: number,
-  strength: number, t: number, landmarks: PikachuLandmarks | null = null
+  strength: number, t: number, landmarks: PikachuLandmarks | null = null,
+  sheetRow: number = -1
 ) {
   if (strength <= 0 || typeof ctx.save !== "function" || typeof ctx.stroke !== "function") return;
   ctx.save();
@@ -476,44 +477,94 @@ function drawPikachuElectricEnvelope(
   const cheeks = landmarks?.slice(0, 2) ?? [[x+w*.37,y+h*.52], [x+w*.63,y+h*.52]];
   const middle = (cheeks[0]![0] + cheeks[1]![0]) / 2;
   const tick = Math.floor(t*10);
+
+  // Activity-adaptive electricity shape and energy:
+  // Row 0=idle, 1/2=run, 3=wave, 4=celebrate, 5=sleep, 6=bored, 7=work, 8=read
+  const isRun = sheetRow === 1 || sheetRow === 2;
+  const isCeleb = sheetRow === 4;
+  const isWork = sheetRow === 7;
+  const isRead = sheetRow === 8;
+  const isBored = sheetRow === 6;
+  const isWave = sheetRow === 3;
+
+  // Dynamic speed: electricity crackles faster when running/celebrating
+  const speedMul = isCeleb ? 2.2 : isRun ? 1.8 : isWork ? 1.3 : isRead ? 0.7 : isBored ? 0.5 : 1.0;
+  // Dynamic reach: bolts extend further during high-energy states
+  const reachMul = isCeleb ? 1.5 : isRun ? 1.3 : isWave ? 1.15 : isWork ? 0.9 : isRead ? 0.6 : isBored ? 0.5 : 1.0;
+  // Dynamic bolt count: celebrate/run spawn extra branches
+  const extraBranch = isCeleb || isRun;
+
   cheeks.forEach(([cx, cy], i) => {
     const side = cx < middle ? -1 : 1;
-    const jitter = Math.sin(tick*7+i*3)*w*.012;
+    const jitter = Math.sin(tick*7*speedMul+i*3)*w*.012*(isRun ? 2.2 : 1);
+    const runDrift = isRun ? Math.sin(t*14+i*4)*w*.008 : 0;
     // Broken irregular arcs follow the cheek-to-flank contour, leaving the
     // ear/tail negative space and face clear instead of outlining a bracket cage.
-    const elbow: ElectricPoint = [cx+side*w*.09+jitter, cy+h*.14];
-    drawPikachuBolt(ctx, [[cx,cy+h*.025], [cx+side*w*.065,cy+h*.07],
-      [cx+side*w*.025,cy+h*.10], elbow, [cx+side*w*.035,cy+h*.22],
-      [cx+side*w*.065,cy+h*.27]], Math.max(1.3,w/85), strength, aura.outer ?? aura.inner);
-    drawPikachuBolt(ctx, [elbow, [elbow[0]+side*w*.035,elbow[1]-h*.025],
-      [elbow[0]+side*w*.07,elbow[1]-h*.015]], Math.max(.9,w/120), strength*.8);
+    const elbow: ElectricPoint = [cx+side*w*.09*reachMul+jitter+runDrift, cy+h*.14*reachMul];
+    drawPikachuBolt(ctx, [[cx,cy+h*.025], [cx+side*w*.065*reachMul,cy+h*.07*reachMul],
+      [cx+side*w*.025*reachMul,cy+h*.10*reachMul], elbow, [cx+side*w*.035*reachMul,cy+h*.22*reachMul],
+      [cx+side*w*.065*reachMul,cy+h*.27*reachMul]], Math.max(1.3,w/85), strength, aura.outer ?? aura.inner);
+    drawPikachuBolt(ctx, [elbow, [elbow[0]+side*w*.035*reachMul,elbow[1]-h*.025*reachMul],
+      [elbow[0]+side*w*.07*reachMul,elbow[1]-h*.015*reachMul]], Math.max(.9,w/120), strength*.8);
+    // Extra crackling branch during high-energy states
+    if (extraBranch) {
+      const fork: ElectricPoint = [cx+side*w*.05*reachMul, cy+h*.20*reachMul];
+      drawPikachuBolt(ctx, [fork,
+        [fork[0]+side*w*.06, fork[1]+h*.04],
+        [fork[0]+side*w*.04, fork[1]+h*.09],
+        [fork[0]+side*w*.08, fork[1]+h*.12]], Math.max(.7,w/140), strength*.65);
+    }
   });
   ctx.restore();
 }
 
 function drawPikachuFrontSparks(
   ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, u: number,
-  state: string, auraTime: number, landmarks: PikachuLandmarks | null
+  state: string, auraTime: number, landmarks: PikachuLandmarks | null,
+  sheetRow: number = -1
 ) {
   if (typeof ctx.save !== "function" || typeof ctx.stroke !== "function") return;
   ctx.save();
   ctx.lineCap = "round";
   const celebration = ["celebrate", "levelup", "done"].includes(state);
-  const tick = Math.floor(auraTime*(celebration ? 18 : 10));
+  const isRun = sheetRow === 1 || sheetRow === 2;
+  const isWork = sheetRow === 7;
+  const isRead = sheetRow === 8;
+  const isBored = sheetRow === 6;
+
+  // Adaptive tick speed: running/celebrating = fast crackles, reading/bored = lazy drifts
+  const speedMul = celebration ? 18 : isRun ? 15 : isWork ? 12 : isRead ? 6 : isBored ? 5 : 10;
+  const tick = Math.floor(auraTime * speedMul);
   const points = landmarks ?? [[x+w*.37,y+h*.52], [x+w*.63,y+h*.52], [x+w*.82,y+h*.56]];
   const middle = (points[0]![0]+points[1]![0])/2;
-  points.forEach(([cx, cy], i) => {
+
+  // Adaptive bolt reach and thickness per activity
+  const reachScale = celebration ? 17 : isRun ? 15 : isWork ? 11 : isRead ? 8 : isBored ? 6 : 12;
+  const widthScale = celebration ? 3.2 : isRun ? 3.0 : isWork ? 2.4 : isRead ? 2.0 : isBored ? 1.8 : 2.6;
+  // How many source points emit bolts: bored/read use fewer
+  const activePoints = points;
+
+  activePoints.forEach(([cx, cy], i) => {
     const side = cx < middle ? -1 : 1;
     const j = Math.sin(tick*3+i*5)*1.5*u;
     const tail = i === 2;
     const dy = tail ? -1 : 1;
-    const reach = (celebration ? 17 : 12)*u;
+    // Tail bolt shrinks during calm activities
+    const tailDamp = tail && (isRead || isBored) ? 0.5 : 1;
+    const reach = reachScale * u * tailDamp;
     const bend: ElectricPoint = [cx+side*reach*.65, cy+dy*reach*.4];
     drawPikachuBolt(ctx, [[cx,cy], [cx+side*reach*.3+j,cy+dy*reach*.16],
       [cx+side*reach*.2,cy+dy*reach*.3], bend,
       [cx+side*reach*.5+j,cy+dy*reach*.65], [cx+side*reach,cy+dy*reach*.85]],
-      Math.max(.9,(celebration ? 3.2 : 2.6)*u), 1);
-    drawPikachuBolt(ctx, [bend, [bend[0]+side*reach*.3,bend[1]-dy*reach*.2]], Math.max(.7,1.6*u), .9);
+      Math.max(.9, widthScale*u*tailDamp), 1);
+    drawPikachuBolt(ctx, [bend, [bend[0]+side*reach*.3,bend[1]-dy*reach*.2]], Math.max(.7,1.6*u*tailDamp), .9);
+    // Extra forked bolt for high-energy states
+    if ((celebration || isRun) && !tail) {
+      const fork: ElectricPoint = [cx+side*reach*.4, cy+dy*reach*.55];
+      drawPikachuBolt(ctx, [fork,
+        [fork[0]+side*reach*.25+j*.5, fork[1]+dy*reach*.15],
+        [fork[0]+side*reach*.45, fork[1]+dy*reach*.28]], Math.max(.6,1.4*u), .75);
+    }
   });
   ctx.restore();
 }
@@ -528,7 +579,8 @@ function drawFormAura(
   strength: number,
   t: number,
   slug: string = "",
-  landmarks: PikachuLandmarks | null = null
+  landmarks: PikachuLandmarks | null = null,
+  sheetRow: number = -1
 ) {
   if (
     strength <= 0 ||
@@ -545,7 +597,7 @@ function drawFormAura(
     return;
   }
   if (slug === "pikachu") {
-    drawPikachuElectricEnvelope(ctx, aura, x, y, w, h, strength, t, landmarks);
+    drawPikachuElectricEnvelope(ctx, aura, x, y, w, h, strength, t, landmarks, sheetRow);
     return;
   }
   const cx = x + w / 2;
@@ -650,7 +702,7 @@ export function drawPetFrame(
 
   const pikachuSleeping = slug === "pikachu" && (state === "sleepy" || sheetRow === 5);
   const landmarks = slug === "pikachu" ? pikachuFrameLandmarks(img, r, aura, x, y, w, h) : null;
-  if (aura && !pikachuSleeping) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime, slug, landmarks);
+  if (aura && !pikachuSleeping) drawFormAura(ctx, aura, x, y, w, h, auraStrength(aura, state), auraTime, slug, landmarks, sheetRow);
 
   ctx.drawImage(img, r.x, r.y, r.w, r.h, x, y, w, h);
 
@@ -660,7 +712,7 @@ export function drawPetFrame(
 
   // Pikachu high-voltage front sparks uncoupled from !aura, suppressed in sleepy
   if (slug === "pikachu" && !pikachuSleeping) {
-    drawPikachuFrontSparks(ctx, x, y, w, h, u, state, auraTime, landmarks);
+    drawPikachuFrontSparks(ctx, x, y, w, h, u, state, auraTime, landmarks, sheetRow);
   }
 
   // Archetype lighting and screen reflections composite (source-atop preserves sprite silhouette)
