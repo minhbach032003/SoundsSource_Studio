@@ -32,9 +32,8 @@ FORMS = {
     "pichu": {
         "shapeKey": "pichu",
         "name": "Pichu Spark",
-        "fur": ["#cbb336", "#edd855", "#fff28f", "#fffde6"],
-        "cheeks": ["#c04868", "#ea8aa2", "#f7b5c6", "#ffeaf0"],
-        "eyes": ["#1a1c1a", "#262826", "#3d4240", "#ffffff"],
+        "fur": ["#c29f2e", "#edd05a", "#fff18a", "#fffde8"],
+        "cheeks": ["#ba3d5d", "#ea7e9a", "#f7a8bd", "#ffebf2"],
     },
     "classic": {
         "shapeKey": "classic",
@@ -228,6 +227,7 @@ def tail(ink, form_id, fur, phase, row):
     if form_id == "pichu":
         p.path([("M", 96, 160), ("L", 118, 150), ("L", 114, 160), ("L", 136, 162),
                 ("L", 126, 174), ("L", 110, 167), ("L", 96, 173), ("Z",)], DARK, PIKA_LINE, 2.0)
+        p.path([("M", 115, 153), ("L", 128, 162), ("L", 121, 170)], None, "#4a3c46", 1.2)
     elif form_id in ("classic", "concept-white-belly", "concept-long-tail", "gigantamax"):
         if form_id == "gigantamax":
             points = [(111,166),(145,150),(137,119),(159,120),(149,91),(174,90),
@@ -322,6 +322,7 @@ def ears(ink, form_id, fur, phase, row):
                 ("Z",)
             ]
             p.path(ear_full, fur[2], PIKA_LINE, 2.2)
+            p.path([("M", 102, 68), ("Q", 115, 46, 138, 22)], None, fur[3], 2.2)
             p.path([("M", 103, 76),
                     ("Q", 111, 58, 121, 42),
                     ("L", 129, 48),
@@ -338,6 +339,7 @@ def ears(ink, form_id, fur, phase, row):
                 ("Z",)
             ]
             p.path(ear_black_tip, DARK, PIKA_LINE, 2.0)
+            p.path([("M", 142, 16), ("L", 168, 24), ("L", 164, 48)], None, "#4e424c", 1.2)
         elif form_id == "raichu":
             p.path([("M",104,85),("C",112,67,113,42,139,28),
                     ("C",128,44,136,48,139,55),("C",147,71,124,80,121,66),
@@ -437,12 +439,15 @@ def body(ink, form_id, fur, phase, row):
             ink.path([("M",99,141),("C",109,164,99,171,80,174),
                       ("C",101,181,113,166,99,141),("Z",)],"#e8d4b5",None)
     if baby:
+        ink.path([("M", 63, 134), ("Q", 85, 142, 107, 134), ("Q", 85, 146, 63, 134), ("Z",)], fur[1], None)
         ink.path([("M", 60, 121),
                   ("L", 66, 134), ("L", 71, 126),
                   ("L", 78, 137), ("L", 85, 128),
                   ("L", 92, 137), ("L", 99, 126),
                   ("L", 104, 134), ("L", 110, 121),
                   ("Z",)], DARK, PIKA_LINE, 2.2)
+        ink.path([("M", 66, 131), ("L", 68, 128)], None, "#4e424c", 1.0)
+        ink.path([("M", 78, 134), ("L", 81, 130)], None, "#4e424c", 1.0)
     if form_id == "mega-raichu-x":
         ink.path([("M",77,121),("Q",85,116,93,124),("L",91,139),
                   ("L",78,136),("Z",)],"#a56c3d",None)
@@ -470,6 +475,7 @@ def head(ink, form_id, fur, cheek, phase, row, frame):
               ("C",64 if baby else 63,131,46 if baby else 47,118 if baby else 120,48 if baby else 49,103 if baby else 104),("C",47 if baby else 48,80 if baby else 81,62,66 if baby else 68,85,66 if baby else 68),("Z",)],fur[2],
              PIKA_LINE if (form_id == "classic" or baby) else OUTLINE, 2.2 if baby else (2.0 if form_id == "classic" else 1.8))
     if baby:
+        ink.path([("M", 64, 76), ("C", 73, 67, 95, 67, 106, 76)], None, fur[3], 3.2)
         ink.path([("M", 108, 84), ("C", 120, 100, 115, 116, 96, 122),
                   ("Q", 80, 128, 64, 120), ("C", 78, 132, 118, 128, 116, 98),
                   ("Q", 114, 88, 108, 84), ("Z",)], fur[1], None)
@@ -489,6 +495,8 @@ def head(ink, form_id, fur, cheek, phase, row, frame):
     if baby:
         for x in (56, 113):
             ink.ellipse(x, 110, 8.8, 7.8, cheek[1], PIKA_LINE, 1.4)
+            ink.ellipse(x, 110.5, 6.5, 5.6, cheek[2], None)
+            ink.ellipse(x - 2.0, 107.8, 2.6, 1.5, cheek[3], None)
     elif form_id == "classic":
         for x in (57,112):
             ink.ellipse(x, 110, 7.8, 7.2, cheek[2], PIKA_LINE, 1.4)
@@ -512,8 +520,14 @@ def head(ink, form_id, fur, cheek, phase, row, frame):
         else:
             if baby:
                 ink.ellipse(x, 96, 6.6, 8.2, DARK, PIKA_LINE, 1.6)
-                ink.ellipse(x - 1.5, 93.6, 2.6, 2.9, "#ffffff", None)
-                ink.ellipse(x + 2.0, 98.4, 1.0, 1.0, "#ffffff", None)
+                iris = FORMS[form_id].get('eyes')
+                iris_col = iris[2] if iris else "#782d34"
+                ink.path([("M", x - 5.0, 97.5),
+                          ("C", x - 4.0, 102.5, x + 4.0, 102.5, x + 5.0, 97.5),
+                          ("Q", x, 100.5, x - 5.0, 97.5), ("Z",)], iris_col, None)
+                ink.ellipse(x, 95.8, 4.2, 5.0, DARK, None)
+                ink.ellipse(x - 1.5, 93.4, 2.5, 2.8, "#ffffff", None)
+                ink.ellipse(x + 2.0, 98.4, 1.1, 1.1, "#ffffff", None)
             elif form_id == "classic":
                 ink.ellipse(x, 96, 5.6, 7.5, DARK, PIKA_LINE, 1.6)
                 ink.ellipse(x - 1.4, 93.6, 2.3, 2.7, "#ffffff", None)
@@ -585,6 +599,7 @@ def arms(ink, form_id, fur, phase, row):
                         ("C", 112, 132, 110, 148, 99, 150),
                         ("C", 91, 151, 88, 140, 96, 131),
                         ("Z",)], fur[2], PIKA_LINE, 1.8)
+                p.path([("M", 96, 137), ("Q", 103, 144, 98, 148)], None, fur[1], 1.2)
             elif form_id == "classic":
                 stride=math.cos(phase)*6*side if row in (1,2) else math.sin(phase)*1.3
                 p.path([("M",108,128),("C",121,134,119,144+stride,109,152+stride),
