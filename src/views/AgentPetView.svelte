@@ -46,11 +46,9 @@
     Sparkles,
     Heart,
     Zap,
-    Coffee,
     Utensils,
     Moon,
     Flame,
-    Award,
     Radio,
     Laptop,
     RotateCcw,
@@ -820,242 +818,221 @@
       onToggleHook={handleToggleHook}
     />
 
-  <!-- MAIN COMPANION VIEW (Focused, Studio-Grade Hero & Consolidated Sidebar) -->
+  <!-- MAIN COMPANION VIEW -->
   {:else}
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-      <!-- Left Column (lg:col-span-7): Clean Companion Stage & Vitals -->
-      <div class="lg:col-span-7 flex flex-col gap-4">
-        <!-- Main Companion Stage -->
-        <div class="flex flex-col items-center p-5 sm:p-6 panel relative overflow-hidden gap-3">
-          <!-- Subtle Glow Backdrop & Dynamic Ki Aura field -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+      <!-- Left Column: Sprite + Vitals -->
+      <div class="lg:col-span-7 flex flex-col gap-3">
+        <!-- Compact Companion Stage -->
+        <div class="panel p-3 sm:p-4 relative overflow-hidden">
+          <!-- Aura backdrop -->
           <div
             class="absolute inset-0 rounded-full blur-3xl pointer-events-none transition-all duration-500 {activeAura
-              ? 'opacity-30'
-              : audioReactive
-              ? 'opacity-20 bg-linear-to-tr from-rose-500/20 via-pink-500/10 to-purple-500/15'
-              : 'opacity-20 bg-rose-500/10'}"
+              ? 'opacity-25'
+              : 'opacity-15 bg-rose-500/10'}"
             style={activeAura
               ? `background: radial-gradient(closest-side, ${activeAura.inner}66, ${activeAura.outer ?? activeAura.inner}33 60%, transparent);`
               : undefined}
           ></div>
 
-          <!-- Top Row: Pet Selector Dropdown & Switcher -->
-          <div class="flex items-center justify-between w-full mb-1 gap-2 relative z-10 shrink-0 flex-wrap">
+          <!-- Top bar: selector + streak -->
+          <div class="flex items-center justify-between gap-2 relative z-10 mb-2 flex-wrap">
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <img
                 src={currentArchetype.avatarUrl}
                 alt={currentArchetype.name}
-                class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
+                class="w-7 h-7 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0"
               />
               <select
                 value={displayPet}
-                onchange={(e) => {
-                  const val = e.currentTarget.value;
-                  equipPet(val);
-                }}
-                class="field text-xs h-8.5 rounded-lg max-w-60"
+                onchange={(e) => equipPet(e.currentTarget.value)}
+                class="field text-xs h-7.5 rounded-lg max-w-52"
               >
                 {#each getActivePets() as pet}
                   <option value={pet.id}>{pet.name} ({pet.tag})</option>
                 {/each}
               </select>
-
-              <button
-                type="button"
-                onclick={() => (isGalleryOpen = !isGalleryOpen)}
-                class="btn btn-ghost h-8.5 px-2.5 text-xs text-(--muted) hover:text-(--ink) border border-(--line) rounded-lg flex items-center gap-1.5 cursor-pointer"
-                title="Toggle Companion Roster Drawer"
-              >
-                <Layers class="w-3.5 h-3.5 text-(--accent-text)" />
-                <span class="hidden sm:inline">{isGalleryOpen ? "Hide Roster" : "Roster"}</span>
-              </button>
             </div>
-
-            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--paper) border border-(--line) text-(--warning) text-xs font-semibold shadow-xs">
-              <Flame class="w-3.5 h-3.5 text-(--warning) shrink-0" />
-              <span>{careState.streak_days > 0 ? `${careState.streak_days}-Day Streak` : "Active Streak"}</span>
-            </div>
+            {#if careState.streak_days > 0}
+              <span class="flex items-center gap-1 px-2 py-1 rounded-lg bg-(--paper) border border-(--line) text-(--warning) text-[11px] font-semibold">
+                <Flame class="w-3 h-3" />{careState.streak_days}-Day Streak
+              </span>
+            {/if}
           </div>
 
-          <!-- Pet Preview Banner (if previewing a pet different from equipped selectedPet) -->
+          <!-- Preview banner -->
           {#if isPetPreviewing}
-            <div class="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-(--accent)/15 border border-(--accent)/30 text-xs shrink-0 relative z-10">
-              <div class="flex items-center gap-2 min-w-0">
-                <Eye class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
+            <div class="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-(--accent)/15 border border-(--accent)/30 text-xs mb-2 relative z-10">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <Eye class="w-3 h-3 text-(--accent-text) shrink-0" />
                 <span class="font-bold text-(--ink) truncate">Previewing: {currentArchetype.name}</span>
-                <span class="text-[10px] text-(--muted) hidden sm:inline">({currentArchetype.tagline})</span>
               </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onclick={() => equipPet(displayPet)}
-                  class="btn btn-primary h-6.5 px-2.5 text-[11px] font-semibold shadow-xs cursor-pointer flex items-center gap-1"
-                >
-                  <Check class="w-3 h-3" />
-                  <span>Equip Companion</span>
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" onclick={() => equipPet(displayPet)}
+                  class="btn btn-primary h-6 px-2 text-[10px] font-semibold cursor-pointer flex items-center gap-1">
+                  <Check class="w-2.5 h-2.5" />Equip
                 </button>
-                <button
-                  type="button"
-                  onclick={cancelPetPreview}
-                  class="btn btn-ghost h-6.5 px-2 text-[11px] font-medium border border-(--line) cursor-pointer"
-                >
-                  <span>Cancel</span>
-                </button>
+                <button type="button" onclick={cancelPetPreview}
+                  class="btn btn-ghost h-6 px-1.5 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
               </div>
             </div>
           {/if}
 
-          <!-- Interactive Speech / Context Bubble -->
-          <div class="relative max-w-lg w-full my-1 z-10 shrink-0">
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              onclick={() => (currentQuoteIndex = (currentQuoteIndex + 1) % activeQuotes.length)}
-              class="relative bg-(--paper) border border-(--line) rounded-2xl p-2.5 px-3.5 shadow-sm cursor-pointer hover:border-(--focus) transition-all text-center group"
-              title="Click companion to hear next thought"
-            >
-              <div class="flex items-center justify-center gap-2">
-                <Sparkles class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
-                <p class="text-xs font-medium text-(--ink) m-0 group-hover:text-(--accent-text) transition-colors">
-                  "{liveBubbleMessage}"
-                </p>
-              </div>
-              <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-(--paper) border-r border-b border-(--line) transform rotate-45"></div>
-            </div>
-          </div>
-
-          <!-- Character Stage & Crisp Animated Sprite -->
-          <div class="relative w-full flex-1 flex flex-col items-center justify-center select-none py-2 z-10">
+          <!-- Sprite + speech row -->
+          <div class="flex items-center gap-4 relative z-10">
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               onclick={handlePetAction}
-              class="relative flex flex-col items-center justify-center cursor-pointer transition-transform duration-200 {isInteracting
-                ? 'scale-105'
-                : 'hover:scale-102'}"
-              title="Click companion to pet!"
+              class="relative flex flex-col items-center shrink-0 cursor-pointer transition-transform duration-200 {isInteracting ? 'scale-105' : 'hover:scale-102'}"
+              title="Click to pet!"
             >
               <AgentPetSprite
                 slug={displayPet}
                 formId={displayForm?.id}
                 spritesheetPath={displayForm?.spritesheetPath}
                 mood={currentMood}
-                size={160}
+                size={128}
                 revision={bindingRevision}
               />
-
-              <!-- Status Pill -->
-              <span class="mt-2.5 px-3 py-0.5 rounded-full text-[10px] font-bold bg-(--paper) border border-(--line) text-(--ink) shadow-xs flex items-center gap-1.5">
-                <span
-                  class="w-1.5 h-1.5 rounded-full {currentMood === 'working'
-                    ? 'bg-(--success)'
-                    : currentMood === 'waiting'
-                    ? 'bg-(--warning)'
-                    : 'bg-(--accent)'}"
-                ></span>
-                <span>
-                  {#if isInteracting}
-                    {interactionAction === "purring"
-                      ? "Purring Happily"
-                      : interactionAction === "sleep"
-                      ? "Resting Peacefully"
-                      : "Devouring Meal"}
-                  {:else if topActiveSession}
-                    {topActiveSession.agent_kind.toUpperCase()} ({topActiveSession.state})
-                  {:else}
-                    Coding Companion (Ready)
-                  {/if}
-                </span>
+              <span class="mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-(--paper) border border-(--line) text-(--ink) flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full {currentMood === 'working' ? 'bg-(--success)' : currentMood === 'waiting' ? 'bg-(--warning)' : 'bg-(--accent)'}"></span>
+                {#if isInteracting}
+                  {interactionAction === "purring" ? "Purring" : interactionAction === "sleep" ? "Resting" : "Eating"}
+                {:else if topActiveSession}
+                  {topActiveSession.agent_kind.toUpperCase()} ({topActiveSession.state})
+                {:else}
+                  Ready
+                {/if}
               </span>
             </div>
-          </div>
 
-          {#if currentArchetype.forms && currentArchetype.forms.length > 0}
-            <!-- Multi-Form Progression & Evolution Cockpit Strip -->
-            <div class="w-full rounded-2xl bg-(--paper)/90 border border-(--line) p-2.5 sm:p-3 relative z-10 shrink-0 space-y-2">
-              <!-- Status & Quick Action Header -->
-              <div class="flex items-center justify-between gap-2 text-xs flex-wrap">
-                <div class="flex items-center gap-2 min-w-0">
-                  {#if isFormPreviewing}
-                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-(--accent)/20 text-(--accent-text) border border-(--accent)/40 flex items-center gap-1 shrink-0">
-                      <Eye class="w-3 h-3 text-(--accent-text)" />
-                      Preview: {displayForm ? displayForm.name : "Custom"}
-                    </span>
-                    <span class="text-[11px] text-(--ink) font-medium truncate">
-                      {displayForm?.hairDescription || "Previewing visual sprite & aura"}
-                    </span>
-                    {#if (careState?.display_level ?? 1) < (displayForm?.minLevel ?? 1)}
-                      <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-(--warning)/15 text-(--warning) border border-(--warning)/30 shrink-0 flex items-center gap-1">
-                        <Lock class="w-2.5 h-2.5" />
-                        Req Lv {displayForm?.minLevel}
-                      </span>
-                    {/if}
-                  {:else}
-                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-(--surface) text-(--ink) border border-(--line) flex items-center gap-1 shrink-0">
-                      <Layers class="w-3 h-3 text-(--accent-text)" />
-                      {activeForm ? activeForm.name : "Default"}
-                    </span>
-                    <span class="text-[11px] text-(--muted) truncate hidden sm:inline">
-                      {formPref === "auto" ? `Auto-evolving at Level ${careState?.display_level ?? 1}` : (activeForm?.hairDescription || "Form locked")}
-                    </span>
-                  {/if}
+            <!-- Right side: speech + vitals inline -->
+            <div class="flex-1 min-w-0 flex flex-col gap-2">
+              <!-- Speech bubble (compact) -->
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                onclick={() => (currentQuoteIndex = (currentQuoteIndex + 1) % activeQuotes.length)}
+                class="bg-(--paper) border border-(--line) rounded-xl px-3 py-2 cursor-pointer hover:border-(--focus) transition-all group"
+                title="Click for next thought"
+              >
+                <p class="text-[11px] font-medium text-(--ink) m-0 group-hover:text-(--accent-text) transition-colors line-clamp-2">
+                  <Sparkles class="w-3 h-3 text-(--accent-text) inline-block mr-1 align-[-2px]" />"{liveBubbleMessage}"
+                </p>
+              </div>
+
+              <!-- XP bar inline -->
+              <div class="bg-(--paper) border border-(--line) rounded-xl px-3 py-2">
+                <div class="flex items-center justify-between text-[11px] mb-1">
+                  <div class="flex items-center gap-1.5">
+                    <StageIcon class="w-3 h-3 {stageConfig.text}" />
+                    <span class="font-bold text-(--ink)">Lv {careState.display_level}</span>
+                    <span class="px-1.5 py-0 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}">{careState.stage_name}</span>
+                  </div>
+                  <span class="text-[10px] font-semibold text-(--accent-text) tabular-nums">{inLevelXP.toLocaleString()}/{spanXP.toLocaleString()} XP</span>
                 </div>
-
-                <!-- Quick Action Buttons -->
-                <div class="flex items-center gap-1.5 shrink-0">
-                  {#if isFormPreviewing}
-                    <button
-                      type="button"
-                      onclick={() => {
-                        if (displayForm) equipForm(displayForm.id);
-                      }}
-                      class="btn btn-primary h-6.5 px-2.5 text-[11px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
-                      title="Lock companion to this form"
-                    >
-                      <Check class="w-3 h-3" />
-                      <span>Equip Form</span>
-                    </button>
-                    <button
-                      type="button"
-                      onclick={cancelFormPreview}
-                      class="btn btn-ghost h-6.5 px-2 text-[11px] font-medium border border-(--line) cursor-pointer"
-                      title="Cancel preview and return to active form"
-                    >
-                      <span>Cancel</span>
-                    </button>
-                  {:else if formPref !== "auto"}
-                    <button
-                      type="button"
-                      onclick={() => equipForm("auto")}
-                      class="btn btn-ghost h-6.5 px-2 text-[11px] font-semibold border border-(--line) text-(--warning) flex items-center gap-1 cursor-pointer"
-                      title="Reset to automatic progression based on level"
-                    >
-                      <Zap class="w-3 h-3 text-(--warning)" />
-                      <span>Revert to Auto</span>
-                    </button>
-                  {/if}
+                <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
+                  <div class="h-full bg-linear-to-r from-rose-500 to-pink-400 rounded-full transition-all duration-300" style="width: {progressPercent}%;"></div>
                 </div>
               </div>
 
-              <!-- Forms Horizontal Carousel / Pill Strip -->
-              <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                <!-- Auto Mode Pill -->
-                <button
-                  type="button"
-                  onclick={() => equipForm("auto")}
-                  class="h-10 px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer transition-all {formPref === 'auto' && !isFormPreviewing
-                    ? 'bg-(--accent)/15 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/40 shadow-xs'
-                    : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
-                  title="Auto progression (Level {careState?.display_level ?? 1})"
+              <!-- 4 mini vitals row -->
+              <div class="grid grid-cols-4 gap-1.5">
+                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
+                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Zap class="w-2.5 h-2.5 text-(--warning)" />Energy</div>
+                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petEnergy}%</div>
+                </div>
+                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
+                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Heart class="w-2.5 h-2.5 text-(--accent-text)" />Mood</div>
+                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petMood}%</div>
+                </div>
+                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
+                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Activity class="w-2.5 h-2.5 text-(--accent-text)" />Focus</div>
+                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petFocus}%</div>
+                </div>
+                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
+                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Fish class="w-2.5 h-2.5 text-(--success)" />Hunger</div>
+                  <div class="text-[11px] font-bold text-(--success) capitalize">{careState.hunger}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action buttons row -->
+          <div class="flex items-center justify-center gap-1.5 pt-2.5 mt-2.5 border-t border-(--line) relative z-10">
+            <button type="button" onclick={handlePetAction}
+              class="btn btn-primary h-7 px-3 text-[11px] font-semibold" title="Pet (+15 XP)">
+              <Sparkles class="w-3 h-3" />Pet
+            </button>
+            <button type="button" onclick={handleFeedAction}
+              class="btn h-7 px-3 text-[11px] font-semibold" title="Feed (+20 XP)">
+              <Utensils class="w-3 h-3 text-(--success)" />Feed
+            </button>
+            <button type="button" onclick={handleSleepAction}
+              class="btn btn-ghost h-7 px-3 text-[11px] font-semibold border border-(--line)" title="Rest (+10 XP)">
+              <Moon class="w-3 h-3 text-(--accent-text)" />Rest
+            </button>
+            <button type="button" onclick={handleCelebrateAction}
+              class="btn h-7 px-3 text-[11px] font-semibold" title="Celebrate (+25 XP)">
+              <PartyPopper class="w-3 h-3 text-(--warning)" />Celebrate
+            </button>
+          </div>
+        </div>
+
+        <!-- Forms strip (compact) -->
+        {#if currentArchetype.forms && currentArchetype.forms.length > 0}
+          <div class="panel p-2.5 sm:p-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1.5 min-w-0">
+                {#if isFormPreviewing}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--accent)/20 text-(--accent-text) border border-(--accent)/40 flex items-center gap-1 shrink-0">
+                    <Eye class="w-2.5 h-2.5" />Preview: {displayForm?.name ?? "Custom"}
+                  </span>
+                  {#if (careState?.display_level ?? 1) < (displayForm?.minLevel ?? 1)}
+                    <span class="px-1 rounded text-[9px] font-mono font-bold bg-(--warning)/15 text-(--warning) border border-(--warning)/30 flex items-center gap-0.5">
+                      <Lock class="w-2.5 h-2.5" />Lv {displayForm?.minLevel}
+                    </span>
+                  {/if}
+                {:else}
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--surface) text-(--ink) border border-(--line) flex items-center gap-1 shrink-0">
+                    <Layers class="w-2.5 h-2.5 text-(--accent-text)" />{activeForm?.name ?? "Default"}
+                  </span>
+                  <span class="text-[10px] text-(--muted) truncate hidden sm:inline">
+                    {formPref === "auto" ? `Auto · Lv ${careState?.display_level ?? 1}` : (activeForm?.hairDescription || "Locked")}
+                  </span>
+                {/if}
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                {#if isFormPreviewing}
+                  <button type="button" onclick={() => { if (displayForm) equipForm(displayForm.id); }}
+                    class="btn btn-primary h-6 px-2 text-[10px] font-semibold flex items-center gap-1 cursor-pointer">
+                    <Check class="w-2.5 h-2.5" />Equip
+                  </button>
+                  <button type="button" onclick={cancelFormPreview}
+                    class="btn btn-ghost h-6 px-1.5 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
+                {:else if formPref !== "auto"}
+                  <button type="button" onclick={() => equipForm("auto")}
+                    class="btn btn-ghost h-6 px-2 text-[10px] font-semibold border border-(--line) text-(--warning) flex items-center gap-1 cursor-pointer">
+                    <Zap class="w-2.5 h-2.5" />Auto
+                  </button>
+                {/if}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+              <button
+                type="button"
+                onclick={() => equipForm("auto")}
+                class="h-8 px-2 rounded-lg border flex items-center gap-1 text-[11px] font-semibold shrink-0 cursor-pointer transition-all {formPref === 'auto' && !isFormPreviewing
+                  ? 'bg-(--accent)/15 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/40'
+                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                  title="Auto (Lv {careState?.display_level ?? 1})"
                 >
-                  <Zap class="w-3.5 h-3.5 {formPref === 'auto' && !isFormPreviewing ? 'text-(--accent-text)' : 'text-(--warning)'}" />
-                  <div class="text-left">
-                    <span class="block text-[11px] leading-tight font-bold">Auto</span>
-                    <span class="block text-[9px] font-mono text-(--muted) leading-none">Lv {careState?.display_level ?? 1}</span>
-                  </div>
+                  <Zap class="w-3 h-3 {formPref === 'auto' && !isFormPreviewing ? 'text-(--accent-text)' : 'text-(--warning)'}" />
+                  <span class="text-[10px] font-bold">Auto</span>
                 </button>
 
-                <!-- 10 Form Pills with Instant Preview -->
                 {#each currentArchetype.forms as f (f.id)}
                   {@const isUnlocked = (careState?.display_level ?? 1) >= f.minLevel}
                   {@const isPreview = previewFormId === f.id}
@@ -1063,443 +1040,156 @@
 
                   <button
                     type="button"
-                    onclick={() => {
-                      if (previewFormId === f.id) {
-                        equipForm(f.id);
-                      } else {
-                        previewFormId = f.id;
-                      }
-                    }}
-                    class="h-10 px-2 rounded-xl border flex items-center gap-2 shrink-0 cursor-pointer transition-all relative overflow-hidden {isPreview
-                      ? 'bg-(--accent)/20 border-(--accent) text-(--accent-text) ring-2 ring-(--accent)/50 shadow-sm'
+                    onclick={() => { if (previewFormId === f.id) { equipForm(f.id); } else { previewFormId = f.id; } }}
+                    class="h-8 px-1.5 rounded-lg border flex items-center gap-1.5 shrink-0 cursor-pointer transition-all {isPreview
+                      ? 'bg-(--accent)/20 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/50'
                       : isActive
-                      ? 'bg-(--surface) border-(--line) text-(--ink) font-bold ring-1 ring-(--line)'
+                      ? 'bg-(--surface) border-(--line) text-(--ink) ring-1 ring-(--line)'
                       : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
-                    title="{f.name} — {f.hairDescription || ''} (Cần Lv {f.minLevel})"
+                    title="{f.name} (Lv {f.minLevel})"
                   >
-                    <!-- Thumbnail -->
-                    <div class="w-7 h-7 rounded-lg bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
-                      <img
-                        src={f.avatarUrl}
-                        alt={f.name}
-                        class="w-full h-full object-contain p-0.5"
-                      />
+                    <div class="w-6 h-6 rounded bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
+                      <img src={f.avatarUrl} alt={f.name} class="w-full h-full object-contain" />
                     </div>
-
-                    <!-- Info -->
-                    <div class="text-left min-w-0 pr-1">
-                      <span class="block text-[11px] font-bold leading-tight truncate max-w-28 {isPreview ? 'text-(--accent-text)' : isActive ? 'text-(--ink)' : 'text-(--muted)'}">
-                        {f.name}
-                      </span>
-                      <div class="flex items-center gap-1">
-                        {#if isUnlocked}
-                          <span class="text-[9px] font-mono text-(--muted) leading-none">Lv {f.minLevel}</span>
-                        {:else}
-                          <span class="text-[9px] font-mono text-(--warning) leading-none flex items-center gap-0.5">
-                            <Lock class="w-2.5 h-2.5" />
-                            Lv {f.minLevel}
-                          </span>
-                        {/if}
-                      </div>
-                    </div>
-
-                    {#if isPreview}
-                      <span class="w-3.5 h-3.5 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center shrink-0 shadow-xs" title="Currently Previewing">
-                        <Eye class="w-2 h-2" />
-                      </span>
-                    {:else if isActive}
-                      <span class="w-3.5 h-3.5 rounded-full bg-(--surface) border border-(--line) text-(--success) flex items-center justify-center shrink-0" title="Active Form">
-                        <Check class="w-2 h-2 stroke-[3]" />
-                      </span>
+                    <span class="text-[10px] font-bold leading-tight truncate max-w-20">{f.name}</span>
+                    {#if !isUnlocked}
+                      <Lock class="w-2.5 h-2.5 text-(--warning) shrink-0" />
                     {/if}
                   </button>
                 {/each}
               </div>
-            </div>
+          </div>
           {/if}
 
-          <!-- Tactical Care Action Dock -->
-          <div class="flex flex-wrap items-center justify-center gap-2 pt-3 mt-1 border-t border-(--line) w-full relative z-10">
-            <button
-              type="button"
-              onclick={handlePetAction}
-              class="btn btn-primary h-8 px-3.5 text-xs font-semibold shadow-xs"
-              title="Pet companion (+15 XP, Mood Boost)"
-            >
-              <Sparkles class="w-3.5 h-3.5 text-(--accent-ink)" />
-              <span>Pet</span>
-            </button>
-            <button
-              type="button"
-              onclick={handleFeedAction}
-              class="btn h-8 px-3.5 text-xs font-semibold"
-              title="Feed treat (+20 XP, Satisfy Hunger)"
-            >
-              <Utensils class="w-3.5 h-3.5 text-(--success)" />
-              <span>Feed</span>
-            </button>
-            <button
-              type="button"
-              onclick={handleSleepAction}
-              class="btn btn-ghost h-8 px-3.5 text-xs font-semibold border border-(--line)"
-              title="Rest meditation (+10 XP, Rest Energy)"
-            >
-              <Moon class="w-3.5 h-3.5 text-(--accent-text)" />
-              <span>Rest</span>
-            </button>
-            <button
-              type="button"
-              onclick={handleCelebrateAction}
-              class="btn h-8 px-3.5 text-xs font-semibold"
-              title="Celebrate milestone (+25 XP)"
-            >
-              <PartyPopper class="w-3.5 h-3.5 text-(--warning)" />
-              <Coffee class="w-3 h-3 text-(--warning)" />
-              <span>Celebrate</span>
-            </button>
+        <!-- Achievements (collapsible) -->
+        <details class="panel p-2.5 text-xs group">
+          <summary class="font-semibold text-(--ink) flex items-center justify-between cursor-pointer select-none">
+            <span class="flex items-center gap-1.5">
+              <Trophy class="w-3.5 h-3.5 text-(--warning)" />
+              Achievements & Ledger
+            </span>
+            <span class="text-(--muted) text-[10px] font-mono">
+              {careState.unlocked_achievements.length}/{ACHIEVEMENTS_METADATA.length}
+            </span>
+          </summary>
+          <div class="grid grid-cols-4 gap-1.5 text-[10px] mt-2 pt-2 border-t border-(--line)">
+            <div><span class="text-(--muted) block">Tokens Today</span><span class="font-mono font-semibold text-(--ink)">{careState.tokens_today.toLocaleString()}</span></div>
+            <div><span class="text-(--muted) block">Meals Today</span><span class="font-mono font-semibold text-(--ink)">{careState.meals_today}</span></div>
+            <div><span class="text-(--muted) block">Lifetime Tokens</span><span class="font-mono font-semibold text-(--ink)">{careState.total_tokens.toLocaleString()}</span></div>
+            <div><span class="text-(--muted) block">Lifetime Meals</span><span class="font-mono font-semibold text-(--ink)">{careState.total_meals}</span></div>
           </div>
-        </div>
-
-        <!-- Streamlined Companion Roster Drawer (Collapsible) -->
-        <div class="panel p-3.5 sm:p-4 shadow-sm space-y-3">
-          <div class="flex items-center justify-between gap-2 flex-wrap">
-            <div class="flex items-center gap-2">
-              <div class="w-6 h-6 rounded-lg bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent-text)">
-                <Layers class="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <h4 class="text-xs font-bold text-(--ink) m-0">Companion Roster Gallery</h4>
-                <p class="text-[10px] text-(--muted) m-0">{getActivePets().length} Archetypes · Click to Preview, 1-Click Equip</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onclick={() => (isGalleryOpen = !isGalleryOpen)}
-              class="btn btn-ghost h-7 px-2.5 text-xs font-semibold border border-(--line) flex items-center gap-1.5 cursor-pointer"
-            >
-              <Eye class="w-3.5 h-3.5 text-(--accent-text)" />
-              <span>{isGalleryOpen ? "Hide Roster" : "Browse All Roster"}</span>
-            </button>
-          </div>
-
-          {#if isGalleryOpen}
-            <PetGallery
-              bind:selectedPet
-              previewPet={previewPetSlug}
-              onPreviewPet={(slug) => {
-                previewPetSlug = slug;
-                previewFormId = null;
-              }}
-              {careState}
-              onSelectPet={(slug) => {
-                equipPet(slug);
-              }}
-            />
-          {/if}
-        </div>
-
-        <!-- Compact Progression & Vitals Panel -->
-        <div class="panel p-4 sm:p-5 shadow-sm space-y-3.5">
-          <!-- Level & XP Progression Bar -->
-          <div class="bg-(--paper) border border-(--line) rounded-xl p-3 px-3.5">
-            <div class="flex items-center justify-between text-xs mb-1.5">
-              <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-lg flex items-center justify-center border {stageConfig.bg} {stageConfig.border}">
-                  <StageIcon class="w-3.5 h-3.5 {stageConfig.text}" />
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <span class="font-bold text-(--ink) text-xs">
-                    Lv {careState.display_level}
-                  </span>
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}">
-                    {careState.stage_name}
-                  </span>
-                </div>
-              </div>
-
-              <div class="text-right">
-                <span class="text-[11px] font-semibold text-(--accent-text) tabular-nums">
-                  {inLevelXP.toLocaleString()} / {spanXP.toLocaleString()} XP
-                </span>
-                <span class="text-[10px] text-(--muted) font-mono ml-1.5">
-                  ({progressPercent}%)
-                </span>
-              </div>
-            </div>
-
-            <!-- Progress Track -->
-            <div class="w-full h-2 bg-(--surface) rounded-full overflow-hidden mt-1.5">
+          <div class="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-(--line)">
+            {#each ACHIEVEMENTS_METADATA as ach}
+              {@const isUnlocked = careState.unlocked_achievements.includes(ach.id)}
+              {@const AchIcon = ach.icon}
               <div
-                class="h-full bg-linear-to-r from-rose-500 to-pink-400 rounded-full transition-all duration-300"
-                style="width: {progressPercent}%;"
-              ></div>
-            </div>
-
-            <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-(--line) text-[10px] text-(--muted)">
-              <span class="flex items-center gap-1 text-(--ink)">
-                <Sparkles class="w-3 h-3 text-(--accent-text)" />
-                Lifetime XP: {careState.xp.toLocaleString()}
-              </span>
-              <span class="font-medium {stageConfig.text}">
-                ≈ {tokensToNext.toLocaleString()} tokens to Lv {careState.display_level + 1}
-              </span>
-            </div>
+                class="p-1.5 rounded border text-center flex flex-col items-center gap-0.5 {isUnlocked
+                  ? 'bg-(--surface) border-(--line) text-(--warning)'
+                  : 'bg-(--paper) border-(--line) text-(--muted) opacity-40'}"
+                title="{ach.name}: {ach.description}"
+              >
+                <AchIcon class="w-3 h-3 {isUnlocked ? 'text-(--warning)' : 'text-(--muted)'}" />
+                <span class="text-[8px] font-semibold truncate w-full block">{ach.name}</span>
+              </div>
+            {/each}
           </div>
-
-          <!-- 4 Core Vitals Grid -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <!-- 1. Energy -->
-            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1">
-                <span class="text-(--muted) flex items-center gap-1 font-medium">
-                  <Zap class="w-3 h-3 text-(--warning)" />
-                  Energy
-                </span>
-                <span class="font-semibold text-(--ink) tabular-nums">{petEnergy}%</span>
-              </div>
-              <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: {petEnergy}%;"></div>
-              </div>
-            </div>
-
-            <!-- 2. Mood -->
-            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1">
-                <span class="text-(--muted) flex items-center gap-1 font-medium">
-                  <Heart class="w-3 h-3 text-(--accent-text)" />
-                  Mood
-                </span>
-                <span class="font-semibold text-(--ink) tabular-nums">{petMood}%</span>
-              </div>
-              <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div class="h-full bg-rose-400 rounded-full transition-all duration-300" style="width: {petMood}%;"></div>
-              </div>
-            </div>
-
-            <!-- 3. Focus -->
-            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1">
-                <span class="text-(--muted) flex items-center gap-1 font-medium">
-                  <Activity class="w-3 h-3 text-(--accent-text)" />
-                  Focus
-                </span>
-                <span class="font-semibold text-(--ink) tabular-nums">{petFocus}%</span>
-              </div>
-              <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div class="h-full bg-rose-400 rounded-full transition-all duration-300" style="width: {petFocus}%;"></div>
-              </div>
-            </div>
-
-            <!-- 4. Hunger -->
-            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex flex-col justify-between">
-              <div class="flex items-center justify-between text-[11px] mb-1">
-                <span class="text-(--muted) flex items-center gap-1 font-medium">
-                  <Fish class="w-3 h-3 text-(--success)" />
-                  Hunger
-                </span>
-                <span class="font-semibold text-(--success) capitalize text-[10px]">
-                  {careState.hunger}
-                </span>
-              </div>
-              <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                <div
-                  class="h-full rounded-full transition-all duration-300 {careState.hunger === 'full'
-                    ? 'w-full bg-emerald-400'
-                    : careState.hunger === 'satisfied'
-                    ? 'w-3/4 bg-emerald-500'
-                    : careState.hunger === 'peckish'
-                    ? 'w-1/2 bg-amber-400'
-                    : 'w-1/4 bg-rose-500'}"
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Collapsible Progress Details & Achievements -->
-          <details class="bg-(--paper) border border-(--line) rounded-xl p-3 text-xs group">
-            <summary class="font-semibold text-(--ink) flex items-center justify-between cursor-pointer select-none">
-              <span class="flex items-center gap-1.5">
-                <Trophy class="w-3.5 h-3.5 text-(--warning)" />
-                <Award class="w-3 h-3 text-(--accent-text)" />
-                Achievements & Work Ledger
-              </span>
-              <span class="text-(--muted) text-[10px] font-mono">
-                {careState.unlocked_achievements.length}/{ACHIEVEMENTS_METADATA.length} Unlocked
-              </span>
-            </summary>
-
-            <!-- Ledger stats -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] mt-3 pt-2.5 border-t border-(--line)">
-              <div>
-                <span class="text-(--muted) block">Tokens Today</span>
-                <span class="font-mono font-semibold text-(--ink)">{careState.tokens_today.toLocaleString()}</span>
-              </div>
-              <div>
-                <span class="text-(--muted) block">Meals Today</span>
-                <span class="font-mono font-semibold text-(--ink)">{careState.meals_today}</span>
-              </div>
-              <div>
-                <span class="text-(--muted) block">Lifetime Tokens</span>
-                <span class="font-mono font-semibold text-(--ink)">{careState.total_tokens.toLocaleString()}</span>
-              </div>
-              <div>
-                <span class="text-(--muted) block">Lifetime Meals</span>
-                <span class="font-mono font-semibold text-(--ink)">{careState.total_meals}</span>
-              </div>
-            </div>
-
-            <!-- Achievements grid -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-3 pt-2.5 border-t border-(--line)">
-              {#each ACHIEVEMENTS_METADATA as ach}
-                {@const isUnlocked = careState.unlocked_achievements.includes(ach.id)}
-                {@const AchIcon = ach.icon}
-                <div
-                  class="p-2 rounded-lg border text-center transition-all flex flex-col items-center gap-1 {isUnlocked
-                    ? 'bg-(--surface) border-(--line) text-(--warning) shadow-xs'
-                    : 'bg-(--paper) border-(--line) text-(--muted) opacity-40'}"
-                  title="{ach.name}: {ach.description}"
-                >
-                  <AchIcon class="w-3.5 h-3.5 {isUnlocked ? 'text-(--warning)' : 'text-(--muted)'}" />
-                  <span class="text-[9px] font-semibold truncate w-full block">
-                    {ach.name}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          </details>
-        </div>
+        </details>
       </div>
 
-      <!-- Right Column (lg:col-span-5): Active Sessions & Recent Activity -->
-      <div class="lg:col-span-5 flex flex-col gap-4">
-        <!-- Active Sessions Quick Monitor -->
-        <div class="panel p-4 sm:p-5 shadow-sm space-y-3">
-          <div class="flex items-center justify-between pb-2 border-b border-(--line)">
-            <div class="flex items-center gap-2">
-              <Radio class="w-4 h-4 text-(--accent-text)" />
-              <h4 class="text-xs font-bold text-(--ink) m-0">Connected Sessions</h4>
+      <!-- Right Column: Sessions + Events -->
+      <div class="lg:col-span-5 flex flex-col gap-3">
+        <!-- Connected Sessions -->
+        <div class="panel p-3 sm:p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <Radio class="w-3.5 h-3.5 text-(--accent-text)" />
+              <h4 class="text-[11px] font-bold text-(--ink) m-0">Connected Sessions</h4>
             </div>
-            <button
-              type="button"
-              onclick={() => (activeViewTab = "socket")}
-              class="text-[11px] text-(--accent-text) hover:underline"
-            >
-              Manage Hooks…
-            </button>
+            <button type="button" onclick={() => (activeViewTab = "socket")}
+              class="text-[10px] text-(--accent-text) hover:underline">Manage Hooks…</button>
           </div>
 
           {#if agentSessions.length === 0}
-            <div class="text-center py-6 text-xs text-(--muted)">
-              No active agent sessions. Start Pi, Claude, or Codex to stream events!
+            <div class="text-center py-3 text-[11px] text-(--muted)">
+              No active sessions. Start Pi, Claude, or Codex to stream events!
             </div>
           {:else}
-            <div class="space-y-2">
+            <div class="space-y-1.5">
               {#each agentSessions as session, idx (session.id)}
                 {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, selectedPet))}
                 {@const projName = getProjectName(session.project)}
-                <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-2.5 text-xs">
-                  <div class="min-w-0 flex items-center gap-2.5 flex-1">
-                    <img
-                      src={sessionPet.avatarUrl}
-                      alt={sessionPet.name}
-                      class="w-7 h-7 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
-                      title="{sessionPet.name} · {sessionPet.tagline}"
-                    />
+                <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[11px]">
+                  <div class="min-w-0 flex items-center gap-2 flex-1">
+                    <img src={sessionPet.avatarUrl} alt={sessionPet.name}
+                      class="w-6 h-6 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0" />
                     <div class="truncate min-w-0 flex-1">
-                      <div class="flex items-center gap-1.5 flex-wrap">
+                      <div class="flex items-center gap-1 flex-wrap">
                         <span class="w-1.5 h-1.5 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : session.state === 'waiting' ? 'bg-amber-400' : 'bg-slate-400'} shrink-0"></span>
-                        <span class="font-bold text-(--ink) text-xs">{projName}</span>
-                        <span class="badge text-[9px] px-1 py-0 uppercase">{session.agent_kind}</span>
-                        <span class="text-[10px] text-(--accent-text) font-semibold ml-auto sm:ml-0">
-                          {sessionPet.name}
-                        </span>
+                        <span class="font-bold text-(--ink)">{projName}</span>
+                        <span class="badge text-[8px] px-0.5 py-0 uppercase">{session.agent_kind}</span>
                       </div>
-                      <div class="flex items-center gap-1.5 mt-0.5 text-[10px] text-(--muted)">
+                      <div class="flex items-center gap-1 text-[10px] text-(--muted)">
                         <span class="capitalize">{session.state}</span>
-                        {#if session.tool_name}
-                          <span>•</span>
-                          <span class="font-mono truncate">{session.tool_name}</span>
-                        {/if}
+                        {#if session.tool_name}<span>·</span><span class="font-mono truncate">{session.tool_name}</span>{/if}
                       </div>
                     </div>
                   </div>
-
-                  <div class="flex items-center gap-1.5 shrink-0">
-                    <select
-                      value={sessionPet.id}
-                      onchange={(e) => {
-                        const newId = e.currentTarget.value;
-                        setSessionPetBinding(session.id, newId);
-                        setProjectPetBinding(projName, newId);
-                        toastState.info(`Assigned ${getPetArchetype(newId).name} to ${projName}`);
-                      }}
-                      class="field text-[10px] h-6 px-1.5 py-0 rounded max-w-28 text-(--muted) hover:text-(--ink)"
-                      title="Assign companion to {projName}"
-                    >
-                      {#each getActivePets() as p}
-                        <option value={p.id}>{p.name}</option>
-                      {/each}
-                    </select>
-
-                    <button
-                      type="button"
-                      onclick={() => handleDismissSession(session.id)}
-                      class="btn btn-ghost h-6 text-[10px] px-1.5 text-(--muted) hover:text-(--ink)"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
+                  <button type="button" onclick={() => handleDismissSession(session.id)}
+                    class="btn btn-ghost h-5 text-[9px] px-1 text-(--muted) hover:text-(--ink)">Dismiss</button>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
 
-        <!-- Recent Activity Feed Preview -->
-        <div class="panel p-4 sm:p-5 shadow-sm space-y-3">
-          <div class="flex items-center justify-between pb-2 border-b border-(--line)">
-            <div class="flex items-center gap-2">
-              <Terminal class="w-4 h-4 text-(--success)" />
-              <h4 class="text-xs font-bold text-(--ink) m-0">Recent Event Stream</h4>
+        <!-- Recent Event Stream -->
+        <div class="panel p-3 sm:p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <Terminal class="w-3.5 h-3.5 text-(--success)" />
+              <h4 class="text-[11px] font-bold text-(--ink) m-0">Recent Events</h4>
             </div>
-            <button
-              type="button"
-              onclick={() => (activeViewTab = "stream")}
-              class="text-[11px] text-(--accent-text) hover:underline"
-            >
-              Full Stream…
-            </button>
+            <button type="button" onclick={() => (activeViewTab = "stream")}
+              class="text-[10px] text-(--accent-text) hover:underline">Full Stream…</button>
           </div>
 
           {#if events.length === 0}
-            <div class="text-center py-6 text-xs text-(--muted)">
-              No recent events logged yet.
-            </div>
+            <div class="text-center py-3 text-[11px] text-(--muted)">No events logged yet.</div>
           {:else}
-            <div class="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {#each events.slice(0, 6) as event (event.id)}
-                <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[11px]">
-                  <div class="min-w-0 flex items-center gap-2">
-                    <span class="badge text-[9px] px-1 py-0">{event.event}</span>
+            <div class="space-y-1 max-h-64 overflow-y-auto">
+              {#each events.slice(0, 8) as event (event.id)}
+                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[10px]">
+                  <div class="min-w-0 flex items-center gap-1.5">
+                    <span class="badge text-[8px] px-0.5 py-0">{event.event}</span>
                     <span class="text-(--ink) truncate font-mono">{event.message}</span>
                   </div>
-                  <span class="text-(--muted) text-[10px] font-mono shrink-0">{event.time}</span>
+                  <span class="text-(--muted) text-[9px] font-mono shrink-0">{event.time}</span>
                 </div>
               {/each}
             </div>
           {/if}
+        </div>
+
+        <!-- Lifetime XP footer -->
+        <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-(--paper) border border-(--line) text-[10px] text-(--muted)">
+          <span class="flex items-center gap-1">
+            <Sparkles class="w-3 h-3 text-(--accent-text)" />
+            Lifetime XP: <span class="font-mono font-semibold text-(--ink)">{careState.xp.toLocaleString()}</span>
+          </span>
+          <span class="font-medium {stageConfig.text}">
+            ≈ {tokensToNext.toLocaleString()} tokens to Lv {careState.display_level + 1}
+          </span>
         </div>
       </div>
     </div>
   {/if}
 
-  <!-- Confirmation Modal for Progression Reset -->
   <Modal
     open={isResetModalOpen}
     onClose={() => (isResetModalOpen = false)}
     title="Reset Companion Stats?"
-    description="Are you sure you want to reset all companion vitals, XP progression, and mood metrics back to initial defaults?"
-    confirmText="Reset Progression"
+    description="Reset all companion vitals, XP, and mood to defaults?"
+    confirmText="Reset"
     cancelText="Cancel"
     confirmVariant="destructive"
     onConfirm={handleConfirmReset}
