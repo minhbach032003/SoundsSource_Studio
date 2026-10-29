@@ -24,18 +24,23 @@
     Download,
     CloudDownload,
     LoaderCircle,
+    Eye,
   } from "@lucide/svelte";
 
   interface Props {
     selectedPet: string;
+    previewPet?: string | null;
     careState?: PetCareStateDto | null;
     onSelectPet?: (slug: string) => void;
+    onPreviewPet?: (slug: string) => void;
   }
 
   let {
     selectedPet = $bindable("code-frenzy-cat"),
+    previewPet = null,
     careState = null,
     onSelectPet,
+    onPreviewPet,
   }: Props = $props();
 
   let activeFilter = $state<"all" | "Creature" | "Character">("all");
@@ -64,7 +69,7 @@
 
   const currentLevel = $derived(careState?.display_level ?? 1);
   const currentPet = $derived(
-    activePets.find((p) => p.id === selectedPet) ?? activePets[0] ?? INSTALLED_PETS[0]
+    activePets.find((p) => p.id === (previewPet || selectedPet)) ?? activePets[0] ?? INSTALLED_PETS[0]
   );
 
   const filteredPets = $derived(
@@ -72,6 +77,14 @@
       ? activePets
       : activePets.filter((p) => p.tag === activeFilter)
   );
+
+  function handleCardClick(pet: PetArchetype) {
+    if (onPreviewPet) {
+      onPreviewPet(pet.id);
+    } else {
+      handleEquip(pet);
+    }
+  }
 
   function handleEquip(pet: PetArchetype) {
     selectedPet = pet.id;
@@ -231,20 +244,23 @@
   <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
     {#each filteredPets as pet (pet.id)}
       {@const isSelected = selectedPet === pet.id}
+      {@const isPreviewing = previewPet === pet.id && !isSelected}
       {@const isUnlocked = currentLevel >= pet.unlockLevel}
 
       <div
         role="button"
         tabindex="0"
-        onclick={() => handleEquip(pet)}
+        onclick={() => handleCardClick(pet)}
         onkeydown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            handleEquip(pet);
+            handleCardClick(pet);
           }
         }}
         class="p-2.5 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all text-center group cursor-pointer relative overflow-hidden {isSelected
           ? 'bg-(--accent)/15 border-(--accent) ring-2 ring-(--accent)/30 text-(--ink) shadow-sm'
+          : isPreviewing
+          ? 'bg-(--accent)/25 border-(--accent) ring-2 ring-(--focus) text-(--ink) shadow-md'
           : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
         title="{pet.name} — {pet.description}"
       >
@@ -252,8 +268,16 @@
         {#if isSelected}
           <span
             class="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center font-bold shadow-sm z-10"
+            title="Equipped active companion"
           >
             <Check class="w-2.5 h-2.5 stroke-[3]" />
+          </span>
+        {:else if isPreviewing}
+          <span
+            class="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center font-bold shadow-sm z-10"
+            title="Currently previewing"
+          >
+            <Eye class="w-2.5 h-2.5" />
           </span>
         {:else if !isUnlocked}
           <span
@@ -280,7 +304,7 @@
         <div class="relative w-14 h-14 flex items-center justify-center overflow-hidden shrink-0 mt-0.5">
           <AgentPetSprite
             slug={pet.id}
-            mood={isSelected ? "working" : "idle"}
+            mood={isSelected || isPreviewing ? "working" : "idle"}
             size={56}
             level={currentLevel}
           />
@@ -294,7 +318,7 @@
 
         <!-- Name and Tag -->
         <div class="w-full min-w-0">
-          <span class="text-[11px] font-bold block truncate leading-tight {isSelected ? 'text-(--ink)' : 'text-(--ink)'}">
+          <span class="text-[11px] font-bold block truncate leading-tight text-(--ink)">
             {pet.name}
           </span>
           <div class="flex items-center justify-center gap-1 mt-0.5">
@@ -308,12 +332,28 @@
             {/if}
           </div>
         </div>
+
+        <!-- Quick 1-Click Equip Button -->
+        <button
+          type="button"
+          onclick={(e) => {
+            e.stopPropagation();
+            handleEquip(pet);
+          }}
+          class="w-full mt-1 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer {isSelected
+            ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40'
+            : isPreviewing
+            ? 'btn btn-primary h-5 text-[10px] py-0'
+            : 'bg-(--surface) hover:bg-(--line) border-(--line) text-(--muted) hover:text-(--ink)'}"
+        >
+          {isSelected ? "Equipped" : "Equip"}
+        </button>
       </div>
     {/each}
   </div>
 
   <!-- Selected Pet Archetype Inspector Ribbon -->
-  <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-3 text-xs">
+  <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-3 text-xs flex-wrap">
     <div class="flex items-center gap-2.5 min-w-0">
       <img
         src={currentPet.avatarUrl}
@@ -331,10 +371,25 @@
     </div>
 
     <div class="flex items-center gap-2 shrink-0">
-      <span class="text-[10px] font-semibold text-(--success) flex items-center gap-1">
-        <Check class="w-3 h-3 text-(--success)" />
-        Equipped
-      </span>
+      {#if selectedPet === currentPet.id}
+        <span class="text-[10px] font-semibold text-(--success) flex items-center gap-1">
+          <Check class="w-3 h-3 text-(--success)" />
+          Equipped
+        </span>
+      {:else}
+        <span class="text-[10px] font-semibold text-(--accent-text) flex items-center gap-1">
+          <Eye class="w-3 h-3 text-(--accent-text)" />
+          Previewing
+        </span>
+        <button
+          type="button"
+          onclick={() => handleEquip(currentPet)}
+          class="btn btn-primary h-7 px-3 text-xs font-semibold shadow-xs cursor-pointer flex items-center gap-1"
+        >
+          <Check class="w-3 h-3" />
+          <span>Equip {currentPet.name}</span>
+        </button>
+      {/if}
     </div>
   </div>
   <section aria-label="Pet trên Cloudinary" class="border-t border-(--line) pt-3 space-y-3">

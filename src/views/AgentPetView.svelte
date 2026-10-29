@@ -68,6 +68,9 @@
     Check,
     PartyPopper,
     Settings,
+    Eye,
+    Layers,
+    Lock,
   } from "@lucide/svelte";
 
   // The 5 rank hues preserved verbatim
@@ -153,16 +156,61 @@
 
   // Selected Pet & Vitals
   let selectedPet = $state<string>("code-frenzy-cat");
-  const currentArchetype = $derived(getPetArchetype(selectedPet));
+  let previewPetSlug = $state<string | null>(null);
+  const displayPet = $derived(previewPetSlug || selectedPet);
+  const isPetPreviewing = $derived(previewPetSlug !== null && previewPetSlug !== selectedPet);
+  const currentArchetype = $derived(getPetArchetype(displayPet));
+
   let formPref = $state<string>("auto");
+  let previewFormId = $state<string | null>(null);
   let bindingRevision = $state<number>(0);
   $effect(() => {
-    formPref = readPetFormPreference(selectedPet);
+    formPref = readPetFormPreference(displayPet);
+    previewFormId = null;
   });
   const activeForm = $derived(
-    resolvePetActiveForm(selectedPet, careState?.display_level ?? 1, formPref)
+    resolvePetActiveForm(displayPet, careState?.display_level ?? 1, formPref)
   );
-  const activeAura = $derived(petFormAura(selectedPet, activeForm?.id));
+  const displayForm = $derived(
+    previewFormId && currentArchetype.forms?.some((f) => f.id === previewFormId)
+      ? currentArchetype.forms.find((f) => f.id === previewFormId) ?? activeForm
+      : activeForm
+  );
+  const isFormPreviewing = $derived(
+    previewFormId !== null && previewFormId !== activeForm?.id
+  );
+  const activeAura = $derived(petFormAura(displayPet, displayForm?.id));
+
+  function equipPet(slug: string) {
+    selectedPet = slug;
+    previewPetSlug = null;
+    previewFormId = null;
+    try {
+      localStorage.setItem("rust_sound_pet_slug", slug);
+      window.dispatchEvent(new Event("storage"));
+    } catch {}
+    toastState.info(`Switched active companion to ${getPetArchetype(slug).name}`);
+  }
+
+  function cancelPetPreview() {
+    previewPetSlug = null;
+    previewFormId = null;
+  }
+
+  function equipForm(formId: string) {
+    writePetFormPreference(displayPet, formId);
+    formPref = formId;
+    previewFormId = null;
+    toastState.info(
+      formId === "auto"
+        ? "Tự động tiến hóa theo cấp độ"
+        : `Đã khóa hình thái: ${currentArchetype.forms?.find((f) => f.id === formId)?.name || formId}`
+    );
+  }
+
+  function cancelFormPreview() {
+    previewFormId = null;
+  }
   let mappingRevision = $state(0);
   $effect(() => {
     const handler = () => { mappingRevision += 1; };
@@ -195,6 +243,7 @@
   // Events & Modal
   let events = $state<PetEvent[]>(INITIAL_EVENTS);
   let isResetModalOpen = $state<boolean>(false);
+  let isGalleryOpen = $state<boolean>(false);
   let activeViewTab = $state<"cockpit" | "gallery" | "animations" | "stream" | "socket">("cockpit");
 
   // Read saved pet slug from localStorage on mount
@@ -329,7 +378,7 @@
     return () => clearInterval(interval);
   });
 
-  const activeQuotes = $derived(SPEECH_QUOTES[selectedPet] || SPEECH_QUOTES["code-frenzy-cat"]);
+  const activeQuotes = $derived(SPEECH_QUOTES[displayPet] || SPEECH_QUOTES["code-frenzy-cat"]);
   const currentQuote = $derived(activeQuotes[currentQuoteIndex % activeQuotes.length]);
 
   const topActiveSession = $derived(
@@ -656,6 +705,29 @@
     </button>
     <button
       type="button"
+      onclick={() => (activeViewTab = "gallery")}
+      class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'gallery'
+        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
+        : 'text-(--muted) hover:text-(--ink)'}"
+    >
+      <Layers class="w-3.5 h-3.5 text-(--accent-text)" />
+      Companion Roster
+      <span class="text-[9px] px-1.5 py-0 rounded bg-(--surface) border border-(--line) text-(--muted) font-mono">
+        {getActivePets().length}
+      </span>
+    </button>
+    <button
+      type="button"
+      onclick={() => (activeViewTab = "animations")}
+      class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'animations'
+        ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
+        : 'text-(--muted) hover:text-(--ink)'}"
+    >
+      <Sparkles class="w-3.5 h-3.5 text-(--warning)" />
+      Animation Studio
+    </button>
+    <button
+      type="button"
       onclick={() => (activeViewTab = "stream")}
       class="px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 {activeViewTab === 'stream'
         ? 'bg-(--surface) text-(--ink) shadow-xs border border-(--line)'
@@ -690,19 +762,29 @@
   {#if activeViewTab === "gallery"}
     <PetGallery
       bind:selectedPet
+      previewPet={previewPetSlug}
+      onPreviewPet={(slug) => {
+        previewPetSlug = slug;
+        previewFormId = null;
+        activeViewTab = "cockpit";
+        toastState.info(`Previewing ${getPetArchetype(slug).name} in Cockpit`);
+      }}
       {careState}
-      onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
+      onSelectPet={(slug) => {
+        equipPet(slug);
+        activeViewTab = "cockpit";
+      }}
     />
 
   <!-- TAB: ANIMATIONS BINDING INSPECTOR -->
   {:else if activeViewTab === "animations"}
     <PetAnimationPicker
-      slug={selectedPet}
-      formSpritesheetPath={activeForm?.spritesheetPath}
+      slug={displayPet}
+      formSpritesheetPath={displayForm?.spritesheetPath}
       formAura={activeAura}
       onBindingChange={(state, clipIdx) => {
         bindingRevision += 1;
-        toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);
+        toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${displayPet}`);
       }}
     />
 
@@ -758,7 +840,7 @@
           ></div>
 
           <!-- Top Row: Pet Selector Dropdown & Switcher -->
-          <div class="flex items-center justify-between w-full mb-1 gap-2 relative z-10 shrink-0">
+          <div class="flex items-center justify-between w-full mb-1 gap-2 relative z-10 shrink-0 flex-wrap">
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <img
                 src={currentArchetype.avatarUrl}
@@ -766,13 +848,10 @@
                 class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0 shadow-xs"
               />
               <select
-                bind:value={selectedPet}
-                onchange={() => {
-                  try {
-                    localStorage.setItem("rust_sound_pet_slug", selectedPet);
-                    window.dispatchEvent(new Event("storage"));
-                  } catch {}
-                  toastState.info(`Switched active companion to ${currentArchetype.name}`);
+                value={displayPet}
+                onchange={(e) => {
+                  const val = e.currentTarget.value;
+                  equipPet(val);
                 }}
                 class="field text-xs h-8.5 rounded-lg max-w-60"
               >
@@ -780,6 +859,16 @@
                   <option value={pet.id}>{pet.name} ({pet.tag})</option>
                 {/each}
               </select>
+
+              <button
+                type="button"
+                onclick={() => (isGalleryOpen = !isGalleryOpen)}
+                class="btn btn-ghost h-8.5 px-2.5 text-xs text-(--muted) hover:text-(--ink) border border-(--line) rounded-lg flex items-center gap-1.5 cursor-pointer"
+                title="Toggle Companion Roster Drawer"
+              >
+                <Layers class="w-3.5 h-3.5 text-(--accent-text)" />
+                <span class="hidden sm:inline">{isGalleryOpen ? "Hide Roster" : "Roster"}</span>
+              </button>
             </div>
 
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-(--paper) border border-(--line) text-(--warning) text-xs font-semibold shadow-xs">
@@ -788,37 +877,30 @@
             </div>
           </div>
 
-          {#if currentArchetype.forms && currentArchetype.forms.length > 0}
-            <!-- Multi-Form Progression & Evolution Selector Bar -->
-            <div class="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-(--paper)/80 border border-(--line) mb-2 text-xs relative z-10 shrink-0">
+          <!-- Pet Preview Banner (if previewing a pet different from equipped selectedPet) -->
+          {#if isPetPreviewing}
+            <div class="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-(--accent)/15 border border-(--accent)/30 text-xs shrink-0 relative z-10">
               <div class="flex items-center gap-2 min-w-0">
-                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent-text) border border-(--accent)/30">
-                  {activeForm ? activeForm.name : "Default"}
-                </span>
-                <span class="text-[11px] text-(--muted) truncate hidden sm:inline">
-                  {activeForm?.hairDescription || "Trạng thái tự động theo Level"}
-                </span>
+                <Eye class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
+                <span class="font-bold text-(--ink) truncate">Previewing: {currentArchetype.name}</span>
+                <span class="text-[10px] text-(--muted) hidden sm:inline">({currentArchetype.tagline})</span>
               </div>
-
               <div class="flex items-center gap-1.5 shrink-0">
-                <select
-                  value={formPref}
-                  onchange={(e) => {
-                    const val = e.currentTarget.value;
-                    writePetFormPreference(selectedPet, val);
-                    formPref = val;
-                    toastState.info(val === "auto" ? "Tự động tiến hóa theo cấp độ" : `Đã khóa hình thái: ${currentArchetype.forms?.find(f => f.id === val)?.name || val}`);
-                  }}
-                  class="field text-[11px] h-7 px-2 py-0 rounded-lg text-(--ink) cursor-pointer"
-                  title="Tùy chỉnh hình thái tiến hóa"
+                <button
+                  type="button"
+                  onclick={() => equipPet(displayPet)}
+                  class="btn btn-primary h-6.5 px-2.5 text-[11px] font-semibold shadow-xs cursor-pointer flex items-center gap-1"
                 >
-                  <option value="auto">Auto (Level {careState.display_level})</option>
-                  {#each currentArchetype.forms as f}
-                    <option value={f.id}>
-                      {careState.display_level >= f.minLevel ? "[v]" : "[x]"} {f.name} (Lv {f.minLevel})
-                    </option>
-                  {/each}
-                </select>
+                  <Check class="w-3 h-3" />
+                  <span>Equip Companion</span>
+                </button>
+                <button
+                  type="button"
+                  onclick={cancelPetPreview}
+                  class="btn btn-ghost h-6.5 px-2 text-[11px] font-medium border border-(--line) cursor-pointer"
+                >
+                  <span>Cancel</span>
+                </button>
               </div>
             </div>
           {/if}
@@ -843,7 +925,7 @@
           </div>
 
           <!-- Character Stage & Crisp Animated Sprite -->
-          <div class="relative w-full flex-1 flex flex-col items-center justify-center select-none py-3 z-10">
+          <div class="relative w-full flex-1 flex flex-col items-center justify-center select-none py-2 z-10">
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
@@ -854,9 +936,9 @@
               title="Click companion to pet!"
             >
               <AgentPetSprite
-                slug={selectedPet}
-                formId={activeForm?.id}
-                spritesheetPath={activeForm?.spritesheetPath}
+                slug={displayPet}
+                formId={displayForm?.id}
+                spritesheetPath={displayForm?.spritesheetPath}
                 mood={currentMood}
                 size={160}
                 revision={bindingRevision}
@@ -887,6 +969,154 @@
               </span>
             </div>
           </div>
+
+          {#if currentArchetype.forms && currentArchetype.forms.length > 0}
+            <!-- Multi-Form Progression & Evolution Cockpit Strip -->
+            <div class="w-full rounded-2xl bg-(--paper)/90 border border-(--line) p-2.5 sm:p-3 relative z-10 shrink-0 space-y-2">
+              <!-- Status & Quick Action Header -->
+              <div class="flex items-center justify-between gap-2 text-xs flex-wrap">
+                <div class="flex items-center gap-2 min-w-0">
+                  {#if isFormPreviewing}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-(--accent)/20 text-(--accent-text) border border-(--accent)/40 flex items-center gap-1 shrink-0">
+                      <Eye class="w-3 h-3 text-(--accent-text)" />
+                      Preview: {displayForm ? displayForm.name : "Custom"}
+                    </span>
+                    <span class="text-[11px] text-(--ink) font-medium truncate">
+                      {displayForm?.hairDescription || "Previewing visual sprite & aura"}
+                    </span>
+                    {#if (careState?.display_level ?? 1) < (displayForm?.minLevel ?? 1)}
+                      <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-(--warning)/15 text-(--warning) border border-(--warning)/30 shrink-0 flex items-center gap-1">
+                        <Lock class="w-2.5 h-2.5" />
+                        Req Lv {displayForm?.minLevel}
+                      </span>
+                    {/if}
+                  {:else}
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-(--surface) text-(--ink) border border-(--line) flex items-center gap-1 shrink-0">
+                      <Layers class="w-3 h-3 text-(--accent-text)" />
+                      {activeForm ? activeForm.name : "Default"}
+                    </span>
+                    <span class="text-[11px] text-(--muted) truncate hidden sm:inline">
+                      {formPref === "auto" ? `Auto-evolving at Level ${careState?.display_level ?? 1}` : (activeForm?.hairDescription || "Form locked")}
+                    </span>
+                  {/if}
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                  {#if isFormPreviewing}
+                    <button
+                      type="button"
+                      onclick={() => {
+                        if (displayForm) equipForm(displayForm.id);
+                      }}
+                      class="btn btn-primary h-6.5 px-2.5 text-[11px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
+                      title="Lock companion to this form"
+                    >
+                      <Check class="w-3 h-3" />
+                      <span>Equip Form</span>
+                    </button>
+                    <button
+                      type="button"
+                      onclick={cancelFormPreview}
+                      class="btn btn-ghost h-6.5 px-2 text-[11px] font-medium border border-(--line) cursor-pointer"
+                      title="Cancel preview and return to active form"
+                    >
+                      <span>Cancel</span>
+                    </button>
+                  {:else if formPref !== "auto"}
+                    <button
+                      type="button"
+                      onclick={() => equipForm("auto")}
+                      class="btn btn-ghost h-6.5 px-2 text-[11px] font-semibold border border-(--line) text-(--warning) flex items-center gap-1 cursor-pointer"
+                      title="Reset to automatic progression based on level"
+                    >
+                      <Zap class="w-3 h-3 text-(--warning)" />
+                      <span>Revert to Auto</span>
+                    </button>
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Forms Horizontal Carousel / Pill Strip -->
+              <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                <!-- Auto Mode Pill -->
+                <button
+                  type="button"
+                  onclick={() => equipForm("auto")}
+                  class="h-10 px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer transition-all {formPref === 'auto' && !isFormPreviewing
+                    ? 'bg-(--accent)/15 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/40 shadow-xs'
+                    : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                  title="Auto progression (Level {careState?.display_level ?? 1})"
+                >
+                  <Zap class="w-3.5 h-3.5 {formPref === 'auto' && !isFormPreviewing ? 'text-(--accent-text)' : 'text-(--warning)'}" />
+                  <div class="text-left">
+                    <span class="block text-[11px] leading-tight font-bold">Auto</span>
+                    <span class="block text-[9px] font-mono text-(--muted) leading-none">Lv {careState?.display_level ?? 1}</span>
+                  </div>
+                </button>
+
+                <!-- 10 Form Pills with Instant Preview -->
+                {#each currentArchetype.forms as f (f.id)}
+                  {@const isUnlocked = (careState?.display_level ?? 1) >= f.minLevel}
+                  {@const isPreview = previewFormId === f.id}
+                  {@const isActive = activeForm?.id === f.id && !isFormPreviewing}
+
+                  <button
+                    type="button"
+                    onclick={() => {
+                      if (previewFormId === f.id) {
+                        equipForm(f.id);
+                      } else {
+                        previewFormId = f.id;
+                      }
+                    }}
+                    class="h-10 px-2 rounded-xl border flex items-center gap-2 shrink-0 cursor-pointer transition-all relative overflow-hidden {isPreview
+                      ? 'bg-(--accent)/20 border-(--accent) text-(--accent-text) ring-2 ring-(--accent)/50 shadow-sm'
+                      : isActive
+                      ? 'bg-(--surface) border-(--line) text-(--ink) font-bold ring-1 ring-(--line)'
+                      : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                    title="{f.name} — {f.hairDescription || ''} (Cần Lv {f.minLevel})"
+                  >
+                    <!-- Thumbnail -->
+                    <div class="w-7 h-7 rounded-lg bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
+                      <img
+                        src={f.avatarUrl}
+                        alt={f.name}
+                        class="w-full h-full object-contain p-0.5"
+                      />
+                    </div>
+
+                    <!-- Info -->
+                    <div class="text-left min-w-0 pr-1">
+                      <span class="block text-[11px] font-bold leading-tight truncate max-w-28 {isPreview ? 'text-(--accent-text)' : isActive ? 'text-(--ink)' : 'text-(--muted)'}">
+                        {f.name}
+                      </span>
+                      <div class="flex items-center gap-1">
+                        {#if isUnlocked}
+                          <span class="text-[9px] font-mono text-(--muted) leading-none">Lv {f.minLevel}</span>
+                        {:else}
+                          <span class="text-[9px] font-mono text-(--warning) leading-none flex items-center gap-0.5">
+                            <Lock class="w-2.5 h-2.5" />
+                            Lv {f.minLevel}
+                          </span>
+                        {/if}
+                      </div>
+                    </div>
+
+                    {#if isPreview}
+                      <span class="w-3.5 h-3.5 rounded-full bg-(--accent) text-(--accent-ink) flex items-center justify-center shrink-0 shadow-xs" title="Currently Previewing">
+                        <Eye class="w-2 h-2" />
+                      </span>
+                    {:else if isActive}
+                      <span class="w-3.5 h-3.5 rounded-full bg-(--surface) border border-(--line) text-(--success) flex items-center justify-center shrink-0" title="Active Form">
+                        <Check class="w-2 h-2 stroke-[3]" />
+                      </span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
 
           <!-- Tactical Care Action Dock -->
           <div class="flex flex-wrap items-center justify-center gap-2 pt-3 mt-1 border-t border-(--line) w-full relative z-10">
@@ -930,106 +1160,43 @@
           </div>
         </div>
 
-        <!-- Embedded Pet Gallery Showcase -->
-        <PetGallery
-          bind:selectedPet
-          {careState}
-          onSelectPet={(slug) => toastState.success(`Equipped companion ${slug}!`)}
-        />
-
-        {#if currentArchetype.forms && currentArchetype.forms.length > 0}
-          <!-- Dedicated Evolution Forms & Models Selector Card -->
-          <div class="panel p-4 sm:p-5 shadow-sm space-y-3 select-none">
-            <div class="flex items-center justify-between pb-2 border-b border-(--line) gap-2">
-              <div class="flex items-center gap-2">
-                <div class="w-6 h-6 rounded-lg bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent-text)">
-                  <Sparkles class="w-3.5 h-3.5" />
-                </div>
-                <div>
-                  <h4 class="text-xs font-bold text-(--ink) tracking-tight m-0">
-                    Evolution Forms & Models
-                  </h4>
-                  <p class="text-[10px] text-(--muted) m-0">
-                    Select progression forms or lock specific cosmetics for {currentArchetype.name}
-                  </p>
-                </div>
+        <!-- Streamlined Companion Roster Drawer (Collapsible) -->
+        <div class="panel p-3.5 sm:p-4 shadow-sm space-y-3">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent-text)">
+                <Layers class="w-3.5 h-3.5" />
               </div>
-
-              <!-- Auto Mode Button -->
-              <button
-                type="button"
-                onclick={() => {
-                  writePetFormPreference(selectedPet, "auto");
-                  formPref = "auto";
-                  toastState.info("Tự động tiến hóa theo cấp độ");
-                }}
-                class="px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer {formPref === 'auto'
-                  ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
-                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
-                title="Tự động tiến hóa theo cấp độ hiện tại"
-              >
-                <Zap class="w-3 h-3 {formPref === 'auto' ? 'text-white' : 'text-(--warning)'}" />
-                <span>Auto (Lv {careState.display_level})</span>
-              </button>
+              <div>
+                <h4 class="text-xs font-bold text-(--ink) m-0">Companion Roster Gallery</h4>
+                <p class="text-[10px] text-(--muted) m-0">{getActivePets().length} Archetypes · Click to Preview, 1-Click Equip</p>
+              </div>
             </div>
-
-            <!-- Forms Cards Grid (10 Evolution Forms) -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-5 gap-2">
-              {#each currentArchetype.forms as f (f.id)}
-                {@const isUnlocked = careState.display_level >= f.minLevel}
-                {@const isCurrentActive = activeForm?.id === f.id}
-                {@const isExplicitLocked = formPref === f.id}
-
-                <button
-                  type="button"
-                  onclick={() => {
-                    writePetFormPreference(selectedPet, f.id);
-                    formPref = f.id;
-                    toastState.info(`Đã áp dụng hình thái: ${f.name}`);
-                  }}
-                  class="p-2 rounded-xl border flex flex-col items-center justify-between gap-1.5 transition-all text-center group cursor-pointer relative overflow-hidden {isExplicitLocked || (formPref === 'auto' && isCurrentActive)
-                    ? 'bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/30 text-(--ink)'
-                    : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
-                  title="{f.name} — {f.hairDescription || ''} (Cần Lv {f.minLevel})"
-                >
-                  <div class="w-12 h-12 rounded-lg bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
-                    <img
-                      src={f.avatarUrl}
-                      alt={f.name}
-                      class="w-full h-full object-contain p-0.5"
-                    />
-                  </div>
-
-                  <div class="w-full min-w-0">
-                    <span class="text-[11px] font-bold block truncate leading-tight {isCurrentActive ? 'text-blue-400' : 'text-(--ink)'}">
-                      {f.name}
-                    </span>
-                    <span class="text-[9px] font-mono block mt-0.5 {isUnlocked ? 'text-(--muted)' : 'text-(--warning)'}">
-                      {isUnlocked ? `Lv ${f.minLevel}` : `Khóa (Lv ${f.minLevel})`}
-                    </span>
-                  </div>
-
-                  {#if isCurrentActive}
-                    <span class="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                      Active
-                    </span>
-                  {/if}
-                </button>
-              {/each}
-            </div>
+            <button
+              type="button"
+              onclick={() => (isGalleryOpen = !isGalleryOpen)}
+              class="btn btn-ghost h-7 px-2.5 text-xs font-semibold border border-(--line) flex items-center gap-1.5 cursor-pointer"
+            >
+              <Eye class="w-3.5 h-3.5 text-(--accent-text)" />
+              <span>{isGalleryOpen ? "Hide Roster" : "Browse All Roster"}</span>
+            </button>
           </div>
-        {/if}
 
-        <!-- Interactive Animations Clip Inspector & Binding Panel -->
-        <PetAnimationPicker
-          slug={selectedPet}
-          formSpritesheetPath={activeForm?.spritesheetPath}
-          formAura={activeAura}
-          onBindingChange={(state, clipIdx) => {
-            bindingRevision += 1;
-            toastState.info(`Bound ${state} to Clip ${clipIdx + 1} for ${selectedPet}`);
-          }}
-        />
+          {#if isGalleryOpen}
+            <PetGallery
+              bind:selectedPet
+              previewPet={previewPetSlug}
+              onPreviewPet={(slug) => {
+                previewPetSlug = slug;
+                previewFormId = null;
+              }}
+              {careState}
+              onSelectPet={(slug) => {
+                equipPet(slug);
+              }}
+            />
+          {/if}
+        </div>
 
         <!-- Compact Progression & Vitals Panel -->
         <div class="panel p-4 sm:p-5 shadow-sm space-y-3.5">
