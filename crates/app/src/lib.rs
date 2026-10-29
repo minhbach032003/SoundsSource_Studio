@@ -274,6 +274,7 @@ pub fn run() {
             capture_screen_jpeg,
             app_signing_identity,
             notes::search_notes,
+            notes::list_notes,
             memory_snapshot,
             memory_areas,
             memory_clean,

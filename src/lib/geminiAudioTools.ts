@@ -218,13 +218,27 @@ export const GEMINI_AUDIO_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] = [
 export const NOTES_TOOL: GeminiFunctionDeclaration = {
   name: "search_notes",
   description:
-    "Tìm trong ghi chú Obsidian của người dùng. Gọi trước khi trả lời câu hỏi kiến thức; truyền vài từ khoá chính, không truyền cả câu, kèm thuật ngữ tiếng Anh nếu có (ví dụ: xoá mềm soft delete).",
+    "Đọc ghi chú Obsidian của người dùng. Truyền path của ghi chú đã chọn từ danh sách ghi chú, cùng vài từ khoá chính (không truyền cả câu, kèm thuật ngữ tiếng Anh nếu có).",
   parameters: {
     type: "OBJECT",
-    properties: { query: { type: "STRING", description: "Từ khoá chính, ví dụ: rust ownership" } },
+    properties: {
+      query: { type: "STRING", description: "Từ khoá chính, ví dụ: xoá mềm soft delete" },
+      path: { type: "STRING", description: "Path đúng như trong danh sách ghi chú, nếu đã chọn được" },
+    },
     required: ["query"],
   },
 };
+
+/** Note paths appended to the Live system prompt so Gemini itself picks notes by meaning. */
+export async function notesCatalogPrompt(): Promise<string> {
+  if (typeof window === "undefined" || !isTauri()) return "";
+  try {
+    const paths = await invoke<string[]>("list_notes");
+    return Array.isArray(paths) && paths.length ? `\n\nDanh sách ghi chú:\n${paths.join("\n")}` : "";
+  } catch {
+    return "";
+  }
+}
 
 export const GEMINI_AUDIO_TOOL_NAMES: readonly string[] = GEMINI_AUDIO_TOOL_DECLARATIONS.map(
   (d) => d.name
@@ -397,8 +411,7 @@ export async function runGeminiAudioTool(
       case "search_notes": {
         const notes = await invoke<{ path: string; excerpt: string }[]>("search_notes", {
           query: String(args.query ?? ""),
-          // The Rust copy of the key does not survive a restart; localStorage does.
-          apiKey: localStorage.getItem("gemini_api_key"),
+          path: typeof args.path === "string" ? args.path : null,
         });
         return {
           ok: true,
