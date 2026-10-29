@@ -32,8 +32,6 @@
   import {
     getPetForSession,
     getProjectName,
-    setProjectPetBinding,
-    setSessionPetBinding,
     getPetArchetype,
     getActivePets,
     resolvePetActiveForm,
@@ -241,7 +239,6 @@
   // Events & Modal
   let events = $state<PetEvent[]>(INITIAL_EVENTS);
   let isResetModalOpen = $state<boolean>(false);
-  let isGalleryOpen = $state<boolean>(false);
   let activeViewTab = $state<"cockpit" | "gallery" | "animations" | "stream" | "socket">("cockpit");
 
   // Read saved pet slug from localStorage on mount
@@ -623,54 +620,52 @@
 
 <div class="w-full flex flex-col space-y-4 select-none pb-8">
   <!-- 1. Header Toolbar -->
-  <div class="flex items-center justify-between flex-wrap gap-2.5 shrink-0 pb-1">
-    <div class="flex flex-wrap items-center gap-2.5 min-w-0">
+  <div class="flex items-center justify-between flex-wrap gap-2 shrink-0 pb-1">
+    <div class="flex flex-wrap items-center gap-2 min-w-0">
       <!-- Evolution Stage Badge with Rank Hue text and styling -->
       <span
-        class="badge text-xs px-2.5 py-1 font-semibold flex items-center gap-1.5 {stageConfig.bg} {stageConfig.border}"
+        class="badge text-xs px-2.5 py-1 font-semibold flex items-center gap-1.5 {stageConfig.bg} {stageConfig.border} shadow-2xs"
       >
         <StageIcon class="w-3.5 h-3.5 {stageConfig.text}" />
         <span class={stageConfig.text}>Lv {careState.display_level} · {careState.stage_name}</span>
       </span>
 
-      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-(--paper) border border-(--line) text-[11px] text-(--ink)">
-        <Radio class="w-3.5 h-3.5 text-(--success) animate-pulse" />
-        <span class="font-mono">/tmp/rust-sound-agent-pet.sock</span>
+      <!-- Compact IPC Status Pill -->
+      <div
+        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-(--surface) border border-(--line) text-[11px] text-(--ink) shadow-2xs"
+        title="IPC Socket Active (/tmp/rust-sound-agent-pet.sock)"
+      >
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span class="font-medium text-emerald-400">IPC Connected</span>
       </div>
 
       {#if careState.streak_days > 0}
-        <span class="badge badge-ok text-[11px] px-2 py-0.5 font-semibold flex items-center gap-1">
-          <Flame class="w-3 h-3 text-(--warning)" />
-          {careState.streak_days} Day Streak
+        <span class="badge badge-ok text-[11px] px-2.5 py-1 font-semibold flex items-center gap-1 shadow-2xs">
+          <Flame class="w-3.5 h-3.5 text-(--warning)" />
+          <span>{careState.streak_days} Day Streak</span>
         </span>
       {/if}
     </div>
 
     <!-- Quick Actions in Header -->
-    <div class="flex items-center gap-2">
-      <button type="button" onclick={() => navigateTo("pet-settings")}
-        class="btn btn-ghost h-7 text-xs px-2.5 border border-(--line) flex items-center gap-1.5">
-        <Settings class="w-3.5 h-3.5" />AgentPet Settings
-      </button>
+    <div class="flex items-center gap-1.5">
       <button
         type="button"
         onclick={handleToggleDesktopOverlay}
-        class="btn btn-ghost h-7 text-xs px-2.5 border border-(--line) flex items-center gap-1.5"
+        class="btn h-7 text-xs px-2.5 border border-(--line) flex items-center gap-1.5 transition-colors {showDesktopOverlay ? 'bg-(--accent)/15 border-(--accent)/30 text-(--accent-text)' : 'btn-ghost'}"
         title="Toggle Desktop Floating Pet Window"
       >
-        <Laptop class="w-3.5 h-3.5 text-(--accent-text)" />
+        <Laptop class="w-3.5 h-3.5 {showDesktopOverlay ? 'text-(--accent-text)' : 'text-(--muted)'}" />
         <span>{showDesktopOverlay ? "Desktop Pet Active" : "Launch Desktop Pet"}</span>
       </button>
-
-      <span class="badge badge-ok text-xs font-semibold px-2.5 py-1 flex items-center gap-1">
-        <Check class="w-3 h-3 text-(--success)" />
-        IPC Socket Active
-      </span>
 
       <button
         type="button"
         onclick={handleSimulatePing}
-        class="btn btn-ghost h-7 text-xs text-(--accent-text) border border-(--line) px-2.5 flex items-center gap-1"
+        class="btn btn-ghost h-7 text-xs text-(--accent-text) border border-(--line) px-2.5 flex items-center gap-1.5 hover:bg-(--surface)"
         title="Send simulation test pulse"
       >
         <Send class="w-3 h-3 text-(--accent-text)" />
@@ -679,12 +674,21 @@
 
       <button
         type="button"
+        onclick={() => navigateTo("pet-settings")}
+        class="btn btn-ghost h-7 text-xs px-2.5 border border-(--line) flex items-center gap-1.5 text-(--muted) hover:text-(--ink)"
+        title="AgentPet Configuration"
+      >
+        <Settings class="w-3.5 h-3.5" />
+        <span class="hidden sm:inline">Settings</span>
+      </button>
+
+      <button
+        type="button"
         onclick={() => (isResetModalOpen = true)}
-        class="btn btn-ghost h-7 text-xs text-(--muted) hover:text-(--ink) px-2"
+        class="btn btn-ghost h-7 text-xs text-(--muted) hover:text-rose-400 hover:border-rose-500/30 border border-(--line) px-2"
         title="Reset companion stats"
       >
         <RotateCcw class="w-3.5 h-3.5" />
-        <span class="hidden sm:inline">Reset</span>
       </button>
     </div>
   </div>
@@ -823,11 +827,11 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
       <!-- Left Column: Sprite + Vitals -->
       <div class="lg:col-span-7 flex flex-col gap-3">
-        <!-- Compact Companion Stage -->
-        <div class="panel p-3 sm:p-4 relative overflow-hidden">
-          <!-- Aura backdrop -->
+        <!-- Compact Companion Stage Card (Unified Hero + Vitals + Actions) -->
+        <div class="panel p-4 relative overflow-hidden flex flex-col gap-3.5">
+          <!-- Ambient Aura backdrop -->
           <div
-            class="absolute inset-0 rounded-full blur-3xl pointer-events-none transition-all duration-500 {activeAura
+            class="absolute inset-0 rounded-3xl blur-3xl pointer-events-none transition-all duration-700 {activeAura
               ? 'opacity-25'
               : 'opacity-15 bg-rose-500/10'}"
             style={activeAura
@@ -835,261 +839,357 @@
               : undefined}
           ></div>
 
-          <!-- Top bar: selector + streak -->
-          <div class="flex items-center justify-between gap-2 relative z-10 mb-2 flex-wrap">
-            <div class="flex items-center gap-2 min-w-0 flex-1">
-              <img
-                src={currentArchetype.avatarUrl}
-                alt={currentArchetype.name}
-                class="w-7 h-7 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0"
-              />
-              <select
-                value={displayPet}
-                onchange={(e) => equipPet(e.currentTarget.value)}
-                class="field text-xs h-7.5 rounded-lg max-w-52"
-              >
-                {#each getActivePets() as pet}
-                  <option value={pet.id}>{pet.name} ({pet.tag})</option>
-                {/each}
-              </select>
+          <!-- Top bar: Character selector + streak -->
+          <div class="flex items-center justify-between gap-2 relative z-10">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              <div class="relative shrink-0">
+                <img
+                  src={currentArchetype.avatarUrl}
+                  alt={currentArchetype.name}
+                  class="w-8 h-8 rounded-full border border-(--line) object-cover bg-(--surface) shadow-2xs"
+                />
+                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-(--paper) {currentMood === 'working' ? 'bg-emerald-400' : currentMood === 'waiting' ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+              </div>
+              <div class="flex flex-col min-w-0">
+                <select
+                  value={displayPet}
+                  onchange={(e) => equipPet(e.currentTarget.value)}
+                  class="field text-xs font-semibold h-7 rounded-lg max-w-56 bg-transparent hover:bg-(--surface)/50 transition-colors cursor-pointer border-(--line)/60"
+                >
+                  {#each getActivePets() as pet}
+                    <option value={pet.id}>{pet.name} ({pet.tag})</option>
+                  {/each}
+                </select>
+              </div>
             </div>
+
             {#if careState.streak_days > 0}
-              <span class="flex items-center gap-1 px-2 py-1 rounded-lg bg-(--paper) border border-(--line) text-(--warning) text-[11px] font-semibold">
-                <Flame class="w-3 h-3" />{careState.streak_days}-Day Streak
-              </span>
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-(--surface) border border-(--line) text-(--warning) text-[11px] font-semibold shadow-2xs shrink-0">
+                <Flame class="w-3.5 h-3.5" />
+                <span>{careState.streak_days} Day Streak</span>
+              </div>
             {/if}
           </div>
 
-          <!-- Preview banner -->
+          <!-- Preview banner if hovering/previewing pet -->
           {#if isPetPreviewing}
-            <div class="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-(--accent)/15 border border-(--accent)/30 text-xs mb-2 relative z-10">
+            <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-(--accent)/15 border border-(--accent)/30 text-xs relative z-10 shadow-xs">
               <div class="flex items-center gap-1.5 min-w-0">
-                <Eye class="w-3 h-3 text-(--accent-text) shrink-0" />
+                <Eye class="w-3.5 h-3.5 text-(--accent-text) shrink-0" />
                 <span class="font-bold text-(--ink) truncate">Previewing: {currentArchetype.name}</span>
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <button type="button" onclick={() => equipPet(displayPet)}
-                  class="btn btn-primary h-6 px-2 text-[10px] font-semibold cursor-pointer flex items-center gap-1">
-                  <Check class="w-2.5 h-2.5" />Equip
+                  class="btn btn-primary h-6 px-2.5 text-[10px] font-semibold cursor-pointer flex items-center gap-1 shadow-2xs">
+                  <Check class="w-3 h-3" />Equip
                 </button>
                 <button type="button" onclick={cancelPetPreview}
-                  class="btn btn-ghost h-6 px-1.5 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
+                  class="btn btn-ghost h-6 px-2 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
               </div>
             </div>
           {/if}
 
-          <!-- Sprite + speech row -->
-          <div class="flex items-center gap-4 relative z-10">
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              onclick={handlePetAction}
-              class="relative flex flex-col items-center shrink-0 cursor-pointer transition-transform duration-200 {isInteracting ? 'scale-105' : 'hover:scale-102'}"
-              title="Click to pet!"
-            >
-              <AgentPetSprite
-                slug={displayPet}
-                formId={displayForm?.id}
-                spritesheetPath={displayForm?.spritesheetPath}
-                mood={currentMood}
-                size={128}
-                revision={bindingRevision}
-              />
-              <span class="mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-(--paper) border border-(--line) text-(--ink) flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full {currentMood === 'working' ? 'bg-(--success)' : currentMood === 'waiting' ? 'bg-(--warning)' : 'bg-(--accent)'}"></span>
-                {#if isInteracting}
-                  {interactionAction === "purring" ? "Purring" : interactionAction === "sleep" ? "Resting" : "Eating"}
-                {:else if topActiveSession}
-                  {topActiveSession.agent_kind.toUpperCase()} ({topActiveSession.state})
-                {:else}
-                  Ready
-                {/if}
-              </span>
+          <!-- Sprite + Speech + XP & Vitals -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center relative z-10">
+            <!-- Left: Interactive Sprite & State Badge -->
+            <div class="md:col-span-5 flex flex-col items-center justify-center p-2 rounded-2xl bg-(--surface)/40 border border-(--line)/40">
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                onclick={handlePetAction}
+                class="relative flex flex-col items-center shrink-0 cursor-pointer transition-transform duration-200 {isInteracting ? 'scale-105' : 'hover:scale-102'}"
+                title="Click to interact!"
+              >
+                <AgentPetSprite
+                  slug={displayPet}
+                  formId={displayForm?.id}
+                  spritesheetPath={displayForm?.spritesheetPath}
+                  mood={currentMood}
+                  size={132}
+                  revision={bindingRevision}
+                />
+              </div>
+
+              <div class="mt-2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-(--paper) border border-(--line) text-(--ink) shadow-2xs">
+                <span class="w-1.5 h-1.5 rounded-full {currentMood === 'working' ? 'bg-emerald-400 animate-pulse' : currentMood === 'waiting' ? 'bg-amber-400' : 'bg-rose-400'}"></span>
+                <span>
+                  {#if isInteracting}
+                    {interactionAction === "purring" ? "Purring happily" : interactionAction === "sleep" ? "Resting" : "Eating snack"}
+                  {:else if topActiveSession}
+                    {topActiveSession.agent_kind.toUpperCase()} ({topActiveSession.state})
+                  {:else}
+                    Listening on CoreAudio
+                  {/if}
+                </span>
+              </div>
             </div>
 
-            <!-- Right side: speech + vitals inline -->
-            <div class="flex-1 min-w-0 flex flex-col gap-2">
-              <!-- Speech bubble (compact) -->
+            <!-- Right: Speech, Level Progress, Sleek Vitals -->
+            <div class="md:col-span-7 flex flex-col gap-2.5 min-w-0">
+              <!-- Speech bubble (Glass Card style) -->
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
                 onclick={() => (currentQuoteIndex = (currentQuoteIndex + 1) % activeQuotes.length)}
-                class="bg-(--paper) border border-(--line) rounded-xl px-3 py-2 cursor-pointer hover:border-(--focus) transition-all group"
+                class="p-2.5 rounded-xl bg-(--surface)/70 border border-(--line) hover:border-(--focus) transition-all cursor-pointer group shadow-2xs"
                 title="Click for next thought"
               >
-                <p class="text-[11px] font-medium text-(--ink) m-0 group-hover:text-(--accent-text) transition-colors line-clamp-2">
-                  <Sparkles class="w-3 h-3 text-(--accent-text) inline-block mr-1 align-[-2px]" />"{liveBubbleMessage}"
+                <p class="text-[11px] font-medium text-(--ink) m-0 group-hover:text-(--accent-text) transition-colors line-clamp-2 leading-relaxed">
+                  <Sparkles class="w-3.5 h-3.5 text-(--accent-text) inline mr-1 align-[-2px]" />"{liveBubbleMessage}"
                 </p>
               </div>
 
-              <!-- XP bar inline -->
-              <div class="bg-(--paper) border border-(--line) rounded-xl px-3 py-2">
-                <div class="flex items-center justify-between text-[11px] mb-1">
+              <!-- XP & Stage Progress -->
+              <div class="p-2.5 rounded-xl bg-(--surface)/50 border border-(--line) space-y-1.5">
+                <div class="flex items-center justify-between text-[11px]">
                   <div class="flex items-center gap-1.5">
-                    <StageIcon class="w-3 h-3 {stageConfig.text}" />
+                    <StageIcon class="w-3.5 h-3.5 {stageConfig.text}" />
                     <span class="font-bold text-(--ink)">Lv {careState.display_level}</span>
-                    <span class="px-1.5 py-0 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}">{careState.stage_name}</span>
+                    <span class="px-1.5 py-0.2 rounded-full text-[9px] font-bold border {stageConfig.bg} {stageConfig.border} {stageConfig.text}">{careState.stage_name}</span>
                   </div>
-                  <span class="text-[10px] font-semibold text-(--accent-text) tabular-nums">{inLevelXP.toLocaleString()}/{spanXP.toLocaleString()} XP</span>
+                  <span class="text-[10px] font-mono font-semibold text-(--accent-text) tabular-nums">
+                    {inLevelXP.toLocaleString()} / {spanXP.toLocaleString()} XP
+                  </span>
                 </div>
-                <div class="w-full h-1.5 bg-(--surface) rounded-full overflow-hidden">
-                  <div class="h-full bg-linear-to-r from-rose-500 to-pink-400 rounded-full transition-all duration-300" style="width: {progressPercent}%;"></div>
+                <div class="w-full h-1.5 bg-(--paper) rounded-full overflow-hidden border border-(--line)/40">
+                  <div
+                    class="h-full bg-linear-to-r from-rose-500 via-pink-400 to-(--accent) rounded-full transition-all duration-300"
+                    style="width: {progressPercent}%;"
+                  ></div>
                 </div>
               </div>
 
-              <!-- 4 mini vitals row -->
-              <div class="grid grid-cols-4 gap-1.5">
-                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
-                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Zap class="w-2.5 h-2.5 text-(--warning)" />Energy</div>
-                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petEnergy}%</div>
+              <!-- 4 Sleek Vitals (Progress Indicators) -->
+              <div class="grid grid-cols-2 gap-2">
+                <!-- Energy -->
+                <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line) space-y-1">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-(--muted) flex items-center gap-1 font-medium">
+                      <Zap class="w-3 h-3 text-(--warning)" />Energy
+                    </span>
+                    <span class="font-mono font-bold text-(--ink) tabular-nums">{petEnergy}%</span>
+                  </div>
+                  <div class="w-full h-1 bg-(--paper) rounded-full overflow-hidden">
+                    <div class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: {petEnergy}%;"></div>
+                  </div>
                 </div>
-                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
-                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Heart class="w-2.5 h-2.5 text-(--accent-text)" />Mood</div>
-                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petMood}%</div>
+
+                <!-- Mood -->
+                <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line) space-y-1">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-(--muted) flex items-center gap-1 font-medium">
+                      <Heart class="w-3 h-3 text-rose-400" />Mood
+                    </span>
+                    <span class="font-mono font-bold text-(--ink) tabular-nums">{petMood}%</span>
+                  </div>
+                  <div class="w-full h-1 bg-(--paper) rounded-full overflow-hidden">
+                    <div class="h-full bg-rose-400 rounded-full transition-all duration-300" style="width: {petMood}%;"></div>
+                  </div>
                 </div>
-                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
-                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Activity class="w-2.5 h-2.5 text-(--accent-text)" />Focus</div>
-                  <div class="text-[11px] font-bold text-(--ink) tabular-nums">{petFocus}%</div>
+
+                <!-- Focus -->
+                <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line) space-y-1">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-(--muted) flex items-center gap-1 font-medium">
+                      <Activity class="w-3 h-3 text-cyan-400" />Focus
+                    </span>
+                    <span class="font-mono font-bold text-(--ink) tabular-nums">{petFocus}%</span>
+                  </div>
+                  <div class="w-full h-1 bg-(--paper) rounded-full overflow-hidden">
+                    <div class="h-full bg-cyan-400 rounded-full transition-all duration-300" style="width: {petFocus}%;"></div>
+                  </div>
                 </div>
-                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) text-center">
-                  <div class="text-[9px] text-(--muted) flex items-center justify-center gap-0.5"><Fish class="w-2.5 h-2.5 text-(--success)" />Hunger</div>
-                  <div class="text-[11px] font-bold text-(--success) capitalize">{careState.hunger}</div>
+
+                <!-- Hunger -->
+                <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line) space-y-1">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-(--muted) flex items-center gap-1 font-medium">
+                      <Fish class="w-3 h-3 text-emerald-400" />Hunger
+                    </span>
+                    <span class="font-mono font-bold text-emerald-400 capitalize">{careState.hunger}</span>
+                  </div>
+                  <div class="w-full h-1 bg-(--paper) rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                      style="width: {careState.hunger === 'full' ? 100 : careState.hunger === 'peckish' ? 50 : 20}%;"
+                    ></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Action buttons row -->
-          <div class="flex items-center justify-center gap-1.5 pt-2.5 mt-2.5 border-t border-(--line) relative z-10">
-            <button type="button" onclick={handlePetAction}
-              class="btn btn-primary h-7 px-3 text-[11px] font-semibold" title="Pet (+15 XP)">
-              <Sparkles class="w-3 h-3" />Pet
+          <!-- Quick Action Bar -->
+          <div class="flex items-center justify-center gap-2 pt-2 border-t border-(--line)/60 relative z-10 flex-wrap">
+            <button
+              type="button"
+              onclick={handlePetAction}
+              class="btn btn-primary h-7.5 px-3.5 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Pet (+15 XP)"
+            >
+              <Sparkles class="w-3.5 h-3.5" />
+              <span>Pet</span>
             </button>
-            <button type="button" onclick={handleFeedAction}
-              class="btn h-7 px-3 text-[11px] font-semibold" title="Feed (+20 XP)">
-              <Utensils class="w-3 h-3 text-(--success)" />Feed
+            <button
+              type="button"
+              onclick={handleFeedAction}
+              class="btn h-7.5 px-3 text-xs font-semibold border border-(--line) flex items-center gap-1.5 hover:bg-(--surface) cursor-pointer"
+              title="Feed (+20 XP)"
+            >
+              <Utensils class="w-3.5 h-3.5 text-emerald-400" />
+              <span>Feed</span>
             </button>
-            <button type="button" onclick={handleSleepAction}
-              class="btn btn-ghost h-7 px-3 text-[11px] font-semibold border border-(--line)" title="Rest (+10 XP)">
-              <Moon class="w-3 h-3 text-(--accent-text)" />Rest
+            <button
+              type="button"
+              onclick={handleSleepAction}
+              class="btn btn-ghost h-7.5 px-3 text-xs font-semibold border border-(--line) flex items-center gap-1.5 hover:bg-(--surface) cursor-pointer"
+              title="Rest (+10 XP)"
+            >
+              <Moon class="w-3.5 h-3.5 text-(--accent-text)" />
+              <span>Rest</span>
             </button>
-            <button type="button" onclick={handleCelebrateAction}
-              class="btn h-7 px-3 text-[11px] font-semibold" title="Celebrate (+25 XP)">
-              <PartyPopper class="w-3 h-3 text-(--warning)" />Celebrate
+            <button
+              type="button"
+              onclick={handleCelebrateAction}
+              class="btn h-7.5 px-3 text-xs font-semibold border border-(--line) flex items-center gap-1.5 hover:bg-(--surface) cursor-pointer"
+              title="Celebrate (+25 XP)"
+            >
+              <PartyPopper class="w-3.5 h-3.5 text-amber-400" />
+              <span>Celebrate</span>
             </button>
           </div>
         </div>
 
-        <!-- Forms strip (compact) -->
+        <!-- Forms & Evolution Strip (Integrated) -->
         {#if currentArchetype.forms && currentArchetype.forms.length > 0}
-          <div class="panel p-2.5 sm:p-3 space-y-1.5">
+          <div class="panel p-3 space-y-2">
             <div class="flex items-center justify-between gap-2 text-xs">
-              <div class="flex items-center gap-1.5 min-w-0">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="font-bold text-(--ink) flex items-center gap-1.5">
+                  <Layers class="w-3.5 h-3.5 text-(--accent-text)" />
+                  <span>Evolution Forms</span>
+                </span>
                 {#if isFormPreviewing}
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--accent)/20 text-(--accent-text) border border-(--accent)/40 flex items-center gap-1 shrink-0">
+                  <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-(--accent)/15 text-(--accent-text) border border-(--accent)/30 flex items-center gap-1">
                     <Eye class="w-2.5 h-2.5" />Preview: {displayForm?.name ?? "Custom"}
                   </span>
                   {#if (careState?.display_level ?? 1) < (displayForm?.minLevel ?? 1)}
-                    <span class="px-1 rounded text-[9px] font-mono font-bold bg-(--warning)/15 text-(--warning) border border-(--warning)/30 flex items-center gap-0.5">
+                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-400/15 text-amber-400 border border-amber-400/30 flex items-center gap-0.5">
                       <Lock class="w-2.5 h-2.5" />Lv {displayForm?.minLevel}
                     </span>
                   {/if}
                 {:else}
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-(--surface) text-(--ink) border border-(--line) flex items-center gap-1 shrink-0">
-                    <Layers class="w-2.5 h-2.5 text-(--accent-text)" />{activeForm?.name ?? "Default"}
-                  </span>
-                  <span class="text-[10px] text-(--muted) truncate hidden sm:inline">
-                    {formPref === "auto" ? `Auto · Lv ${careState?.display_level ?? 1}` : (activeForm?.hairDescription || "Locked")}
+                  <span class="text-[11px] text-(--muted) truncate">
+                    {formPref === "auto" ? `Auto (Unlocked at Lv ${careState?.display_level ?? 1})` : `Locked: ${activeForm?.name || "Default"}`}
                   </span>
                 {/if}
               </div>
-              <div class="flex items-center gap-1 shrink-0">
+
+              <div class="flex items-center gap-1.5 shrink-0">
                 {#if isFormPreviewing}
                   <button type="button" onclick={() => { if (displayForm) equipForm(displayForm.id); }}
-                    class="btn btn-primary h-6 px-2 text-[10px] font-semibold flex items-center gap-1 cursor-pointer">
-                    <Check class="w-2.5 h-2.5" />Equip
+                    class="btn btn-primary h-6.5 px-2.5 text-[10px] font-semibold flex items-center gap-1 cursor-pointer shadow-2xs">
+                    <Check class="w-3 h-3" />Equip
                   </button>
                   <button type="button" onclick={cancelFormPreview}
-                    class="btn btn-ghost h-6 px-1.5 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
+                    class="btn btn-ghost h-6.5 px-2 text-[10px] border border-(--line) cursor-pointer">Cancel</button>
                 {:else if formPref !== "auto"}
                   <button type="button" onclick={() => equipForm("auto")}
-                    class="btn btn-ghost h-6 px-2 text-[10px] font-semibold border border-(--line) text-(--warning) flex items-center gap-1 cursor-pointer">
-                    <Zap class="w-2.5 h-2.5" />Auto
+                    class="btn btn-ghost h-6.5 px-2 text-[10px] font-semibold border border-(--line) text-(--warning) flex items-center gap-1 cursor-pointer">
+                    <Zap class="w-2.5 h-2.5" />Reset to Auto
                   </button>
                 {/if}
               </div>
             </div>
 
-            <div class="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+            <!-- Horizontal forms slider -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
               <button
                 type="button"
                 onclick={() => equipForm("auto")}
-                class="h-8 px-2 rounded-lg border flex items-center gap-1 text-[11px] font-semibold shrink-0 cursor-pointer transition-all {formPref === 'auto' && !isFormPreviewing
-                  ? 'bg-(--accent)/15 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/40'
-                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
-                  title="Auto (Lv {careState?.display_level ?? 1})"
+                class="h-9 px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold shrink-0 cursor-pointer transition-all {formPref === 'auto' && !isFormPreviewing
+                  ? 'bg-(--accent)/15 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/40 shadow-xs'
+                  : 'bg-(--surface)/50 border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                title="Auto Evolution (Current: Lv {careState?.display_level ?? 1})"
+              >
+                <Zap class="w-3.5 h-3.5 {formPref === 'auto' && !isFormPreviewing ? 'text-(--accent-text)' : 'text-(--warning)'}" />
+                <span class="font-bold">Auto</span>
+              </button>
+
+              {#each currentArchetype.forms as f (f.id)}
+                {@const isUnlocked = (careState?.display_level ?? 1) >= f.minLevel}
+                {@const isPreview = previewFormId === f.id}
+                {@const isActive = activeForm?.id === f.id && !isFormPreviewing}
+
+                <button
+                  type="button"
+                  onclick={() => { if (previewFormId === f.id) { equipForm(f.id); } else { previewFormId = f.id; } }}
+                  class="h-9 px-2 rounded-xl border flex items-center gap-2 shrink-0 cursor-pointer transition-all {isPreview
+                    ? 'bg-(--accent)/20 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/50 shadow-xs'
+                    : isActive
+                    ? 'bg-(--surface) border-(--accent)/40 text-(--ink) ring-1 ring-(--line) shadow-2xs'
+                    : 'bg-(--surface)/40 border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
+                  title="{f.name} (Requires Lv {f.minLevel})"
                 >
-                  <Zap class="w-3 h-3 {formPref === 'auto' && !isFormPreviewing ? 'text-(--accent-text)' : 'text-(--warning)'}" />
-                  <span class="text-[10px] font-bold">Auto</span>
+                  <div class="w-6 h-6 rounded-lg bg-(--paper) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
+                    <img src={f.avatarUrl} alt={f.name} class="w-full h-full object-contain" />
+                  </div>
+                  <span class="text-[11px] font-semibold leading-tight truncate max-w-28">{f.name}</span>
+                  {#if !isUnlocked}
+                    <Lock class="w-3 h-3 text-(--warning) shrink-0" />
+                  {/if}
                 </button>
-
-                {#each currentArchetype.forms as f (f.id)}
-                  {@const isUnlocked = (careState?.display_level ?? 1) >= f.minLevel}
-                  {@const isPreview = previewFormId === f.id}
-                  {@const isActive = activeForm?.id === f.id && !isFormPreviewing}
-
-                  <button
-                    type="button"
-                    onclick={() => { if (previewFormId === f.id) { equipForm(f.id); } else { previewFormId = f.id; } }}
-                    class="h-8 px-1.5 rounded-lg border flex items-center gap-1.5 shrink-0 cursor-pointer transition-all {isPreview
-                      ? 'bg-(--accent)/20 border-(--accent) text-(--accent-text) ring-1 ring-(--accent)/50'
-                      : isActive
-                      ? 'bg-(--surface) border-(--line) text-(--ink) ring-1 ring-(--line)'
-                      : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink) hover:border-(--focus)'}"
-                    title="{f.name} (Lv {f.minLevel})"
-                  >
-                    <div class="w-6 h-6 rounded bg-(--surface) border border-(--line) overflow-hidden flex items-center justify-center shrink-0">
-                      <img src={f.avatarUrl} alt={f.name} class="w-full h-full object-contain" />
-                    </div>
-                    <span class="text-[10px] font-bold leading-tight truncate max-w-20">{f.name}</span>
-                    {#if !isUnlocked}
-                      <Lock class="w-2.5 h-2.5 text-(--warning) shrink-0" />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
+              {/each}
+            </div>
           </div>
-          {/if}
-
-        <!-- Achievements (collapsible) -->
-        <details class="panel p-2.5 text-xs group">
-          <summary class="font-semibold text-(--ink) flex items-center justify-between cursor-pointer select-none">
-            <span class="flex items-center gap-1.5">
-              <Trophy class="w-3.5 h-3.5 text-(--warning)" />
-              Achievements & Ledger
-            </span>
-            <span class="text-(--muted) text-[10px] font-mono">
-              {careState.unlocked_achievements.length}/{ACHIEVEMENTS_METADATA.length}
-            </span>
+        {/if}
+        <!-- Achievements & Lifetime Ledger (Compact Card) -->
+        <details class="panel p-3 text-xs group">
+          <summary class="font-bold text-(--ink) flex items-center justify-between cursor-pointer select-none">
+            <div class="flex items-center gap-2">
+              <Trophy class="w-3.5 h-3.5 text-amber-400" />
+              <span>Achievements & Care Ledger</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-(--surface) border border-(--line) text-(--ink) font-semibold">
+                {careState.unlocked_achievements.length}/{ACHIEVEMENTS_METADATA.length} Unlocked
+              </span>
+            </div>
           </summary>
-          <div class="grid grid-cols-4 gap-1.5 text-[10px] mt-2 pt-2 border-t border-(--line)">
-            <div><span class="text-(--muted) block">Tokens Today</span><span class="font-mono font-semibold text-(--ink)">{careState.tokens_today.toLocaleString()}</span></div>
-            <div><span class="text-(--muted) block">Meals Today</span><span class="font-mono font-semibold text-(--ink)">{careState.meals_today}</span></div>
-            <div><span class="text-(--muted) block">Lifetime Tokens</span><span class="font-mono font-semibold text-(--ink)">{careState.total_tokens.toLocaleString()}</span></div>
-            <div><span class="text-(--muted) block">Lifetime Meals</span><span class="font-mono font-semibold text-(--ink)">{careState.total_meals}</span></div>
+
+          <!-- Telemetry counters row -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-(--line)/60">
+            <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line)/60">
+              <span class="text-[10px] text-(--muted) block font-medium">Tokens Today</span>
+              <span class="font-mono text-xs font-bold text-(--ink)">{careState.tokens_today.toLocaleString()}</span>
+            </div>
+            <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line)/60">
+              <span class="text-[10px] text-(--muted) block font-medium">Meals Today</span>
+              <span class="font-mono text-xs font-bold text-emerald-400">{careState.meals_today}</span>
+            </div>
+            <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line)/60">
+              <span class="text-[10px] text-(--muted) block font-medium">Lifetime Tokens</span>
+              <span class="font-mono text-xs font-bold text-(--ink)">{careState.total_tokens.toLocaleString()}</span>
+            </div>
+            <div class="p-2 rounded-xl bg-(--surface)/40 border border-(--line)/60">
+              <span class="text-[10px] text-(--muted) block font-medium">Lifetime Meals</span>
+              <span class="font-mono text-xs font-bold text-emerald-400">{careState.total_meals}</span>
+            </div>
           </div>
-          <div class="grid grid-cols-5 gap-1 mt-2 pt-2 border-t border-(--line)">
+
+          <!-- Badges grid -->
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 mt-2.5 pt-2.5 border-t border-(--line)/60">
             {#each ACHIEVEMENTS_METADATA as ach}
               {@const isUnlocked = careState.unlocked_achievements.includes(ach.id)}
               {@const AchIcon = ach.icon}
               <div
-                class="p-1.5 rounded border text-center flex flex-col items-center gap-0.5 {isUnlocked
-                  ? 'bg-(--surface) border-(--line) text-(--warning)'
-                  : 'bg-(--paper) border-(--line) text-(--muted) opacity-40'}"
+                class="p-2 rounded-xl border text-center flex flex-col items-center gap-1 transition-all {isUnlocked
+                  ? 'bg-(--surface)/60 border-amber-400/30 text-amber-400 shadow-2xs'
+                  : 'bg-(--surface)/20 border-(--line)/40 text-(--muted) opacity-40'}"
                 title="{ach.name}: {ach.description}"
               >
-                <AchIcon class="w-3 h-3 {isUnlocked ? 'text-(--warning)' : 'text-(--muted)'}" />
-                <span class="text-[8px] font-semibold truncate w-full block">{ach.name}</span>
+                <AchIcon class="w-4 h-4 {isUnlocked ? 'text-amber-400' : 'text-(--muted)'}" />
+                <span class="text-[9px] font-semibold truncate w-full block leading-tight">{ach.name}</span>
               </div>
             {/each}
           </div>
@@ -1098,19 +1198,30 @@
 
       <!-- Right Column: Sessions + Events -->
       <div class="lg:col-span-5 flex flex-col gap-3">
-        <!-- Connected Sessions -->
-        <div class="panel p-3 sm:p-3.5 space-y-2">
+        <!-- Connected Sessions (Telemetry Card) -->
+        <div class="panel p-3.5 space-y-2.5">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <Radio class="w-3.5 h-3.5 text-(--accent-text)" />
-              <h4 class="text-[11px] font-bold text-(--ink) m-0">Connected Sessions</h4>
+            <div class="flex items-center gap-2">
+              <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <h4 class="text-xs font-bold text-(--ink) m-0">Connected Sessions</h4>
+              <span class="text-[10px] font-mono px-1.5 py-0 rounded bg-(--surface) border border-(--line) text-(--muted)">
+                {agentSessions.length}
+              </span>
             </div>
-            <button type="button" onclick={() => (activeViewTab = "socket")}
-              class="text-[10px] text-(--accent-text) hover:underline">Manage Hooks…</button>
+            <button
+              type="button"
+              onclick={() => (activeViewTab = "socket")}
+              class="text-[10px] text-(--accent-text) hover:underline cursor-pointer"
+            >
+              Manage Hooks…
+            </button>
           </div>
 
           {#if agentSessions.length === 0}
-            <div class="text-center py-3 text-[11px] text-(--muted)">
+            <div class="text-center py-4 text-xs text-(--muted) bg-(--surface)/30 rounded-xl border border-dashed border-(--line)/60">
               No active sessions. Start Pi, Claude, or Codex to stream events!
             </div>
           {:else}
@@ -1118,58 +1229,81 @@
               {#each agentSessions as session, idx (session.id)}
                 {@const sessionPet = (void mappingRevision, getPetForSession(session, idx, selectedPet))}
                 {@const projName = getProjectName(session.project)}
-                <div class="p-2 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[11px]">
-                  <div class="min-w-0 flex items-center gap-2 flex-1">
-                    <img src={sessionPet.avatarUrl} alt={sessionPet.name}
-                      class="w-6 h-6 rounded-full border border-(--line) object-cover bg-(--surface) shrink-0" />
+                <div class="p-2.5 rounded-xl bg-(--surface)/50 border border-(--line) flex items-center justify-between gap-2.5 text-xs hover:border-(--focus) transition-colors group">
+                  <div class="min-w-0 flex items-center gap-2.5 flex-1">
+                    <img
+                      src={sessionPet.avatarUrl}
+                      alt={sessionPet.name}
+                      class="w-7 h-7 rounded-lg border border-(--line) object-cover bg-(--paper) shrink-0 shadow-2xs"
+                    />
                     <div class="truncate min-w-0 flex-1">
-                      <div class="flex items-center gap-1 flex-wrap">
+                      <div class="flex items-center gap-1.5 flex-wrap">
                         <span class="w-1.5 h-1.5 rounded-full {session.state === 'working' ? 'bg-emerald-400 animate-pulse' : session.state === 'waiting' ? 'bg-amber-400' : 'bg-slate-400'} shrink-0"></span>
-                        <span class="font-bold text-(--ink)">{projName}</span>
-                        <span class="badge text-[8px] px-0.5 py-0 uppercase">{session.agent_kind}</span>
+                        <span class="font-bold text-(--ink) truncate">{projName}</span>
+                        <span class="badge text-[9px] px-1.5 py-0 font-mono uppercase tracking-wider">{session.agent_kind}</span>
                       </div>
-                      <div class="flex items-center gap-1 text-[10px] text-(--muted)">
-                        <span class="capitalize">{session.state}</span>
-                        {#if session.tool_name}<span>·</span><span class="font-mono truncate">{session.tool_name}</span>{/if}
+                      <div class="flex items-center gap-1.5 text-[10px] text-(--muted) mt-0.5">
+                        <span class="capitalize text-(--ink)/80 font-medium">{session.state}</span>
+                        {#if session.tool_name}
+                          <span>·</span>
+                          <span class="font-mono truncate max-w-36 text-(--accent-text)">{session.tool_name}</span>
+                        {/if}
                       </div>
                     </div>
                   </div>
-                  <button type="button" onclick={() => handleDismissSession(session.id)}
-                    class="btn btn-ghost h-5 text-[9px] px-1 text-(--muted) hover:text-(--ink)">Dismiss</button>
+                  <button
+                    type="button"
+                    onclick={() => handleDismissSession(session.id)}
+                    class="btn btn-ghost h-6 text-[10px] px-2 text-(--muted) hover:text-rose-400 hover:bg-rose-500/10 rounded-lg cursor-pointer transition-colors"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
 
-        <!-- Recent Event Stream -->
-        <div class="panel p-3 sm:p-3.5 space-y-2">
+        <!-- Recent Event Stream (Telemetry Card) -->
+        <div class="panel p-3.5 space-y-2.5">
           <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <Terminal class="w-3.5 h-3.5 text-(--success)" />
-              <h4 class="text-[11px] font-bold text-(--ink) m-0">Recent Events</h4>
+            <div class="flex items-center gap-2">
+              <Terminal class="w-3.5 h-3.5 text-emerald-400" />
+              <h4 class="text-xs font-bold text-(--ink) m-0">Recent Events</h4>
+              <span class="text-[10px] font-mono px-1.5 py-0 rounded bg-(--surface) border border-(--line) text-(--muted)">
+                {events.length}
+              </span>
             </div>
-            <button type="button" onclick={() => (activeViewTab = "stream")}
-              class="text-[10px] text-(--accent-text) hover:underline">Full Stream…</button>
+            <button
+              type="button"
+              onclick={() => (activeViewTab = "stream")}
+              class="text-[10px] text-(--accent-text) hover:underline cursor-pointer"
+            >
+              Full Stream…
+            </button>
           </div>
 
           {#if events.length === 0}
-            <div class="text-center py-3 text-[11px] text-(--muted)">No events logged yet.</div>
+            <div class="text-center py-4 text-xs text-(--muted) bg-(--surface)/30 rounded-xl border border-dashed border-(--line)/60">
+              No events logged yet.
+            </div>
           {:else}
-            <div class="space-y-1 max-h-64 overflow-y-auto">
+            <div class="space-y-1.5 max-h-64 overflow-y-auto no-scrollbar">
               {#each events.slice(0, 8) as event (event.id)}
-                <div class="px-2 py-1.5 rounded-lg bg-(--paper) border border-(--line) flex items-center justify-between gap-2 text-[10px]">
-                  <div class="min-w-0 flex items-center gap-1.5">
-                    <span class="badge text-[8px] px-0.5 py-0">{event.event}</span>
-                    <span class="text-(--ink) truncate font-mono">{event.message}</span>
+                {@const isMilestone = event.event === 'milestone' || event.event === 'mood_boost'}
+                <div class="px-2.5 py-2 rounded-xl bg-(--surface)/40 border border-(--line)/70 flex items-center justify-between gap-2.5 text-[11px] hover:bg-(--surface)/70 transition-colors">
+                  <div class="min-w-0 flex items-center gap-2 flex-1">
+                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-bold shrink-0 {isMilestone ? 'bg-amber-400/15 text-amber-400 border border-amber-400/30' : 'bg-(--paper) text-(--muted) border border-(--line)'}">
+                      {event.event}
+                    </span>
+                    <span class="text-(--ink) truncate font-mono text-[10px] leading-tight">{event.message}</span>
                   </div>
-                  <span class="text-(--muted) text-[9px] font-mono shrink-0">{event.time}</span>
+                  <span class="text-(--muted) text-[9px] font-mono shrink-0 tabular-nums">{event.time}</span>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
-
         <!-- Lifetime XP footer -->
         <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-(--paper) border border-(--line) text-[10px] text-(--muted)">
           <span class="flex items-center gap-1">
