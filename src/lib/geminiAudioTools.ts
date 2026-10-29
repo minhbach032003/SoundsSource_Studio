@@ -222,7 +222,10 @@ export const NOTES_TOOL: GeminiFunctionDeclaration = {
   parameters: {
     type: "OBJECT",
     properties: {
-      query: { type: "STRING", description: "Từ khoá chính, ví dụ: xoá mềm soft delete" },
+      query: {
+        type: "STRING",
+        description: "Từ khoá lấy từ câu hỏi, giữ nguyên thuật ngữ người dùng nói (tên hàm, thư viện, công nghệ), thêm từ tiếng Anh tương ứng. Ví dụ: PyPDFLoader; xoá mềm soft delete",
+      },
       path: { type: "STRING", description: "Path đúng như trong danh sách ghi chú, nếu đã chọn được" },
     },
     required: ["query"],
