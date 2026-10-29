@@ -4019,6 +4019,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "pingloom",
+ "reqwest 0.13.5",
  "rodio",
  "serde",
  "serde_json",

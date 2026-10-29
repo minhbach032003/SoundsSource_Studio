@@ -395,7 +395,11 @@ export async function runGeminiAudioTool(
       }
 
       case "search_notes": {
-        const notes = await invoke<{ path: string; excerpt: string }[]>("search_notes", { query: String(args.query ?? "") });
+        const notes = await invoke<{ path: string; excerpt: string }[]>("search_notes", {
+          query: String(args.query ?? ""),
+          // The Rust copy of the key does not survive a restart; localStorage does.
+          apiKey: localStorage.getItem("gemini_api_key"),
+        });
         return {
           ok: true,
           summary: notes.length ? `Tìm thấy ${notes.length} ghi chú: ${notes.map((n) => n.path).join(", ")}` : "Không có ghi chú phù hợp",

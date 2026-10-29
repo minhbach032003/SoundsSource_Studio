@@ -9,6 +9,7 @@ pub mod cmd_pet;
 pub mod cmd_system;
 pub mod cmd_timer;
 pub mod cmd_wheel;
+pub mod notes;
 pub mod spotify;
 pub mod spotify_sink;
 
@@ -272,7 +273,7 @@ pub fn run() {
             open_screen_capture_settings,
             capture_screen_jpeg,
             app_signing_identity,
-            search_notes,
+            notes::search_notes,
             memory_snapshot,
             memory_areas,
             memory_clean,
