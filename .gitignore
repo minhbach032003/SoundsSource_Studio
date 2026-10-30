@@ -11,6 +11,8 @@ app.log
 .env.local
 
 # OpenSpec local artifacts and generated prompts
+.pi_spec.md
+skills-lock.json
 /openspec/
 /.pi/prompts/opsx-*.md
 /.pi/openspec-cli/
