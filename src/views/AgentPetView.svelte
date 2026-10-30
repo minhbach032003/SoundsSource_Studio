@@ -55,6 +55,7 @@
     Bot,
     Crown,
     Trophy,
+    Award,
     Shield,
     Leaf,
     PawPrint,

@@ -42,6 +42,8 @@
     CalendarDays,
     Sparkles,
     Coffee,
+    MapPin,
+    AlignLeft,
   } from "@lucide/svelte";
 
   export type TimerPhase = "idle" | "studying" | "warning" | "breaking";
@@ -178,6 +180,16 @@
   // Active goal & filter
   let activeGoalId = $state<string | null>(null);
   let activeFilter = $state<"all" | "calendar" | "tasks">("all");
+
+  // Google Calendar Event Creation Modal & inputs
+  let isCreateEventModalOpen = $state(false);
+  let newEventTitle = $state("");
+  let newEventStartTime = $state(formatClockTime(new Date()));
+  let newEventEndTime = $state(addMinutesToTime(formatClockTime(new Date()), 30));
+  let newEventLocation = $state("");
+  let newEventDescription = $state("");
+  let isSubmittingEvent = $state(false);
+  let createEventError = $state<string | null>(null);
 
   // Modals state
   let isStopModalOpen = $state(false);
@@ -752,6 +764,52 @@
     notify("info", "Calendar event removed from view");
   }
 
+  // Create Google Calendar event handlers
+  function handleOpenCreateEventModal() {
+    const nowStr = formatClockTime(new Date());
+    newEventTitle = "";
+    newEventStartTime = nowStr;
+    newEventEndTime = addMinutesToTime(nowStr, 45);
+    newEventLocation = "";
+    newEventDescription = "";
+    createEventError = null;
+    isCreateEventModalOpen = true;
+  }
+
+  async function handleConfirmCreateEvent() {
+    const title = newEventTitle.trim();
+    if (!title) {
+      createEventError = "Vui lòng nhập tiêu đề sự kiện.";
+      return;
+    }
+
+    if (!newEventStartTime || !newEventEndTime) {
+      createEventError = "Vui lòng nhập giờ bắt đầu và kết thúc.";
+      return;
+    }
+
+    isSubmittingEvent = true;
+    createEventError = null;
+
+    const res = await googleCalendarState.createEvent({
+      summary: title,
+      start_time: newEventStartTime,
+      end_time: newEventEndTime,
+      location: newEventLocation.trim() || undefined,
+      description: newEventDescription.trim() || undefined,
+    });
+
+    isSubmittingEvent = false;
+
+    if (res.success && res.event) {
+      isCreateEventModalOpen = false;
+      notify("success", `Đã tạo sự kiện "${res.event.summary}" trên Google Calendar`);
+    } else {
+      createEventError = res.error || "Không thể tạo sự kiện Google Calendar.";
+      notify("error", createEventError);
+    }
+  }
+
   // Custom modal handlers
   function handleOpenCustomModal() {
     const nowStr = formatClockTime(new Date());
@@ -1225,6 +1283,17 @@
                   class="w-3 h-3 {isLoadingCalendar ? 'animate-spin text-(--accent)' : ''}"
                 />
                 <span>{isLoadingCalendar ? 'Syncing…' : 'Sync'}</span>
+              </button>
+
+              <button
+                type="button"
+                onclick={handleOpenCreateEventModal}
+                disabled={isLoadingCalendar}
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-(--surface) hover:bg-(--paper) border border-(--line) text-(--ink) text-[11px] font-medium cursor-pointer transition-colors"
+                title="Tạo lịch hẹn trên Google Calendar"
+              >
+                <Plus class="w-3 h-3 text-(--accent)" />
+                <span>Tạo lịch</span>
               </button>
 
               <button
@@ -2090,5 +2159,129 @@
     {#snippet icon()}
       <AlertTriangle class="w-5 h-5 text-(--warning)" />
     {/snippet}
+  </Modal>
+
+  <!-- 7. Create Google Calendar Event Modal -->
+  <Modal
+    open={isCreateEventModalOpen}
+    onClose={() => (isCreateEventModalOpen = false)}
+    title="Tạo lịch hẹn Google Calendar"
+    description="Sự kiện sẽ được tạo trực tiếp trên tài khoản Google Calendar của bạn và đồng bộ vào Focus Schedule."
+    confirmText={isSubmittingEvent ? "Đang tạo…" : "Tạo sự kiện"}
+    cancelText="Hủy"
+    confirmVariant="primary"
+    confirmDisabled={isSubmittingEvent || !newEventTitle.trim()}
+    onConfirm={handleConfirmCreateEvent}
+  >
+    {#snippet icon()}
+      <Calendar class="w-5 h-5 text-(--accent)" />
+    {/snippet}
+
+    <div class="space-y-4 py-1 text-xs">
+      <!-- Title input -->
+      <div>
+        <label for="event-title" class="block text-[11px] font-semibold text-(--ink) mb-1">
+          Tiêu đề sự kiện *
+        </label>
+        <input
+          id="event-title"
+          type="text"
+          placeholder="Ví dụ: Team Daily Sync, Code Review, Deep Focus..."
+          bind:value={newEventTitle}
+          class="w-full h-8.5 bg-(--surface) border border-(--line) rounded-lg px-2.5 text-xs text-(--ink) placeholder-(--muted) focus:outline-none focus:border-(--focus)"
+        />
+      </div>
+
+      <!-- Time frame (Start & End) -->
+      <div class="p-3 rounded-xl bg-(--surface) border border-(--line) space-y-2.5">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="flex items-center gap-1.5 font-medium text-(--ink)">
+            <Clock class="w-3.5 h-3.5 text-(--accent)" />
+            Thời gian bắt đầu & kết thúc
+          </span>
+          <span class="font-mono text-(--accent-text) font-semibold">
+            {diffMinutesBetween(newEventStartTime, newEventEndTime)} phút
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label for="event-start" class="block text-[10px] text-(--muted) mb-1">
+              Bắt đầu
+            </label>
+            <input
+              id="event-start"
+              type="time"
+              bind:value={newEventStartTime}
+              class="w-full h-8 bg-(--paper) border border-(--line) rounded-lg px-2 text-xs text-(--ink) font-mono"
+            />
+          </div>
+          <div>
+            <label for="event-end" class="block text-[10px] text-(--muted) mb-1">
+              Kết thúc
+            </label>
+            <input
+              id="event-end"
+              type="time"
+              bind:value={newEventEndTime}
+              class="w-full h-8 bg-(--paper) border border-(--line) rounded-lg px-2 text-xs text-(--ink) font-mono"
+            />
+          </div>
+        </div>
+
+        <!-- Quick duration chips -->
+        <div class="flex items-center gap-1.5 pt-1">
+          {#each [15, 30, 45, 60, 90] as dur}
+            <button
+              type="button"
+              onclick={() => {
+                newEventEndTime = addMinutesToTime(newEventStartTime, dur);
+              }}
+              class="px-2 py-0.5 rounded bg-(--paper) hover:bg-(--surface) text-[10px] text-(--ink) border border-(--line) cursor-pointer"
+            >
+              +{dur}p
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Location / Meeting Room -->
+      <div>
+        <label for="event-location" class="block text-[11px] font-medium text-(--muted) mb-1 flex items-center gap-1">
+          <MapPin class="w-3 h-3 text-(--muted)" />
+          Địa điểm / Link phòng họp (Tùy chọn)
+        </label>
+        <input
+          id="event-location"
+          type="text"
+          placeholder="Phòng họp 402, Google Meet link, v.v..."
+          bind:value={newEventLocation}
+          class="w-full h-8 bg-(--surface) border border-(--line) rounded-lg px-2.5 text-xs text-(--ink) placeholder-(--muted) focus:outline-none focus:border-(--focus)"
+        />
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label for="event-desc" class="block text-[11px] font-medium text-(--muted) mb-1 flex items-center gap-1">
+          <AlignLeft class="w-3 h-3 text-(--muted)" />
+          Mô tả chi tiết (Tùy chọn)
+        </label>
+        <textarea
+          id="event-desc"
+          rows="2"
+          placeholder="Nội dung thảo luận hoặc tài liệu chuẩn bị..."
+          bind:value={newEventDescription}
+          class="w-full bg-(--surface) border border-(--line) rounded-lg p-2 text-xs text-(--ink) placeholder-(--muted) focus:outline-none focus:border-(--focus) resize-none"
+        ></textarea>
+      </div>
+
+      <!-- Error banner if any -->
+      {#if createEventError}
+        <div class="p-2.5 rounded-lg bg-(--error)/15 border border-(--error)/30 text-(--error) text-xs flex items-center gap-2">
+          <AlertTriangle class="w-4 h-4 shrink-0 text-(--error)" />
+          <span>{createEventError}</span>
+        </div>
+      {/if}
+    </div>
   </Modal>
 </div>

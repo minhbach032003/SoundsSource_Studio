@@ -16,6 +16,14 @@ export interface GoogleCalendarEventDto {
   location?: string;
 }
 
+export interface CreateCalendarEventPayload {
+  summary: string;
+  start_time: string; // RFC3339 or "HH:MM"
+  end_time: string;   // RFC3339 or "HH:MM"
+  description?: string;
+  location?: string;
+}
+
 export interface GoogleCalendarEvent {
   id: string;
   summary: string;
@@ -205,6 +213,62 @@ export class GoogleCalendarState {
     this.persist();
 
     return { success: true, count: mapped.length };
+  }
+
+  async createEvent(payload: CreateCalendarEventPayload): Promise<{ success: boolean; event?: GoogleCalendarEvent; error?: string }> {
+    if (typeof window === "undefined" || !isTauri()) {
+      const msg = "Hãy mở ứng dụng desktop để tạo sự kiện Google Calendar.";
+      this.error = msg;
+      return { success: false, error: msg };
+    }
+
+    if (!payload.summary || !payload.summary.trim()) {
+      const msg = "Tiêu đề sự kiện không được để trống.";
+      this.error = msg;
+      return { success: false, error: msg };
+    }
+
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      const dto = await invoke<GoogleCalendarEventDto>("google_calendar_create_event", {
+        input: {
+          summary: payload.summary.trim(),
+          start_time: payload.start_time,
+          end_time: payload.end_time,
+          description: payload.description?.trim() || null,
+          location: payload.location?.trim() || null,
+        },
+      });
+
+      const newEvent: GoogleCalendarEvent = {
+        id: dto.id,
+        summary: dto.summary,
+        start_time: dto.start_time,
+        end_time: dto.end_time,
+        duration_minutes: dto.duration_minutes,
+        hangout_link: dto.hangout_link || undefined,
+        location: dto.location || undefined,
+        source: "google-calendar",
+        is_completed: false,
+      };
+
+      // Add to local events list and re-sort by start_time
+      const existingWithout = this.events.filter((ev) => ev.id !== newEvent.id);
+      this.events = [...existingWithout, newEvent].sort((a, b) =>
+        a.start_time.localeCompare(b.start_time)
+      );
+      this.persist();
+
+      return { success: true, event: newEvent };
+    } catch (e) {
+      const msg = typeof e === "string" ? e : (e as Error)?.message || "Không thể tạo sự kiện Google Calendar";
+      this.error = msg;
+      return { success: false, error: msg };
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   async disconnect(): Promise<{ success: boolean; error?: string }> {

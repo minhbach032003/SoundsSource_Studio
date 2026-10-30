@@ -16,7 +16,7 @@ pub const GOOGLE_CALENDAR_EVENTS_URL: &str =
     "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 pub const GOOGLE_USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
 pub const CALENDAR_SCOPES: &str =
-    "https://www.googleapis.com/auth/calendar.events.readonly openid email profile";
+    "https://www.googleapis.com/auth/calendar.events openid email profile";
 
 /// Google Calendar connection status / account summary.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -37,6 +37,18 @@ pub struct GoogleCalendarEventDto {
     pub duration_minutes: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hangout_link: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+}
+
+/// Payload for creating a new Google Calendar event.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CreateCalendarEventDto {
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub start_time: String,
+    pub end_time: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub location: Option<String>,
 }
@@ -570,6 +582,50 @@ impl GoogleCalendarService {
         parse_calendar_events_json(&body)
     }
 
+    /// Create a new event on primary Google Calendar and return normalized GoogleCalendarEventDto.
+    pub fn create_event(&self, input: CreateCalendarEventDto) -> Result<GoogleCalendarEventDto, String> {
+        let summary = input.summary.trim();
+        if summary.is_empty() {
+            return Err("Tiêu đề sự kiện không được để trống.".to_string());
+        }
+
+        let access_token = self.ensure_valid_access_token()?;
+
+        let start_rfc3339 = normalize_to_rfc3339(&input.start_time)?;
+        let end_rfc3339 = normalize_to_rfc3339(&input.end_time)?;
+
+        let mut body_map = serde_json::json!({
+            "summary": summary,
+            "start": { "dateTime": start_rfc3339 },
+            "end": { "dateTime": end_rfc3339 }
+        });
+
+        if let Some(desc) = input.description.as_deref().filter(|s| !s.trim().is_empty()) {
+            body_map["description"] = serde_json::Value::String(desc.trim().to_string());
+        }
+
+        if let Some(loc) = input.location.as_deref().filter(|s| !s.trim().is_empty()) {
+            body_map["location"] = serde_json::Value::String(loc.trim().to_string());
+        }
+
+        let resp = self
+            .client
+            .post(GOOGLE_CALENDAR_EVENTS_URL)
+            .bearer_auth(&access_token)
+            .json(&body_map)
+            .send()
+            .map_err(|e| format!("Lỗi khi gọi Google Calendar API tạo sự kiện: {e}"))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let err_text = resp.text().unwrap_or_default();
+            return Err(format_google_calendar_api_error(status, &err_text));
+        }
+
+        let resp_body = resp.text().map_err(|e| e.to_string())?;
+        parse_single_calendar_event_json(&resp_body)
+    }
+
     /// Disconnect Google Calendar and delete tokens.
     pub fn disconnect(&self) -> Result<(), String> {
         if let Ok(Some(tokens)) = self.storage.load() {
@@ -631,10 +687,164 @@ pub fn format_google_calendar_api_error(status: reqwest::StatusCode, body: &str)
                     "Google Calendar API chưa được bật trên Google Cloud Console cho dự án này. Vui lòng bật API tại: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com rồi thử lại. (Chi tiết: {msg})"
                 );
             }
+            if msg.contains("Insufficient Permission") || msg.contains("insufficientPermissions") {
+                return format!(
+                    "Quyền truy cập hiện tại không đủ để thực hiện thao tác này. Vui lòng ngắt kết nối và đăng nhập lại Google Calendar để cấp quyền chỉnh sửa lịch. (Chi tiết: {msg})"
+                );
+            }
             return format!("Google Calendar API lỗi ({status}): {msg}");
         }
     }
     format!("Google Calendar API trả về lỗi {status}: {body}")
+}
+
+/// Normalizes ISO, RFC3339, or HH:MM time strings into valid RFC3339 timestamps for Google Calendar API.
+pub fn normalize_to_rfc3339(time_str: &str) -> Result<String, String> {
+    let trimmed = time_str.trim();
+    if trimmed.is_empty() {
+        return Err("Thời gian sự kiện không được để trống.".into());
+    }
+
+    // 1. Full RFC3339
+    if let Ok(dt) = DateTime::parse_from_rfc3339(trimmed) {
+        return Ok(dt.to_rfc3339());
+    }
+
+    // 2. Naive ISO datetime "YYYY-MM-DDTHH:MM:SS" or "YYYY-MM-DDTHH:MM"
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M:%S")
+        .or_else(|_| chrono::NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M"))
+    {
+        let local_dt = match Local.from_local_datetime(&naive) {
+            LocalResult::Single(dt) => dt,
+            LocalResult::Ambiguous(dt, _) => dt,
+            LocalResult::None => Local::now(),
+        };
+        return Ok(local_dt.to_rfc3339());
+    }
+
+    // 3. Simple time "HH:MM" or "HH:MM:SS" for today
+    if let Ok(time) = chrono::NaiveTime::parse_from_str(trimmed, "%H:%M")
+        .or_else(|_| chrono::NaiveTime::parse_from_str(trimmed, "%H:%M:%S"))
+    {
+        let today = Local::now().date_naive();
+        let naive = today.and_time(time);
+        let local_dt = match Local.from_local_datetime(&naive) {
+            LocalResult::Single(dt) => dt,
+            LocalResult::Ambiguous(dt, _) => dt,
+            LocalResult::None => Local::now(),
+        };
+        return Ok(local_dt.to_rfc3339());
+    }
+
+    Err(format!(
+        "Định dạng thời gian không hợp lệ: '{trimmed}'. Vui lòng dùng định dạng RFC3339 hoặc HH:MM."
+    ))
+}
+
+#[derive(Deserialize)]
+struct RawEventItem {
+    id: Option<String>,
+    summary: Option<String>,
+    status: Option<String>,
+    start: Option<RawEventTime>,
+    end: Option<RawEventTime>,
+    #[serde(rename = "hangoutLink")]
+    hangout_link: Option<String>,
+    location: Option<String>,
+    #[serde(rename = "conferenceData")]
+    conference_data: Option<RawConferenceData>,
+}
+
+#[derive(Deserialize)]
+struct RawEventTime {
+    #[serde(rename = "dateTime")]
+    date_time: Option<String>,
+    date: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RawConferenceData {
+    #[serde(rename = "entryPoints", default)]
+    entry_points: Vec<RawEntryPoint>,
+}
+
+#[derive(Deserialize)]
+struct RawEntryPoint {
+    uri: Option<String>,
+}
+
+fn convert_raw_event_item(item: RawEventItem) -> Option<GoogleCalendarEventDto> {
+    if item.status.as_deref() == Some("cancelled") {
+        return None;
+    }
+
+    let id = item.id.unwrap_or_default();
+    let summary = item
+        .summary
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "(Không có tiêu đề)".to_string());
+
+    let mut start_time = "00:00".to_string();
+    let mut end_time = "23:59".to_string();
+    let mut duration_minutes: i64 = 0;
+
+    let start_dt = item
+        .start
+        .as_ref()
+        .and_then(|s| s.date_time.as_deref())
+        .and_then(|dt| DateTime::parse_from_rfc3339(dt).ok());
+    let end_dt = item
+        .end
+        .as_ref()
+        .and_then(|e| e.date_time.as_deref())
+        .and_then(|dt| DateTime::parse_from_rfc3339(dt).ok());
+
+    if let (Some(s_dt), Some(e_dt)) = (start_dt, end_dt) {
+        start_time = s_dt.format("%H:%M").to_string();
+        end_time = e_dt.format("%H:%M").to_string();
+        duration_minutes = (e_dt.signed_duration_since(s_dt)).num_minutes().max(0);
+    } else if let Some(s_dt) = start_dt {
+        start_time = s_dt.format("%H:%M").to_string();
+        end_time = s_dt.format("%H:%M").to_string();
+        duration_minutes = 0;
+    } else if item
+        .start
+        .as_ref()
+        .and_then(|s| s.date.as_deref())
+        .is_some()
+    {
+        // All-day event
+        start_time = "00:00".to_string();
+        end_time = "23:59".to_string();
+        duration_minutes = 1440;
+    }
+
+    let hangout_link = item.hangout_link.filter(|l| !l.trim().is_empty()).or_else(|| {
+        item.conference_data.and_then(|cd| {
+            cd.entry_points
+                .into_iter()
+                .find_map(|ep| ep.uri.filter(|u| !u.trim().is_empty()))
+        })
+    });
+
+    let location = item.location.filter(|loc| !loc.trim().is_empty());
+
+    Some(GoogleCalendarEventDto {
+        id,
+        summary,
+        start_time,
+        end_time,
+        duration_minutes,
+        hangout_link,
+        location,
+    })
+}
+
+/// Parse single Google Calendar API v3 event JSON into `GoogleCalendarEventDto`.
+pub fn parse_single_calendar_event_json(json_str: &str) -> Result<GoogleCalendarEventDto, String> {
+    let item: RawEventItem =
+        serde_json::from_str(json_str).map_err(|e| format!("Lỗi phân tích JSON sự kiện: {e}"))?;
+    convert_raw_event_item(item).ok_or_else(|| "Sự kiện không hợp lệ hoặc đã bị hủy.".to_string())
 }
 
 /// Parse Google Calendar API v3 JSON response into normalized `Vec<GoogleCalendarEventDto>`.
@@ -645,108 +855,14 @@ pub fn parse_calendar_events_json(json_str: &str) -> Result<Vec<GoogleCalendarEv
         items: Vec<RawEventItem>,
     }
 
-    #[derive(Deserialize)]
-    struct RawEventItem {
-        id: Option<String>,
-        summary: Option<String>,
-        status: Option<String>,
-        start: Option<RawEventTime>,
-        end: Option<RawEventTime>,
-        #[serde(rename = "hangoutLink")]
-        hangout_link: Option<String>,
-        location: Option<String>,
-        #[serde(rename = "conferenceData")]
-        conference_data: Option<RawConferenceData>,
-    }
-
-    #[derive(Deserialize)]
-    struct RawEventTime {
-        #[serde(rename = "dateTime")]
-        date_time: Option<String>,
-        date: Option<String>,
-    }
-
-    #[derive(Deserialize)]
-    struct RawConferenceData {
-        #[serde(rename = "entryPoints", default)]
-        entry_points: Vec<RawEntryPoint>,
-    }
-
-    #[derive(Deserialize)]
-    struct RawEntryPoint {
-        uri: Option<String>,
-    }
-
     let parsed: RawEventList =
         serde_json::from_str(json_str).map_err(|e| format!("Lỗi phân tích JSON sự kiện: {e}"))?;
 
     let mut events = Vec::new();
-
     for item in parsed.items {
-        if item.status.as_deref() == Some("cancelled") {
-            continue;
+        if let Some(dto) = convert_raw_event_item(item) {
+            events.push(dto);
         }
-
-        let id = item.id.unwrap_or_default();
-        let summary = item
-            .summary
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| "(Không có tiêu đề)".to_string());
-
-        let mut start_time = "00:00".to_string();
-        let mut end_time = "23:59".to_string();
-        let mut duration_minutes: i64 = 0;
-
-        let start_dt = item
-            .start
-            .as_ref()
-            .and_then(|s| s.date_time.as_deref())
-            .and_then(|dt| DateTime::parse_from_rfc3339(dt).ok());
-        let end_dt = item
-            .end
-            .as_ref()
-            .and_then(|e| e.date_time.as_deref())
-            .and_then(|dt| DateTime::parse_from_rfc3339(dt).ok());
-
-        if let (Some(s_dt), Some(e_dt)) = (start_dt, end_dt) {
-            start_time = s_dt.format("%H:%M").to_string();
-            end_time = e_dt.format("%H:%M").to_string();
-            duration_minutes = (e_dt.signed_duration_since(s_dt)).num_minutes().max(0);
-        } else if let Some(s_dt) = start_dt {
-            start_time = s_dt.format("%H:%M").to_string();
-            end_time = s_dt.format("%H:%M").to_string();
-            duration_minutes = 0;
-        } else if item
-            .start
-            .as_ref()
-            .and_then(|s| s.date.as_deref())
-            .is_some()
-        {
-            // All-day event
-            start_time = "00:00".to_string();
-            end_time = "23:59".to_string();
-            duration_minutes = 1440;
-        }
-
-        let hangout_link = item.hangout_link.filter(|l| !l.trim().is_empty()).or_else(|| {
-            item.conference_data.and_then(|cd| {
-                cd.entry_points
-                    .into_iter()
-                    .find_map(|ep| ep.uri.filter(|u| !u.trim().is_empty()))
-            })
-        });
-
-        let location = item.location.filter(|loc| !loc.trim().is_empty());
-
-        events.push(GoogleCalendarEventDto {
-            id,
-            summary,
-            start_time,
-            end_time,
-            duration_minutes,
-            hangout_link,
-            location,
-        });
     }
 
     Ok(events)
@@ -909,5 +1025,42 @@ mod tests {
             email: None,
         };
         assert!(expired_tokens.is_expired(60));
+    }
+
+    #[test]
+    fn test_parse_single_google_calendar_json() {
+        let json_data = r#"{
+            "kind": "calendar#event",
+            "id": "single_event_42",
+            "status": "confirmed",
+            "summary": "Pomodoro Focus Block",
+            "start": { "dateTime": "2026-04-18T14:00:00+07:00" },
+            "end": { "dateTime": "2026-04-18T15:30:00+07:00" },
+            "location": "Quiet Studio"
+        }"#;
+
+        let event = parse_single_calendar_event_json(json_data).expect("Failed to parse single event");
+        assert_eq!(event.id, "single_event_42");
+        assert_eq!(event.summary, "Pomodoro Focus Block");
+        assert_eq!(event.start_time, "14:00");
+        assert_eq!(event.end_time, "15:30");
+        assert_eq!(event.duration_minutes, 90);
+        assert_eq!(event.location.as_deref(), Some("Quiet Studio"));
+    }
+
+    #[test]
+    fn test_normalize_to_rfc3339() {
+        // Direct RFC3339
+        let rfc = "2026-04-18T10:00:00+07:00";
+        let res = normalize_to_rfc3339(rfc).unwrap();
+        assert_eq!(res, rfc);
+
+        // Simple time HH:MM
+        let time = "15:45";
+        let res = normalize_to_rfc3339(time).unwrap();
+        assert!(res.contains("T15:45:00"));
+
+        // Invalid string
+        assert!(normalize_to_rfc3339("invalid-time").is_err());
     }
 }

@@ -330,6 +330,7 @@ pub fn run() {
             google_calendar_login,
             google_calendar_cancel,
             google_calendar_sync,
+            google_calendar_create_event,
             google_calendar_disconnect
         ])
         .on_window_event(|window, event| {

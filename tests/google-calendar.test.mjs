@@ -42,7 +42,11 @@ test("googleCalendar.svelte.ts integrates native Tauri IPC commands and state ma
   assert.ok(src.includes("google_calendar_status"), "invokes google_calendar_status");
   assert.ok(src.includes("google_calendar_login"), "invokes google_calendar_login");
   assert.ok(src.includes("google_calendar_sync"), "invokes google_calendar_sync");
+  assert.ok(src.includes("google_calendar_create_event"), "invokes google_calendar_create_event");
   assert.ok(src.includes("google_calendar_disconnect"), "invokes google_calendar_disconnect");
+
+  // Event creation
+  assert.ok(src.includes("createEvent"), "implements createEvent method");
 
   // State runes
   assert.ok(src.includes("isConnected = $state(false)"), "tracks isConnected state");
@@ -67,6 +71,11 @@ test("TimerView.svelte integrates native Google Calendar UI actions and Zero Emo
   assert.ok(src.includes("handleConnectCalendar"), "implements handleConnectCalendar");
   assert.ok(src.includes("handleSyncCalendar"), "implements handleSyncCalendar");
   assert.ok(src.includes("handleDisconnectCalendar"), "implements handleDisconnectCalendar");
+
+  // Create event action and modal
+  assert.ok(src.includes("handleOpenCreateEventModal"), "implements handleOpenCreateEventModal");
+  assert.ok(src.includes("handleConfirmCreateEvent"), "implements handleConfirmCreateEvent");
+  assert.ok(src.includes("isCreateEventModalOpen"), "has isCreateEventModalOpen state");
 
   // Focus goal on event click / button
   assert.ok(src.includes("handleFocusGoal"), "implements handleFocusGoal for events");

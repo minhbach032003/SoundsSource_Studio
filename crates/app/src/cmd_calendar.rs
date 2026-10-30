@@ -1,6 +1,6 @@
 use tauri::State;
 use crate::AppState;
-use sound_engine::{GoogleCalendarAccount, GoogleCalendarEventDto};
+use sound_engine::{CreateCalendarEventDto, GoogleCalendarAccount, GoogleCalendarEventDto};
 
 // MARK: - Google Calendar Commands
 
@@ -32,6 +32,17 @@ pub async fn google_calendar_sync(
     tauri::async_runtime::spawn_blocking(move || service.sync_today())
         .await
         .map_err(|e| format!("Sync task failed: {e}"))?
+}
+
+#[tauri::command]
+pub async fn google_calendar_create_event(
+    state: State<'_, AppState>,
+    input: CreateCalendarEventDto,
+) -> Result<GoogleCalendarEventDto, String> {
+    let service = state.google_calendar.clone();
+    tauri::async_runtime::spawn_blocking(move || service.create_event(input))
+        .await
+        .map_err(|e| format!("Create event task failed: {e}"))?
 }
 
 #[tauri::command]
