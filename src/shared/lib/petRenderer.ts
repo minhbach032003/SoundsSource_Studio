@@ -323,7 +323,7 @@ export interface PetAura {
 // Ki aura per evolution form, keyed "<slug>/<formId>". Colours follow
 // docs/engineering/goku-form-sprite-redesign-research.md (3.3).
 export const FORM_AURAS: Record<string, PetAura> = {
-  "super-saiyan-goku/base": { inner: "#f1f5f9", outer: "#64748b", intensity: 1.15 },
+  "super-saiyan-goku/base": { inner: "#f4f7ff", intensity: 0.45 },
   "super-saiyan-goku/kaioken": { inner: "#ef4444", outer: "#b91c1c", intensity: 1.15 },
   "super-saiyan-goku/ss1": { inner: "#fde047", outer: "#eab308", intensity: 0.95 },
   "super-saiyan-goku/ss2": { inner: "#fef08a", outer: "#eab308", sparks: "#38bdf8", intensity: 1.15 },

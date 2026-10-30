@@ -518,14 +518,6 @@ def main():
             if form_id in previous:
                 manifest["forms"][form_id] = previous[form_id]
             continue
-        if form_id == "base":
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("build_oozaru_base", ROOT / "scripts" / "build-oozaru-base.py")
-            oozaru_mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(oozaru_mod)
-            oozaru_mod.build_oozaru_sheet()
-            manifest["forms"]["base"] = json.loads(manifest_path.read_text())["forms"]["base"]
-            continue
         out = sheet.copy()
         for r in range(ROWS):
             for c in range(COLS):

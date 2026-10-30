@@ -12,20 +12,19 @@
     "base": {
       "hairShape": "base",
       "hair": [
-        "#1a1c22",
-        "#181a1e",
-        "#282a32",
-        "#393b45"
+        "#06060a",
+        "#121219",
+        "#23232c",
+        "#3a3f55"
       ],
       "iris": [
-        "#8b0000",
-        "#d43828",
-        "#ff5544"
+        "#0b0b0b",
+        "#1c1c22"
       ],
       "skinTint": null,
       "browsVisible": true,
-      "alphaHash": "c63bd5d3fcd3db37",
-      "opaquePixels": 1350280
+      "alphaHash": "904170ee7d4039f1",
+      "opaquePixels": 820423
     },
     "kaioken": {
       "hairShape": "base",
