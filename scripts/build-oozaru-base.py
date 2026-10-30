@@ -23,52 +23,82 @@ def clean_alpha(arr, threshold=30):
     return cleaned
 
 
-def harmonize_roar_to_idle(c0, c4):
-    is_eye0 = (c0[:, :, 0] > 130) & (c0[:, :, 1] < 80) & (c0[:, :, 2] < 80)
-    is_muzzle0 = (c0[:, :, 0] > 55) & (c0[:, :, 1] > 55) & (c0[:, :, 2] > 55) & ~is_eye0 & (c0[:, :, 3] > 64)
-    is_fur0 = (c0[:, :, 3] > 64) & ~is_eye0 & ~is_muzzle0
+def harmonize_base_frames(idle_raw, roar_raw):
+    c0 = clean_alpha(np.array(idle_raw))
+    c4 = clean_alpha(np.array(roar_raw))
 
-    is_eye4 = (c4[:, :, 0] > 130) & (c4[:, :, 1] < 80) & (c4[:, :, 2] < 80) & (np.arange(CELL_H)[:, None] < 35)
-    is_mouth4 = (c4[:, :, 0] > 90) & (c4[:, :, 1] < 70) & (np.arange(CELL_H)[:, None] >= 35) & (c4[:, :, 3] > 64)
-    is_muzzle4 = (c4[:, :, 0] > 55) & (c4[:, :, 1] > 55) & (c4[:, :, 2] > 55) & ~is_eye4 & ~is_mouth4 & (c4[:, :, 3] > 64)
-    is_fur4 = (c4[:, :, 3] > 64) & ~is_eye4 & ~is_muzzle4 & ~is_mouth4
+    y_grid, x_grid = np.ogrid[:CELL_H, :CELL_W]
+
+    left_pec = (((x_grid - 83.5)**2 / (11.5**2) + (y_grid - 80)**2 / (7.5**2)) <= 1.0)
+    right_pec = (((x_grid - 108.5)**2 / (11.5**2) + (y_grid - 80)**2 / (7.5**2)) <= 1.0)
+    outline0 = (c0[:, :, 0] < 28) & (c0[:, :, 1] < 28) & (c0[:, :, 2] < 34)
+    pec_mask0 = (left_pec | right_pec) & ~outline0 & (c0[:, :, 3] > 64)
+
+    ab_skin0 = (y_grid >= 95) & (y_grid <= 125) & (c0[:, :, 0] > 55) & (c0[:, :, 1] > 55) & (c0[:, :, 2] > 55)
+
+    c0_mod = c0.copy().astype(np.float32)
+    ab_mean = c0[ab_skin0][:, :3].mean(axis=0)
+    ab_std = c0[ab_skin0][:, :3].std(axis=0)
+    pec_raw = c0[pec_mask0][:, :3].astype(np.float32)
+    pec_mean = pec_raw.mean(axis=0)
+    pec_std = np.maximum(pec_raw.std(axis=0), 1.0)
+    c0_mod[pec_mask0, :3] = (pec_raw - pec_mean) * (ab_std / pec_std * 0.9) + ab_mean
+    c0_synced = np.clip(c0_mod, 0, 255).astype(np.uint8)
+
+    is_eye0 = (c0_synced[:, :, 0] > 130) & (c0_synced[:, :, 1] < 80) & (c0_synced[:, :, 2] < 80)
+    is_skin0 = (c0_synced[:, :, 0] > 50) & (c0_synced[:, :, 1] > 50) & (c0_synced[:, :, 2] > 50) & ~is_eye0 & (c0_synced[:, :, 3] > 64)
+    is_fur0 = (c0_synced[:, :, 3] > 64) & ~is_eye0 & ~is_skin0
+
+    is_eye4 = (c4[:, :, 0] > 130) & (c4[:, :, 1] < 80) & (c4[:, :, 2] < 80) & (y_grid < 35)
+    is_mouth4 = (c4[:, :, 0] > 90) & (c4[:, :, 1] < 70) & (y_grid >= 35) & (c4[:, :, 3] > 64)
+    is_skin4 = (c4[:, :, 0] > 50) & (c4[:, :, 1] > 40) & (c4[:, :, 2] > 40) & ~is_eye4 & ~is_mouth4 & (c4[:, :, 3] > 64)
+    is_fur4 = (c4[:, :, 3] > 64) & ~is_eye4 & ~is_mouth4 & ~is_skin4
 
     c4_out = c4.copy().astype(np.float32)
 
-    f0_mean = c0[is_fur0][:, :3].mean(axis=0)
-    f0_std = c0[is_fur0][:, :3].std(axis=0)
+    f0_mean = c0_synced[is_fur0][:, :3].mean(axis=0)
+    f0_std = c0_synced[is_fur0][:, :3].std(axis=0)
     f4_mean = c4[is_fur4][:, :3].mean(axis=0)
     f4_std = c4[is_fur4][:, :3].std(axis=0)
     c4_out[is_fur4, :3] = (c4[is_fur4, :3] - f4_mean) * (f0_std / f4_std) + f0_mean
 
-    m0_mean = c0[is_muzzle0][:, :3].mean(axis=0)
-    m0_std = c0[is_muzzle0][:, :3].std(axis=0)
-    m4_mean = c4[is_muzzle4][:, :3].mean(axis=0)
-    m4_std = c4[is_muzzle4][:, :3].std(axis=0)
-    c4_out[is_muzzle4, :3] = (c4[is_muzzle4, :3] - m4_mean) * (m0_std / m4_std) + m0_mean
+    s0_mean = c0_synced[is_skin0][:, :3].mean(axis=0)
+    s0_std = c0_synced[is_skin0][:, :3].std(axis=0)
+    s4_mean = c4[is_skin4][:, :3].mean(axis=0)
+    s4_std = c4[is_skin4][:, :3].std(axis=0)
+    c4_out[is_skin4, :3] = (c4[is_skin4, :3] - s4_mean) * (s0_std / s4_std) + s0_mean
 
-    eye0_mean = c0[is_eye0][:, :3].mean(axis=0)
-    eye0_std = c0[is_eye0][:, :3].std(axis=0)
+    eye0_mean = c0_synced[is_eye0][:, :3].mean(axis=0)
+    eye0_std = c0_synced[is_eye0][:, :3].std(axis=0)
     eye4_mean = c4[is_eye4][:, :3].mean(axis=0)
     eye4_std = np.maximum(c4[is_eye4][:, :3].std(axis=0), 1.0)
     c4_out[is_eye4, :3] = (c4[is_eye4, :3] - eye4_mean) * (eye0_std / eye4_std) + eye0_mean
 
-    return Image.fromarray(np.clip(c4_out, 0, 255).astype(np.uint8))
+    is_pec4 = (y_grid >= 65) & (y_grid < 95) & (c4[:, :, 0] > 50) & (c4[:, :, 1] > 40) & (c4[:, :, 3] > 64)
+    c4_out[is_pec4, :3] = c4_out[is_pec4, :3] * 0.82
+
+    feet4_mask = (y_grid >= 170) & (c4[:, :, 0] > 45) & (c4[:, :, 1] > 40) & (c4[:, :, 3] > 64)
+    feet0_mask = (y_grid >= 170) & (c0_synced[:, :, 0] > 45) & (c0_synced[:, :, 1] > 40) & (c0_synced[:, :, 3] > 64)
+    f0_m = c0_synced[feet0_mask][:, :3].mean(axis=0)
+    f0_s = c0_synced[feet0_mask][:, :3].std(axis=0)
+    f4_m = c4_out[feet4_mask][:, :3].mean(axis=0)
+    f4_s = c4_out[feet4_mask][:, :3].std(axis=0)
+    c4_out[feet4_mask, :3] = (c4_out[feet4_mask, :3] - f4_m) * (f0_s / f4_s) + f0_m
+
+    c4_synced = np.clip(c4_out, 0, 255).astype(np.uint8)
+
+    return Image.fromarray(c0_synced), Image.fromarray(c4_synced)
 
 
 def build_oozaru_sheet():
     idle_im = Image.open(ASSETS_DIR / "oozaru_idle_base.png").convert("RGBA")
     roar_im = Image.open(ASSETS_DIR / "oozaru_roar_base.png").convert("RGBA")
 
-    c0 = clean_alpha(np.array(idle_im))
-    c4 = clean_alpha(np.array(roar_im))
-
-    c4_harmonized = harmonize_roar_to_idle(c0, c4)
-    idle = Image.fromarray(c0)
+    idle, roar = harmonize_base_frames(idle_im, roar_im)
 
     c0_cell = idle.copy()
 
-    c1_raw = c4_harmonized.transpose(Image.FLIP_LEFT_RIGHT).rotate(-10, resample=Image.BICUBIC, center=(96, 200))
+    c1_raw = roar.transpose(Image.FLIP_LEFT_RIGHT).rotate(-10, resample=Image.BICUBIC, center=(96, 200))
     arr1 = np.array(c1_raw)
     non_empty = np.argwhere(arr1[:, :, 3] > 0)
     shift_y1 = BASELINE_Y - non_empty[:, 0].max()
@@ -77,17 +107,18 @@ def build_oozaru_sheet():
 
     c2_cell = c1_cell.transpose(Image.FLIP_LEFT_RIGHT)
     c3_cell = idle.copy()
-    c4_cell = c4_harmonized.copy()
+    c4_cell = roar.copy()
 
     c5_cell = idle.copy()
     arr5 = np.array(c5_cell)
-    eye_coords = np.argwhere((c0[:, :, 0] > 130) & (c0[:, :, 1] < 80) & (c0[:, :, 2] < 80))
+    c0_arr = np.array(idle)
+    eye_coords = np.argwhere((c0_arr[:, :, 0] > 130) & (c0_arr[:, :, 1] < 80) & (c0_arr[:, :, 2] < 80))
     for y, x in eye_coords:
         arr5[y, x] = [40, 42, 48, 255]
     c5_cell = Image.fromarray(arr5)
 
     c6_cell = idle.copy()
-    c7_cell = c4_harmonized.copy()
+    c7_cell = roar.copy()
     c8_cell = idle.copy()
 
     row_bases = [c0_cell, c1_cell, c2_cell, c3_cell, c4_cell, c5_cell, c6_cell, c7_cell, c8_cell]
