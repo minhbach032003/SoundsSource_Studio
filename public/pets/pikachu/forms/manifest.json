@@ -5,19 +5,19 @@
       "shapeKey": "pichu",
       "name": "Pichu Spark",
       "fur": [
-        "#c29f2e",
-        "#edd05a",
-        "#fff18a",
+        "#cc9c1e",
+        "#edd046",
+        "#fff085",
         "#fffde8"
       ],
       "cheeks": [
-        "#ba3d5d",
-        "#ea7e9a",
-        "#f7a8bd",
+        "#be355a",
+        "#e87896",
+        "#f7a4bc",
         "#ffebf2"
       ],
-      "alphaHash": "57c5f8c174a1c12e",
-      "opaquePixels": 563488
+      "alphaHash": "b8e61e729f02051d",
+      "opaquePixels": 612133
     },
     "classic": {
       "shapeKey": "classic",

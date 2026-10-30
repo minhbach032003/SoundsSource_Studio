@@ -32,8 +32,8 @@ FORMS = {
     "pichu": {
         "shapeKey": "pichu",
         "name": "Pichu Spark",
-        "fur": ["#c29f2e", "#edd05a", "#fff18a", "#fffde8"],
-        "cheeks": ["#ba3d5d", "#ea7e9a", "#f7a8bd", "#ffebf2"],
+        "fur": ["#cc9c1e", "#edd046", "#fff085", "#fffde8"],
+        "cheeks": ["#be355a", "#e87896", "#f7a4bc", "#ffebf2"],
     },
     "classic": {
         "shapeKey": "classic",
@@ -110,7 +110,7 @@ MOTION = {
     "gorochu": (.7, .28, 1.2, .7, 2.5, .3),
 }
 TAIL_TIPS = {
-    "pichu": (136, 162), "classic": (174, 106), "raichu": (174, 33),
+    "pichu": (144, 166), "classic": (174, 106), "raichu": (174, 33),
     "alolan-raichu": (155, 185), "gigantamax": (138, 22),
     "mega-raichu-x": (179, 81), "mega-raichu-y": (174, 25),
     "concept-white-belly": (150, 117), "concept-long-tail": (174, 70),
@@ -225,9 +225,11 @@ def tail(ink, form_id, fur, phase, row):
     p = Ink(ink.image, tail_transform)
     light, shade = fur[2], fur[1]
     if form_id == "pichu":
-        p.path([("M", 96, 160), ("L", 118, 150), ("L", 114, 160), ("L", 136, 162),
-                ("L", 126, 174), ("L", 110, 167), ("L", 96, 173), ("Z",)], DARK, PIKA_LINE, 2.0)
-        p.path([("M", 115, 153), ("L", 128, 162), ("L", 121, 170)], None, "#4a3c46", 1.2)
+        # Pichu canon tail: cute zigzag lightning tail (sharp segmented black lightning bolt)
+        p.path([("M", 96, 160), ("L", 110, 153), ("L", 106, 160), ("L", 130, 156),
+                ("L", 124, 166), ("L", 143, 163), ("L", 133, 177), ("L", 115, 174),
+                ("L", 120, 165), ("L", 102, 167), ("L", 96, 173), ("Z",)], DARK, PIKA_LINE, 2.0)
+        p.path([("M", 108, 156), ("L", 128, 159), ("L", 123, 168), ("L", 137, 165)], None, "#4a3c46", 1.2)
     elif form_id in ("classic", "concept-white-belly", "concept-long-tail", "gigantamax"):
         if form_id == "gigantamax":
             points = [(111,166),(145,150),(137,119),(159,120),(149,91),(174,90),
@@ -312,34 +314,33 @@ def ears(ink, form_id, fur, phase, row):
             return ink.transform(85+side*(x-85), y + fold*max(0, (72-y)/50))
         p = Ink(ink.image, transform)
         if form_id == "pichu":
+            # Pichu ear: Wide kite/diamond ear with prominent black outer border and yellow interior
             ear_full = [
-                ("M", 97, 78),
-                ("Q", 106, 58, 122, 36),
-                ("L", 146, 12),
-                ("L", 172, 22),
-                ("L", 166, 56),
-                ("Q", 140, 75, 114, 87),
+                ("M", 96, 78),
+                ("Q", 103, 56, 117, 34),
+                ("L", 142, 6),
+                ("L", 172, 18),
+                ("L", 168, 56),
+                ("Q", 140, 75, 113, 87),
                 ("Z",)
             ]
-            p.path(ear_full, fur[2], PIKA_LINE, 2.2)
-            p.path([("M", 102, 68), ("Q", 115, 46, 138, 22)], None, fur[3], 2.2)
-            p.path([("M", 103, 76),
-                    ("Q", 111, 58, 121, 42),
-                    ("L", 129, 48),
-                    ("Q", 125, 68, 112, 81),
-                    ("Z",)], fur[1], None)
-            ear_black_tip = [
-                ("M", 119, 40),
-                ("L", 146, 12),
-                ("L", 172, 22),
-                ("L", 166, 56),
-                ("L", 138, 59),
-                ("L", 133, 49),
-                ("L", 127, 44),
+            p.path(ear_full, DARK, PIKA_LINE, 2.2)
+            # Inside yellow inner diamond with sharp notch
+            ear_inner = [
+                ("M", 102, 74),
+                ("Q", 109, 56, 120, 39),
+                ("L", 137, 18),
+                ("L", 142, 28),
+                ("L", 153, 30),
+                ("L", 147, 48),
+                ("Q", 132, 68, 112, 80),
                 ("Z",)
             ]
-            p.path(ear_black_tip, DARK, PIKA_LINE, 2.0)
-            p.path([("M", 142, 16), ("L", 168, 24), ("L", 164, 48)], None, "#4e424c", 1.2)
+            p.path(ear_inner, fur[2], None)
+            p.path([("M", 105, 68), ("Q", 117, 46, 135, 23)], None, fur[3], 2.2)
+            p.path([("M", 104, 75), ("Q", 113, 58, 120, 42), ("L", 126, 48), ("Q", 122, 68, 112, 80), ("Z",)], fur[1], None)
+            # Subtle highlight on top edge of black border
+            p.path([("M", 140, 10), ("L", 169, 20), ("L", 165, 50)], None, "#4e424c", 1.2)
         elif form_id == "raichu":
             p.path([("M",104,85),("C",112,67,113,42,139,28),
                     ("C",128,44,136,48,139,55),("C",147,71,124,80,121,66),
