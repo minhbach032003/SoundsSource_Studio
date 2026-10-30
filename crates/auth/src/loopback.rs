@@ -50,7 +50,8 @@ fn callback_code(request: &str, port: u16, state: &str) -> Result<String, Callba
         let (name, value) = header.split_once(':').ok_or_else(invalid)?;
         if name.eq_ignore_ascii_case("host") {
             hosts += 1;
-            if value.trim() != format!("127.0.0.1:{port}") {
+            let host_val = value.trim();
+            if host_val != format!("127.0.0.1:{port}") && host_val != format!("localhost:{port}") {
                 return Err(invalid());
             }
         }
@@ -116,14 +117,14 @@ pub fn wait_for_code(
             continue;
         }
         stream
-            .set_read_timeout(Some(Duration::from_millis(50)))
+            .set_read_timeout(Some(Duration::from_millis(150)))
             .map_err(|_| "Không đọc được callback Google.")?;
         stream
-            .set_write_timeout(Some(Duration::from_millis(100)))
+            .set_write_timeout(Some(Duration::from_millis(300)))
             .map_err(|_| "Không trả lời được trình duyệt.")?;
         let request_start = Instant::now();
         let mut request = Vec::new();
-        while request.len() < 8192 && request_start.elapsed() < Duration::from_secs(1) {
+        while request.len() < 8192 && request_start.elapsed() < Duration::from_secs(3) {
             check()?;
             let mut chunk = [0; 1024];
             match stream.read(&mut chunk) {
@@ -149,13 +150,15 @@ pub fn wait_for_code(
         let accepted = result.is_ok() || result == Err(CallbackError::Denied);
         // This acknowledges receipt only. Google verification and database commit have not happened yet.
         let message = if result.is_ok() {
-            "Đã nhận phản hồi Google. Quay lại rust-sound để xem kết quả xác thực."
+            "Đã nhận phản hồi xác thực Google. Quay lại SoundsSource Studio để hoàn tất."
         } else if accepted {
-            "Bạn đã hủy đăng nhập. Có thể quay lại rust-sound."
+            "Bạn đã hủy đăng nhập. Có thể quay lại SoundsSource Studio."
         } else {
             "Yêu cầu callback không hợp lệ."
         };
-        let html = format!("<!doctype html><html lang=\"vi\"><meta charset=\"utf-8\"><title>rust-sound</title><p>{message}</p></html>");
+        let html = format!(
+            "<!doctype html><html lang=\"vi\"><meta charset=\"utf-8\"><title>SoundsSource Studio</title><body style=\"font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#090d16;color:#f8fafc;\"><div style=\"text-align:center;padding:2.5rem;background:#111827;border-radius:1.25rem;border:1px solid #1f293d;box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);max-width:420px;\"><div style=\"width:52px;height:52px;margin:0 auto 1.25rem;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#10b981;font-size:26px;font-weight:bold;\">&#10003;</div><h2 style=\"margin:0 0 0.5rem;font-size:1.2rem;font-weight:700;\">Google Authentication</h2><p style=\"margin:0;color:#94a3b8;font-size:0.9rem;line-height:1.5;\">{message}</p></div></body></html>"
+        );
         let status = if accepted {
             "200 OK"
         } else {
@@ -185,6 +188,11 @@ mod tests {
         let good = request(49152, "/callback?state=nonce&code=hello%2Bworld");
         assert_eq!(
             callback_code(&good, 49152, "nonce"),
+            Ok("hello+world".into())
+        );
+        let localhost_good = good.replace("Host: 127.0.0.1:49152", "Host: localhost:49152");
+        assert_eq!(
+            callback_code(&localhost_good, 49152, "nonce"),
             Ok("hello+world".into())
         );
         for bad in [

@@ -291,7 +291,7 @@ impl SessionStore {
         self.sessions.retain(|_, sess| {
             let quiet = now_ts.saturating_sub(sess.last_event_at);
             match sess.state {
-                AgentState::Done if quiet >= 30 => {
+                AgentState::Done if quiet >= 180 => {
                     sess.state = AgentState::Idle;
                     sess.last_event_at = now_ts;
                     true
@@ -458,16 +458,16 @@ mod tests {
         for (id, state) in [("done", "done"), ("active", "working"), ("waiting", "waiting"), ("registered", "registered")] {
             store.apply(AgentEvent::new(id, "pi", state), 1000);
         }
-        store.prune(1029);
+        store.prune(1179);
         assert_eq!(store.get("done").unwrap().state, AgentState::Done);
-        store.prune(1030);
+        store.prune(1180);
         assert_eq!(store.get("done").unwrap().state, AgentState::Idle);
         store.prune(1090);
         assert!(store.get("registered").is_none());
         store.prune(1300);
         assert!(store.get("active").is_none());
         assert!(store.get("waiting").is_none());
-        store.prune(1630);
+        store.prune(1780);
         assert!(store.get("done").is_none());
     }
 

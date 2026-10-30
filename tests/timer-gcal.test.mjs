@@ -13,6 +13,7 @@ test("Google Calendar backend embeds client_id and client_secret and loads from 
 
   const appLibRs = readFileSync("crates/app/src/lib.rs", "utf8");
   assert.ok(appLibRs.includes("GoogleCalendarService::new(client_id, client_secret)"), "AppState must pass client credentials to GoogleCalendarService");
+  assert.ok(appLibRs.includes("google_calendar_cancel"), "AppState must register google_calendar_cancel command");
 });
 
 test("TimerView integrates goal deselection, timebox calculation, and calendar sync", () => {
@@ -21,7 +22,9 @@ test("TimerView integrates goal deselection, timebox calculation, and calendar s
   assert.ok(timerSrc.includes("newEndTime = addMinutesToTime(newStartTime, dur)"), "quick duration must preserve custom start time");
   assert.ok(timerSrc.includes("handleClearCompleted"), "must support clearing completed tasks");
   assert.ok(timerSrc.includes("handleConnectCalendar"), "must wire calendar login trigger");
+  assert.ok(timerSrc.includes("handleCancelCalendar"), "must wire calendar cancel trigger");
 
   const gcalSrc = readFileSync("src/lib/googleCalendar.svelte.ts", "utf8");
   assert.ok(gcalSrc.includes("autoSyncIfEmpty"), "must auto-sync empty calendar when connected");
+  assert.ok(gcalSrc.includes("cancelLogin"), "must support cancelLogin");
 });

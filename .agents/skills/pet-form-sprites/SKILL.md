@@ -24,12 +24,14 @@ Copy this checklist and keep it updated:
 ```
 - [ ] 1. Audit the current forms
 - [ ] 2. Research what each form must look like
-- [ ] 3. Measure the source palette and pick material bands
-- [ ] 4. Write scripts/build-<slug>-forms.py from the Goku template
-- [ ] 5. Iterate on the contact sheet until every pose reads correctly
-- [ ] 6. Add the pet's auras to FORM_AURAS
-- [ ] 7. Add manifest + aura tests
-- [ ] 8. Verify, rebuild the app, commit
+- [ ] 3. Apply Design Principles (Silhouette 3-Read, Appeal & Motion)
+- [ ] 4. Measure the source palette and pick material bands
+- [ ] 5. Write scripts/build-<slug>-forms.py from the Goku/Pikachu template
+- [ ] 6. Generate Anchors & Landmark Data (forms/anchors.json)
+- [ ] 7. Iterate on the contact sheet until every pose reads correctly
+- [ ] 8. Add the pet's auras to FORM_AURAS
+- [ ] 9. Add manifest + aura + landmark tests
+- [ ] 10. Verify, rebuild the app, commit
 ```
 
 **1. Audit.** `python3 -I .agents/skills/pet-form-sprites/scripts/audit_forms.py <slug>`.
@@ -43,43 +45,61 @@ label fan wikis as secondary. Write the result to `docs/engineering/<slug>-form-
 with a per-form table, then group the forms by **shape**: that list is the art you must
 generate. Everything else is a palette swap or an aura.
 
-**3. Measure.** `python3 -I .agents/skills/pet-form-sprites/scripts/palette.py public/pets/<slug>/spritesheet.webp 0 0 [y0:y1,x0:x1] [--map]`
+**3. Design & Appeal Foundations (Integrated Character & Sprite Principles).**
+Before coding the build script, establish the artistic design rules:
+- **The 3-Read Rule**:
+  - *Read 1 (Silhouette / 32px thumbnail)*: The character must be instantly recognizable by silhouette alone. Distinct head shape, ears, hair, horns, or tail geometry. Negative space must stay clear (no merged blobs between ears/limbs).
+  - *Read 2 (Color blocking / 64px squint)*: 2–3 dominant colors define the form (primary fur/skin, secondary belly/outfit, accent cheek/eye). Avoid pillow shading; respect directional light.
+  - *Read 3 (Detail / full 192×208 resolution)*: Expressive facial features, clean outline contours, and form-specific accents. If a detail clutters Reads 1 and 2, drop it.
+- **Shape Language**:
+  - Circles & curves: Friendly, baby/chibi, approachable (e.g. Pichu, soft cats).
+  - Squares & blocks: Sturdy, grounded, armored (e.g. Oozaru, heavyweight forms).
+  - Triangles & angles: Dynamic, fast, aggressive (e.g. Mega evolutions, SSJ spikes).
+- **Appeal & Secondary Motion Signature**:
+  - Give each form distinct motion rhythm (amplitude, lag, secondary physics on ears/tail/mane).
+  - Ensure clear face focal points and distinct resting/sleeping silhouettes (tucked/squashed, closed eyelids).
+
+**4. Measure.** `python3 -I .agents/skills/pet-form-sprites/scripts/palette.py public/pets/<slug>/spritesheet.webp 0 0 [y0:y1,x0:x1] [--map]`
 on the head and on the outfit separately. Write down the hue/lightness/saturation band of
 every material you will recolour (hair or fur, iris, skin, accessories), and note where two
 materials overlap. Overlaps need a spatial rule, not a tighter band (see reference.md).
 
-**4. Build script.** Copy `scripts/build-goku-forms.py` to `scripts/build-<slug>-forms.py`.
+**5. Build script.** Copy `scripts/build-goku-forms.py` or `scripts/build-pikachu-forms.py` (authored vector/Bézier path approach) to `scripts/build-<slug>-forms.py`.
 Change `PET_DIR`, the `FORMS` table (one entry per form: shape key, ramps dark to light, outline
-colour, iris ramp, optional skin tint) and `SHAPE_SCALE`. Rewrite `classify()` with the bands
-from step 3. Then add one function per new shape part (Goku: `ssj3_mane`, `ssj2_bang`). Keep
-these invariants:
+colour, iris ramp, optional skin tint) and `SHAPE_SCALE` / `MOTION`. Rewrite `classify()` with the bands
+from step 4. Then add functions for distinct shape parts or paths. Keep these invariants:
 - Never touch the outfit pixels. Recolour only the materials that change in canon.
-- Keep the 8 x 9 grid and cell size. Slicing, clip bindings and the picker depend on it.
+- Keep the 8 x 9 grid and cell size (192 x 208). Slicing, clip bindings and the picker depend on it.
+- Row 2 must be an exact alpha mirror of Row 1 for every run frame.
 - Bake no aura or glow into the sheet. Auras are drawn at runtime.
 - Save sheets as lossy WebP `quality=92, alpha_quality=100, method=6`. Lossless doubles the size.
 - Write `forms/manifest.json` with each form's shape key, ramps, alpha hash and opaque pixel count.
 - Accept `[form-id ...]` arguments so you can rebuild one form while iterating.
+- Support `--check` flag to validate cell margins, sheet size, substantial-alpha connectivity, run mirroring, and unique decoded silhouettes.
 
 Run it with `python3 -I scripts/build-<slug>-forms.py [form-id ...]`. A full build takes about a minute.
 
-**5. Iterate.** `python3 -I .agents/skills/pet-form-sprites/scripts/preview.py <slug> <scratch>/preview.png 0.75`
-and look at the image. The default cells (idle, run, wave, lying) are where reshaping fails
-first. Loop on step 4 until there are no ghost outlines, stray specks, unrecoloured shadows,
-material bleeding into the outfit, or shape parts that read as wings.
+**6. Landmarks & Anchors (Runtime FX Alignment).**
+When forms have dynamic visual FX (electricity, ki sparks, flame points, floating particles), do not hardcode relative canvas percentages.
+Generate `forms/anchors.json` containing exact cell-space coordinates (e.g. `left_cheek`, `right_cheek`, `tail_tip`, `head_crown`) for all 720 cells through the pose transform math. Validate that every anchor point touches opaque/substantial alpha.
 
-**6. Auras.** Add `"<slug>/<formId>": { inner, outer?, sparks?, intensity?, calm? }` entries to
+**7. Iterate.** `python3 -I .agents/skills/pet-form-sprites/scripts/preview.py <slug> <scratch>/preview.png 0.75`
+and inspect the contact sheet at 32px silhouette, 64px color, and full resolution. Check default cells (idle, run, wave, sleep, celebrate). Loop until there are no ghost outlines, stray specks, unrecoloured shadows, material bleeding, or detached limbs.
+
+**8. Auras.** Add `"<slug>/<formId>": { inner, outer?, sparks?, intensity?, calm? }` entries to
 `FORM_AURAS` in `src/shared/lib/petRenderer.ts`. Hex colours must live there: the theme-token
 test rejects colour literals in `types.ts` and views. Everything that renders a pet already
 looks the aura up with `petFormAura(slug, formId)`: `AgentPetSprite`, `PetAnimationPicker`, the
 overlay backlight and the stage backdrop. Use `sparks` only for forms that crackle in canon. An
 aura also turns off the slug-wide `source-atop` lighting wash for that form.
 
-**7. Tests.** In `tests/pet-forms.test.mjs`, copy the three Goku tests for the new pet:
+**9. Tests.** In `tests/pet-forms.test.mjs`, copy the test suites for the new pet:
 - the silhouette hashes of the different shape groups differ;
 - the palettes match the research (hue and lightness checks on the manifest ramps);
-- every form has an aura, and only the canon forms have sparks.
+- every form has an aura, and only the canon forms have sparks;
+- (if anchors used) anchor coordinates exist and map cleanly onto cell dimensions.
 
-**8. Verify and ship.** Run `node --test tests/*.test.mjs`, `pnpm build`, `cargo test --workspace`
+**10. Verify and ship.** Run `node --test tests/*.test.mjs`, `pnpm build`, `cargo test --workspace`
 and `pnpm rebuild:app`, as required by CLAUDE.md. Commit only your files: the repo usually has
 unrelated work in progress, and `openspec/` is gitignored. If a `pnpm check` error is in a file
 you did not touch, report it rather than fixing it silently.

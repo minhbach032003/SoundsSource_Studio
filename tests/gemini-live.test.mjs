@@ -153,7 +153,7 @@ function createGeminiLiveHarness(options) {
   let timerId = 0;
 
   // geminiLive imports its function-calling layer, so both modules share one scope.
-  const source = `${stripModule("src/lib/geminiAudioTools.ts")}\n${stripModule(
+  const source = `${stripModule("src/lib/geminiAudioTools.ts")}\n${stripModule("src/lib/desktopControl.svelte.ts")}\n${stripModule(
     "src/lib/geminiLive.svelte.ts"
   )}`;
 
@@ -163,6 +163,7 @@ function createGeminiLiveHarness(options) {
     isTauri: () => opts.isTauri ?? false,
     invoke: opts.invoke || (async () => null),
     $state: (v) => v,
+    toastState: { success() {}, error() {}, info() {} },
     crypto: { randomUUID: () => `test-uuid-${Math.random().toString(36).slice(2, 8)}` },
     atob: (s) => Buffer.from(s, "base64").toString("binary"),
     btoa: (s) => Buffer.from(s, "binary").toString("base64"),
@@ -549,6 +550,41 @@ async function openLiveSession(harness, apiKey = "AIzaTestKey-Session") {
   return ws;
 }
 
+test("desktop tool closes Chrome only after local approval and never responds to a new transport", async () => {
+  const calls = [];
+  const harness = createGeminiLiveHarness({ isTauri: true, invoke: async (command, args) => {
+    calls.push({command, args});
+    if (command === 'desktop_set_enabled') return '1';
+    if (command === 'desktop_prepare') return {id:'close-1', target:'Chrome / disposable tab', description:'Close Chrome tab'};
+    if (command === 'desktop_approve') return {summary:'Closed requested tab', verified:true};
+    return null;
+  }});
+  const {instance} = harness;
+  const ws = await openLiveSession(harness);
+  assert.ok(JSON.parse(ws.sent[0]).setup.tools.some(t => t.functionDeclarations?.some(f => f.name === 'desktop_action')));
+  const message = {data:JSON.stringify({toolCall:{functionCalls:[{id:'d1',name:'desktop_action',args:{kind:'close_chrome_tab'}}]}})};
+  await ws.onmessage(message);
+  assert.equal(lastSent(ws).toolResponse.functionResponses[0].response.ok, false);
+  await instance.desktop.setEnabled(true);
+  const action = ws.onmessage(message);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(instance.desktop.pending);
+  assert.ok(!calls.some(c => c.command === 'desktop_approve'));
+  await instance.desktop.approve();
+  await action;
+  assert.equal(lastSent(ws).toolResponse.functionResponses[0].response.verified, true);
+  assert.equal(instance.transcript.at(-1).toolOk, true);
+  const stale = ws.onmessage(message);
+  await new Promise(resolve => setImmediate(resolve));
+  await instance.reconnect();
+  await stale;
+  assert.equal(instance.desktop.pending, null);
+  assert.equal(instance.desktop.enabled, false);
+  assert.equal(calls.filter(c => c.command === 'desktop_approve').length, 1);
+  assert.equal(MockWebSocket.instances.at(-1).sent.length, 0, 'no old tool response on replacement socket');
+  instance.disconnect();
+});
+
 test("setup frame negotiates transcription, tools and a system instruction", async () => {
   const { instance } = createGeminiLiveHarness();
 
@@ -713,9 +749,9 @@ test("Agent Control off refuses function calls without touching the mixer", asyn
 
   const offTools = JSON.parse(ws.sent[0]).setup.tools || [];
   assert.equal(
-    offTools.some((t) => t.functionDeclarations),
+    offTools.some((t) => t.functionDeclarations?.some((f) => !['desktop_action', 'search_notes'].includes(f.name))),
     false,
-    "no mixer functions declared while off (Google Search may remain)"
+    "no mixer functions declared while off (independent desktop, notes and Google Search tools may remain)"
   );
 
   await ws.onmessage({

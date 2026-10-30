@@ -56,6 +56,35 @@
 | Part only on one side in front-facing frames | Facing threshold too low | Trail only when abs(face_x - head_x) > 12 |
 | Sheets about 2x larger | Lossless WebP | Lossy q92, alpha_quality 100 |
 
+## Design, Appeal & Character Discipline (from pixel-art-sprites, character-design, appeal-mastery)
+
+### 1. The 3-Read Hierarchy at Companion Scale
+- **Read 1 (Silhouette / 32px)**:
+  - Export a 32px solid black silhouette test sheet.
+  - The form's identity must communicate from shadow alone (ears, tail, horns, mane).
+  - Silhouette test questions: Can you distinguish this form from the base pet? Can you tell front from back?
+  - Keep negative space clean (e.g. gap between ears, spacing between arm and flank).
+- **Read 2 (Color Blocking / 64px)**:
+  - 2-3 primary color masses: main body/fur, secondary underbelly/clothing, focal accent (cheeks, eyes).
+  - Directional lighting over pillow shading (avoid darkening every edge uniformly).
+  - High contrast on the face focal zone, lower contrast on limbs and secondary body masses.
+- **Read 3 (Detail / 192×208 px)**:
+  - Expressive eyes/mouth, clean line art. If a detail disappears or creates visual noise at 64px, remove it.
+
+### 2. Secondary Motion & Temporal Appeal
+- **Motion Personality**:
+  - Differentiate idle and run motion signatures across forms via `MOTION` parameters (amplitude, phase, lag).
+  - Pichu: quick, buoyant, bouncy ear response; Heavy/Gigantamax: slow, weighted, grounded; Raichu: sleek, athletic tail flow.
+  - Secondary parts (tails, long ears, manes) must drag slightly behind the main body mass and follow clean arc trajectories.
+- **Pose Clarity Across States**:
+  - Sleepy pose (Row 5): Must have squashed/tucked resting posture, folded ears, and closed eyelids across all frames.
+  - Run Left (Row 2): Must be exact horizontal alpha-mirror of Run Right (Row 1).
+
+### 3. Procedural Landmarks & Dynamic FX Alignment (`forms/anchors.json`)
+- Never hardcode percentage anchors in the canvas renderer when companions have distinctive form shapes.
+- Use the script's pose transform math to compute precise `(x, y)` cell coordinates for FX emission (cheeks, tail tip, aura core).
+- Validate anchors during `--check`: each landmark must sit on opaque pixels (>0.2 alpha) in the generated sprite.
+
 Lying and bowed frames (row 5) rotate the head, so vertical rescaling distorts them a little.
 That is acceptable at pet size. Check them on the preview anyway.
 

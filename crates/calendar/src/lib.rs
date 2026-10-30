@@ -243,6 +243,7 @@ pub struct GoogleCalendarService {
     storage: Arc<dyn TokenStorage>,
     client: reqwest::blocking::Client,
     logging_in: AtomicBool,
+    active_cancel: Mutex<Option<Arc<AtomicBool>>>,
 }
 
 impl Default for GoogleCalendarService {
@@ -285,6 +286,7 @@ impl GoogleCalendarService {
             storage,
             client,
             logging_in: AtomicBool::new(false),
+            active_cancel: Mutex::new(None),
         }
     }
 
@@ -301,6 +303,15 @@ impl GoogleCalendarService {
         }
     }
 
+    pub fn cancel(&self) {
+        if let Ok(guard) = self.active_cancel.lock() {
+            if let Some(flag) = guard.as_ref() {
+                flag.store(true, Ordering::Release);
+            }
+        }
+        self.logging_in.store(false, Ordering::Release);
+    }
+
     pub fn login(&self) -> Result<GoogleCalendarAccount, String> {
         let client_id = self
             .client_id
@@ -314,13 +325,25 @@ impl GoogleCalendarService {
             return Err("Đang chờ đăng nhập Google trên trình duyệt.".into());
         }
 
-        struct LoginGuard<'a>(&'a AtomicBool);
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        if let Ok(mut active) = self.active_cancel.lock() {
+            *active = Some(cancel_flag.clone());
+        }
+
+        struct LoginGuard<'a>(&'a AtomicBool, &'a Mutex<Option<Arc<AtomicBool>>>);
         impl Drop for LoginGuard<'_> {
             fn drop(&mut self) {
                 self.0.store(false, Ordering::Release);
+                if let Ok(mut active) = self.1.lock() {
+                    *active = None;
+                }
             }
         }
-        let _guard = LoginGuard(&self.logging_in);
+        let _guard = LoginGuard(&self.logging_in, &self.active_cancel);
+
+        if cancel_flag.load(Ordering::Acquire) {
+            return Err("Đã hủy đăng nhập Google.".into());
+        }
 
         let pkce = Pkce::generate_challenge();
         let (listener, redirect_uri) = bind_listener()?;
@@ -352,9 +375,12 @@ impl GoogleCalendarService {
             return Err("Không mở được trình duyệt để xác thực Google.".into());
         }
 
-        let cancelled = AtomicBool::new(false);
-        let code = wait_for_code(&listener, &pkce.state, &cancelled, Duration::from_secs(180))?;
+        let code = wait_for_code(&listener, &pkce.state, &cancel_flag, Duration::from_secs(180))?;
         drop(listener);
+
+        if cancel_flag.load(Ordering::Acquire) {
+            return Err("Đã hủy đăng nhập Google.".into());
+        }
 
         let mut form = vec![
             ("grant_type", "authorization_code"),
@@ -537,11 +563,7 @@ impl GoogleCalendarService {
         if !resp.status().is_success() {
             let status = resp.status();
             let err_text = resp.text().unwrap_or_default();
-            return Err(format!(
-                "Google Calendar API trả về lỗi {}: {}",
-                status,
-                err_text
-            ));
+            return Err(format_google_calendar_api_error(status, &err_text));
         }
 
         let body = resp.text().map_err(|e| e.to_string())?;
@@ -598,6 +620,21 @@ where
         LocalResult::None => now,
     };
     (start_dt.to_rfc3339(), end_dt.to_rfc3339())
+}
+
+/// Formats Google Calendar API error response with actionable guidance (e.g. un-enabled API 403).
+pub fn format_google_calendar_api_error(status: reqwest::StatusCode, body: &str) -> String {
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(body) {
+        if let Some(msg) = val.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+            if msg.contains("has not been used") || msg.contains("disabled") || msg.contains("accessNotConfigured") {
+                return format!(
+                    "Google Calendar API chưa được bật trên Google Cloud Console cho dự án này. Vui lòng bật API tại: https://console.cloud.google.com/apis/library/calendar-json.googleapis.com rồi thử lại. (Chi tiết: {msg})"
+                );
+            }
+            return format!("Google Calendar API lỗi ({status}): {msg}");
+        }
+    }
+    format!("Google Calendar API trả về lỗi {status}: {body}")
 }
 
 /// Parse Google Calendar API v3 JSON response into normalized `Vec<GoogleCalendarEventDto>`.

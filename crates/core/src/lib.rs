@@ -1,5 +1,6 @@
 pub mod cleaner_policy;
 pub mod device;
+pub mod desktop;
 pub mod input_blocker;
 pub mod memory;
 pub mod memory_cleaner;

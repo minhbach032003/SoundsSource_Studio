@@ -150,6 +150,18 @@ export class GoogleCalendarState {
     }
   }
 
+  async cancelLogin(): Promise<void> {
+    if (this.isLoading && typeof window !== "undefined" && isTauri()) {
+      try {
+        await invoke("google_calendar_cancel");
+      } catch (e) {
+        console.warn("Failed to cancel Google Calendar login:", e);
+      }
+    }
+    this.isLoading = false;
+    this.error = null;
+  }
+
   async syncCalendar(_user?: GoogleUser | null): Promise<{ success: boolean; count: number; error?: string }> {
     if (typeof window === "undefined" || !isTauri()) {
       const msg = "Hãy mở ứng dụng desktop để đồng bộ Google Calendar.";

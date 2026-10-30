@@ -37,7 +37,7 @@ unsafe extern "C" {
     fn sel_registerName(name: *const std::ffi::c_char) -> *mut c_void;
 }
 
-mod macos_app {
+pub(crate) mod macos_app {
     use super::*;
     use std::ffi::{c_char, CStr};
 

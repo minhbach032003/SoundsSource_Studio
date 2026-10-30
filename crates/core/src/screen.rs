@@ -231,6 +231,21 @@ mod tests {
         assert!(nothing.authority.is_none());
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_live_screen_capture_returns_jpeg_or_explicit_permission_error() {
+        let result = capture_main_display_jpeg(DEFAULT_MAX_EDGE, DEFAULT_QUALITY);
+        match result {
+            Ok(bytes) => {
+                assert!(bytes.len() > 100);
+                assert_eq!(&bytes[0..2], &[0xFF, 0xD8]); // JPEG SOI marker
+            }
+            Err(e) => {
+                assert!(e.contains("Screen Recording") || e.contains("Không chụp được màn hình"));
+            }
+        }
+    }
+
     #[test]
     fn the_capture_defaults_match_what_the_uplink_actually_sends() {
         // Encoding at the source is the optimisation; if this drifts above the uplink's

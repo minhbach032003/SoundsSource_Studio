@@ -4,6 +4,7 @@
   import { googleAuthState } from "@/lib/googleAuth.svelte";
   import GoogleIcon from "@/components/icons/GoogleIcon.svelte";
   import Modal from "@/components/ui/Modal.svelte";
+  import DesktopControl from "@/components/DesktopControl.svelte";
   import type { GoogleUser } from "@/components/navigation/SideNavbar.svelte";
   import {
     geminiLiveState,
@@ -761,6 +762,8 @@
     </div>
   {/if}
 
+  <DesktopControl controller={geminiLiveState.desktop} available={geminiLiveState.desktopToolsAvailable} />
+
   <!-- 2. Responsive 2-Column Workspace (Stage & Dialogue Rail) -->
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0 items-stretch">
     <!-- Cột trái (Stage): Interactive Live Stage, PiP Webcam, Dual Visualizer & HUD -->
@@ -802,7 +805,7 @@
             title="Cho phép Gemini gọi hàm điều khiển mixer (âm lượng, mute, EQ)"
           >
             <Zap class="w-3 h-3" />
-            <span>Agent Control</span>
+            <span>Mixer Control</span>
           </button>
           <button
             type="button"

@@ -39,6 +39,9 @@
     Timer,
     ShieldCheck,
     X,
+    CalendarDays,
+    Sparkles,
+    Coffee,
   } from "@lucide/svelte";
 
   export type TimerPhase = "idle" | "studying" | "warning" | "breaking";
@@ -187,6 +190,21 @@
   let modalStartTime = $state(formatClockTime(new Date()));
   let modalEndTime = $state(addMinutesToTime(formatClockTime(new Date()), 25));
   let customError = $state<string | null>(null);
+
+  // Derived state for custom schedule modal preview
+  let modalBreakMinutes = $derived(
+    breakUnit === "min" ? modalBreakVal : Math.max(1, Math.round(modalBreakVal / 60))
+  );
+  let modalTotalCycleMinutes = $derived(modalStudyMinutes + modalBreakMinutes);
+  let modalCycleEndTime = $derived(
+    addMinutesToTime(
+      modalEndTime,
+      breakUnit === "min" ? modalBreakVal : Math.max(1, Math.ceil(modalBreakVal / 60))
+    )
+  );
+  let modalFocusRatio = $derived(
+    Math.max(20, Math.min(80, Math.round((modalStudyMinutes / Math.max(1, modalTotalCycleMinutes)) * 100)))
+  );
 
   // Wall-clock ticker
   let currentTime = $state(new Date());
@@ -692,8 +710,17 @@
         `Google Calendar connected (${googleCalendarState.events.length} events today)`
       );
     } else if (res.error) {
-      notify("error", res.error);
+      if (res.error.includes("hủy") || res.error.includes("cancel") || res.error.includes("Hủy")) {
+        notify("info", "Đã hủy kết nối Google Calendar.");
+      } else {
+        notify("error", res.error);
+      }
     }
+  }
+
+  async function handleCancelCalendar() {
+    await googleCalendarState.cancelLogin();
+    notify("info", "Đã hủy kết nối Google Calendar.");
   }
 
   async function handleSyncCalendar() {
@@ -760,6 +787,25 @@
   function handleModalStartTimeChange(startStr: string) {
     modalStartTime = startStr;
     modalEndTime = addMinutesToTime(startStr, modalStudyMinutes);
+    customError = null;
+  }
+
+  function handleSetModalStartNow() {
+    const nowStr = formatClockTime(new Date());
+    handleModalStartTimeChange(nowStr);
+  }
+
+  function handleStepModalFocus(deltaMin: number) {
+    const nextVal = Math.max(1, Math.min(180, modalStudyMinutes + deltaMin));
+    handleModalDurationChange(nextVal);
+  }
+
+  function handleStepModalBreak(deltaUnit: number) {
+    if (breakUnit === "min") {
+      modalBreakVal = Math.max(1, Math.min(60, modalBreakVal + deltaUnit));
+    } else {
+      modalBreakVal = Math.max(10, Math.min(3600, modalBreakVal + deltaUnit * 5));
+    }
     customError = null;
   }
 
@@ -1125,17 +1171,19 @@
     <!-- Right Column (lg:col-span-5): Tasks Checklist & Interactive Session Configuration -->
     <div class="lg:col-span-5 flex flex-col gap-4 h-full min-h-0">
       <!-- 3. Focus Tasks & Google Calendar Card -->
-      <div class="flex-1 flex flex-col panel p-4 sm:p-5 shadow-sm min-h-65">
-        <!-- Task Header with Google Calendar Sync & Filter Tabs -->
-        <div class="flex items-center justify-between pb-3 mb-3 border-b border-(--line) shrink-0">
-          <div class="flex items-center gap-2">
-            <ListTodo class="w-3.5 h-3.5 text-(--accent)" />
-            <span class="text-xs font-semibold text-(--ink) tracking-tight">
+      <div class="flex-1 flex flex-col panel p-4 sm:p-5 shadow-sm min-h-70">
+        <!-- Header Bar: Title, Counters & Calendar Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 mb-3 border-b border-(--line) shrink-0">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-6 h-6 rounded-lg bg-(--accent)/15 border border-(--accent)/30 flex items-center justify-center text-(--accent) shrink-0">
+              <ListTodo class="w-3.5 h-3.5" />
+            </div>
+            <span class="text-xs font-bold text-(--ink) tracking-tight">
               Focus Schedule
             </span>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-(--surface) text-(--muted) text-[10px] font-semibold border border-(--line)">
               <CheckCircle2 class="w-2.5 h-2.5 text-(--success)" />
-              <span>{completedCount}/{unifiedItems.length} Done</span>
+              <span>{completedCount}/{unifiedItems.length}</span>
               {#if todos.some((t) => t.is_completed)}
                 <button
                   type="button"
@@ -1149,10 +1197,11 @@
             </span>
           </div>
 
-          <!-- Google Calendar Sync Action / Status -->
-          <div class="flex items-center gap-1.5">
+          <!-- Quick Actions: Google Calendar Sync + Timebox Option -->
+          <div class="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
             {#if isCalendarConnected}
-              <div class="flex items-center gap-1 text-[10px] text-(--muted) max-w-44 truncate">
+              <div class="flex items-center gap-1.5 text-[10px] text-(--muted) px-2.5 py-1 rounded-lg bg-(--surface) border border-(--line) max-w-48 truncate">
+                <span class="w-1.5 h-1.5 rounded-full bg-(--success) shrink-0"></span>
                 {#if calendarEmail}
                   <span class="truncate text-(--ink) font-medium" title={calendarEmail}>
                     {calendarEmail}
@@ -1160,7 +1209,7 @@
                 {/if}
                 {#if lastSyncedTime}
                   <span class="text-(--muted) hidden sm:inline">
-                    ({lastSyncedTime})
+                    · {lastSyncedTime}
                   </span>
                 {/if}
               </div>
@@ -1169,14 +1218,13 @@
                 type="button"
                 onclick={handleSyncCalendar}
                 disabled={isLoadingCalendar}
-                class="flex items-center gap-1 px-2 py-1 rounded-lg bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/30 text-(--accent-text) text-[11px] font-semibold cursor-pointer transition-colors"
-                title="Sync Google Calendar events"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-(--accent)/15 hover:bg-(--accent)/25 border border-(--accent)/30 text-(--accent-text) text-[11px] font-semibold cursor-pointer transition-colors"
+                title="Đồng bộ lịch Google"
               >
-                <GoogleIcon class="w-3 h-3" />
                 <RefreshCw
                   class="w-3 h-3 {isLoadingCalendar ? 'animate-spin text-(--accent)' : ''}"
                 />
-                <span>{isLoadingCalendar ? "Syncing…" : "Sync"}</span>
+                <span>{isLoadingCalendar ? 'Syncing…' : 'Sync'}</span>
               </button>
 
               <button
@@ -1184,102 +1232,137 @@
                 onclick={handleDisconnectCalendar}
                 disabled={isLoadingCalendar}
                 class="p-1 text-(--muted) hover:text-(--error) transition-colors rounded cursor-pointer"
-                title="Disconnect Google Calendar"
+                title="Ngắt kết nối Google Calendar"
               >
                 <Unlink class="w-3.5 h-3.5" />
               </button>
+            {:else if isLoadingCalendar}
+              <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-(--accent)/10 text-(--accent-text) text-[11px] border border-(--accent)/30 font-medium">
+                  <RefreshCw class="w-3 h-3 animate-spin text-(--accent)" />
+                  <span>Đang kết nối…</span>
+                </div>
+                <button
+                  type="button"
+                  onclick={handleCancelCalendar}
+                  class="p-1 text-(--muted) hover:text-(--error) transition-colors rounded cursor-pointer border border-(--line) bg-(--surface)"
+                  title="Hủy kết nối Google Calendar"
+                >
+                  <X class="w-3.5 h-3.5" />
+                </button>
+              </div>
             {:else}
               <button
                 type="button"
                 onclick={handleConnectCalendar}
-                disabled={isLoadingCalendar}
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-(--surface) hover:bg-(--paper) text-(--ink) text-[11px] border border-(--line) cursor-pointer transition-colors"
-                title="Connect Google Calendar"
+                class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-(--surface) hover:bg-(--paper) text-(--ink) text-[11px] border border-(--line) cursor-pointer transition-colors font-medium"
+                title="Kết nối Google Calendar"
               >
-                <GoogleIcon class="w-3 h-3" />
-                {#if isLoadingCalendar}
-                  <RefreshCw class="w-3 h-3 animate-spin text-(--accent)" />
-                  <span>Connecting…</span>
-                {:else}
-                  <span>Connect Calendar</span>
-                {/if}
+                <GoogleIcon class="w-3.5 h-3.5" />
+                <span>Lịch Google</span>
               </button>
             {/if}
 
             <button
               type="button"
               onclick={() => (showTimeboxOptions = !showTimeboxOptions)}
-              class="text-[11px] flex items-center gap-1 cursor-pointer transition-colors px-2 py-0.5 rounded-md {showTimeboxOptions
-                ? 'text-(--accent-text) bg-(--accent)/15 border border-(--accent)/30'
-                : 'text-(--muted) hover:text-(--ink)'}"
-              title="Toggle manual time schedule"
+              class="text-[11px] flex items-center gap-1 cursor-pointer transition-colors px-2 py-1 rounded-lg border {showTimeboxOptions
+                ? 'text-(--accent-text) bg-(--accent)/15 border-(--accent)/30 font-semibold'
+                : 'text-(--muted) hover:text-(--ink) bg-(--surface) border-(--line)'}"
+              title="Thêm khung giờ biểu"
             >
               <Calendar class="w-3 h-3 text-(--accent)" />
-              <span>{showTimeboxOptions ? "Hide" : "+ Timebox"}</span>
+              <span>{showTimeboxOptions ? 'Đóng' : '+ Giờ'}</span>
             </button>
           </div>
         </div>
 
-        <!-- Filter Tabs: All / Calendar / Tasks -->
-        <div class="flex items-center gap-1.5 mb-3 shrink-0">
+        <!-- Filter Segmented Tabs -->
+        <div class="grid grid-cols-3 gap-1 p-0.5 rounded-lg bg-(--surface) border border-(--line) mb-3 shrink-0 text-center">
           <button
             type="button"
-            onclick={() => (activeFilter = "all")}
-            class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer {activeFilter === 'all'
-              ? 'bg-(--paper) text-(--ink) font-semibold border border-(--line) shadow-xs'
+            onclick={() => (activeFilter = 'all')}
+            class="py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 {activeFilter === 'all'
+              ? 'bg-(--paper) text-(--ink) font-semibold shadow-xs border border-(--line)'
               : 'text-(--muted) hover:text-(--ink)'}"
           >
-            All ({calendarEvents.length + todos.length})
+            <span>Tất cả</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded-full {activeFilter === 'all' ? 'bg-(--accent)/20 text-(--accent-text)' : 'bg-(--line) text-(--muted)'}">
+              {calendarEvents.length + todos.length}
+            </span>
           </button>
 
           <button
             type="button"
-            onclick={() => (activeFilter = "calendar")}
-            class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 {activeFilter === 'calendar'
-              ? 'bg-(--paper) text-(--ink) font-semibold border border-(--line) shadow-xs'
+            onclick={() => (activeFilter = 'calendar')}
+            class="py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 {activeFilter === 'calendar'
+              ? 'bg-(--paper) text-(--ink) font-semibold shadow-xs border border-(--line)'
               : 'text-(--muted) hover:text-(--ink)'}"
           >
             <GoogleIcon class="w-2.5 h-2.5" />
-            <span>Google Calendar ({calendarEvents.length})</span>
+            <span>Lịch hẹn</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded-full {activeFilter === 'calendar' ? 'bg-(--accent)/20 text-(--accent-text)' : 'bg-(--line) text-(--muted)'}">
+              {calendarEvents.length}
+            </span>
           </button>
 
           <button
             type="button"
-            onclick={() => (activeFilter = "tasks")}
-            class="px-2.5 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer {activeFilter === 'tasks'
-              ? 'bg-(--paper) text-(--ink) font-semibold border border-(--line) shadow-xs'
+            onclick={() => (activeFilter = 'tasks')}
+            class="py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 {activeFilter === 'tasks'
+              ? 'bg-(--paper) text-(--ink) font-semibold shadow-xs border border-(--line)'
               : 'text-(--muted) hover:text-(--ink)'}"
           >
-            Manual Goals ({todos.length})
+            <span>Mục tiêu</span>
+            <span class="text-[9px] px-1.5 py-0.2 rounded-full {activeFilter === 'tasks' ? 'bg-(--accent)/20 text-(--accent-text)' : 'bg-(--line) text-(--muted)'}">
+              {todos.length}
+            </span>
           </button>
         </div>
 
-        <!-- Guest Connection Prompt Banner if not logged in -->
+        <!-- Sleek Banner if Google Calendar is disconnected -->
         {#if !isCalendarConnected}
-          <div class="p-3 rounded-xl bg-(--paper) border border-(--line) flex items-center justify-between gap-3 mb-3 shrink-0">
+          <div class="p-3 rounded-xl bg-gradient-to-r from-(--accent)/10 via-(--surface) to-(--paper) border border-(--accent)/20 flex items-center justify-between gap-3 mb-3 shrink-0 shadow-xs">
             <div class="flex items-center gap-2.5 min-w-0">
-              <div class="w-7 h-7 rounded-lg bg-(--accent)/15 border border-(--accent)/30 flex items-center justify-center shrink-0">
+              <div class="w-7 h-7 rounded-lg bg-(--accent)/20 border border-(--accent)/35 flex items-center justify-center shrink-0 text-(--accent)">
                 <GoogleIcon class="w-3.5 h-3.5" />
               </div>
               <div class="min-w-0">
                 <p class="text-xs font-semibold text-(--ink) m-0 truncate">
-                  Google Calendar Sync
+                  Đồng bộ Google Calendar
                 </p>
                 <p class="text-[10px] text-(--muted) m-0 truncate">
-                  Connect to view today's meetings and activities automatically
+                  Tự động hiển thị các cuộc hẹn, sự kiện và link Meet hôm nay vào Pomodoro
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onclick={handleConnectCalendar}
-              disabled={isLoadingCalendar}
-              class="btn btn-primary h-7 text-[11px] shrink-0 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer"
-            >
-              <GoogleIcon class="w-3 h-3" />
-              <span>{isLoadingCalendar ? "Connecting…" : "Connect"}</span>
-            </button>
+            {#if isLoadingCalendar}
+              <div class="flex items-center gap-1.5 shrink-0">
+                <div class="btn btn-primary opacity-80 h-7 text-[11px] px-2.5 rounded-lg flex items-center gap-1.5 font-medium shadow-xs">
+                  <RefreshCw class="w-3 h-3 animate-spin" />
+                  <span>Đang kết nối…</span>
+                </div>
+                <button
+                  type="button"
+                  onclick={handleCancelCalendar}
+                  class="btn border border-(--line) bg-(--paper) hover:bg-(--line) text-(--error) text-[11px] h-7 px-2 rounded-lg flex items-center gap-1 cursor-pointer font-medium transition-colors"
+                  title="Hủy kết nối"
+                >
+                  <X class="w-3 h-3" />
+                  <span>Hủy</span>
+                </button>
+              </div>
+            {:else}
+              <button
+                type="button"
+                onclick={handleConnectCalendar}
+                class="btn btn-primary h-7 text-[11px] shrink-0 px-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer font-medium shadow-xs"
+              >
+                <GoogleIcon class="w-3 h-3" />
+                <span>Kết nối</span>
+              </button>
+            {/if}
           </div>
         {/if}
 
@@ -1288,37 +1371,37 @@
           <div class="flex items-center gap-2">
             <input
               type="text"
-              placeholder="Add custom milestone or task…"
+              placeholder="Thêm công việc hoặc mục tiêu phiên…"
               bind:value={newTodoTitle}
               class="flex-1 h-8.5 text-xs bg-(--surface) border border-(--line) rounded-lg px-2.5 text-(--ink) placeholder-(--muted) focus:outline-none focus:border-(--focus)"
             />
             <button
               type="submit"
               disabled={!newTodoTitle.trim()}
-              class="btn border border-(--line) bg-(--surface) hover:bg-(--paper) disabled:opacity-40 text-(--ink) text-xs h-8.5 shrink-0 px-3.5 rounded-lg flex items-center gap-1 cursor-pointer"
+              class="btn border border-(--line) bg-(--surface) hover:bg-(--paper) disabled:opacity-40 text-(--ink) text-xs h-8.5 shrink-0 px-3.5 rounded-lg flex items-center gap-1 cursor-pointer font-medium"
             >
               <Plus class="w-3.5 h-3.5" />
-              <span>Add</span>
+              <span>Thêm</span>
             </button>
           </div>
 
           <!-- Timebox Inputs (Start Time -> End Time) -->
           {#if showTimeboxOptions}
-            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) space-y-2 text-xs">
+            <div class="p-2.5 rounded-xl bg-(--paper) border border-(--line) space-y-2 text-xs shadow-xs">
               <div class="flex items-center justify-between text-[11px] text-(--muted)">
                 <span class="flex items-center gap-1">
                   <Clock class="w-3 h-3 text-(--accent-text)" />
-                  Time-blocking schedule:
+                  Khung giờ dự kiến:
                 </span>
                 <span class="font-mono text-(--accent-text) font-semibold">
-                  {diffMinutesBetween(newStartTime, newEndTime)} minutes
+                  {diffMinutesBetween(newStartTime, newEndTime)} phút
                 </span>
               </div>
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <span class="text-[10px] text-(--muted) block mb-0.5">
-                    Start Time
+                    Bắt đầu
                   </span>
                   <input
                     type="time"
@@ -1328,7 +1411,7 @@
                 </div>
                 <div>
                   <span class="text-[10px] text-(--muted) block mb-0.5">
-                    End Time
+                    Kết thúc
                   </span>
                   <input
                     type="time"
@@ -1348,7 +1431,7 @@
                     }}
                     class="px-2 py-0.5 rounded bg-(--surface) hover:bg-(--paper) text-[10px] text-(--ink) border border-(--line) cursor-pointer"
                   >
-                    +{dur}m
+                    +{dur}p
                   </button>
                 {/each}
               </div>
@@ -1361,43 +1444,60 @@
           {#if unifiedItems.length === 0}
             <div class="h-full flex flex-col items-center justify-center p-6 text-center text-xs text-(--muted) space-y-2.5 my-auto">
               <div class="w-12 h-12 rounded-2xl bg-(--accent)/10 border border-(--accent)/20 flex items-center justify-center text-(--accent) shadow-sm">
-                <Calendar class="w-6 h-6 stroke-[1.8]" />
+                <CalendarDays class="w-6 h-6 stroke-[1.8]" />
               </div>
               <div>
                 <p class="font-semibold text-xs text-(--ink) m-0">
-                  {activeFilter === "calendar"
-                    ? "Không có lịch hẹn Google Calendar hôm nay"
-                    : "Chưa có mục tiêu hoặc công việc nào"}
+                  {activeFilter === 'calendar'
+                    ? 'Không có lịch hẹn Google Calendar hôm nay'
+                    : 'Chưa có mục tiêu hoặc công việc nào'}
                 </p>
                 <p class="text-[11px] text-(--muted) mt-1 max-w-xs m-0">
-                  {activeFilter === "calendar"
+                  {activeFilter === 'calendar'
                     ? (!isCalendarConnected
-                        ? "Kết nối tài khoản Google để tự động đồng bộ lịch hẹn."
-                        : "Hôm nay không có cuộc hẹn hoặc sự kiện nào trong lịch.")
-                    : "Thêm công việc vào ô phía trên để bắt đầu phiên tập trung."}
+                        ? 'Kết nối tài khoản Google để tự động đồng bộ lịch hẹn.'
+                        : 'Hôm nay không có cuộc hẹn hoặc sự kiện nào trong lịch của bạn.')
+                    : 'Thêm công việc vào ô phía trên để bắt đầu phiên tập trung.'}
                 </p>
-                {#if activeFilter === "calendar" && !isCalendarConnected}
-                  <button
-                    type="button"
-                    onclick={handleConnectCalendar}
-                    disabled={isLoadingCalendar}
-                    class="btn btn-primary h-7 text-[11px] px-3 rounded-lg flex items-center gap-1.5 mt-2 cursor-pointer mx-auto"
-                  >
-                    <GoogleIcon class="w-3 h-3" />
-                    <span>{isLoadingCalendar ? "Connecting…" : "Connect Google Calendar"}</span>
-                  </button>
+                {#if activeFilter === 'calendar' && !isCalendarConnected}
+                  {#if isLoadingCalendar}
+                    <div class="flex items-center gap-1.5 mt-2.5 mx-auto justify-center">
+                      <div class="btn btn-primary opacity-80 h-7 text-[11px] px-3 rounded-lg flex items-center gap-1.5 font-medium shadow-xs">
+                        <RefreshCw class="w-3 h-3 animate-spin" />
+                        <span>Đang kết nối…</span>
+                      </div>
+                      <button
+                        type="button"
+                        onclick={handleCancelCalendar}
+                        class="btn border border-(--line) bg-(--paper) hover:bg-(--line) text-(--error) text-[11px] h-7 px-2.5 rounded-lg flex items-center gap-1 cursor-pointer font-medium transition-colors"
+                        title="Hủy kết nối"
+                      >
+                        <X class="w-3.5 h-3.5" />
+                        <span>Hủy</span>
+                      </button>
+                    </div>
+                  {:else}
+                    <button
+                      type="button"
+                      onclick={handleConnectCalendar}
+                      class="btn btn-primary h-7 text-[11px] px-3 rounded-lg flex items-center gap-1.5 mt-2.5 cursor-pointer mx-auto font-medium shadow-xs"
+                    >
+                      <GoogleIcon class="w-3 h-3" />
+                      <span>Kết nối Google Calendar</span>
+                    </button>
+                  {/if}
                 {/if}
               </div>
             </div>
           {:else}
             {#each unifiedItems as item (item.id)}
               {@const isActive = activeGoalId === item.id}
-              {@const isGCal = item.source === "google-calendar"}
+              {@const isGCal = item.source === 'google-calendar'}
               <div
                 class="group flex items-center justify-between p-2.5 rounded-xl border transition-all text-xs {isActive
                   ? 'bg-(--accent)/15 border-(--accent) shadow-sm ring-1 ring-(--accent)/30 text-(--ink)'
                   : item.is_completed
-                  ? 'bg-(--paper) border-(--line) opacity-60 text-(--muted)'
+                  ? 'bg-(--paper)/60 border-(--line)/60 opacity-60 text-(--muted)'
                   : 'bg-(--paper) border-(--line) hover:border-(--focus) text-(--ink)'}"
               >
                 <!-- Completion check & Title -->
@@ -1415,7 +1515,7 @@
                     class="w-4.5 h-4.5 rounded-full flex items-center justify-center shrink-0 border transition-all cursor-pointer {item.is_completed
                       ? 'bg-(--success) border-(--success) text-(--accent-ink)'
                       : 'border-(--muted) group-hover:border-(--accent) bg-transparent'}"
-                    title="Toggle completion"
+                    title="Đánh dấu hoàn thành"
                   >
                     {#if item.is_completed}
                       <Check class="w-2.5 h-2.5 stroke-[3]" />
@@ -1430,12 +1530,12 @@
                     role="button"
                     tabindex="0"
                     onkeydown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         handleFocusGoal(item);
                       }
                     }}
-                    title="Focus on this event in the timer"
+                    title="Chọn làm mục tiêu của phiên tập trung"
                   >
                     <div class="flex items-center gap-1.5 flex-wrap">
                       {#if isGCal}
@@ -1465,7 +1565,7 @@
                           </span>
                           {#if item.duration_minutes && item.start_time}
                             <span class="text-(--muted)">
-                              ({item.duration_minutes}m)
+                              ({item.duration_minutes}p)
                             </span>
                           {/if}
                         </div>
@@ -1478,7 +1578,7 @@
                           rel="noopener noreferrer"
                           onclick={(e) => e.stopPropagation()}
                           class="text-(--success) hover:opacity-80 inline-flex items-center gap-1 transition-colors font-sans text-[10px] font-medium px-1.5 py-0.2 rounded bg-(--success)/10 border border-(--success)/25"
-                          title="Open Google Meet link"
+                          title="Mở liên kết Google Meet"
                         >
                           <Video class="w-3 h-3" />
                           <span>Meet</span>
@@ -1495,13 +1595,13 @@
                     <button
                       type="button"
                       onclick={() => handleFocusGoal(item)}
-                      class="px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer {isActive
-                        ? 'bg-(--accent) text-(--accent-ink) font-bold shadow-sm'
+                      class="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 transition-all cursor-pointer {isActive
+                        ? 'bg-(--accent) text-(--accent-ink) font-bold shadow-xs'
                         : 'bg-(--surface) text-(--ink) hover:bg-(--accent)/20 hover:text-(--accent-text) border border-(--line)'}"
-                      title="Focus on this event in the timer"
+                      title="Tập trung vào mục tiêu này trong timer"
                     >
                       <Target class="w-3 h-3" />
-                      <span>{isActive ? "Active" : "Focus"}</span>
+                      <span>{isActive ? 'Đang chạy' : 'Focus'}</span>
                     </button>
                   {/if}
 
@@ -1516,7 +1616,7 @@
                       }
                     }}
                     class="opacity-0 group-hover:opacity-100 text-(--muted) hover:text-(--error) p-1 rounded transition-opacity cursor-pointer shrink-0"
-                    title="Remove item"
+                    title="Xóa mục này"
                   >
                     <Trash2 class="w-3.5 h-3.5" />
                   </button>
@@ -1658,101 +1758,195 @@
     cancelText="Cancel"
     confirmVariant="primary"
     onConfirm={handleSaveCustomDurations}
+    class="!max-w-[490px]"
   >
     {#snippet icon()}
       <SlidersHorizontal class="w-5 h-5 text-(--accent)" />
     {/snippet}
 
-    <div class="space-y-4 pt-1">
-      <!-- Real Wall-Clock Timeline Visual Strip -->
-      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) space-y-2">
-        <span class="text-[11px] font-semibold text-(--ink) flex items-center gap-1.5">
-          <Clock class="w-3.5 h-3.5 text-(--accent-text)" />
-          <span>Real-Time Timeline Preview</span>
-        </span>
+    <div class="space-y-3.5 pt-1">
+      <!-- Real Wall-Clock Timeline Visual Strip & Clock Controls -->
+      <div class="p-3.5 rounded-xl bg-(--paper) border border-(--line) space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5 text-xs font-semibold text-(--ink)">
+            <Clock class="w-3.5 h-3.5 text-(--accent)" />
+            <span>Wall-Clock Schedule</span>
+          </div>
 
-        <div class="flex items-center gap-2 text-xs font-mono">
-          <div class="flex-1 p-2 rounded-lg bg-(--accent)/15 border border-(--accent)/30 text-(--accent-text) text-center">
-            <span class="block text-[10px] text-(--accent) uppercase font-sans font-semibold">
-              Focus Session ({modalStudyMinutes}m)
-            </span>
-            <span class="font-bold">
-              {modalStartTime} → {modalEndTime}
+          <button
+            type="button"
+            onclick={handleSetModalStartNow}
+            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-(--accent) bg-(--accent)/10 hover:bg-(--accent)/20 border border-(--accent)/30 transition-colors cursor-pointer"
+            title="Set start time to current time"
+          >
+            <Sparkles class="w-3 h-3 text-(--accent)" />
+            <span>Set to Now</span>
+          </button>
+        </div>
+
+        <!-- Dual Clock Pods (Start ⇄ End) -->
+        <div class="grid grid-cols-[1fr,auto,1fr] items-center gap-2.5">
+          <!-- Start Time Pod -->
+          <div class="p-2.5 rounded-xl bg-(--surface) border border-(--line) focus-within:border-(--accent) focus-within:ring-1 focus-within:ring-(--accent)/30 transition-all">
+            <div class="flex items-center justify-between text-[10px] text-(--muted) font-semibold uppercase tracking-wider mb-1.5">
+              <span>Start Time</span>
+              <span class="w-2 h-2 rounded-full bg-(--accent)"></span>
+            </div>
+            <input
+              type="time"
+              value={modalStartTime}
+              oninput={(e) => handleModalStartTimeChange((e.target as HTMLInputElement).value)}
+              class="w-full bg-transparent text-sm font-mono font-bold text-(--ink) focus:outline-none cursor-pointer tracking-wider"
+            />
+          </div>
+
+          <!-- Connector Flow Indicator -->
+          <div class="flex flex-col items-center justify-center shrink-0">
+            <div class="w-7 h-7 rounded-full bg-(--surface) border border-(--line) flex items-center justify-center text-(--accent) shadow-xs">
+              <ArrowRight class="w-3.5 h-3.5" />
+            </div>
+            <span class="text-[9px] font-mono font-semibold text-(--muted) mt-1">
+              {modalStudyMinutes}m
             </span>
           </div>
 
-          <ArrowRight class="w-4 h-4 text-(--muted) shrink-0" />
+          <!-- End Time Pod -->
+          <div class="p-2.5 rounded-xl bg-(--surface) border border-(--line) focus-within:border-(--accent) focus-within:ring-1 focus-within:ring-(--accent)/30 transition-all">
+            <div class="flex items-center justify-between text-[10px] text-(--muted) font-semibold uppercase tracking-wider mb-1.5">
+              <span>Focus Ends</span>
+              <span class="w-2 h-2 rounded-full bg-(--success)"></span>
+            </div>
+            <input
+              type="time"
+              value={modalEndTime}
+              oninput={(e) => handleModalEndTimeChange((e.target as HTMLInputElement).value)}
+              class="w-full bg-transparent text-sm font-mono font-bold text-(--ink) focus:outline-none cursor-pointer tracking-wider"
+            />
+          </div>
+        </div>
 
-          <div class="flex-1 p-2 rounded-lg bg-(--accent)/15 border border-(--accent)/30 text-(--accent-text) text-center">
-            <span class="block text-[10px] text-(--accent) uppercase font-sans font-semibold">
-              Rest ({modalBreakVal}{breakUnit})
+        <!-- Segmented Phase Timeline Bar -->
+        <div class="space-y-1.5 pt-1">
+          <div class="w-full h-7 rounded-lg overflow-hidden flex border border-(--line) p-0.5 bg-(--surface) text-[11px] font-semibold select-none">
+            <!-- Focus Segment -->
+            <div
+              style="width: {modalFocusRatio}%"
+              class="h-full rounded-md bg-(--accent)/20 border border-(--accent)/40 text-(--accent-text) flex items-center justify-center gap-1 transition-all duration-300 overflow-hidden px-1"
+              title={`Focus Session: ${modalStudyMinutes}m (${modalStartTime} → ${modalEndTime})`}
+            >
+              <Target class="w-3 h-3 shrink-0 text-(--accent)" />
+              <span class="truncate font-mono text-[10px] sm:text-[11px]">
+                Focus {modalStudyMinutes}m
+              </span>
+            </div>
+
+            <!-- Rest Segment -->
+            <div
+              style="width: {100 - modalFocusRatio}%"
+              class="h-full rounded-md bg-(--success)/20 border border-(--success)/40 text-(--success) flex items-center justify-center gap-1 transition-all duration-300 overflow-hidden px-1 ml-0.5"
+              title={`Rest Interval: ${modalBreakVal}${breakUnit} (${modalEndTime} → ${modalCycleEndTime})`}
+            >
+              <Coffee class="w-3 h-3 shrink-0" />
+              <span class="truncate font-mono text-[10px] sm:text-[11px]">
+                Rest {modalBreakVal}{breakUnit}
+              </span>
+            </div>
+          </div>
+
+          <!-- Time Markers Under Timeline Bar -->
+          <div class="flex items-center justify-between text-[10px] font-mono text-(--muted) px-1">
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-(--accent)"></span>
+              <span>{modalStartTime}</span>
             </span>
-            <span class="font-bold">
-              {modalEndTime} → {addMinutesToTime(
-                modalEndTime,
-                breakUnit === "min" ? modalBreakVal : 1
-              )}
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-(--accent-text)"></span>
+              <span>{modalEndTime}</span>
             </span>
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-(--success)"></span>
+              <span>{modalCycleEndTime}</span>
+            </span>
+          </div>
+
+          <div class="text-[10px] text-(--muted) text-center pt-0.5">
+            Full Cycle: <span class="font-mono font-semibold text-(--ink)">{modalTotalCycleMinutes} min</span> · Ends at <span class="font-mono font-semibold text-(--ink)">{modalCycleEndTime}</span>
           </div>
         </div>
       </div>
 
-      <!-- Wall-Clock Pickers -->
-      <div class="grid grid-cols-2 gap-3 pt-1">
-        <div class="space-y-1">
-          <span class="text-xs font-semibold text-(--ink)">
-            Start Time
-          </span>
-          <input
-            type="time"
-            value={modalStartTime}
-            oninput={(e) => handleModalStartTimeChange((e.target as HTMLInputElement).value)}
-            class="w-full h-9 bg-(--paper) border border-(--line) rounded-lg px-3 text-sm text-(--ink) font-mono font-semibold"
-          />
-        </div>
-
-        <div class="space-y-1">
-          <span class="text-xs font-semibold text-(--ink)">
-            End Time
-          </span>
-          <input
-            type="time"
-            value={modalEndTime}
-            oninput={(e) => handleModalEndTimeChange((e.target as HTMLInputElement).value)}
-            class="w-full h-9 bg-(--paper) border border-(--line) rounded-lg px-3 text-sm text-(--ink) font-mono font-semibold"
-          />
-        </div>
-      </div>
-
-      <!-- Focus Duration (Minutes) -->
-      <div class="space-y-2">
+      <!-- Focus Duration Controls -->
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) space-y-2.5">
         <div class="flex justify-between items-center text-xs">
-          <span class="font-semibold text-(--ink)">
-            Focus Duration (Minutes)
-          </span>
+          <div class="flex items-center gap-1.5 font-semibold text-(--ink)">
+            <Target class="w-3.5 h-3.5 text-(--accent)" />
+            <span>Focus Duration</span>
+          </div>
           <span class="text-(--muted) font-mono text-[11px]">
             {modalStudyMinutes} min ({Math.round((modalStudyMinutes / 60) * 10) / 10}h)
           </span>
         </div>
 
-        <input
-          type="number"
-          min="1"
-          max="180"
-          value={modalStudyMinutes}
-          oninput={(e) => handleModalDurationChange(Number((e.target as HTMLInputElement).value))}
-          class="w-full h-9 bg-(--surface) border border-(--line) rounded-lg px-3 font-mono font-semibold text-sm text-(--ink)"
-        />
+        <!-- Stepper and Number Input -->
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            onclick={() => handleStepModalFocus(-5)}
+            class="h-8 px-2.5 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) font-mono text-xs font-semibold flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title="Decrease 5 minutes"
+          >
+            -5m
+          </button>
+          <button
+            type="button"
+            onclick={() => handleStepModalFocus(-1)}
+            class="w-8 h-8 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title="Decrease 1 minute"
+          >
+            <Minus class="w-3.5 h-3.5" />
+          </button>
+
+          <div class="relative flex-1">
+            <input
+              type="number"
+              min="1"
+              max="180"
+              value={modalStudyMinutes}
+              oninput={(e) => handleModalDurationChange(Number((e.target as HTMLInputElement).value))}
+              class="w-full h-8 bg-(--surface) border border-(--line) focus:border-(--accent) rounded-lg px-3 font-mono font-bold text-center text-sm text-(--ink) focus:outline-none"
+            />
+            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-(--muted) font-mono pointer-events-none">
+              min
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onclick={() => handleStepModalFocus(1)}
+            class="w-8 h-8 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title="Increase 1 minute"
+          >
+            <Plus class="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onclick={() => handleStepModalFocus(5)}
+            class="h-8 px-2.5 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) font-mono text-xs font-semibold flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title="Increase 5 minutes"
+          >
+            +5m
+          </button>
+        </div>
 
         <!-- Quick Chips for Focus -->
-        <div class="flex items-center gap-1.5 flex-wrap pt-1">
+        <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
           {#each [15, 25, 35, 45, 50, 60, 90] as m}
             <button
               type="button"
               onclick={() => handleModalDurationChange(m)}
               class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer {modalStudyMinutes === m
-                ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold'
-                : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
+                ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold shadow-xs'
+                : 'bg-(--surface) border-(--line) text-(--muted) hover:text-(--ink) hover:bg-(--surface)/80'}"
             >
               {m}m
             </button>
@@ -1760,15 +1954,16 @@
         </div>
       </div>
 
-      <!-- Break Duration Input with Unit Toggle -->
-      <div class="space-y-2 pt-2 border-t border-(--line)">
+      <!-- Break Duration Controls -->
+      <div class="p-3 rounded-xl bg-(--paper) border border-(--line) space-y-2.5">
         <div class="flex justify-between items-center text-xs">
-          <span class="font-semibold text-(--ink)">
-            Break Duration
-          </span>
+          <div class="flex items-center gap-1.5 font-semibold text-(--ink)">
+            <Coffee class="w-3.5 h-3.5 text-(--success)" />
+            <span>Break Duration</span>
+          </div>
 
           <!-- Unit Toggle: Minutes vs Seconds -->
-          <div class="inline-flex p-0.5 rounded-lg bg-(--paper) border border-(--line) text-[10px]">
+          <div class="inline-flex p-0.5 rounded-lg bg-(--surface) border border-(--line) text-[10px]">
             <button
               type="button"
               onclick={() => {
@@ -1777,8 +1972,8 @@
                   breakUnit = "min";
                 }
               }}
-              class="px-2 py-0.5 rounded cursor-pointer transition-colors {breakUnit === 'min'
-                ? 'bg-(--surface) text-(--ink) font-semibold shadow-xs'
+              class="px-2.5 py-0.5 rounded cursor-pointer transition-colors {breakUnit === 'min'
+                ? 'bg-(--paper) text-(--ink) font-semibold shadow-xs'
                 : 'text-(--muted) hover:text-(--ink)'}"
             >
               Minutes
@@ -1791,8 +1986,8 @@
                   breakUnit = "sec";
                 }
               }}
-              class="px-2 py-0.5 rounded cursor-pointer transition-colors {breakUnit === 'sec'
-                ? 'bg-(--surface) text-(--ink) font-semibold shadow-xs'
+              class="px-2.5 py-0.5 rounded cursor-pointer transition-colors {breakUnit === 'sec'
+                ? 'bg-(--paper) text-(--ink) font-semibold shadow-xs'
                 : 'text-(--muted) hover:text-(--ink)'}"
             >
               Seconds (Eye-Rest)
@@ -1800,28 +1995,54 @@
           </div>
         </div>
 
-        <input
-          type="number"
-          min={breakUnit === "min" ? 1 : 10}
-          max={breakUnit === "min" ? 60 : 3600}
-          value={modalBreakVal}
-          oninput={(e) => {
-            modalBreakVal = Number((e.target as HTMLInputElement).value);
-            customError = null;
-          }}
-          class="w-full h-9 bg-(--surface) border border-(--line) rounded-lg px-3 font-mono font-semibold text-sm text-(--ink)"
-        />
+        <!-- Stepper and Number Input -->
+        <div class="flex items-center gap-1.5">
+          <button
+            type="button"
+            onclick={() => handleStepModalBreak(-1)}
+            class="w-8 h-8 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title={`Decrease break by ${breakUnit === "min" ? "1 minute" : "5 seconds"}`}
+          >
+            <Minus class="w-3.5 h-3.5" />
+          </button>
+
+          <div class="relative flex-1">
+            <input
+              type="number"
+              min={breakUnit === "min" ? 1 : 10}
+              max={breakUnit === "min" ? 60 : 3600}
+              value={modalBreakVal}
+              oninput={(e) => {
+                modalBreakVal = Number((e.target as HTMLInputElement).value);
+                customError = null;
+              }}
+              class="w-full h-8 bg-(--surface) border border-(--line) focus:border-(--accent) rounded-lg px-3 font-mono font-bold text-center text-sm text-(--ink) focus:outline-none"
+            />
+            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-(--muted) font-mono pointer-events-none">
+              {breakUnit}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onclick={() => handleStepModalBreak(1)}
+            class="w-8 h-8 rounded-lg bg-(--surface) hover:bg-(--paper) active:scale-95 text-(--ink) flex items-center justify-center transition-all cursor-pointer border border-(--line) shadow-xs shrink-0"
+            title={`Increase break by ${breakUnit === "min" ? "1 minute" : "5 seconds"}`}
+          >
+            <Plus class="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         <!-- Quick Chips for Break -->
-        <div class="flex items-center gap-1.5 flex-wrap pt-1">
+        <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
           {#if breakUnit === "min"}
             {#each [3, 5, 7, 10, 15, 20] as m}
               <button
                 type="button"
                 onclick={() => (modalBreakVal = m)}
                 class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer {modalBreakVal === m
-                  ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold'
-                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
+                  ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold shadow-xs'
+                  : 'bg-(--surface) border-(--line) text-(--muted) hover:text-(--ink) hover:bg-(--surface)/80'}"
               >
                 {m}m
               </button>
@@ -1832,8 +2053,8 @@
                 type="button"
                 onclick={() => (modalBreakVal = s)}
                 class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer {modalBreakVal === s
-                  ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold'
-                  : 'bg-(--paper) border-(--line) text-(--muted) hover:text-(--ink)'}"
+                  ? 'bg-(--accent)/20 text-(--accent-text) border-(--accent)/40 font-semibold shadow-xs'
+                  : 'bg-(--surface) border-(--line) text-(--muted) hover:text-(--ink) hover:bg-(--surface)/80'}"
               >
                 {s}s
               </button>

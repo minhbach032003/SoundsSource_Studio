@@ -16,3 +16,6 @@ app.log
 /.pi/openspec-cli/
 Mole/
 mole/
+.claude
+.pi
+.agents

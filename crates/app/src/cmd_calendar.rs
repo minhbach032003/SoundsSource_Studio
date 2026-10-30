@@ -20,6 +20,11 @@ pub async fn google_calendar_login(
 }
 
 #[tauri::command]
+pub fn google_calendar_cancel(state: State<'_, AppState>) {
+    state.google_calendar.cancel();
+}
+
+#[tauri::command]
 pub async fn google_calendar_sync(
     state: State<'_, AppState>,
 ) -> Result<Vec<GoogleCalendarEventDto>, String> {

@@ -8,7 +8,7 @@
   <key>NSAudioCaptureUsageDescription</key>
   <string>SoundsSource Studio captures Spotify audio to apply bass and EQ without changing other apps.</string>
   <key>NSAppleEventsUsageDescription</key>
-  <string>SoundsSource Studio controls Spotify playback and reads the current song, artwork and progress.</string>
+  <string>SoundsSource Studio controls Spotify playback and, only with your approval in Desktop Control, closes the selected Google Chrome tab.</string>
   <key>NSCameraUsageDescription</key>
   <string>SoundsSource Studio uses the camera for Gemini Multimodal Live visual interactions.</string>
   <key>NSMicrophoneUsageDescription</key>
