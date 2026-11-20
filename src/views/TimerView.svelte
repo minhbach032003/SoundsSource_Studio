@@ -2170,7 +2170,7 @@
     confirmText={isSubmittingEvent ? "Đang tạo…" : "Tạo sự kiện"}
     cancelText="Hủy"
     confirmVariant="primary"
-    confirmDisabled={isSubmittingEvent || !newEventTitle.trim()}
+    isLoading={isSubmittingEvent}
     onConfirm={handleConfirmCreateEvent}
   >
     {#snippet icon()}

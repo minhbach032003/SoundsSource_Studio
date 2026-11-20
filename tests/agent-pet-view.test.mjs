@@ -63,7 +63,6 @@ test("AgentPetView Svelte 5 component integrity", () => {
     "Laptop",
     "Radio",
     "Crown",
-    "Award",
     "Trophy",
     "RotateCcw",
     "Send",

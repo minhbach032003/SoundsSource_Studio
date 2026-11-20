@@ -155,6 +155,14 @@
 
   // Derived state from geminiLiveState
   const callStatus = $derived(geminiLiveState.status);
+  let isStartingCall = $state(false);
+  $effect(() => {
+    if (!isStartingCall || callStatus === "connecting") return;
+    isStartingCall = false;
+    if (callStatus === "connected") {
+      toastState.success("Đã kết nối Gemini Live Video 1-on-1!");
+    }
+  });
   const userVolPct = $derived(Math.min(100, Math.round(geminiLiveState.userVolume * 100)));
   const aiVolPct = $derived(Math.min(100, Math.round(geminiLiveState.aiVolume * 100)));
   const isAiSpeaking = $derived(aiVolPct > 3);
@@ -304,20 +312,22 @@
 
     try {
       toastState.info(`Đang kết nối Gemini Live với persona ${selectedPersona}...`);
+      isStartingCall = true;
       await geminiLiveState.connect({
         voiceName: selectedPersona,
         model: selectedModel,
         apiKey: existingKey.trim(),
         enableVideo: geminiLiveState.isVideoEnabled,
       });
-      toastState.success("Đã kết nối Gemini Live Video 1-on-1!");
     } catch (err) {
+      isStartingCall = false;
       const msg = err instanceof Error ? err.message : String(err);
       toastState.error(`Lỗi kết nối: ${msg}`);
     }
   }
 
   function handleEndCall() {
+    isStartingCall = false;
     geminiLiveState.disconnect();
     toastState.info("Đã kết thúc cuộc gọi Gemini Live.");
   }

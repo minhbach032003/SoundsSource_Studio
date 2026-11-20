@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
 
 const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
 
@@ -93,6 +95,65 @@ test("VoiceAiView Svelte 5 component integrity", () => {
 
   // Zero emojis rule
   assert.equal(emojiRegex.test(src), false, "VoiceAiView.svelte must contain zero emojis");
+});
+
+test("VoiceAiView reports a user-started call only after the active session connects", async () => {
+  const src = readFileSync("src/views/VoiceAiView.svelte", "utf8").split('<script lang="ts">')[1].split("</script>")[0];
+  const script = ts.createSourceFile("VoiceAiView.ts", src, ts.ScriptTarget.Latest, true);
+  const nodes = script.statements.filter((node) =>
+    (ts.isVariableStatement(node) && node.declarationList.declarations.some((d) => d.name.getText(script) === "isStartingCall")) ||
+    (ts.isFunctionDeclaration(node) && ["handleStartCall", "handleEndCall"].includes(node.name?.text)) ||
+    (ts.isExpressionStatement(node) && node.getText(script).startsWith("$effect(") && node.getText(script).includes("toastState.success"))
+  );
+  assert.equal(nodes.length, 4, "execute the production start/end handlers and connection effect");
+  const code = ts.transpile(nodes.map((node) => node.getText(script)).join("\n") +
+    "\nglobalThis.startCall = handleStartCall; globalThis.endCall = handleEndCall;");
+
+  function view(initialStatus = "idle") {
+    const effects = [], successes = [];
+    const service = {
+      status: initialStatus, isVideoEnabled: false,
+      getApiKey: async () => "test-key",
+      async connect() { this.status = "connecting"; },
+      disconnect() { this.status = "idle"; },
+    };
+    const context = vm.createContext({
+      $state: (value) => value, $effect: (fn) => effects.push(fn),
+      geminiLiveState: service, get callStatus() { return service.status; },
+      selectedPersona: "Aoede", selectedModel: "test-model", isApiKeyModalOpen: false,
+      toastState: { info() {}, error() {}, success: (message) => successes.push(message) },
+    });
+    vm.runInContext(code, context);
+    return { service, successes, start: () => context.startCall(), end: () => context.endCall(),
+      flush: () => effects.forEach((effect) => effect()) };
+  }
+
+  const active = view();
+  await active.start(); active.flush();
+  assert.equal(active.successes.length, 0, "opening a socket is not a successful handshake");
+  active.service.status = "connected"; active.flush(); active.flush();
+  assert.equal(active.successes.length, 1, "one success after the active session connects");
+  active.service.status = "connecting"; active.flush();
+  active.service.status = "connected"; active.flush();
+  assert.equal(active.successes.length, 1, "automatic reconnect does not repeat the notification");
+
+  for (const terminal of ["error", "idle"]) {
+    const failed = view();
+    await failed.start(); failed.flush();
+    failed.service.status = terminal; failed.flush();
+    failed.service.status = "connected"; failed.flush();
+    assert.equal(failed.successes.length, 0, terminal + " clears a pending start");
+  }
+  const cancelled = view();
+  await cancelled.start(); cancelled.end();
+  cancelled.service.status = "connected"; cancelled.flush();
+  assert.equal(cancelled.successes.length, 0, "cancellation clears a start even before effects flush");
+  const mounted = view("connected"); mounted.flush();
+  assert.equal(mounted.successes.length, 0, "mounting an existing call does not show success");
+  const rejected = view();
+  rejected.service.connect = async () => { throw new Error("microphone denied"); };
+  await rejected.start(); rejected.service.status = "connected"; rejected.flush();
+  assert.equal(rejected.successes.length, 0, "a rejected connection clears the pending start");
 });
 
 test("App.svelte integrates VoiceAiView on voice tab", () => {

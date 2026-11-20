@@ -364,6 +364,37 @@ test("GeminiLiveService WebSocket connection lifecycle (connect, setup, and disc
   assert.ok(micTracks[0].stopped, "mic audio track is stopped on disconnect");
 });
 
+test("GeminiLiveService ignores callbacks from a superseded socket", async () => {
+  const { instance, micTracks } = createGeminiLiveHarness();
+  await instance.connect({ apiKey: "AIzaFirstSession" });
+  const first = MockWebSocket.instances[0];
+  const stale = { open: first.onopen, error: first.onerror, close: first.onclose, message: first.onmessage };
+
+  await instance.connect({ apiKey: "AIzaSecondSession" });
+  const current = MockWebSocket.instances[1];
+  current.onopen();
+  await current.onmessage({ data: JSON.stringify({ setupComplete: true }) });
+  const sent = current.sent.length;
+  assert.equal(first.onclose, null, "superseded socket handlers are detached");
+
+  stale.open();
+  stale.error();
+  await stale.close({ code: 1008, reason: "API key invalid", wasClean: true });
+  await stale.message({ data: JSON.stringify({ serverContent: { inputTranscription: { text: "stale" } } }) });
+  assert.equal(current.sent.length, sent, "late open cannot send setup on the current socket");
+  assert.equal(instance.status, "connected", "late close cannot fail the current session");
+  assert.equal(instance.lastClose, null, "late close does not overwrite current diagnostics");
+  assert.equal(instance.socketErrored, false, "late error does not poison the current transport");
+  assert.equal(instance.transcript.length, 0, "late messages cannot enter the new transcript");
+  assert.equal(micTracks.length, 1, "replacement session reuses the microphone");
+  assert.equal(micTracks[0].stopped, false, "late close cannot release the active microphone");
+
+  const lateMessage = current.onmessage;
+  instance.disconnect();
+  await lateMessage({ data: JSON.stringify({ setupComplete: true }) });
+  assert.equal(instance.status, "idle", "late setup cannot revive a cancelled call");
+});
+
 test("GeminiLiveService handles serverContent with text and inline audio PCM", async () => {
   const { instance } = createGeminiLiveHarness();
 

@@ -697,6 +697,7 @@ export class GeminiLiveService {
     }
 
     this.ws.onopen = () => {
+      if (generation !== this.sessionGeneration) return;
       const setup = this.buildSetupMessage(model, voiceName, systemInstruction);
       this.ws?.send(JSON.stringify(setup));
       this.logDiag(
@@ -714,11 +715,15 @@ export class GeminiLiveService {
     // close handler ran, so WebKit skipped every recovery path and tore the call
     // down — screen share included.
     this.ws.onerror = () => {
+      if (generation !== this.sessionGeneration) return;
       this.socketErrored = true;
       this.logDiag("socket error event");
     };
 
-    this.ws.onclose = (event: CloseEvent) => this.handleClose(event);
+    this.ws.onclose = (event: CloseEvent) => {
+      if (generation !== this.sessionGeneration) return;
+      return this.handleClose(event);
+    };
     this.setupTimer = setTimeout(() => {
       if (generation === this.sessionGeneration && this.status === "connecting") {
         this.logDiag("setup timeout");
