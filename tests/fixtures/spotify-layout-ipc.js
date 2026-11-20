@@ -11,7 +11,21 @@ window.channel = { volume: 0.8, muted: false };
 window.transportRestricted = false;
 window.transportFailure = false;
 window.eq = { bands: Array.from({ length: 10 }, () => ({ gain: 0 })), bypass: false };
-window.systemAudioEnabled = false;
+const audioPlatform = params.get("platform") ?? "macos";
+window.systemAudioEnabled = params.has("systemaudio");
+window.audioNativeVisible = !params.has("audionativehidden");
+window.audioNativeMinimized = false;
+window.audioNativeQueryPending = false;
+window.audioNativeQueryStarted = false;
+window.audioStatus = params.has("systemwideonly") ? { system_wide: true, running: false } : null;
+window.audioEnableFailure = false;
+window.audioEnablePending = false;
+window.audioEnableInactive = false;
+window.audioEnableIncompleteSystem = false;
+if (params.has("audiohidden")) {
+  window.audioDocumentHidden = true;
+  Object.defineProperty(document, "hidden", { configurable: true, get: () => window.audioDocumentHidden });
+}
 const account = () => ({ configured: true, connected: window.connected, device_id: window.connected ? "local-mac" : null });
 const tracks = Array.from({ length: 24 }, (_, index) => ({ id: String(index), uri: `spotify:track:sample${index}`, name: index === 0 ? "Đừng Kết Thúc Hôm Nay · dữ liệu kiểm thử" : `Bài hát kiểm thử ${index + 1}`, artist: index === 0 ? "Orange" : "Nghệ sĩ mẫu", artwork: "", duration_ms: 212000 }));
 window.__TAURI_INTERNALS__ = {
@@ -37,7 +51,27 @@ window.__TAURI_INTERNALS__ = {
     if (command === "set_master_eq_band") { window.eq.bands[args.bandIndex].gain = args.gainDb; return; }
     if (command === "set_master_eq_bypass") { window.eq.bypass = args.bypass; return args.bypass; }
     if (command === "get_master_spectrum") return { source: window.systemAudioEnabled ? "system" : "spotify", system_audio_enabled: window.systemAudioEnabled, heights: Array(28).fill(0), receiving: false, has_signal: false, enabled: true, connected: true, error: null };
-    if (command === "set_system_audio_enabled") { window.systemAudioEnabled = args.enabled; return { system_wide: args.enabled, running: args.enabled }; }
+    if (command === "app_tap_status") return window.audioStatus ?? { system_wide: window.systemAudioEnabled, running: window.systemAudioEnabled };
+    if (command === "cleaner_get_platform_info") return { is_macos: audioPlatform === "macos" };
+    if (command === "plugin:window|is_visible") return window.audioNativeVisible;
+    if (command === "plugin:window|is_minimized") {
+      if (window.audioNativeQueryPending) {
+        window.audioNativeQueryStarted = true;
+        const sampled = window.audioNativeMinimized;
+        return new Promise(resolve => { window.finishNativeWindowQuery = () => resolve(sampled); });
+      }
+      return window.audioNativeMinimized;
+    }
+    if (command === "set_system_audio_enabled") {
+      if (window.audioEnablePending) await new Promise(resolve => window.finishAudioEnable = resolve);
+      if (window.audioEnableFailure) throw "Play audio first or allow System Audio Recording.";
+      if (window.audioEnableIncompleteSystem) {
+        window.audioEnableIncompleteSystem = false;
+        return { system_wide: args.enabled, running: false };
+      }
+      window.systemAudioEnabled = args.enabled && !window.audioEnableInactive;
+      return { system_wide: window.systemAudioEnabled, running: window.systemAudioEnabled };
+    }
     if (command === "get_spotify_spectrum") return { heights: Array(28).fill(0), receiving: false, has_signal: false, enabled: true, connected: true, error: null };
     if (command === "get_audio_processes") return [{ pid: 100, object_id: 100, bundle_id: "com.spotify.client", name: "Spotify", is_running_output: false, is_regular_app: true }];
     if (command === "get_audio_devices") return [{ name: "Mac speakers", uid: "local-output", is_default: true }];

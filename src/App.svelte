@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { isTauri } from "@tauri-apps/api/core";
+  import { invoke, isTauri } from "@tauri-apps/api/core";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { restoreDesktopPet } from "@/lib/petVisibility";
   onMount(() => {
     if (isTauri()) restoreDesktopPet().catch(error =>
@@ -12,6 +13,7 @@
   import SpotifyPlayer from "@/components/audio/SpotifyPlayer.svelte";
   import ThemeControls from "@/components/ThemeControls.svelte";
   import ToastHost from "@/components/ui/ToastHost.svelte";
+  import Modal from "@/components/ui/Modal.svelte";
   import GlobalPingHost from "@/components/radial/GlobalPingHost.svelte";
   import MixerView from "@/views/MixerView.svelte";
   import VoiceAiView from "@/views/VoiceAiView.svelte";
@@ -27,9 +29,11 @@ import CleanerView from "@/views/CleanerView.svelte";
   import { toastState } from "@/lib/toast.svelte";
   import { googleAuthState } from "@/lib/googleAuth.svelte";
   import { prefersReducedMotion } from "@/lib/utils";
+  import { getPlatformInfo } from "@/lib/cleaner";
   import {
     SlidersHorizontal,
     Music2,
+    Activity,
     Timer,
     Target,
     Mic,
@@ -48,6 +52,90 @@ import CleanerView from "@/views/CleanerView.svelte";
   $effect(() => rememberTab(activeTab));
   $effect(() => { if (spotifyState.loginVersion > 0) activeTab = "spotify"; });
   let isRefreshing = $state(false);
+  type SystemAudioStatus = { system_wide: boolean; running: boolean };
+  const firstAudioPromptKey = "rust_sound_system_audio_prompt_seen";
+  let firstAudioPromptOpen = $state(false);
+  let firstAudioBusy = $state(false);
+  let firstAudioError = $state<string | null>(null);
+
+  onMount(() => {
+    if (!isTauri()) return;
+    try {
+      if (localStorage.getItem(firstAudioPromptKey) === "1") return;
+    } catch { /* The in-memory guard still limits the offer to this mount. */ }
+
+    const appWindow = getCurrentWindow();
+    let checking = false;
+    let recheckAfterCurrent = false;
+    let handled = false;
+    const hasDialog = () => document.querySelector('[aria-modal="true"]') !== null;
+    const afterDialog = new MutationObserver(() => {
+      if (hasDialog()) return;
+      afterDialog.disconnect();
+      void offer();
+    });
+    function finish() {
+      handled = true;
+      afterDialog.disconnect();
+      document.removeEventListener("visibilitychange", offer);
+      window.removeEventListener("focus", offer);
+    }
+    async function offer() {
+      if (handled || document.hidden) return;
+      if (checking) {
+        recheckAfterCurrent = true;
+        return;
+      }
+      checking = true;
+      try {
+        if (!(await getPlatformInfo()).is_macos) { finish(); return; }
+        if (handled || document.hidden) return;
+        const status = await invoke<SystemAudioStatus>("app_tap_status");
+        const [visible, minimized] = await Promise.all([appWindow.isVisible(), appWindow.isMinimized()]);
+        if (handled || document.hidden || !visible || minimized) return;
+        const active = status.system_wide && status.running;
+        if (!active && hasDialog()) {
+          afterDialog.observe(document.body, { childList: true, subtree: true });
+          return;
+        }
+        finish();
+        firstAudioPromptOpen = !active;
+        try { localStorage.setItem(firstAudioPromptKey, "1"); } catch { /* Optional persistence. */ }
+      } catch {
+        // Retry on focus or visibility change; the Mixer control remains available.
+      } finally {
+        checking = false;
+        if (recheckAfterCurrent) {
+          recheckAfterCurrent = false;
+          if (!handled && !document.hidden) queueMicrotask(() => void offer());
+        }
+      }
+    }
+    document.addEventListener("visibilitychange", offer);
+    window.addEventListener("focus", offer);
+    void offer();
+    return finish;
+  });
+
+  async function enableFirstAudio() {
+    if (!firstAudioPromptOpen || firstAudioBusy) return;
+    firstAudioBusy = true;
+    firstAudioError = null;
+    try {
+      const status = await invoke<SystemAudioStatus>("set_system_audio_enabled", { enabled: true });
+      if (!status.system_wide || !status.running) {
+        firstAudioError = "System audio did not start. Play audio and try again, or enable it later in Mixer.";
+        return;
+      }
+      firstAudioPromptOpen = false;
+      toastState.info("System audio is using the master EQ, including Chrome.");
+    } catch (error) { firstAudioError = String(error); }
+    finally { firstAudioBusy = false; }
+  }
+
+  function dismissFirstAudio() {
+    if (!firstAudioBusy) firstAudioPromptOpen = false;
+  }
 
   function spotlight(node: HTMLElement) {
     function handlePointerMove(event: PointerEvent) {
@@ -129,6 +217,7 @@ import CleanerView from "@/views/CleanerView.svelte";
 <div
   class="flex h-screen bg-(--paper) text-(--ink) font-sans overflow-hidden relative"
   use:spotlight
+  inert={firstAudioPromptOpen}
 >
   <!-- Global In-App Ping Gesture Engine & Overlay Bursts -->
   <GlobalPingHost />
@@ -284,6 +373,24 @@ import CleanerView from "@/views/CleanerView.svelte";
   <!-- Toast Notification Host -->
   <ToastHost />
 </div>
+
+{#snippet systemAudioIcon()}<Activity class="w-5 h-5" />{/snippet}
+
+<Modal
+  open={firstAudioPromptOpen}
+  title="Enable System audio EQ?"
+  description="Apply Bass and EQ to music from Chrome, Spotify and other apps, and see its live spectrum. Play audio before enabling. macOS may ask for System Audio Recording access. You can also enable this later in Mixer."
+  confirmText="Enable System audio"
+  cancelText="Not now"
+  icon={systemAudioIcon}
+  isLoading={firstAudioBusy}
+  onClose={dismissFirstAudio}
+  onConfirm={enableFirstAudio}
+>
+  {#if firstAudioError}
+    <p class="text-sm text-(--error) m-0 wrap-break-word" role="alert">{firstAudioError}</p>
+  {/if}
+</Modal>
 
 <style>
   @media (max-width: 767px) {
