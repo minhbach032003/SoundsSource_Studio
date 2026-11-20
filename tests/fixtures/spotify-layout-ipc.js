@@ -11,6 +11,7 @@ window.channel = { volume: 0.8, muted: false };
 window.transportRestricted = false;
 window.transportFailure = false;
 window.eq = { bands: Array.from({ length: 10 }, () => ({ gain: 0 })), bypass: false };
+window.systemAudioEnabled = false;
 const account = () => ({ configured: true, connected: window.connected, device_id: window.connected ? "local-mac" : null });
 const tracks = Array.from({ length: 24 }, (_, index) => ({ id: String(index), uri: `spotify:track:sample${index}`, name: index === 0 ? "Đừng Kết Thúc Hôm Nay · dữ liệu kiểm thử" : `Bài hát kiểm thử ${index + 1}`, artist: index === 0 ? "Orange" : "Nghệ sĩ mẫu", artwork: "", duration_ms: 212000 }));
 window.__TAURI_INTERNALS__ = {
@@ -35,6 +36,8 @@ window.__TAURI_INTERNALS__ = {
     if (command === "get_master_eq_bands") return structuredClone(window.eq);
     if (command === "set_master_eq_band") { window.eq.bands[args.bandIndex].gain = args.gainDb; return; }
     if (command === "set_master_eq_bypass") { window.eq.bypass = args.bypass; return args.bypass; }
+    if (command === "get_master_spectrum") return { source: window.systemAudioEnabled ? "system" : "spotify", system_audio_enabled: window.systemAudioEnabled, heights: Array(28).fill(0), receiving: false, has_signal: false, enabled: true, connected: true, error: null };
+    if (command === "set_system_audio_enabled") { window.systemAudioEnabled = args.enabled; return { system_wide: args.enabled, running: args.enabled }; }
     if (command === "get_spotify_spectrum") return { heights: Array(28).fill(0), receiving: false, has_signal: false, enabled: true, connected: true, error: null };
     if (command === "get_audio_processes") return [{ pid: 100, object_id: 100, bundle_id: "com.spotify.client", name: "Spotify", is_running_output: false, is_regular_app: true }];
     if (command === "get_audio_devices") return [{ name: "Mac speakers", uid: "local-output", is_default: true }];

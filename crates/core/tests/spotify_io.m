@@ -10,6 +10,17 @@ static void halve(void *context, float *samples, unsigned count, double rate) {
     for (unsigned i = 0; i < count; i++) samples[i] *= 0.5f;
 }
 int main(void) {
+    @autoreleasepool {
+        const unsigned ownProcess = 42;
+        CATapDescription *system = rs_tap_description(&ownProcess, 1, true);
+        assert(system.isExclusive && system.isMixdown && !system.isMono);
+        assert([system.processes isEqualToArray:@[@42]]);
+        assert(system.isPrivate && system.muteBehavior == CATapUnmuted);
+        CATapDescription *application = rs_tap_description(&ownProcess, 1, false);
+        assert(!application.isExclusive);
+        assert([application.processes isEqualToArray:@[@42]]);
+        assert(application.isPrivate && application.muteBehavior == CATapMutedWhenTapped);
+    }
     RSSpotifyTap *s = calloc(1, sizeof(*s));
     s->process = halve; s->rate = 48000;
     float stereo[] = {0.2, -0.4, 0.6, -0.8};
@@ -73,11 +84,41 @@ int main(void) {
     RSSpotifyTap *tight = calloc(1, sizeof(*tight));
     tight->process = halve; tight->rate = 48000; tight->outChannels = 2;
     static float small[8];
+    for (unsigned i = 0; i < 8; i++) small[i] = 9;
     AudioBufferList smallOut = {.mNumberBuffers=1, .mBuffers={{2, sizeof(small), small}}};
     rs_io(0, NULL, &flatIn, NULL, &smallOut, NULL, tight);
     assert(rs_spotify_tap_frames(tight) == 0);
     for (unsigned i = 0; i < 8; i++) assert(small[i] == 0.0f);
     free(tight);
+
+    RSSpotifyTap *monitor = calloc(1, sizeof(*monitor));
+    monitor->process = halve; monitor->rate = 48000;
+    atomic_store(&monitor->monitoring, true);
+    float silence[4] = {0};
+    AudioBufferList silentIn = {.mNumberBuffers=1, .mBuffers={{2, sizeof(silence), silence}}};
+    struct { float before, samples[4], after; } guarded = {1234, {9, 9, 9, 9}, -5678};
+    AudioBufferList guardedOut = {.mNumberBuffers=1, .mBuffers={{2, sizeof(guarded.samples), guarded.samples}}};
+    seenRate = 0;
+    rs_io(0, NULL, &silentIn, NULL, &guardedOut, NULL, monitor);
+    assert(!atomic_load(&monitor->observedSignal));
+    assert(!rs_wait_for_signal(monitor, false, 0.001));
+    for (unsigned i=0; i<4; i++) assert(guarded.samples[i] == 0);
+    rs_io(0, NULL, &input, NULL, &guardedOut, NULL, monitor);
+    assert(atomic_load(&monitor->observedSignal));
+    assert(rs_wait_for_signal(monitor, false, 0.001));
+    assert(rs_spotify_tap_frames(monitor) == 0 && seenRate == 0);
+    assert(atomic_load(&monitor->signalFrames) == 0);
+    for (unsigned i=0; i<4; i++) assert(guarded.samples[i] == 0);
+    atomic_store(&monitor->monitoring, false);
+    rs_io(0, NULL, &input, NULL, &guardedOut, NULL, monitor);
+    assert(rs_spotify_tap_frames(monitor) == 2 && atomic_load(&monitor->signalFrames) == 2);
+    assert(rs_wait_for_signal(monitor, true, 0.001));
+    for (unsigned i=0; i<4; i++) assert(fabsf(guarded.samples[i]-stereo[i]*0.5f) < 0.00001f);
+    for (unsigned i=0; i<4; i++) guarded.samples[i] = 9;
+    rs_io(0, NULL, NULL, NULL, &guardedOut, NULL, monitor);
+    for (unsigned i=0; i<4; i++) assert(guarded.samples[i] == 0);
+    assert(guarded.before == 1234 && guarded.after == -5678);
+    free(monitor);
 
     free(s);
     return 0;

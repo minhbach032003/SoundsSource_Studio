@@ -135,10 +135,10 @@ test("StudioEQInspector Svelte 5 component integrity", () => {
   assert.ok(src.includes("studio-fader-track"), "renders studio fader tracks");
   assert.ok(src.includes("setPointerCapture"), "uses setPointerCapture for smooth dragging");
 
-  // Native Spotify spectrum (mounted behavioral coverage: spotify-spectrum-browser.mjs).
+  // Mounted behavioral coverage: spotify-spectrum-browser.mjs.
   assert.ok(
-    src.includes('"get_spotify_spectrum"') && src.includes("clearTimeout(timer)"),
-    "spectrum reads native PCM analysis and cleans up polling"
+    src.includes('"get_master_spectrum"') && src.includes("clearTimeout(timer)"),
+    "spectrum reads the active native PCM source and cleans up polling"
   );
   assert.ok(!src.includes("liveAudioMetersState"), "Spotify spectrum must not use the synthetic meter");
 

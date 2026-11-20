@@ -225,6 +225,8 @@ pub fn run() {
             tap_app,
             untap_app,
             app_tap_status,
+            set_system_audio_enabled,
+            get_master_spectrum,
             set_app_eq_band,
             get_master_eq_bands,
             set_master_eq_band,
@@ -350,7 +352,7 @@ pub fn run() {
             {
                 use tauri::Manager;
                 let state = app.state::<AppState>();
-                state.spotify.start(state.router.clone());
+                state.spotify.start(state.router.clone(), state.app_tap.routing.clone());
                 if let Some(window) = app.get_webview_window("main") {
                     if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png")) {
                         let _ = window.set_icon(icon);
@@ -545,6 +547,7 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             use tauri::Manager;
             if let Some(state) = app_handle.try_state::<AppState>() {
+                state.app_tap.stop();
                 state.spotify.stop();
                 state.pet.stop_daemon();
                 state.memory.stop();

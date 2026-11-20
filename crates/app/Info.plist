@@ -6,7 +6,7 @@
   <key>CFBundleDisplayName</key>
   <string>SoundsSource Studio</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>SoundsSource Studio captures Spotify audio to apply bass and EQ without changing other apps.</string>
+  <string>SoundsSource Studio captures audio only when you enable an application or System audio route, to apply bass and EQ to your current output.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>SoundsSource Studio controls Spotify playback and, only with your approval in Desktop Control, closes the selected Google Chrome tab.</string>
   <key>NSCameraUsageDescription</key>

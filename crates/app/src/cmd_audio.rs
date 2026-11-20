@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use crate::{app_tap, AppState};
 use sound_core::{AudioDevice, AudioProcess};
 use sound_engine::{
@@ -182,24 +182,79 @@ pub async fn set_app_volume(bundle_id: String, volume: f32, state: State<'_, App
 /// Đưa tiếng của một ứng dụng qua rust-sound, để thanh trượt và EQ chạm được vào nó.
 /// Chỉ một app tại một thời điểm: app đang tap trước đó được trả về đường phát thường.
 #[tauri::command]
-pub async fn tap_app(bundle_id: String, state: State<'_, AppState>) -> Result<(), String> {
-    let ids: Vec<u32> = AudioProcess::enumerate_system_processes()
-        .into_iter()
-        .filter(|process| process.bundle_id == bundle_id && process.is_running_output)
-        .map(|process| process.object_id)
-        .collect();
-    state.app_tap.start(
-        bundle_id,
-        ids,
-        state.router.clone(),
-        state.spotify.spectrum_handle(),
-    )
+pub async fn tap_app(bundle_id: String, app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _routing = state.app_tap.routing.lock().unwrap();
+        let status = state.app_tap.status();
+        if state.spotify.native_capture_active() || (status.system_wide && status.running) {
+            return Err("Tắt System audio hoặc Spotify DSP trước khi chuyển sang xử lý riêng một ứng dụng.".into());
+        }
+        let ids = AudioProcess::enumerate_system_processes()
+            .into_iter()
+            .filter(|process| process.bundle_id == bundle_id && process.is_running_output)
+            .map(|process| process.object_id)
+            .collect();
+        state.app_tap.start(bundle_id, ids, state.router.clone())
+    }).await.map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
-pub fn untap_app(state: State<'_, AppState>) -> Result<(), String> {
-    state.app_tap.stop();
-    Ok(())
+pub async fn untap_app(app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _routing = state.app_tap.routing.lock().unwrap();
+        if !state.app_tap.status().system_wide { state.app_tap.stop(); }
+    }).await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn set_system_audio_enabled(enabled: bool, app: AppHandle) -> Result<app_tap::AppTapStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _routing = state.app_tap.routing.lock().unwrap();
+        let status = state.app_tap.status();
+        if enabled {
+            if state.spotify.native_capture_active() || (status.running && !status.system_wide) {
+                return Err("Tắt đường Spotify DSP hoặc xử lý riêng ứng dụng trước, rồi bật System audio. Nhạc trong trình phát của app vẫn dùng được.".into());
+            }
+            if !status.running { state.app_tap.start_system(state.router.clone())?; }
+        } else if status.system_wide {
+            state.app_tap.stop();
+        }
+        Ok(state.app_tap.status())
+    }).await.map_err(|error| error.to_string())?
+}
+
+#[derive(serde::Serialize)]
+pub struct MasterSpectrum {
+    #[serde(flatten)]
+    pub spectrum: crate::spotify::SpotifySpectrum,
+    pub source: &'static str,
+    pub system_audio_enabled: bool,
+}
+
+pub(crate) fn master_spectrum(spotify: &crate::spotify::SpotifyIntegration, tap: &app_tap::AppTap) -> MasterSpectrum {
+    let status = tap.status();
+    if status.system_wide || !status.bundle_id.is_empty() {
+        MasterSpectrum {
+            spectrum: crate::spotify::SpotifySpectrum {
+                reading: tap.spectrum(),
+                enabled: status.running,
+                connected: status.running,
+                error: status.error,
+            },
+            source: if status.system_wide { "system" } else { "application" },
+            system_audio_enabled: status.system_wide && status.running,
+        }
+    } else {
+        MasterSpectrum { spectrum: spotify.spectrum(), source: "spotify", system_audio_enabled: false }
+    }
+}
+
+#[tauri::command]
+pub fn get_master_spectrum(state: State<'_, AppState>) -> MasterSpectrum {
+    master_spectrum(&state.spotify, &state.app_tap)
 }
 
 #[tauri::command]

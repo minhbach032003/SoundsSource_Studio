@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+@AGENTS.md
+
+`AGENTS.md` is the canonical project policy, including the required two-subagent review after each task. Read it before applying the additional reference material below.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 Read `README.md` first — it has high-level commands and design principles. This file covers architecture, operational rules, and development details.

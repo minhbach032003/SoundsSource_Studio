@@ -56,8 +56,31 @@ try {
   await browser("wait", "--text", "Bài hát kiểm thử 2");
   await browser("find", "role", "tab", "click", "--name", "Mixer", "--exact");
   await browser("wait", "--text", "APPLICATION CHANNEL STRIPS");
-  await browser("find", "role", "button", "click", "--name", "Bass Boost Deep punchy sub-bass & low-end warmth", "--exact");
-  assert.equal(await evaluate("window.eq.bands[0].gain"), 5.5, "Mixer retains the shared EQ");
+  const mutations = () => evaluate('window.ipcCalls.filter(c=>!c.command.startsWith("get_")&&!c.command.startsWith("plugin:")&&!["spotify_account","spotify_devices","spotify_browse","auth_session"].includes(c.command))');
+  for (const systemAudio of [false, true]) {
+    if (systemAudio) {
+      await browser("find", "role", "button", "click", "--name", "Enable System audio", "--exact");
+      await browser("snapshot", "-i");
+      await browser("wait", "--text", "Enable System audio EQ?");
+      await browser("find", "role", "button", "click", "--name", "Enable System audio", "--exact");
+      await browser("snapshot", "-i");
+      await browser("wait", "--fn", 'window.systemAudioEnabled === true && !document.querySelector("[role=dialog]")');
+    }
+    await browser("eval", "window.ipcCalls=[]");
+    await browser("find", "role", "button", "click", "--name", "Bass Boost Deep punchy sub-bass & low-end warmth", "--exact");
+    await browser("snapshot", "-i");
+    const presetChanges = await mutations();
+    assert.ok(presetChanges.length >= 10 && presetChanges.every(c=>c.command === "set_master_eq_band"), "production preset callbacks must send only EQ changes");
+    assert.equal(await evaluate("window.eq.bands[0].gain"), 5.5, "Mixer retains the shared EQ");
+    assert.equal(await evaluate('!!document.querySelector("[role=dialog]")'), false);
+    await browser("eval", "window.ipcCalls=[]");
+    await browser("focus", '[role=slider][aria-label="64 Hz"]');
+    await browser("press", "ArrowDown");
+    await browser("snapshot", "-i");
+    assert.deepEqual(await mutations(), [{ command: "set_master_eq_band", args: { bandIndex: 1, gainDb: 4.5 } }], "production fader callback must send EQ without any transport or routing command");
+    assert.equal(await evaluate("window.eq.bands[1].gain"), 4.5);
+    assert.equal(await evaluate("window.systemAudioEnabled"), systemAudio, "EQ edits preserve the existing System audio route");
+  }
   assert.equal(await evaluate('document.querySelectorAll(".spotify-player").length'), 1);
   assert.equal(await evaluate("window.eq.bands[0].gain"), 5.5, "navigation must not reset EQ");
   await browser("find", "role", "tab", "click", "--name", "Spotify", "--exact");
@@ -93,7 +116,7 @@ try {
   assert.equal(await evaluate('document.querySelector("main").getAttribute("aria-label")'), "Spotify", "explicit login opens music");
   assert.deepEqual(await evaluate('window.ipcCalls.filter(c=>["spotify_control","spotify_play_uri","connect_spotify_audio"].includes(c.command))'), [], "login/navigation never start playback or change DSP");
   assert.equal((await browser("errors")).trim(), "");
-  console.log("PASS library-first Spotify: no duplicate EQ/diagnostics, Mixer EQ preserved, persistent player, navigation restore, login transition, no autoplay/EQ reset, wide/narrow loading/empty/error, no browser errors");
+  console.log("PASS production Mixer EQ: Bass/fader update native EQ only with System audio off/on; library-first Spotify, persistent player, navigation, login, wide/narrow states, no browser errors");
 } catch (error) {
   console.error(await browser("errors").catch(() => ""));
   console.error(await browser("snapshot").catch(() => ""));

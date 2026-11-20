@@ -6,7 +6,7 @@ use sound_core::spotify::{self, SpotifyPlayback};
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
 use std::thread::JoinHandle;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use sound_engine::spectrum::{SpectrumBuffer, SpectrumReading};
 
 #[derive(Clone, Default, Serialize)]
@@ -26,6 +26,36 @@ pub struct SpotifyStatus {
     pub local_error: Option<String>,
     /// Đã đăng nhập danh tính dành riêng cho phát nhạc chưa.
     pub playback_signed_in: bool,
+}
+
+fn reconcile_native_capture<T>(
+    routing: &Mutex<()>,
+    enabled: &AtomicBool,
+    status: &Mutex<SpotifyStatus>,
+    tap: &mut Option<T>,
+    restart: bool,
+    open: impl FnOnce() -> Result<T, String>,
+) -> Result<(), String> {
+    let _routing = routing.lock().unwrap();
+    let requested = enabled.load(Ordering::Acquire);
+    if !requested || restart { *tap = None; }
+    let result = if requested && tap.is_none() {
+        open().map(|session| *tap = Some(session))
+    } else { Ok(()) };
+    status.lock().unwrap().connected = tap.is_some();
+    result
+}
+
+fn release_native_capture<T>(
+    routing: &Mutex<()>,
+    enabled: &AtomicBool,
+    status: &Mutex<SpotifyStatus>,
+    tap: &mut Option<T>,
+) {
+    let _routing = routing.lock().unwrap();
+    enabled.store(false, Ordering::Release);
+    *tap = None;
+    status.lock().unwrap().connected = false;
 }
 
 pub struct SpotifyIntegration {
@@ -66,6 +96,10 @@ impl SpotifyIntegration {
         self.force_playback.clone()
     }
 
+    pub(crate) fn native_capture_active(&self) -> bool {
+        self.enabled.load(Ordering::Acquire) || self.status.lock().unwrap().connected
+    }
+
     pub fn local_enabled(&self) -> bool {
         self.local_enabled.load(Ordering::Acquire)
     }
@@ -87,7 +121,7 @@ impl SpotifyIntegration {
         }
     }
     #[cfg(target_os = "macos")]
-    pub fn start(&self, router: Arc<Mutex<AudioRouter>>) {
+    pub fn start(&self, router: Arc<Mutex<AudioRouter>>, routing: Arc<Mutex<()>>) {
         let web = self.web.clone();
         let status = self.status.clone();
         let spectrum = self.spectrum.clone();
@@ -161,23 +195,17 @@ impl SpotifyIntegration {
                     ((Vec::new(), 0), false)
                 };
 
-                if !tap_enabled || ids_changed {
-                    tap = None; previous_frames = 0; stalled = 0;
-                }
-                // Lỗi cũ của đường tap không được bám lại khi người dùng đã chuyển sang local.
+                if ids_changed { previous_frames = 0; stalled = 0; }
                 if local_state.running { route_error = None; }
                 let mut error = if tap_enabled || local_state.running { None } else { route_error.clone() };
-                if tap_enabled && tap.is_none() {
-                    // Try to launch Spotify if tap is enabled
-                    if let Err(e) = spotify::launch() {
-                        error = Some(e);
-                    } else {
-                        // Context is boxed and remains alive until after AudioDeviceStop.
-                        match unsafe { spotify::SpotifyTap::start(&current.0, process_audio, (&mut *context as *mut Processor).cast()) } {
-                            Ok(session) => { tap = Some(session); signature = current; route_error = None; },
-                            Err(e) => error = Some(e),
-                        }
-                    }
+                let result = reconcile_native_capture(&routing, &enabled, &status, &mut tap, ids_changed, || {
+                    spotify::launch()?;
+                    unsafe { spotify::SpotifyTap::start(&current.0, process_audio, (&mut *context as *mut Processor).cast()) }
+                });
+                match result {
+                    Ok(()) if tap.is_some() => { signature = current; route_error = None; },
+                    Err(e) => error = Some(e),
+                    _ => { previous_frames = 0; stalled = 0; },
                 }
                 let frames = tap.as_ref().map_or(0, |t| t.frames());
                 let processing = frames > previous_frames;
@@ -186,8 +214,7 @@ impl SpotifyIntegration {
                 if tap.is_some() && !processing {
                     stalled += 1;
                     if stalled >= 3 {
-                        tap = None;
-                        enabled.store(false, Ordering::Release);
+                        release_native_capture(&routing, &enabled, &status, &mut tap);
                         error = Some("Không nhận được buffer âm thanh. Tiếng Spotify đã trở về đường phát thường; thử kết nối lại hoặc đổi thiết bị đầu ra.".into());
                     }
                 } else { stalled = 0; }
@@ -222,7 +249,7 @@ impl SpotifyIntegration {
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
-            drop(tap); // Stop IOProc before freeing its context. Leave Spotify running.
+            release_native_capture(&routing, &enabled, &status, &mut tap);
         }));
     }
 
@@ -256,13 +283,7 @@ pub struct SpotifySpectrum {
 }
 
 impl SpotifyIntegration {
-    /// Cùng một spectrum buffer cho mọi nguồn đi qua DSP, nên bảng phân tích không phải
-    /// biết tiếng đến từ Spotify hay từ một app được tap.
-    pub fn spectrum_handle(&self) -> std::sync::Arc<std::sync::Mutex<SpectrumBuffer>> {
-        self.spectrum.clone()
-    }
-
-    fn spectrum(&self) -> SpotifySpectrum {
+    pub(crate) fn spectrum(&self) -> SpotifySpectrum {
         let status = self.status.lock().unwrap().clone();
         // Local player bơm thẳng vào spectrum buffer nhưng để cờ tap ở false. Chỉ hỏi cờ
         // tap thì bảng phân tích báo "mất kết nối" trong khi nhạc đang chạy qua EQ.
@@ -361,12 +382,21 @@ pub fn get_spotify_status(state: State<'_, AppState>) -> SpotifyStatus {
 }
 
 #[tauri::command]
-pub fn connect_spotify_audio(enabled: bool, state: State<'_, AppState>) {
-    if enabled {
-        state.spotify.set_local(false);
-        state.spotify.player.stop();
-    }
-    state.spotify.enabled.store(enabled, Ordering::Release);
+pub async fn connect_spotify_audio(enabled: bool, app: AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _routing = state.app_tap.routing.lock().unwrap();
+        if enabled {
+            if state.app_tap.status().running {
+                return Err("Tắt System audio hoặc xử lý riêng ứng dụng trước khi bật Spotify DSP.".into());
+            }
+            state.app_tap.stop();
+            state.spotify.set_local(false);
+            state.spotify.player.stop();
+        }
+        state.spotify.enabled.store(enabled, Ordering::Release);
+        Ok(())
+    }).await.map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -549,6 +579,50 @@ pub async fn spotify_open_automation_settings() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_start_and_teardown_keep_system_admission_exclusive() {
+        use std::sync::mpsc::channel;
+        let integration = SpotifyIntegration::default();
+        let routing = Arc::new(Mutex::new(()));
+        integration.enabled.store(true, Ordering::Release);
+        let (entered_tx, entered_rx) = channel();
+        let (continue_tx, continue_rx) = channel();
+        let events = Arc::new(Mutex::new(Vec::new()));
+        struct FakeTap(Arc<Mutex<Vec<&'static str>>>);
+        impl Drop for FakeTap {
+            fn drop(&mut self) { self.0.lock().unwrap().push("dropped"); }
+        }
+        let worker_routing = routing.clone();
+        let enabled = integration.enabled.clone();
+        let status = integration.status.clone();
+        let recorded = events.clone();
+        let worker = std::thread::spawn(move || {
+            let mut tap = None;
+            reconcile_native_capture(&worker_routing, &enabled, &status, &mut tap, false, || {
+                recorded.lock().unwrap().push("opening");
+                entered_tx.send(()).unwrap();
+                continue_rx.recv().unwrap();
+                recorded.lock().unwrap().push("opened");
+                Ok(FakeTap(recorded.clone()))
+            }).unwrap();
+            tap
+        });
+        entered_rx.recv().unwrap();
+        let blocked = matches!(routing.try_lock(), Err(std::sync::TryLockError::WouldBlock));
+        continue_tx.send(()).unwrap();
+        let mut tap = worker.join().unwrap();
+        assert!(blocked, "native startup must hold the System audio admission lock");
+        {
+            let _routing = routing.lock().unwrap();
+            integration.enabled.store(false, Ordering::Release);
+            assert!(integration.native_capture_active(), "disable must retain ownership until native teardown");
+        }
+        reconcile_native_capture(&routing, &integration.enabled, &integration.status, &mut tap, false, || panic!("disabled capture reopened")).unwrap();
+        let _routing = routing.lock().unwrap();
+        assert!(!integration.native_capture_active(), "System audio may start after teardown");
+        assert_eq!(*events.lock().unwrap(), ["opening", "opened", "dropped"]);
+    }
 
     #[test]
     fn turning_on_one_source_turns_off_the_other() {

@@ -4,8 +4,10 @@
 #import <CoreAudio/AudioHardwareTapping.h>
 #include <stdatomic.h>
 #include <math.h>
+#include <unistd.h>
+#include <time.h>
 
-// One private aggregate combines the Spotify-only tap and the current output.
+// A private aggregate combines a process/system tap and the current output.
 // Never change the system default device. MutedWhenTapped restores direct audio
 // when the IOProc stops, including if rust-sound crashes.
 typedef void (*RSProcessor)(void *, float *, unsigned, double);
@@ -17,6 +19,7 @@ enum {
     RS_STAGE_OUTPUT_UID = 7, RS_STAGE_OUTPUT_FORMAT = 8, RS_STAGE_CREATE_AGGREGATE = 9,
     RS_STAGE_AGGREGATE_FORMAT = 10, RS_STAGE_AGGREGATE_FORMAT_INVALID = 11,
     RS_STAGE_CREATE_IOPROC = 12, RS_STAGE_START = 13,
+    RS_STAGE_NO_SIGNAL = 14, RS_STAGE_HANDOFF = 15, RS_STAGE_NO_RENDER = 16,
 };
 
 // The tap is fixed at its own rate (read-only); the output device may run at any
@@ -31,6 +34,9 @@ typedef struct {
     double rate;
     unsigned outChannels;
     _Atomic unsigned long long frames;
+    _Atomic unsigned long long signalFrames;
+    _Atomic bool monitoring;
+    _Atomic bool observedSignal;
     float scratch[32768];
 } RSSpotifyTap;
 
@@ -39,11 +45,12 @@ static OSStatus rs_io(AudioObjectID device, const AudioTimeStamp *now,
     AudioBufferList *output, const AudioTimeStamp *outputTime, void *context) {
     (void)device; (void)now; (void)inputTime; (void)outputTime;
     RSSpotifyTap *s = context;
-    if (!input || !output) return noErr;
+    bool monitoring = atomic_load_explicit(&s->monitoring, memory_order_acquire);
+    if (!output) return noErr;
     for (unsigned b = 0; b < output->mNumberBuffers; b++)
         if (output->mBuffers[b].mData)
             memset(output->mBuffers[b].mData, 0, output->mBuffers[b].mDataByteSize);
-    if (!input->mNumberBuffers || !output->mNumberBuffers) return noErr;
+    if (!input || !input->mNumberBuffers || !output->mNumberBuffers) return noErr;
     const AudioBuffer *first = &input->mBuffers[0];
     bool planar = first->mNumberChannels == 1 && input->mNumberBuffers == 2;
     if ((!planar && (input->mNumberBuffers != 1 || first->mNumberChannels != 2)) || !first->mData) return noErr;
@@ -63,6 +70,15 @@ static OSStatus rs_io(AudioObjectID device, const AudioTimeStamp *now,
         const float *l = first->mData, *r = input->mBuffers[1].mData;
         for (unsigned i = 0; i < frames; i++) { s->scratch[i*2] = l[i]; s->scratch[i*2+1] = r[i]; }
     } else memcpy(s->scratch, first->mData, frames * 2 * sizeof(float));
+    if (monitoring) {
+        for (unsigned i = 0; i < frames * 2; i++) {
+            if (isfinite(s->scratch[i]) && fabsf(s->scratch[i]) > 1e-6f) {
+                atomic_store_explicit(&s->observedSignal, true, memory_order_release);
+                break;
+            }
+        }
+        return noErr;
+    }
     s->process(s->context, s->scratch, frames * 2, s->rate);
     if (outPlanar) {
         float *l = output->mBuffers[0].mData, *r = output->mBuffers[1].mData;
@@ -81,6 +97,16 @@ static OSStatus rs_io(AudioObjectID device, const AudioTimeStamp *now,
         }
     }
     atomic_fetch_add_explicit(&s->frames, frames, memory_order_relaxed);
+    for (unsigned b = 0; b < output->mNumberBuffers; b++) {
+        const AudioBuffer *buffer = &output->mBuffers[b];
+        const float *samples = buffer->mData;
+        for (unsigned i = 0; i < frames * buffer->mNumberChannels; i++) {
+            if (isfinite(samples[i]) && fabsf(samples[i]) > 1e-6f) {
+                atomic_fetch_add_explicit(&s->signalFrames, frames, memory_order_release);
+                return noErr;
+            }
+        }
+    }
     return noErr;
 }
 
@@ -135,7 +161,29 @@ void rs_spotify_tap_output_format(RSSpotifyTap *s, double *rate, unsigned *chann
     if (channels) *channels = s->outChannels;
 }
 
-RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
+static CATapDescription *rs_tap_description(const unsigned *processes, unsigned count, bool system) {
+    NSMutableArray *ids = [NSMutableArray array];
+    for (unsigned i = 0; i < count; i++) [ids addObject:@(processes[i])];
+    CATapDescription *desc = system
+        ? [[CATapDescription alloc] initStereoGlobalTapButExcludeProcesses:ids]
+        : [[CATapDescription alloc] initStereoMixdownOfProcesses:ids];
+    desc.name = system ? @"rust-sound System Audio" : @"rust-sound Application Audio";
+    desc.private = YES;
+    desc.muteBehavior = system ? CATapUnmuted : CATapMutedWhenTapped;
+    return desc;
+}
+
+static bool rs_wait_for_signal(RSSpotifyTap *s, bool rendered, double timeout) {
+    double deadline = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1e9 + timeout;
+    while ((double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / 1e9 < deadline) {
+        if (rendered ? atomic_load_explicit(&s->signalFrames, memory_order_acquire) > 0
+                     : atomic_load_explicit(&s->observedSignal, memory_order_acquire)) return true;
+        usleep(10000);
+    }
+    return false;
+}
+
+static RSSpotifyTap *rs_tap_start(const unsigned *processes, unsigned count, bool system,
     RSProcessor process, void *context, int *error, int *stage) {
     @autoreleasepool {
         *error = -1;
@@ -147,12 +195,8 @@ RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
             RSSpotifyTap *s = calloc(1, sizeof(*s));
             if (!s) return NULL;
             s->process = process; s->context = context;
-            NSMutableArray *ids = [NSMutableArray array];
-            for (unsigned i = 0; i < count; i++) [ids addObject:@(processes[i])];
-            CATapDescription *desc = [[CATapDescription alloc] initStereoMixdownOfProcesses:ids];
-            desc.name = @"rust-sound Spotify";
-            desc.private = YES;
-            desc.muteBehavior = CATapMutedWhenTapped;
+            atomic_store_explicit(&s->monitoring, system, memory_order_relaxed);
+            CATapDescription *desc = rs_tap_description(processes, count, system);
             NSString *outputUID = nil;
             NSDictionary *config = nil;
             *stage = RS_STAGE_CREATE_TAP;
@@ -185,7 +229,7 @@ RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
             unsigned outChannels = outDevFormat.mChannelsPerFrame > 0 ? outDevFormat.mChannelsPerFrame : 2;
 
             config = @{
-                @kAudioAggregateDeviceNameKey: @"rust-sound Spotify DSP",
+                @kAudioAggregateDeviceNameKey: desc.name,
                 @kAudioAggregateDeviceUIDKey: NSUUID.UUID.UUIDString,
                 @kAudioAggregateDeviceIsPrivateKey: @YES,
                 @kAudioAggregateDeviceMainSubDeviceKey: outputUID,
@@ -220,6 +264,19 @@ RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
             *stage = RS_STAGE_START;
             status = AudioDeviceStart(s->device, s->io);
             if (status != noErr) goto fail;
+            if (system) {
+                // Observe before muting: zero-filled/denied capture must leave direct audio alone.
+                *stage = RS_STAGE_NO_SIGNAL;
+                if (!rs_wait_for_signal(s, false, 2.0)) { status = kAudioHardwareUnspecifiedError; goto fail; }
+                desc.muteBehavior = CATapMutedWhenTapped;
+                a = (AudioObjectPropertyAddress){kAudioTapPropertyDescription, kAudioObjectPropertyScopeGlobal, 0};
+                *stage = RS_STAGE_HANDOFF;
+                status = AudioObjectSetPropertyData(s->tap, &a, 0, NULL, sizeof(desc), &desc);
+                if (status != noErr) goto fail;
+                atomic_store_explicit(&s->monitoring, false, memory_order_release);
+                *stage = RS_STAGE_NO_RENDER;
+                if (!rs_wait_for_signal(s, true, 1.0)) { status = kAudioHardwareUnspecifiedError; goto fail; }
+            }
             *error = 0;
             *stage = RS_STAGE_OK;
             return s;
@@ -229,4 +286,30 @@ RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
         }
         return NULL;
     }
+}
+
+RSSpotifyTap *rs_spotify_tap_start(const unsigned *processes, unsigned count,
+    RSProcessor process, void *context, int *error, int *stage) {
+    return rs_tap_start(processes, count, false, process, context, error, stage);
+}
+
+RSSpotifyTap *rs_system_tap_start(RSProcessor process, void *context, int *error, int *stage) {
+    *error = -1;
+    *stage = RS_STAGE_UNSUPPORTED_OS;
+    if (@available(macOS 14.2, *)) {
+        // Excluding our renderer is mandatory: otherwise its output feeds back into
+        // this tap, and embedded Spotify would receive a second EQ pass.
+        pid_t pid = getpid();
+        AudioObjectID ownProcess = kAudioObjectUnknown;
+        UInt32 size = sizeof(ownProcess);
+        AudioObjectPropertyAddress a = {kAudioHardwarePropertyTranslatePIDToProcessObject, kAudioObjectPropertyScopeGlobal, 0};
+        *stage = RS_STAGE_NO_PROCESS;
+        OSStatus status = AudioObjectGetPropertyData(kAudioObjectSystemObject, &a, sizeof(pid), &pid, &size, &ownProcess);
+        if (status != noErr || ownProcess == kAudioObjectUnknown) {
+            *error = status ? status : -1;
+            return NULL;
+        }
+        return rs_tap_start(&ownProcess, 1, true, process, context, error, stage);
+    }
+    return NULL;
 }

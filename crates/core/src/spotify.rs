@@ -165,6 +165,7 @@ mod native {
     pub type Processor = unsafe extern "C" fn(*mut c_void, *mut f32, u32, f64);
     unsafe extern "C" {
         pub fn rs_spotify_tap_start(ids: *const u32, count: u32, process: Processor, context: *mut c_void, error: *mut i32, stage: *mut i32) -> *mut c_void;
+        pub fn rs_system_tap_start(process: Processor, context: *mut c_void, error: *mut i32, stage: *mut i32) -> *mut c_void;
         pub fn rs_spotify_tap_output_format(session: *mut c_void, rate: *mut f64, channels: *mut u32);
         pub fn rs_spotify_tap_stop(session: *mut c_void);
         pub fn rs_spotify_tap_frames(session: *mut c_void) -> u64;
@@ -189,6 +190,23 @@ mod native {
             let (mut error, mut stage) = (0, 0);
             let ptr = unsafe { rs_spotify_tap_start(ids.as_ptr(), ids.len() as u32, process, context, &mut error, &mut stage) };
             if ptr.is_null() { Err(start_error(error, stage)) } else { Ok(Self(ptr)) }
+        }
+        /// Capture external system audio, excluding this process's rendered output.
+        /// Context must remain alive and exclusively owned until this tap is dropped.
+        pub unsafe fn start_system(process: Processor, context: *mut c_void) -> Result<Self, String> {
+            let (mut error, mut stage) = (0, 0);
+            let ptr = unsafe { rs_system_tap_start(process, context, &mut error, &mut stage) };
+            if ptr.is_null() {
+                let message = match stage {
+                    2 => "Không xác định được luồng phát của ứng dụng để tránh lặp tiếng. Mở lại app rồi thử System audio.".into(),
+                    14 => "Chưa nhận được tín hiệu từ ứng dụng ngoài. Âm thanh vẫn phát trực tiếp. Bật nhạc trong Chrome hoặc ứng dụng khác rồi thử lại; nếu vẫn lỗi, kiểm tra quyền System Audio Recording.".into(),
+                    16 => "Không phát lại được tín hiệu sau khi nối EQ. Đã trả âm thanh về đường phát thường; kiểm tra thiết bị đầu ra rồi thử lại.".into(),
+                    _ => start_error(error, stage).replace("Spotify", "hệ thống"),
+                };
+                Err(message)
+            } else {
+                Ok(Self(ptr))
+            }
         }
         pub fn frames(&self) -> u64 { unsafe { rs_spotify_tap_frames(self.0) } }
         /// Rate and channel count the IOProc is resampling the 48 kHz tap down to.

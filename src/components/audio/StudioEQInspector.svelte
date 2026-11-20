@@ -16,6 +16,7 @@
   import { invoke, isTauri } from "@tauri-apps/api/core";
   import { audioDspChain } from "@/shared/lib/audioDspChain";
   import { toastState } from "@/lib/toast.svelte";
+  import Modal from "@/components/ui/Modal.svelte";
 
   export interface EQBandState {
     frequency: number;
@@ -164,7 +165,9 @@
     }
   });
 
-  interface SpotifySpectrum {
+  interface MasterSpectrum {
+    source?: "system" | "application" | "spotify";
+    system_audio_enabled?: boolean;
     heights: number[];
     receiving: boolean;
     has_signal: boolean;
@@ -173,7 +176,35 @@
     error: string | null;
   }
   const desktop = isTauri();
-  let spectrum = $state<SpotifySpectrum | null>(null);
+  let spectrum = $state<MasterSpectrum | null>(null);
+  let systemAudioEnabled = $state(false);
+  let showRoutingConfirm = $state(false);
+  let requestedSystemAudio = $state(true);
+  let routingBusy = $state(false);
+  let routingError = $state<string | null>(null);
+  function requestSystemAudio(enabled: boolean) {
+    if (!desktop || routingBusy) return;
+    requestedSystemAudio = enabled;
+    routingError = null;
+    showRoutingConfirm = true;
+  }
+
+  async function confirmSystemAudio() {
+    if (routingBusy) return;
+    routingBusy = true;
+    routingError = null;
+    try {
+      const status = await invoke<{ system_wide: boolean; running: boolean }>("set_system_audio_enabled", { enabled: requestedSystemAudio });
+      systemAudioEnabled = status.system_wide && status.running;
+      showRoutingConfirm = false;
+      toastState.info(systemAudioEnabled ? "System audio is using the master EQ, including Chrome." : "System audio restored to direct playback.");
+    } catch (error) {
+      routingError = String(error);
+      toastState.error(routingError);
+    } finally {
+      routingBusy = false;
+    }
+  }
   let spectrumError = $state<string | null>(null);
   let animatedHeights = $state<number[]>(Array(28).fill(0));
   const spectrumActive = $derived(Boolean(spectrum?.enabled && spectrum.connected && spectrum.receiving && spectrum.has_signal && !spectrum.error && !spectrumError));
@@ -181,14 +212,13 @@
     !desktop ? "DESKTOP REQUIRED" : spectrumError || spectrum?.error ? "CAPTURE ERROR" :
     !spectrum ? "CONNECTING" : !spectrum.enabled ? "DSP DISCONNECTED" :
     !spectrum.connected ? "CONNECTING" : !spectrum.receiving ? "NO SIGNAL" :
-    spectrum.has_signal ? "SPOTIFY LIVE" : "SILENT"
+    spectrum.has_signal ? spectrum.source === "system" ? "SYSTEM AUDIO LIVE" : spectrum.source === "application" ? "APPLICATION LIVE" : "SPOTIFY LIVE" : "SILENT"
   );
   const spectrumMessage = $derived(
-    // The capture error itself is shown once, in the Spotify panel header.
-    spectrumError ? spectrumError : spectrum?.error ? "Xem chi tiết lỗi ở bảng Spotify." : (!desktop ? "Open the desktop app to analyze Spotify audio." :
-    !spectrum ? "Checking Spotify audio capture…" : !spectrum.enabled ? "Phát một bài trong rust-sound để phân tích âm thanh của nó." :
-    !spectrum.connected ? "Waiting for the Spotify audio connection." : !spectrum.receiving ? "No recent Spotify audio. Check playback and the selected output device." :
-    "Spotify only · measured after EQ")
+    spectrumError || spectrum?.error || (!desktop ? "Open the desktop app to process system audio." :
+    !spectrum ? "Checking audio capture…" : !spectrum.enabled ? "Enable System audio to apply Bass Boost to Chrome and other apps." :
+    !spectrum.connected ? "Waiting for the audio connection." : !spectrum.receiving ? "No recent audio. Check playback and the selected output device." :
+    spectrum.source === "system" ? "System audio · measured after EQ" : spectrum.source === "application" ? "Application audio · measured after EQ" : "Spotify · measured after EQ")
   );
 
   $effect(() => {
@@ -199,12 +229,13 @@
     const poll = async () => {
       if (!document.hidden) {
         try {
-          const next = await invoke<SpotifySpectrum>("get_spotify_spectrum");
+          const next = await invoke<MasterSpectrum>("get_master_spectrum");
           if (!alive) return;
           if (!Array.isArray(next.heights) || next.heights.length !== 28 || next.heights.some(h => !Number.isFinite(h))) {
-            throw new Error("Invalid Spotify spectrum data. Reconnect Spotify DSP.");
+            throw new Error("Invalid audio spectrum data. Reconnect audio processing.");
           }
           spectrum = next;
+          if (!routingBusy) systemAudioEnabled = next.system_audio_enabled ?? false;
           spectrumError = null;
           animatedHeights = next.enabled && next.connected && next.receiving && !next.error
             ? next.heights.map(h => Math.max(0, Math.min(100, h))) : Array(28).fill(0);
@@ -348,6 +379,7 @@
   class:compact
   class:wide
   aria-label="Studio 10-Band Parametric Equalizer Inspector"
+  inert={showRoutingConfirm}
 >
   <!-- Inspector Header -->
   <div class="inspector-heading flex items-center justify-between pb-2.5 border-b border-(--line)">
@@ -360,7 +392,7 @@
           Parametric EQ & Spectrum
         </h3>
         <p class="text-[10px] text-(--muted) m-0">
-          10-Band Spotify DSP · other apps unchanged
+          10-Band Master EQ · System audio available
         </p>
       </div>
     </div>
@@ -635,7 +667,16 @@
 
   <!-- 28-Bar High-Resolution Live Audio Spectrum Analyzer -->
   <div class="spectrum-panel p-3 rounded-xl bg-(--paper) border border-(--line) flex flex-col gap-2 mt-auto">
-    <div class="flex items-center justify-between text-[10px]">
+    <button
+      type="button"
+      class="btn self-start"
+      aria-pressed={systemAudioEnabled}
+      disabled={!desktop || routingBusy}
+      onclick={() => requestSystemAudio(!systemAudioEnabled)}
+    >
+      {systemAudioEnabled ? "System audio on" : "Enable System audio"}
+    </button>
+    <div class="flex flex-wrap gap-2 items-center justify-between text-[10px]">
       <span class="text-(--ink) font-semibold flex items-center gap-1.5">
         <Activity class="w-3 h-3 text-(--accent-text)" />
         Live 28-Band Spectrum Analyzer
@@ -648,8 +689,7 @@
 
     <p class="text-[10px] text-(--muted) m-0 wrap-break-word" role="status">{spectrumMessage}</p>
 
-    <!-- Actual Spotify PCM spectrum; never generated from playback metadata. -->
-    <div class="flex items-end gap-1 h-12 w-full pt-1 px-1" aria-label="Spotify spectrum bars">
+    <div class="flex items-end gap-1 h-12 w-full pt-1 px-1" aria-label="Audio spectrum bars">
       {#each animatedHeights as h}
         <div
           class="flex-1 rounded-t-xs transition-[height] duration-75 motion-reduce:transition-none {spectrumActive
@@ -669,6 +709,22 @@
     </div>
   </div>
 </aside>
+
+<Modal
+  open={showRoutingConfirm}
+  title={requestedSystemAudio ? "Enable System audio EQ?" : "Turn off System audio EQ?"}
+  description={requestedSystemAudio
+    ? "Play audio in Chrome or another app first. System audio checks that signal before applying the master EQ on your current output. macOS may ask for System Audio Recording access."
+    : "Chrome and other apps will return to direct playback without the master EQ."}
+  confirmText={requestedSystemAudio ? "Enable System audio" : "Restore direct playback"}
+  isLoading={routingBusy}
+  onClose={() => { if (!routingBusy) showRoutingConfirm = false; }}
+  onConfirm={confirmSystemAudio}
+>
+  {#if routingError}
+    <p class="text-sm text-(--error) m-0 wrap-break-word" role="alert">{routingError}</p>
+  {/if}
+</Modal>
 
 <style>
   .compact { gap: 12px; }
